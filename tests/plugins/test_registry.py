@@ -21,6 +21,8 @@ def _base_metadata() -> dict:
         "modes": ("factual",),
         "tasks": ("classification",),
         "dependencies": (),
+        "version": "0.0",
+        "provider": "tests",
         "trust": False,
     }
 

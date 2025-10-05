@@ -55,7 +55,14 @@ def test_validate_plugin_meta_rejects_bad_meta():
 
 
 class DummyPlugin:
-    plugin_meta = {"schema_version": 1, "capabilities": ["explain"], "name": "dummy"}
+    plugin_meta = {
+        "schema_version": 1,
+        "capabilities": ["explain"],
+        "name": "dummy",
+        "version": "0.0",
+        "provider": "tests",
+        "trust": False,
+    }
 
     def supports(self, model):
         return getattr(model, "is_dummy", False)
@@ -100,6 +107,8 @@ class ExampleExplanationPlugin:
         "plot_dependency": ("legacy",),
         "fallbacks": ["core.explanation.legacy"],
         "dependencies": ["core.interval.legacy"],
+        "version": "0.0",
+        "provider": "tests",
         "trust": {"default": True},
     }
 
@@ -141,6 +150,8 @@ def test_register_explanation_plugin_requires_modes():
             "name": "bad",
             "dependencies": [],
             "tasks": "classification",
+            "version": "0.0",
+            "provider": "tests",
             "trust": False,
         }
 
@@ -158,6 +169,8 @@ def test_register_explanation_plugin_requires_tasks():
             "name": "bad",  # pragma: no mutate - clarity
             "modes": ["factual"],
             "dependencies": [],
+            "version": "0.0",
+            "provider": "tests",
             "trust": False,
         }
 
@@ -176,6 +189,8 @@ def test_register_explanation_plugin_translates_aliases():
             "modes": ["explanation:factual", "factual"],
             "tasks": "classification",
             "dependencies": [],
+            "version": "0.0",
+            "provider": "tests",
             "trust": True,
         }
 
@@ -198,6 +213,8 @@ def test_register_explanation_plugin_schema_version_future():
             "modes": ["factual"],
             "tasks": "classification",
             "dependencies": [],
+            "version": "0.0",
+            "provider": "tests",
             "trust": False,
         }
 
@@ -212,6 +229,8 @@ class ExampleIntervalPlugin:
         "name": "example.interval",
         "modes": ["classification"],
         "dependencies": [],
+        "version": "0.0",
+        "provider": "tests",
         "trust": {"trusted": False},
         "fast_compatible": False,
         "requires_bins": False,
@@ -241,6 +260,8 @@ def test_register_interval_plugin_requires_modes():
             "capabilities": ["interval:classification"],
             "name": "bad.interval",
             "dependencies": [],
+            "version": "0.0",
+            "provider": "tests",
             "trust": False,
             "fast_compatible": False,
             "requires_bins": False,
@@ -258,6 +279,8 @@ class ExamplePlotBuilder:
         "name": "example.plot.builder",
         "style": "example",
         "dependencies": ["matplotlib"],
+        "version": "0.0",
+        "provider": "tests",
         "trust": True,
         "output_formats": ["png"],
         "legacy_compatible": True,
@@ -270,6 +293,8 @@ class ExamplePlotRenderer:
         "capabilities": ["plot:renderer"],
         "name": "example.plot.renderer",
         "dependencies": ["matplotlib"],
+        "version": "0.0",
+        "provider": "tests",
         "trust": True,
         "output_formats": ["png"],
         "supports_interactive": False,
@@ -310,6 +335,8 @@ def test_register_plot_builder_requires_style():
             "capabilities": ["plot:builder"],
             "name": "bad.plot",
             "dependencies": [],
+            "version": "0.0",
+            "provider": "tests",
             "trust": False,
             "output_formats": ["png"],
             "legacy_compatible": False,
@@ -317,3 +344,34 @@ def test_register_plot_builder_requires_style():
 
     with pytest.raises(ValueError):
         registry.register_plot_builder("bad.plot", BadPlotPlugin())
+
+
+def test_interval_plugin_trusted_via_environment(monkeypatch):
+    registry.clear_interval_plugins()
+
+    class EnvIntervalPlugin:
+        plugin_meta = {
+            "schema_version": 1,
+            "capabilities": ["interval:classification"],
+            "name": "tests.env.interval",
+            "modes": ["classification"],
+            "dependencies": [],
+            "version": "0.0",
+            "provider": "tests",
+            "trust": False,
+            "fast_compatible": False,
+            "requires_bins": False,
+            "confidence_source": "legacy",
+        }
+
+        def create(self, context, *, fast: bool = False):  # pragma: no cover - unused
+            raise AssertionError("create should not be called during registration")
+
+    monkeypatch.setenv("CE_TRUST_PLUGIN", "tests.env.interval")
+    try:
+        descriptor = registry.register_interval_plugin(
+            "tests.env.interval", EnvIntervalPlugin()
+        )
+        assert descriptor.trusted
+    finally:
+        monkeypatch.delenv("CE_TRUST_PLUGIN", raising=False)

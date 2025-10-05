@@ -91,7 +91,14 @@ def test_explanation_plugin_protocol_signatures() -> None:
 
 
 class _GoodExplanationPlugin:
-    plugin_meta = {"name": "dummy", "schema_version": 1, "capabilities": ["explain"]}
+    plugin_meta = {
+        "name": "dummy",
+        "schema_version": 1,
+        "capabilities": ["explain"],
+        "version": "0.0",
+        "provider": "tests",
+        "trust": False,
+    }
 
     def supports(self, model: Any) -> bool:
         return True
@@ -115,7 +122,14 @@ class _GoodExplanationPlugin:
 
 
 class _BadExplanationPlugin:
-    plugin_meta = {"name": "bad", "schema_version": 1, "capabilities": ["explain"]}
+    plugin_meta = {
+        "name": "bad",
+        "schema_version": 1,
+        "capabilities": ["explain"],
+        "version": "0.0",
+        "provider": "tests",
+        "trust": False,
+    }
 
     def supports_mode(self, mode: str, *, task: str) -> bool:  # pragma: no cover - protocol
         return True
@@ -146,7 +160,14 @@ def test_interval_context_is_frozen() -> None:
 
 
 class _GoodIntervalPlugin:
-    plugin_meta = {"name": "interval", "schema_version": 1, "capabilities": ["interval"]}
+    plugin_meta = {
+        "name": "interval",
+        "schema_version": 1,
+        "capabilities": ["interval"],
+        "version": "0.0",
+        "provider": "tests",
+        "trust": False,
+    }
 
     def create(self, context: IntervalCalibratorContext, *, fast: bool = False):
         class _Calibrator:
@@ -170,7 +191,14 @@ class _GoodIntervalPlugin:
 
 
 class _BadIntervalPlugin:
-    plugin_meta = {"name": "interval", "schema_version": 1, "capabilities": ["interval"]}
+    plugin_meta = {
+        "name": "interval",
+        "schema_version": 1,
+        "capabilities": ["interval"],
+        "version": "0.0",
+        "provider": "tests",
+        "trust": False,
+    }
 
 
 def test_interval_plugin_runtime_checks() -> None:

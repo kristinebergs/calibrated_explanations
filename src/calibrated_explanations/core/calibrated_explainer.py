@@ -388,7 +388,18 @@ class CalibratedExplainer:
         self.set_difficulty_estimator(difficulty_estimator, initialize=False)
         self.__set_mode(str.lower(mode), initialize=False)
 
+        # Load pyproject configuration before interval resolution so overrides are
+        # visible to the calibration helper (ADR-013 requirement).
+        self._pyproject_explanations = _read_pyproject_section(
+            ("tool", "calibrated_explanations", "explanations")
+        )
+        self._pyproject_plugins = _read_pyproject_section(
+            ("tool", "calibrated_explanations", "plugins")
+        )
+
         self.interval_learner: Any = None
+        self._interval_plugin_identifier: str | None = None
+        self._fast_interval_plugin_identifier: str | None = None
         # Phase 1A delegation: interval learner initialization via helper
         from .calibration_helpers import initialize_interval_learner as _init_il
 
@@ -398,9 +409,6 @@ class CalibratedExplainer:
         )
 
         self._predict_bridge = LegacyPredictBridge(self)
-        self._pyproject_explanations = _read_pyproject_section(
-            ("tool", "calibrated_explanations", "explanations")
-        )
         self._explanation_plugin_overrides: Dict[str, Any] = {
             mode: kwargs.get(f"{mode}_plugin") for mode in _EXPLANATION_MODES
         }
@@ -414,6 +422,19 @@ class CalibratedExplainer:
         self._last_explanation_mode: str | None = None
         for mode in _EXPLANATION_MODES:
             self._explanation_plugin_fallbacks[mode] = self._build_explanation_chain(mode)
+
+        self._interval_plugin_override = self._coerce_interval_override(
+            kwargs.get("interval_plugin")
+        )
+        self._fast_interval_plugin_override = self._coerce_interval_override(
+            kwargs.get("fast_interval_plugin")
+        )
+        self._interval_kw_fallbacks = _coerce_string_tuple(
+            kwargs.get("interval_plugin_fallbacks")
+        )
+        self._fast_interval_kw_fallbacks = _coerce_string_tuple(
+            kwargs.get("fast_interval_plugin_fallbacks")
+        )
 
         self.init_time = time() - init_time
 
@@ -479,6 +500,22 @@ class CalibratedExplainer:
                     "Callable explanation plugin override raised an exception"
                 ) from exc
             return candidate
+        return override
+
+    def _coerce_interval_override(self, override: Any) -> Any:
+        """Normalise interval plugin overrides similarly to explanation overrides."""
+
+        if override is None:
+            return None
+        if isinstance(override, str):
+            return override
+        if callable(override) and not hasattr(override, "plugin_meta"):
+            try:
+                override = override()
+            except Exception as exc:  # pragma: no cover - defensive
+                raise ConfigurationError(
+                    "Callable interval plugin override raised an exception"
+                ) from exc
         return override
 
     def _check_explanation_runtime_metadata(

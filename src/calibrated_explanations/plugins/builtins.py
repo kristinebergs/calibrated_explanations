@@ -20,6 +20,7 @@ from typing import Any, Mapping
 
 import numpy as np
 
+from .. import __version__ as _VERSION
 from ..explanations.explanation import (
     AlternativeExplanation,
     CalibratedExplanation as _AbstractExplanation,
@@ -128,6 +129,8 @@ class LegacyIntervalCalibratorPlugin(IntervalCalibratorPlugin):
         "capabilities": ["interval:classification", "interval:regression"],
         "modes": ("classification", "regression"),
         "dependencies": (),
+        "version": _VERSION,
+        "provider": "calibrated_explanations",
         "trust": {"trusted": True},
         "fast_compatible": False,
         "requires_bins": False,
@@ -153,6 +156,8 @@ class FastIntervalCalibratorPlugin(IntervalCalibratorPlugin):
         "capabilities": ["interval:classification", "interval:regression"],
         "modes": ("classification", "regression"),
         "dependencies": (),
+        "version": _VERSION,
+        "provider": "calibrated_explanations",
         "trust": {"trusted": True},
         "fast_compatible": True,
         "requires_bins": False,
@@ -246,6 +251,8 @@ class LegacyFactualExplanationPlugin(_LegacyExplanationBase):
         "dependencies": ("core.interval.legacy", "legacy"),
         "interval_dependency": "core.interval.legacy",
         "plot_dependency": "legacy",
+        "version": _VERSION,
+        "provider": "calibrated_explanations",
         "trust": {"trusted": True},
     }
 
@@ -275,6 +282,8 @@ class LegacyAlternativeExplanationPlugin(_LegacyExplanationBase):
         "dependencies": ("core.interval.legacy", "legacy"),
         "interval_dependency": "core.interval.legacy",
         "plot_dependency": "legacy",
+        "version": _VERSION,
+        "provider": "calibrated_explanations",
         "trust": {"trusted": True},
     }
 
@@ -299,6 +308,8 @@ class FastExplanationPlugin(_LegacyExplanationBase):
         "dependencies": ("core.interval.fast", "legacy"),
         "interval_dependency": "core.interval.fast",
         "plot_dependency": "legacy",
+        "version": _VERSION,
+        "provider": "calibrated_explanations",
         "trust": {"trusted": True},
     }
 
@@ -320,6 +331,8 @@ class LegacyPlotBuilder(PlotBuilder):
         "capabilities": ["plot:builder"],
         "style": "legacy",
         "dependencies": (),
+        "version": _VERSION,
+        "provider": "calibrated_explanations",
         "trust": {"trusted": True},
         "output_formats": ["png"],
         "legacy_compatible": True,
@@ -337,6 +350,8 @@ class LegacyPlotRenderer(PlotRenderer):
         "schema_version": 1,
         "capabilities": ["plot:renderer"],
         "dependencies": (),
+        "version": _VERSION,
+        "provider": "calibrated_explanations",
         "trust": {"trusted": True},
         "output_formats": ["png"],
         "supports_interactive": False,

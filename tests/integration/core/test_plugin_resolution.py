@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 from typing import Any
+
+import numpy as np
 import pytest
 
 from calibrated_explanations.core.calibrated_explainer import (
@@ -8,10 +10,13 @@ from calibrated_explanations.core.calibrated_explainer import (
     ConfigurationError,
 )
 from calibrated_explanations.plugins.builtins import LegacyFactualExplanationPlugin
+from calibrated_explanations.plugins.intervals import IntervalCalibratorPlugin
 from calibrated_explanations.plugins.registry import (
     clear_explanation_plugins,
+    clear_interval_plugins,
     ensure_builtin_plugins,
     register_explanation_plugin,
+    register_interval_plugin,
     unregister,
 )
 
@@ -70,6 +75,54 @@ class _LegacySchemaFactualPlugin(LegacyFactualExplanationPlugin):
         "schema_version": 0,
         "trust": False,
     }
+
+
+class _PyprojectIntervalCalibrator:
+    """Minimal calibrator implementing the classification interval protocol."""
+
+    def predict_proba(
+        self,
+        X,
+        *,
+        output_interval: bool = False,
+        classes=None,
+        bins=None,
+    ):
+        if output_interval:
+            return np.zeros((len(X), 2, 3), dtype=float)
+        return np.zeros((len(X), 2), dtype=float)
+
+    def is_multiclass(self) -> bool:
+        return False
+
+    def is_mondrian(self) -> bool:
+        return False
+
+
+class _PyprojectIntervalPlugin(IntervalCalibratorPlugin):
+    """Trusted interval plugin used to assert pyproject overrides."""
+
+    plugin_meta = {
+        "schema_version": 1,
+        "capabilities": ["interval:classification"],
+        "name": "tests.interval.pyproject",
+        "modes": ("classification",),
+        "dependencies": (),
+        "version": "0.0",
+        "provider": "tests",
+        "trust": True,
+        "fast_compatible": False,
+        "requires_bins": False,
+        "confidence_source": "tests",
+        "legacy_compatible": True,
+    }
+
+    def __init__(self) -> None:
+        self.contexts: list[Any] = []
+
+    def create(self, context, *, fast: bool = False):  # type: ignore[override]
+        self.contexts.append(context)
+        return _PyprojectIntervalCalibrator()
 
 
 def _make_explainer(binary_dataset, **overrides):
@@ -183,6 +236,38 @@ def test_schema_version_override_errors(binary_dataset):
             explainer.explain_factual(X_test)
     finally:
         _cleanup_plugin(plugin)
+
+
+def test_interval_pyproject_override(monkeypatch, binary_dataset):
+    ensure_builtin_plugins()
+    interval_plugin = _PyprojectIntervalPlugin()
+    register_interval_plugin("tests.interval.pyproject", interval_plugin)
+
+    def _fake_pyproject(path):
+        path_tuple = tuple(path)
+        if path_tuple == ("tool", "calibrated_explanations", "plugins"):
+            return {"interval": "tests.interval.pyproject"}
+        if path_tuple == ("tool", "calibrated_explanations", "explanations"):
+            return {}
+        return {}
+
+    monkeypatch.setattr(
+        "calibrated_explanations.core.calibrated_explainer._read_pyproject_section",
+        _fake_pyproject,
+    )
+
+    try:
+        explainer, _X_test = _make_explainer(binary_dataset)
+        assert (
+            explainer._interval_plugin_identifier == "tests.interval.pyproject"
+        ), "pyproject override should influence initial interval resolution"
+        assert interval_plugin.contexts, "plugin should have been invoked"
+        context = interval_plugin.contexts[0]
+        assert context.metadata["pyproject"]["interval"] == "tests.interval.pyproject"
+        assert isinstance(explainer.interval_learner, _PyprojectIntervalCalibrator)
+    finally:
+        clear_interval_plugins()
+        ensure_builtin_plugins()
 
 
 def test_missing_plugin_override_raises(monkeypatch, binary_dataset):

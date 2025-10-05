@@ -14,11 +14,24 @@ from __future__ import annotations
 
 import contextlib
 import warnings
+import os
 from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any, Dict, Iterable, List, Mapping, Tuple
 
+try:  # pragma: no cover - importlib.metadata shim for <3.8
+    from importlib import metadata as _importlib_metadata
+except ImportError:  # pragma: no cover - defensive fallback
+    import importlib_metadata as _importlib_metadata  # type: ignore[import-not-found]
+
 from .base import ExplainerPlugin, validate_plugin_meta
+
+_TRUST_ENV_VAR = "CE_TRUST_PLUGIN"
+_TRUST_ENV_SNAPSHOT: str | None = None
+_TRUST_ENV_CACHE: Tuple[str, ...] = tuple()
+_TRUST_WARNINGS_EMITTED: set[str] = set()
+_ENTRYPOINT_GROUP = "calibrated_explanations.plugins"
+_LOADED_ENTRYPOINTS: set[str] = set()
 
 _REGISTRY: List[ExplainerPlugin] = []
 
@@ -44,6 +57,68 @@ def _normalise_trust(meta: Mapping[str, Any]) -> bool:
         if "default" in trust:
             return bool(trust["default"])
     return bool(trust)
+
+
+def _parse_trust_environment() -> Tuple[str, ...]:
+    """Return cached tokens from the trust environment variable."""
+
+    global _TRUST_ENV_SNAPSHOT, _TRUST_ENV_CACHE  # pragma: no cover - mutation
+    value = os.environ.get(_TRUST_ENV_VAR, "")
+    if value == _TRUST_ENV_SNAPSHOT:
+        return _TRUST_ENV_CACHE
+    _TRUST_ENV_SNAPSHOT = value
+    tokens: List[str] = []
+    for raw in value.replace(";", ",").split(","):
+        token = raw.strip()
+        if token:
+            tokens.append(token)
+    _TRUST_ENV_CACHE = tuple(tokens)
+    return _TRUST_ENV_CACHE
+
+
+def _is_env_trusted(identifier: str, meta: Mapping[str, Any]) -> bool:
+    """Return ``True`` when environment overrides mark the plugin trusted."""
+
+    tokens = _parse_trust_environment()
+    if not tokens:
+        return False
+    name = str(meta.get("name", ""))
+    provider = str(meta.get("provider", ""))
+    if identifier in tokens or name in tokens:
+        return True
+    if provider and f"{provider}:{name}" in tokens:
+        return True
+    return False
+
+
+def _warn_untrusted(identifier: str, meta: Mapping[str, Any]) -> None:
+    """Emit a one-time warning describing how to trust the plugin."""
+
+    token = f"{identifier}|{meta.get('name', '<unknown>')}"
+    if token in _TRUST_WARNINGS_EMITTED:
+        return
+    _TRUST_WARNINGS_EMITTED.add(token)
+    warnings.warn(
+        "Plugin '"
+        + str(meta.get("name", identifier))
+        + "' is untrusted and will be skipped unless explicitly trusted. "
+        "Set CE_TRUST_PLUGIN or call trust_plugin()/mark_*_trusted to enable it.",
+        UserWarning,
+        stacklevel=3,
+    )
+
+
+def _apply_trust_overrides(
+    identifier: str, meta: Mapping[str, Any], trusted: bool
+) -> bool:
+    """Return the effective trust flag after environment overrides."""
+
+    if trusted:
+        return True
+    if _is_env_trusted(identifier, meta):
+        return True
+    _warn_untrusted(identifier, meta)
+    return False
 
 
 _EXPLANATION_PROTOCOL_VERSION = 1
@@ -421,6 +496,42 @@ def clear_plot_plugins() -> None:
     _PLOT_STYLES.clear()
 
 
+def load_entrypoint_plugins(group: str = _ENTRYPOINT_GROUP) -> Tuple[str, ...]:
+    """Load setuptools entry points to allow third-party plugin registration."""
+
+    loaded: List[str] = []
+    try:
+        entry_points = _importlib_metadata.entry_points()
+    except Exception as exc:  # pragma: no cover - defensive guard
+        warnings.warn(
+            f"Unable to discover plugin entry points: {exc}",
+            RuntimeWarning,
+            stacklevel=2,
+        )
+        return tuple()
+
+    if hasattr(entry_points, "select"):
+        candidates = entry_points.select(group=group)
+    else:  # pragma: no cover - legacy API path
+        candidates = entry_points.get(group, [])
+
+    for entry in candidates:
+        if entry.name in _LOADED_ENTRYPOINTS:
+            continue
+        try:
+            entry.load()
+        except Exception as exc:  # pragma: no cover - third-party errors
+            warnings.warn(
+                f"Failed to load plugin entry point '{entry.name}': {exc}",
+                RuntimeWarning,
+                stacklevel=2,
+            )
+            continue
+        _LOADED_ENTRYPOINTS.add(entry.name)
+        loaded.append(entry.name)
+    return tuple(loaded)
+
+
 def ensure_builtin_plugins() -> None:
     """Re-register in-tree plugins when registries have been cleared."""
 
@@ -454,6 +565,7 @@ def ensure_builtin_plugins() -> None:
     from . import builtins as _builtins  # Local import avoids circular dependency
 
     _builtins._register_builtins()
+    load_entrypoint_plugins()
 
 
 def register_explanation_plugin(
@@ -472,7 +584,7 @@ def register_explanation_plugin(
     meta: Dict[str, Any] = dict(raw_meta)
     validate_plugin_meta(meta)
     meta = validate_explanation_metadata(meta)
-    trusted = _normalise_trust(meta)
+    trusted = _apply_trust_overrides(identifier, meta, _normalise_trust(meta))
 
     descriptor = ExplanationPluginDescriptor(
         identifier=identifier,
@@ -531,8 +643,8 @@ def register_interval_plugin(
         raise ValueError("plugin must expose plugin_meta metadata")
     meta: Dict[str, Any] = dict(raw_meta)
     validate_plugin_meta(meta)
-    validate_interval_metadata(meta)
-    trusted = _normalise_trust(meta)
+    meta = dict(validate_interval_metadata(meta))
+    trusted = _apply_trust_overrides(identifier, meta, _normalise_trust(meta))
 
     descriptor = IntervalPluginDescriptor(
         identifier=identifier,
@@ -585,8 +697,8 @@ def register_plot_builder(
         raise ValueError("builder must expose plugin_meta metadata")
     meta: Dict[str, Any] = dict(raw_meta)
     validate_plugin_meta(meta)
-    validate_plot_builder_metadata(meta)
-    trusted = _normalise_trust(meta)
+    meta = dict(validate_plot_builder_metadata(meta))
+    trusted = _apply_trust_overrides(identifier, meta, _normalise_trust(meta))
 
     descriptor = PlotBuilderDescriptor(
         identifier=identifier,
@@ -617,8 +729,8 @@ def register_plot_renderer(
         raise ValueError("renderer must expose plugin_meta metadata")
     meta: Dict[str, Any] = dict(raw_meta)
     validate_plugin_meta(meta)
-    validate_plot_renderer_metadata(meta)
-    trusted = _normalise_trust(meta)
+    meta = dict(validate_plot_renderer_metadata(meta))
+    trusted = _apply_trust_overrides(identifier, meta, _normalise_trust(meta))
 
     descriptor = PlotRendererDescriptor(
         identifier=identifier,
@@ -894,6 +1006,40 @@ def mark_explanation_untrusted(identifier: str) -> ExplanationPluginDescriptor:
     return descriptor
 
 
+def _refresh_interval_descriptor_trust(
+    identifier: str, *, trusted: bool
+) -> IntervalPluginDescriptor:
+    """Return interval descriptor with updated trust metadata."""
+
+    descriptor = find_interval_descriptor(identifier)
+    if descriptor is None:
+        raise KeyError(f"Interval plugin '{identifier}' is not registered")
+    updated = IntervalPluginDescriptor(
+        identifier=descriptor.identifier,
+        plugin=descriptor.plugin,
+        metadata=descriptor.metadata,
+        trusted=trusted,
+    )
+    _INTERVAL_PLUGINS[identifier] = updated
+    if trusted:
+        _TRUSTED_INTERVALS.add(identifier)
+    else:
+        _TRUSTED_INTERVALS.discard(identifier)
+    return updated
+
+
+def mark_interval_trusted(identifier: str) -> IntervalPluginDescriptor:
+    """Mark the interval plugin *identifier* as trusted."""
+
+    return _refresh_interval_descriptor_trust(identifier, trusted=True)
+
+
+def mark_interval_untrusted(identifier: str) -> IntervalPluginDescriptor:
+    """Remove the interval plugin *identifier* from the trusted set."""
+
+    return _refresh_interval_descriptor_trust(identifier, trusted=False)
+
+
 def register(plugin: ExplainerPlugin) -> None:
     """Register a plugin after minimal metadata validation.
 
@@ -923,10 +1069,12 @@ def clear() -> None:
     _REGISTRY.clear()
 
 
-def list_plugins() -> Tuple[ExplainerPlugin, ...]:
+def list_plugins(*, include_untrusted: bool = True) -> Tuple[ExplainerPlugin, ...]:
     """Return a snapshot of registered plugins."""
 
-    return tuple(_REGISTRY)
+    if include_untrusted:
+        return tuple(_REGISTRY)
+    return tuple(_TRUSTED)
 
 
 def trust_plugin(plugin: ExplainerPlugin) -> None:
@@ -985,6 +1133,7 @@ __all__ = [
     "clear_explanation_plugins",
     "clear_interval_plugins",
     "clear_plot_plugins",
+    "load_entrypoint_plugins",
     "ensure_builtin_plugins",
     "register_explanation_plugin",
     "register_interval_plugin",
@@ -1010,6 +1159,8 @@ __all__ = [
     "list_plot_style_descriptors",
     "mark_explanation_trusted",
     "mark_explanation_untrusted",
+    "mark_interval_trusted",
+    "mark_interval_untrusted",
     "register",
     "unregister",
     "clear",
