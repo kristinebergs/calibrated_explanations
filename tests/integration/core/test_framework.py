@@ -171,6 +171,7 @@ def test_explanation_functions_regression(regression_dataset):
 def test_guard_integration(binary_dataset):
     """Test guard integration with CalibratedExplainer."""
     from calibrated_explanations.guards import ConformalRegionOracle
+
     x_prop_train, y_prop_train, x_prop_test, y_prop_test, _, _, _, _, _, _ = binary_dataset
     model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
 

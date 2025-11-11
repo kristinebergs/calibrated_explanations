@@ -640,6 +640,7 @@ class CalibratedExplanation(ABC):
         threshold,
         predicted_class,
         bins=None,
+        label_ctx=None,
     ):
         """
         Calculate the prediction for a conjunctive rule.
@@ -695,6 +696,14 @@ class CalibratedExplanation(ABC):
                     for value_2 in values2:
                         perturbed[of2] = value_2
                         perturbed_row[0, of2] = value_2
+                        # G-04: validate conjunction candidate via guard if configured
+                        expl = self._get_explainer()
+                        try:
+                            accepted = expl._accept(perturbed_row[0], label_ctx)
+                        except Exception:
+                            accepted = True
+                        if not accepted:
+                            continue
                         p_value, low, high, _ = predict_fn(
                             perturbed_row,
                             threshold=threshold,
@@ -718,6 +727,14 @@ class CalibratedExplanation(ABC):
                         for value_3 in values3:
                             perturbed[of3] = value_3
                             perturbed_row[0, of3] = value_3
+                            # G-04: validate conjunction candidate via guard if configured
+                            expl = self._get_explainer()
+                            try:
+                                accepted = expl._accept(perturbed_row[0], label_ctx)
+                            except Exception:
+                                accepted = True
+                            if not accepted:
+                                continue
                             p_value, low, high, _ = predict_fn(
                                 perturbed_row,
                                 threshold=threshold,
@@ -736,7 +753,9 @@ class CalibratedExplanation(ABC):
             rule_predict /= rule_count
             rule_low /= rule_count
             rule_high /= rule_count
-        return rule_predict, rule_low, rule_high
+            return rule_predict, rule_low, rule_high
+        # No accepted conjunctive combinations — signal caller to skip this conjunction
+        return None, None, None
 
     @abstractmethod
     def _is_lesser(self, rule_boundary, instance_value):
@@ -1261,6 +1280,18 @@ class FactualExplanation(CalibratedExplanation):
 
         threshold = None if self.y_threshold is None else self.y_threshold
         scratch = np.array(self.x_test, copy=True)
+        # G-04: compute label context once for this explanation instance
+        label_ctx = None
+        try:
+            label_ctx = self._get_explainer()._label_ctx(np.asarray(self.x_test))
+        except Exception:
+            label_ctx = None
+        # G-04: compute label context once for this explanation instance
+        label_ctx = None
+        try:
+            label_ctx = self._get_explainer()._label_ctx(np.asarray(self.x_test))
+        except Exception:
+            label_ctx = None
         predicted_class = factual["classes"]
         conjunctive_state["classes"] = predicted_class
 
@@ -1343,7 +1374,12 @@ class FactualExplanation(CalibratedExplanation):
                         threshold,
                         predicted_class,
                         bins=self.bin,
+                        label_ctx=label_ctx,
                     )
+
+                    # If guard rejected all combinations, skip this conjunction
+                    if rule_predict is None:
+                        continue
 
                     conjunctive_state["predict"].append(rule_predict)
                     conjunctive_state["predict_low"].append(rule_low)
@@ -2155,6 +2191,12 @@ class AlternativeExplanation(CalibratedExplanation):
 
         threshold = None if self.y_threshold is None else self.y_threshold
         scratch = np.array(self.x_test, copy=True)
+        # G-04: compute label context once for this explanation instance
+        label_ctx = None
+        try:
+            label_ctx = self._get_explainer()._label_ctx(np.asarray(self.x_test))
+        except Exception:
+            label_ctx = None
         predicted_class = alternative["classes"]
         conjunctive_state["classes"] = predicted_class
 
@@ -2240,7 +2282,12 @@ class AlternativeExplanation(CalibratedExplanation):
                         threshold,
                         predicted_class,
                         bins=self.bin,
+                        label_ctx=label_ctx,
                     )
+
+                    # If guard rejected all combinations, skip this conjunction
+                    if rule_predict is None:
+                        continue
 
                     conjunctive_state["predict"].append(rule_predict)
                     conjunctive_state["predict_low"].append(rule_low)

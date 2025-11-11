@@ -14,6 +14,7 @@ conformal predictive systems (regression).
 from __future__ import annotations
 
 import warnings as _warnings
+import logging as _logging
 import os
 from pathlib import Path
 from collections import Counter
@@ -945,9 +946,11 @@ class CalibratedExplainer:
     def _label_ctx(self, x):
         if self.guard is None:
             return None
-        return self.guard.label_context(x,
-               clf_predict_proba=getattr(self, "_predict_proba", None),
-               reg_predict=getattr(self, "_predict_reg", None))
+        return self.guard.label_context(
+            x,
+            clf_predict_proba=getattr(self, "_predict_proba", None),
+            reg_predict=getattr(self, "_predict_reg", None),
+        )
 
     def _accept(self, x_prime, label_ctx):
         return True if self.guard is None else self.guard.accept(x_prime, label_ctx)
@@ -1790,19 +1793,24 @@ class CalibratedExplainer:
                 # Factory spec, e.g., "conformal_regions"
                 if self.guard == "conformal_regions":
                     from ..guards import ConformalRegionOracle
+
                     self.guard = ConformalRegionOracle(**self.guard_params)
                 else:
                     raise ValueError(f"Unknown guard spec: {self.guard}")
             # Fit the guard if calibration data is available
-            if hasattr(self, '_X_cal') and hasattr(self, '_y_cal'):
+            if hasattr(self, "_X_cal") and hasattr(self, "_y_cal"):
                 self.guard.fit(self.x_cal, self.y_cal)
 
     def _update_guard(self) -> None:
         """Re-instantiate or refit the guard if previously set."""
-        if self._guard_spec is not None:
-            self.set_guard(self._guard_spec, self.guard_params)
-        elif self.guard is not None and hasattr(self.guard, 'fit'):
-            self.guard.fit(self.x_cal, self.y_cal)
+        # Use getattr to tolerate instances created via __new__ in tests
+        guard_spec = getattr(self, "_guard_spec", None)
+        guard_params = getattr(self, "guard_params", {})
+        guard_obj = getattr(self, "guard", None)
+        if guard_spec is not None:
+            self.set_guard(guard_spec, guard_params)
+        elif guard_obj is not None and hasattr(guard_obj, "fit"):
+            guard_obj.fit(self.x_cal, self.y_cal)
 
     @property
     def x_cal(self):
@@ -2540,6 +2548,16 @@ class CalibratedExplainer:
             perturbed_class,
         ) = _eps(self, x, threshold, low_high_percentiles, bins, features_to_ignore)
 
+        # Guard label context (G-01): compute per-instance label context once
+        label_ctx_vec: np.ndarray | None = None
+        if getattr(self, "guard", None) is not None:
+            try:
+                # Compute label context for each instance in x
+                label_ctx_vec = np.asarray([self._label_ctx(xi) for xi in np.asarray(x)])
+            except Exception:
+                # If guard or predictors are not ready, fall back to None (no filtering)
+                label_ctx_vec = None
+
         predict_chunks: List[np.ndarray] = []
         low_chunks: List[np.ndarray] = []
         high_chunks: List[np.ndarray] = []
@@ -2654,89 +2672,183 @@ class CalibratedExplainer:
                 classes_array = np.asarray(prediction["classes"])
 
                 for j, val in enumerate(np.unique(lower_boundary)):
-                    lesser_values[f][j] = (np.unique(self.__get_lesser_values(f, val)), val)
+                    # G-02: compute group candidates for bookkeeping.
+                    # G-03: when per-instance label contexts are available, activate
+                    # interval filtering at the group level by union-ing per-instance
+                    # filtered samples. This makes group bookkeeping reflect the
+                    # same guard constraints used when materializing per-instance
+                    # tiles below.
                     indices = np.where(lower_boundary == val)[0]
-                    values = lesser_values[f][j][0]
-                    if values.size == 0 or indices.size == 0:
+                    if indices.size == 0:
+                        group_candidates = np.unique(self.__get_lesser_values(f, val))
+                    else:
+                        if label_ctx_vec is None:
+                            group_candidates = np.unique(self.__get_lesser_values(f, val))
+                        else:
+                            parts = []
+                            for ii in indices:
+                                ctx = label_ctx_vec[ii]
+                                vals_i = self.__get_lesser_values(
+                                    f, val, x=np.asarray(x[ii, :]), label_ctx=ctx
+                                )
+                                if vals_i.size:
+                                    parts.append(vals_i)
+                            if parts:
+                                group_candidates = np.unique(np.concatenate(parts))
+                            else:
+                                group_candidates = np.array([])
+                    lesser_values[f][j] = (group_candidates, val)
+                    if group_candidates.size == 0 or indices.size == 0:
                         continue
 
-                    base_slice = np.array(x[indices, :], copy=True)
-                    num_instances_subset = base_slice.shape[0]
-                    num_values = values.size
+                    for i_idx in indices:
+                        # Per-instance filtering using guard intervals, if available
+                        ctx_i = None if label_ctx_vec is None else label_ctx_vec[i_idx]
+                        values_i = np.unique(
+                            self.__get_lesser_values(
+                                f,
+                                val,
+                                x=np.asarray(x[i_idx, :]),
+                                label_ctx=ctx_i,
+                            )
+                        )
+                        if values_i.size == 0:
+                            continue
 
-                    tiled_x = np.tile(base_slice, (num_values, 1))
-                    tiled_x[:, f] = np.repeat(values, num_instances_subset)
-                    feature_x_parts.append(tiled_x)
+                        tiled_row = np.tile(np.asarray(x[i_idx, :]), (values_i.size, 1))
+                        tiled_row[:, f] = values_i
+                        feature_x_parts.append(tiled_row)
 
-                    feature_info = np.empty((num_instances_subset * num_values, 4), dtype=object)
-                    feature_info[:, 0] = f
-                    feature_info[:, 1] = np.tile(indices, num_values)
-                    feature_info[:, 2] = j
-                    feature_info[:, 3] = True
-                    feature_feature_parts.append(feature_info)
+                        feature_info = np.empty((values_i.size, 4), dtype=object)
+                        feature_info[:, 0] = f
+                        feature_info[:, 1] = i_idx
+                        feature_info[:, 2] = j
+                        feature_info[:, 3] = True
+                        feature_feature_parts.append(feature_info)
 
-                    if bins_array is not None:
-                        bins_subset = np.array(bins_array[indices], copy=True)
-                        tile_shape = (num_values,) + (1,) * (bins_subset.ndim - 1)
-                        feature_bins_parts.append(np.tile(bins_subset, tile_shape))
+                        if bins_array is not None:
+                            feature_bins_parts.append(
+                                np.tile(
+                                    np.asarray(bins_array[i_idx]),
+                                    (
+                                        values_i.size,
+                                        *([1] * (np.asarray(bins_array[i_idx]).ndim - 0)),
+                                    ),
+                                )
+                                if np.asarray(bins_array[i_idx]).ndim > 0
+                                else np.repeat(bins_array[i_idx], values_i.size)
+                            )
 
-                    class_subset = np.array(classes_array[indices], copy=True)
-                    tile_shape = (num_values,) + (1,) * (class_subset.ndim - 1)
-                    feature_class_parts.append(np.tile(class_subset, tile_shape))
+                        class_val = np.asarray(classes_array[i_idx])
+                        feature_class_parts.append(
+                            np.tile(class_val, (values_i.size, *([1] * (class_val.ndim - 0))))
+                            if class_val.ndim > 0
+                            else np.repeat(class_val, values_i.size)
+                        )
 
-                    if threshold is not None and isinstance(threshold, (list, np.ndarray)):
-                        threshold_subset = [threshold[i] for i in indices]
-                        if threshold_subset:
-                            if isinstance(threshold_subset[0], tuple):
-                                feature_threshold_parts.append(threshold_subset * num_values)
+                        if threshold is not None and isinstance(threshold, (list, np.ndarray)):
+                            thr_i = threshold[i_idx]
+                            if isinstance(thr_i, tuple):
+                                feature_threshold_parts.append([thr_i] * values_i.size)
                             else:
                                 feature_threshold_parts.append(
-                                    np.tile(np.asarray(threshold_subset), num_values)
+                                    np.repeat(np.asarray(thr_i), values_i.size)
                                 )
 
                 for j, val in enumerate(np.unique(upper_boundary)):
-                    greater_values[f][j] = (np.unique(self.__get_greater_values(f, val)), val)
+                    # G-02: compute group candidates for bookkeeping.
+                    # G-03: when per-instance label contexts are available, activate
+                    # interval filtering at the group level by union-ing per-instance
+                    # filtered samples. This makes group bookkeeping reflect the
+                    # same guard constraints used when materializing per-instance
+                    # tiles below.
                     indices = np.where(upper_boundary == val)[0]
-                    values = greater_values[f][j][0]
-                    if values.size == 0 or indices.size == 0:
+                    if indices.size == 0:
+                        group_candidates = np.unique(self.__get_greater_values(f, val))
+                    else:
+                        if label_ctx_vec is None:
+                            group_candidates = np.unique(self.__get_greater_values(f, val))
+                        else:
+                            parts = []
+                            for ii in indices:
+                                ctx = label_ctx_vec[ii]
+                                vals_i = self.__get_greater_values(
+                                    f, val, x=np.asarray(x[ii, :]), label_ctx=ctx
+                                )
+                                if vals_i.size:
+                                    parts.append(vals_i)
+                            if parts:
+                                group_candidates = np.unique(np.concatenate(parts))
+                            else:
+                                group_candidates = np.array([])
+                    greater_values[f][j] = (group_candidates, val)
+                    if group_candidates.size == 0 or indices.size == 0:
                         continue
 
-                    base_slice = np.array(x[indices, :], copy=True)
-                    num_instances_subset = base_slice.shape[0]
-                    num_values = values.size
+                    for i_idx in indices:
+                        # Per-instance filtering using guard intervals, if available
+                        ctx_i = None if label_ctx_vec is None else label_ctx_vec[i_idx]
+                        values_i = np.unique(
+                            self.__get_greater_values(
+                                f,
+                                val,
+                                x=np.asarray(x[i_idx, :]),
+                                label_ctx=ctx_i,
+                            )
+                        )
+                        if values_i.size == 0:
+                            continue
 
-                    tiled_x = np.tile(base_slice, (num_values, 1))
-                    tiled_x[:, f] = np.repeat(values, num_instances_subset)
-                    feature_x_parts.append(tiled_x)
+                        tiled_row = np.tile(np.asarray(x[i_idx, :]), (values_i.size, 1))
+                        tiled_row[:, f] = values_i
+                        feature_x_parts.append(tiled_row)
 
-                    feature_info = np.empty((num_instances_subset * num_values, 4), dtype=object)
-                    feature_info[:, 0] = f
-                    feature_info[:, 1] = np.tile(indices, num_values)
-                    feature_info[:, 2] = j
-                    feature_info[:, 3] = False
-                    feature_feature_parts.append(feature_info)
+                        feature_info = np.empty((values_i.size, 4), dtype=object)
+                        feature_info[:, 0] = f
+                        feature_info[:, 1] = i_idx
+                        feature_info[:, 2] = j
+                        feature_info[:, 3] = False
+                        feature_feature_parts.append(feature_info)
 
-                    if bins_array is not None:
-                        bins_subset = np.array(bins_array[indices], copy=True)
-                        tile_shape = (num_values,) + (1,) * (bins_subset.ndim - 1)
-                        feature_bins_parts.append(np.tile(bins_subset, tile_shape))
+                        if bins_array is not None:
+                            feature_bins_parts.append(
+                                np.tile(
+                                    np.asarray(bins_array[i_idx]),
+                                    (
+                                        values_i.size,
+                                        *([1] * (np.asarray(bins_array[i_idx]).ndim - 0)),
+                                    ),
+                                )
+                                if np.asarray(bins_array[i_idx]).ndim > 0
+                                else np.repeat(bins_array[i_idx], values_i.size)
+                            )
 
-                    class_subset = np.array(classes_array[indices], copy=True)
-                    tile_shape = (num_values,) + (1,) * (class_subset.ndim - 1)
-                    feature_class_parts.append(np.tile(class_subset, tile_shape))
+                        class_val = np.asarray(classes_array[i_idx])
+                        feature_class_parts.append(
+                            np.tile(class_val, (values_i.size, *([1] * (class_val.ndim - 0))))
+                            if class_val.ndim > 0
+                            else np.repeat(class_val, values_i.size)
+                        )
 
-                    if threshold is not None and isinstance(threshold, (list, np.ndarray)):
-                        threshold_subset = [threshold[i] for i in indices]
-                        if threshold_subset:
-                            if isinstance(threshold_subset[0], tuple):
-                                feature_threshold_parts.append(threshold_subset * num_values)
+                        if threshold is not None and isinstance(threshold, (list, np.ndarray)):
+                            thr_i = threshold[i_idx]
+                            if isinstance(thr_i, tuple):
+                                feature_threshold_parts.append([thr_i] * values_i.size)
                             else:
                                 feature_threshold_parts.append(
-                                    np.tile(np.asarray(threshold_subset), num_values)
+                                    np.repeat(np.asarray(thr_i), values_i.size)
                                 )
                 for i in range(len(x)):
+                    # G-02: pass instance row and label context so guard filtering engages
+                    ctx_i = None if label_ctx_vec is None else label_ctx_vec[i]
                     covered_values[f][i] = (
-                        self.__get_covered_values(f, lower_boundary[i], upper_boundary[i]),
+                        self.__get_covered_values(
+                            f,
+                            lower_boundary[i],
+                            upper_boundary[i],
+                            x=np.asarray(x[i, :]),
+                            label_ctx=ctx_i,
+                        ),
                         (lower_boundary[i], upper_boundary[i]),
                     )
                     if covered_values[f][i][0].size == 0:
@@ -3392,11 +3504,29 @@ class CalibratedExplainer:
         """
         if not np.any(self.x_cal[:, f] > greater):
             return np.array([])
-        candidates = np.percentile(self.x_cal[self.x_cal[:, f] > greater, f], self.sample_percentiles)
-        if self.guard is not None and x is not None and label_ctx is not None:
+        candidates = np.percentile(
+            self.x_cal[self.x_cal[:, f] > greater, f], self.sample_percentiles
+        )
+        if getattr(self, "guard", None) is not None and x is not None and label_ctx is not None:
             from ..guards.intervals import in_intervals
-            allowed_intervals = self.guard.intervals(x, label_ctx)[f]
-            candidates = np.array([v for v in candidates if in_intervals(v - x[f], allowed_intervals)])
+
+            try:
+                allowed_intervals = self.guard.intervals(x, label_ctx)[f]
+                candidates = np.array(
+                    [v for v in candidates if in_intervals(v - x[f], allowed_intervals)]
+                )
+            except (
+                Exception
+            ) as exc:  # Defensive: if guard fails, fall back to unfiltered candidates
+                _logging.getLogger("calibrated_explanations").warning(
+                    "Perturbation guard.intervals failed; falling back to unfiltered candidates: %s",
+                    exc,
+                )
+                if getattr(self, "verbose", False):
+                    _warnings.warn(
+                        "Perturbation guard failed during interval computation; proceeding without guard filtering.",
+                        stacklevel=2,
+                    )
         return candidates
 
     def __get_lesser_values(self, f: int, lesser: float, x=None, label_ctx=None):
@@ -3406,11 +3536,29 @@ class CalibratedExplainer:
         """
         if not np.any(self.x_cal[:, f] < lesser):
             return np.array([])
-        candidates = np.percentile(self.x_cal[self.x_cal[:, f] < lesser, f], self.sample_percentiles)
-        if self.guard is not None and x is not None and label_ctx is not None:
+        candidates = np.percentile(
+            self.x_cal[self.x_cal[:, f] < lesser, f], self.sample_percentiles
+        )
+        if getattr(self, "guard", None) is not None and x is not None and label_ctx is not None:
             from ..guards.intervals import in_intervals
-            allowed_intervals = self.guard.intervals(x, label_ctx)[f]
-            candidates = np.array([v for v in candidates if in_intervals(v - x[f], allowed_intervals)])
+
+            try:
+                allowed_intervals = self.guard.intervals(x, label_ctx)[f]
+                candidates = np.array(
+                    [v for v in candidates if in_intervals(v - x[f], allowed_intervals)]
+                )
+            except (
+                Exception
+            ) as exc:  # Defensive: if guard fails, fall back to unfiltered candidates
+                _logging.getLogger("calibrated_explanations").warning(
+                    "Perturbation guard.intervals failed; falling back to unfiltered candidates: %s",
+                    exc,
+                )
+                if getattr(self, "verbose", False):
+                    _warnings.warn(
+                        "Perturbation guard failed during interval computation; proceeding without guard filtering.",
+                        stacklevel=2,
+                    )
         return candidates
 
     def __get_covered_values(self, f: int, lesser: float, greater: float, x=None, label_ctx=None):
@@ -3422,10 +3570,26 @@ class CalibratedExplainer:
         if len(covered) == 0:
             return np.array([])
         candidates = np.percentile(self.x_cal[covered, f], self.sample_percentiles)
-        if self.guard is not None and x is not None and label_ctx is not None:
+        if getattr(self, "guard", None) is not None and x is not None and label_ctx is not None:
             from ..guards.intervals import in_intervals
-            allowed_intervals = self.guard.intervals(x, label_ctx)[f]
-            candidates = np.array([v for v in candidates if in_intervals(v - x[f], allowed_intervals)])
+
+            try:
+                allowed_intervals = self.guard.intervals(x, label_ctx)[f]
+                candidates = np.array(
+                    [v for v in candidates if in_intervals(v - x[f], allowed_intervals)]
+                )
+            except (
+                Exception
+            ) as exc:  # Defensive: if guard fails, fall back to unfiltered candidates
+                _logging.getLogger("calibrated_explanations").warning(
+                    "Perturbation guard.intervals failed; falling back to unfiltered candidates: %s",
+                    exc,
+                )
+                if getattr(self, "verbose", False):
+                    _warnings.warn(
+                        "Perturbation guard failed during interval computation; proceeding without guard filtering.",
+                        stacklevel=2,
+                    )
         return candidates
 
     def set_seed(self, seed: int) -> None:

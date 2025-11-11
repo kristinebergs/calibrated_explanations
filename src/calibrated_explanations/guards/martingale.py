@@ -14,20 +14,20 @@ class MartingaleETest:
         self._nn = None
         self._distances = None
 
-    def fit(self, X):
+    def fit(self, x_train):
         """Fit the nearest neighbors on training data."""
-        self._nn = NearestNeighbors(n_neighbors=self.n_neighbors, metric='euclidean')
-        self._nn.fit(X)
+        self._nn = NearestNeighbors(n_neighbors=self.n_neighbors, metric="euclidean")
+        self._nn.fit(x_train)
         # Precompute distances for efficiency, but for now, we'll compute on the fly
         return self
 
-    def e_value(self, x):
-        """Compute e-value for instance x."""
+    def e_value(self, x_instance):
+        """Compute e-value for instance x_instance."""
         if self._nn is None:
             raise ValueError("Not fitted")
 
         # Find k nearest neighbors
-        distances, _ = self._nn.kneighbors(x.reshape(1, -1), n_neighbors=self.k)
+        distances, _ = self._nn.kneighbors(x_instance.reshape(1, -1), n_neighbors=self.k)
         # Use the distance to the k-th neighbor as the test statistic
         test_stat = distances[0][self.k - 1]
 
@@ -35,6 +35,6 @@ class MartingaleETest:
         e_val = np.exp(-test_stat)
         return e_val
 
-    def reject(self, x):
+    def reject(self, x_instance):
         """Reject if e-value exceeds gamma."""
-        return self.e_value(x) > self.gamma
+        return self.e_value(x_instance) > self.gamma
