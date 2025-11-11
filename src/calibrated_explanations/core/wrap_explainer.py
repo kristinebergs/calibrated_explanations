@@ -645,6 +645,28 @@ class WrapCalibratedExplainer:
         )
         self.explainer.set_preprocessor_metadata(metadata)
 
+    def set_guard(self, guard: Any, guard_params: Dict[str, Any] | None = None) -> None:
+        """Set or update the perturbation guard.
+
+        Parameters
+        ----------
+        guard : Any or None
+            The perturbation guard object, class, or factory spec (e.g., "conformal_regions").
+        guard_params : dict or None, optional
+            Parameters for guard instantiation if guard is a spec. Default None.
+        """
+        assert (
+            self._assert_fitted(
+                "The WrapCalibratedExplainer must be fitted before setting guard."
+            )
+            ._assert_calibrated(
+                "The WrapCalibratedExplainer must be calibrated before setting guard."
+            )
+            .explainer
+            is not None
+        )
+        self.explainer.set_guard(guard, guard_params)
+
     # ------ Internal helpers (reduce duplication) ------
     def _assert_fitted(self, message: str | None = None) -> WrapCalibratedExplainer:
         if not self.fitted:

@@ -166,3 +166,20 @@ def test_explanation_functions_regression(regression_dataset):
     # ce._preload_shap() # generates an insane number of warnings
 
     print(ce)
+
+
+def test_guard_integration(binary_dataset):
+    """Test guard integration with CalibratedExplainer."""
+    from calibrated_explanations.guards import ConformalRegionOracle
+    x_prop_train, y_prop_train, x_prop_test, y_prop_test, _, _, _, _, _, _ = binary_dataset
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+
+    guard = ConformalRegionOracle(alpha=0.1, n_clusters=3)
+    ce = CalibratedExplainer(model, x_prop_train, y_prop_train, guard=guard)
+
+    # Explain a single instance
+    explanation = ce.explain(x_prop_test[:1])
+    assert explanation is not None
+
+    # Check that guard is fitted
+    assert ce.guard._fitted
