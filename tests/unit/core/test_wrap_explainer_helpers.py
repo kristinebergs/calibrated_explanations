@@ -325,6 +325,26 @@ def test_set_difficulty_estimator_delegates(wrapper: WrapCalibratedExplainer) ->
     assert wrapper.explainer.received == ["estimator"]  # type: ignore[union-attr]
 
 
+def test_set_guard_delegates(wrapper: WrapCalibratedExplainer) -> None:
+    class _Recorder:
+        def __init__(self) -> None:
+            self.received_guard: list[Any] = []
+            self.received_params: list[Any] = []
+
+        def set_guard(self, guard: Any, guard_params: Any = None) -> None:
+            self.received_guard.append(guard)
+            self.received_params.append(guard_params)
+
+    wrapper.fitted = True
+    wrapper.calibrated = True
+    wrapper.explainer = _Recorder()
+
+    wrapper.set_guard("conformal_regions", {"alpha": 0.1})
+
+    assert wrapper.explainer.received_guard == ["conformal_regions"]  # type: ignore[union-attr]
+    assert wrapper.explainer.received_params == [{"alpha": 0.1}]  # type: ignore[union-attr]
+
+
 def test_plot_uses_configured_defaults() -> None:
     class _PerfFactory:
         def make_cache(self) -> object:

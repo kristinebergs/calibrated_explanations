@@ -95,4 +95,8 @@ def __getattr__(name: str):
         value = getattr(module, name)
         globals()[name] = value
         return value
+    if name == "guards":
+        module = importlib.import_module(f"{__name__}.guards")
+        globals()[name] = module
+        return module
     raise AttributeError(name)
