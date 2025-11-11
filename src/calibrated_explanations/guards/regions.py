@@ -3,16 +3,25 @@
 import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.neighbors import KDTree
-from typing import Optional, List, Tuple, Union
 from sklearn.utils import check_array
 
 
 class ConformalRegionOracle:
     """Conformal Region Oracle for filtering out-of-distribution perturbations."""
 
-    def __init__(self, alpha=0.1, mode="clf", threshold=None,
-                 n_clusters=5, covariance="diag", random_state=None,
-                 use_martingale=False, e_gamma=10.0, e_knn=30, e_neigh=500):
+    def __init__(
+        self,
+        alpha=0.1,
+        mode="clf",
+        threshold=None,
+        n_clusters=5,
+        covariance="diag",
+        random_state=None,
+        use_martingale=False,
+        e_gamma=10.0,
+        e_knn=30,
+        e_neigh=500,
+    ):
         self.alpha = alpha
         self.mode = mode
         self.threshold = threshold
@@ -31,10 +40,10 @@ class ConformalRegionOracle:
         self._variances = {}
         self._martingale = None
 
-    def fit(self, X, y):
+    def fit(self, xs, ys):
         """Build label-conditional cluster regions and calibrate radii."""
-        X = check_array(X)
-        y = np.asarray(y)
+        x = check_array(xs)
+        y = np.asarray(ys)
 
         if self.mode == "clf":
             labels = np.unique(y)
@@ -48,34 +57,34 @@ class ConformalRegionOracle:
 
         for label in labels:
             mask = y == label
-            X_label = X[mask]
+            x_label = x[mask]
 
-            if len(X_label) < self.n_clusters:
+            if len(x_label) < self.n_clusters:
                 # Not enough data, skip or use all as one cluster
                 continue
 
             kmeans = KMeans(n_clusters=self.n_clusters, random_state=self.random_state)
-            clusters = kmeans.fit_predict(X_label)
+            clusters = kmeans.fit_predict(x_label)
             centers = kmeans.cluster_centers_
 
             # Compute variances per cluster
             variances = []
             for c in range(self.n_clusters):
-                cluster_data = X_label[clusters == c]
+                cluster_data = x_label[clusters == c]
                 if len(cluster_data) > 1:
                     var = np.var(cluster_data, axis=0, ddof=1)
                 else:
-                    var = np.zeros(X.shape[1])
+                    var = np.zeros(x.shape[1])
                 variances.append(var)
             variances = np.array(variances)
 
             # Compute nonconformity scores
             scores = []
-            for i, x in enumerate(X_label):
+            for i, xi in enumerate(x_label):
                 c = clusters[i]
                 center = centers[c]
                 var = variances[c]
-                mahal = np.sum(((x - center) ** 2) / (var + 1e-8))
+                mahal = np.sum(((xi - center) ** 2) / (var + 1e-8))
                 scores.append(mahal)
 
             scores = np.array(scores)
@@ -93,42 +102,45 @@ class ConformalRegionOracle:
 
         if self.use_martingale:
             from .martingale import MartingaleETest
-            self._martingale = MartingaleETest(k=self.e_knn, n_neighbors=self.e_neigh, gamma=self.e_gamma)
-            self._martingale.fit(X)
+
+            self._martingale = MartingaleETest(
+                k=self.e_knn, n_neighbors=self.e_neigh, gamma=self.e_gamma
+            )
+            self._martingale.fit(x)
 
         self._fitted = True
         return self
 
-    def label_context(self, x, *, clf_predict_proba=None, reg_predict=None):
-        """Return the label-conditional context for x."""
+    def label_context(self, x_instance, *, clf_predict_proba=None, reg_predict=None):
+        """Return the label-conditional context for x_instance."""
         if self.mode == "clf":
             if clf_predict_proba is None:
                 raise ValueError("clf_predict_proba required for classification")
-            proba = clf_predict_proba(x.reshape(1, -1))
+            proba = clf_predict_proba(x_instance.reshape(1, -1))
             return np.argmax(proba)
         elif self.mode == "reg":
             if reg_predict is None:
                 raise ValueError("reg_predict required for regression")
-            pred = reg_predict(x.reshape(1, -1))
+            pred = reg_predict(x_instance.reshape(1, -1))
             return int(pred >= self.threshold)
         else:
             raise ValueError("Invalid mode")
 
-    def intervals(self, x, label_ctx):
-        """Return per-feature allowed 1D intervals for x under label_ctx."""
+    def intervals(self, x_instance, label_ctx):
+        """Return per-feature allowed 1D intervals for x_instance under label_ctx."""
         if not self._fitted:
             raise ValueError("Guard not fitted")
 
         if label_ctx not in self._clusters:
             # No data for this label, return empty intervals
-            return [[] for _ in range(len(x))]
+            return [[] for _ in range(len(x_instance))]
 
         centers = self._clusters[label_ctx]
         variances = self._variances[label_ctx]
         radius = self._radii[label_ctx]
 
         intervals = []
-        for j in range(len(x)):
+        for j in range(len(x_instance)):
             feature_intervals = []
             for c in range(len(centers)):
                 center = centers[c]
@@ -136,28 +148,28 @@ class ConformalRegionOracle:
                 mu_j = center[j]
                 sigma_j = np.sqrt(var[j] + 1e-8)
 
-                # Compute S = sum_{i!=j} ((x_i - mu_i)^2 / sigma_i^2)
-                S = 0
-                for i in range(len(x)):
+                # Compute s = sum_{i!=j} ((x_i - mu_i)^2 / sigma_i^2)
+                s = 0
+                for i in range(len(x_instance)):
                     if i != j:
                         mu_i = center[i]
                         sigma_i = np.sqrt(var[i] + 1e-8)
-                        S += ((x[i] - mu_i) ** 2) / (sigma_i ** 2 + 1e-8)
+                        s += ((x_instance[i] - mu_i) ** 2) / (sigma_i**2 + 1e-8)
 
-                if S > radius:
+                if radius < s:
                     continue  # No interval from this cluster
 
-                D = (radius - S) * (sigma_j ** 2)
-                if D < 0:
+                d = (radius - s) * (sigma_j**2)
+                if d < 0:
                     continue
 
-                delta = np.sqrt(D)
+                delta = np.sqrt(d)
                 low = mu_j - delta
                 high = mu_j + delta
 
-                # Convert to relative intervals around x[j]
-                rel_low = low - x[j]
-                rel_high = high - x[j]
+                # Convert to relative intervals around x_instance[j]
+                rel_low = low - x_instance[j]
+                rel_high = high - x_instance[j]
 
                 feature_intervals.append((rel_low, rel_high))
 
@@ -190,6 +202,4 @@ class ConformalRegionOracle:
             return False
 
         # TODO: implement martingale if use_martingale
-        if self._martingale is not None and self._martingale.reject(x_prime):
-            return False
-        return True
+        return not (self._martingale is not None and self._martingale.reject(x_prime))

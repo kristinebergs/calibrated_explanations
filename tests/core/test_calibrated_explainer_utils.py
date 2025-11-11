@@ -333,6 +333,84 @@ def test_ensure_interval_runtime_state_creates_defaults():
     assert explainer._interval_context_metadata == {"default": {}, "fast": {}}
 
 
+def test_group_candidates_union_reflects_per_instance_filtered_values(monkeypatch):
+    """Group-level candidates should be the union of per-instance filtered samples.
+
+    We monkeypatch the private numeric sampler to return different per-instance
+    values and verify that the group bookkeeping step collects the union.
+    """
+    from sklearn.tree import DecisionTreeClassifier
+
+    # Small calibration set
+    x_cal = np.array([[0.0, 0.0], [1.0, 0.0], [2.0, 0.0], [3.0, 0.0]])
+    y_cal = np.array([0, 1, 0, 1])
+
+    model = DecisionTreeClassifier()
+    model.fit(x_cal, y_cal)
+
+    from tests._helpers import initiate_explainer
+
+    explainer = initiate_explainer(
+        model,
+        x_cal,
+        y_cal,
+        feature_names=["f0", "f1"],
+        categorical_features=[],
+        mode="classification",
+        verbose=False,
+    )
+
+    # Ensure discretizer is initialized for the explainer internals used in
+    # the prediction helper path.
+    explainer.set_discretizer(None)
+
+    # Ensure a guard is present so the code path that unions per-instance
+    # filtered values is exercised. Use a minimal dummy guard that provides
+    # label_context but whose intervals won't be called because we monkeypatch
+    # the sampler itself below.
+    class DummyGuard:
+        def label_context(self, x_instance, **kwargs):
+            return 0
+
+    explainer.guard = DummyGuard()
+
+    # Prepare test instances with identical feature value to force them into
+    # the same group (same lower_boundary value).
+    x_test = np.array([[10.0, 0.0], [10.0, 0.0]])
+
+    # Monkeypatch the private __get_lesser_values to return different arrays
+    # on successive calls (simulating per-instance filtered outputs).
+    calls = {"n": 0}
+    outputs = [np.array([10.0]), np.array([20.0])]
+
+    def fake_get_lesser_values(f, val, x=None, label_ctx=None):
+        idx = calls["n"]
+        calls["n"] += 1
+        if idx < len(outputs):
+            return outputs[idx]
+        return np.array([])
+
+    setattr(explainer, "_CalibratedExplainer__get_lesser_values", fake_get_lesser_values)
+
+    # Run the explain predict step to exercise the group-union logic.
+    (
+        _predict,
+        _low,
+        _high,
+        _prediction,
+        _perturbed_feature,
+        rule_boundaries,
+        lesser_values,
+        greater_values,
+        covered_values,
+        x_cal_out,
+    ) = explainer._explain_predict_step(x_test, None, (5, 95), None, None)
+
+    # There's one unique lower_boundary value hence one group at feature 0
+    group_candidates, _ = lesser_values[0][0]
+    assert np.array_equal(np.sort(group_candidates), np.array([10.0, 20.0]))
+
+
 def test_instantiate_plugin_prefers_fresh_instances():
     explainer = _make_explainer_stub()
 

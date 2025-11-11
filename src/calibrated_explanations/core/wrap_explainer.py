@@ -656,9 +656,7 @@ class WrapCalibratedExplainer:
             Parameters for guard instantiation if guard is a spec. Default None.
         """
         assert (
-            self._assert_fitted(
-                "The WrapCalibratedExplainer must be fitted before setting guard."
-            )
+            self._assert_fitted("The WrapCalibratedExplainer must be fitted before setting guard.")
             ._assert_calibrated(
                 "The WrapCalibratedExplainer must be calibrated before setting guard."
             )

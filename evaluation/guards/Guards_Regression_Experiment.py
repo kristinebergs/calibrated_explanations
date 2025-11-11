@@ -221,6 +221,14 @@ for dataSet, filename in zip(datasets, filenames):
                 stab_timer[setup + norm] = []
                 robustness[setup + norm] = []
                 rob_timer[setup + norm] = []
+        # Ensure guarded setups are initialized
+        for s in ["ce_guarded", "pce_guarded", "ce_unguarded", "pce_unguarded"]:
+            for n in normalizations:
+                key = s + n
+                stab_timer[key] = []
+                stability[key] = []
+                rob_timer[key] = []
+                robustness[key] = []
         i = 0
         while i < num_rep:
             print(f"Stability {i+1} - {len(X_test)}:", end="\n", flush=True)

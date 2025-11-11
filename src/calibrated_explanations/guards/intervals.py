@@ -24,7 +24,4 @@ def union_intervals(intervals: List[Tuple[float, float]]) -> List[Tuple[float, f
 
 def in_intervals(value: float, intervals: List[Tuple[float, float]]) -> bool:
     """Check if value is in any of the intervals."""
-    for low, high in intervals:
-        if low <= value <= high:
-            return True
-    return False
+    return any(low <= value <= high for low, high in intervals)

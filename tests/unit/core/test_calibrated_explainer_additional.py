@@ -1217,17 +1217,20 @@ class TestGuard:
     def test_guard_initialization_none(self):
         """Test that guard=None works as before."""
         learner = DummyLearner()
-        x_cal = np.random.rand(10, 2)
-        y_cal = np.random.randint(0, 2, 10)
+        rng = np.random.default_rng()
+        x_cal = rng.random((10, 2))
+        y_cal = rng.integers(0, 2, 10)
         explainer = CalibratedExplainer(learner, x_cal, y_cal, guard=None)
         assert explainer.guard is None
 
     def test_guard_initialization_class(self):
         """Test initializing guard with class."""
         from calibrated_explanations.guards import ConformalRegionOracle
+
         learner = DummyLearner()
-        x_cal = np.random.rand(10, 2)
-        y_cal = np.random.randint(0, 2, 10)
+        rng = np.random.default_rng()
+        x_cal = rng.random((10, 2))
+        y_cal = rng.integers(0, 2, 10)
         guard = ConformalRegionOracle(alpha=0.1)
         explainer = CalibratedExplainer(learner, x_cal, y_cal, guard=guard)
         assert explainer.guard is guard
@@ -1236,25 +1239,29 @@ class TestGuard:
     def test_guard_initialization_string(self):
         """Test initializing guard with string spec."""
         learner = DummyLearner()
-        x_cal = np.random.rand(10, 2)
-        y_cal = np.random.randint(0, 2, 10)
+        rng = np.random.default_rng()
+        x_cal = rng.random((10, 2))
+        y_cal = rng.integers(0, 2, 10)
         explainer = CalibratedExplainer(learner, x_cal, y_cal, guard="conformal_regions")
         assert explainer.guard is not None
-        assert hasattr(explainer.guard, 'fit')
+        assert hasattr(explainer.guard, "fit")
 
     def test_guard_invalid_string(self):
         """Test invalid guard string raises error."""
         learner = DummyLearner()
-        x_cal = np.random.rand(10, 2)
-        y_cal = np.random.randint(0, 2, 10)
+        rng = np.random.default_rng()
+        x_cal = rng.random((10, 2))
+        y_cal = rng.integers(0, 2, 10)
         with pytest.raises(ValueError, match="Unknown guard spec"):
             CalibratedExplainer(learner, x_cal, y_cal, guard="invalid")
 
     def test_guard_label_context_classification(self):
         """Test label_context for classification."""
         from calibrated_explanations.guards import ConformalRegionOracle
+
         guard = ConformalRegionOracle()
-        guard.fit(np.random.rand(10, 2), np.array([0, 1] * 5))
+        rng = np.random.default_rng()
+        guard.fit(rng.random((10, 2)), np.array([0, 1] * 5))
         x = np.array([0.5, 0.5])
         proba = np.array([[0.3, 0.7]])
         ctx = guard.label_context(x, clf_predict_proba=lambda x: proba)
@@ -1263,10 +1270,12 @@ class TestGuard:
     def test_guard_intervals(self):
         """Test intervals computation."""
         from calibrated_explanations.guards import ConformalRegionOracle
+
         guard = ConformalRegionOracle(n_clusters=2)
-        X = np.random.rand(20, 2)
-        y = np.random.randint(0, 2, 20)
-        guard.fit(X, y)
+        rng = np.random.default_rng()
+        x = rng.random((20, 2))
+        y = rng.integers(0, 2, 20)
+        guard.fit(x, y)
         x = np.array([0.5, 0.5])
         ctx = 0
         intervals = guard.intervals(x, ctx)
@@ -1276,10 +1285,12 @@ class TestGuard:
     def test_guard_accept(self):
         """Test accept method."""
         from calibrated_explanations.guards import ConformalRegionOracle
+
         guard = ConformalRegionOracle()
-        X = np.random.rand(20, 2)
-        y = np.random.randint(0, 2, 20)
-        guard.fit(X, y)
+        rng = np.random.default_rng()
+        x = rng.random((20, 2))
+        y = rng.integers(0, 2, 20)
+        guard.fit(x, y)
         x_prime = np.array([0.5, 0.5])
         ctx = 0
         accepted = guard.accept(x_prime, ctx)
@@ -1288,8 +1299,9 @@ class TestGuard:
     def test_set_guard_none(self):
         """Test set_guard with None."""
         learner = DummyLearner()
-        x_cal = np.random.rand(10, 2)
-        y_cal = np.random.randint(0, 2, 10)
+        rng = np.random.default_rng()
+        x_cal = rng.random((10, 2))
+        y_cal = rng.integers(0, 2, 10)
         explainer = CalibratedExplainer(learner, x_cal, y_cal)
         explainer.set_guard(None)
         assert explainer.guard is None
@@ -1297,9 +1309,11 @@ class TestGuard:
     def test_set_guard_class(self):
         """Test set_guard with class."""
         from calibrated_explanations.guards import ConformalRegionOracle
+
         learner = DummyLearner()
-        x_cal = np.random.rand(10, 2)
-        y_cal = np.random.randint(0, 2, 10)
+        rng = np.random.default_rng()
+        x_cal = rng.random((10, 2))
+        y_cal = rng.integers(0, 2, 10)
         explainer = CalibratedExplainer(learner, x_cal, y_cal)
         guard = ConformalRegionOracle(alpha=0.1)
         explainer.set_guard(guard)
@@ -1309,9 +1323,10 @@ class TestGuard:
     def test_set_guard_string(self):
         """Test set_guard with string spec."""
         learner = DummyLearner()
-        x_cal = np.random.rand(10, 2)
-        y_cal = np.random.randint(0, 2, 10)
+        rng = np.random.default_rng()
+        x_cal = rng.random((10, 2))
+        y_cal = rng.integers(0, 2, 10)
         explainer = CalibratedExplainer(learner, x_cal, y_cal)
         explainer.set_guard("conformal_regions")
         assert explainer.guard is not None
-        assert hasattr(explainer.guard, 'fit')
+        assert hasattr(explainer.guard, "fit")
