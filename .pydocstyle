@@ -1,0 +1,5 @@
+[pydocstyle]
+# Only check the package source and our tests to avoid third-party/build artifacts
+# match-dir is a regex applied to directory names. We accept directories whose
+# path contains either 'src' or 'tests'. This keeps checks focused on project code.
+match-dir = (?:^|/)(?:src|tests)(?:/|$)
