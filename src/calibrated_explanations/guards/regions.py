@@ -5,6 +5,8 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import KDTree
 from sklearn.utils import check_array
 
+from .intervals import union_intervals
+
 
 class ConformalRegionOracle:
     """Conformal Region Oracle for filtering out-of-distribution perturbations."""
@@ -39,11 +41,22 @@ class ConformalRegionOracle:
         self._trees = {}
         self._variances = {}
         self._martingale = None
+        # Global feature-wise bounds computed at fit-time (min, max)
+        self._global_mins = None
+        self._global_maxs = None
 
     def fit(self, xs, ys):
         """Build label-conditional cluster regions and calibrate radii."""
         x = check_array(xs)
         y = np.asarray(ys)
+
+        # Store global per-feature bounds to clip intervals later (G-05)
+        try:
+            self._global_mins = np.min(x, axis=0)
+            self._global_maxs = np.max(x, axis=0)
+        except Exception:
+            self._global_mins = None
+            self._global_maxs = None
 
         if self.mode == "clf":
             labels = np.unique(y)
@@ -140,26 +153,40 @@ class ConformalRegionOracle:
         radius = self._radii[label_ctx]
 
         intervals = []
-        for j in range(len(x_instance)):
-            feature_intervals = []
-            for c in range(len(centers)):
-                center = centers[c]
-                var = variances[c]
-                mu_j = center[j]
-                sigma_j = np.sqrt(var[j] + 1e-8)
 
-                # Compute s = sum_{i!=j} ((x_i - mu_i)^2 / sigma_i^2)
-                s = 0
-                for i in range(len(x_instance)):
-                    if i != j:
-                        mu_i = center[i]
-                        sigma_i = np.sqrt(var[i] + 1e-8)
-                        s += ((x_instance[i] - mu_i) ** 2) / (sigma_i**2 + 1e-8)
+        # Precompute per-cluster denominators (var + eps) for numerical stability
+        eps = 1e-8
+        n_features = len(x_instance)
+
+        # For each cluster, compute S_total = sum_i ((x_i - mu_i)^2 / denom_i)
+        # We'll reuse S_total and denom for each feature to avoid O(d^2) work.
+        per_cluster_s = []
+        per_cluster_centers = []
+        per_cluster_denoms = []
+        for c in range(len(centers)):
+            center = centers[c]
+            var = variances[c]
+            denom = var + eps
+            # Use numpy vectorized operations
+            s_total = float(np.sum(((x_instance - center) ** 2) / denom))
+            per_cluster_s.append(s_total)
+            per_cluster_centers.append(center)
+            per_cluster_denoms.append(denom)
+
+        # For each feature, compute intervals by subtracting the j-th contribution
+        for j in range(n_features):
+            abs_intervals = []
+            for c, center in enumerate(per_cluster_centers):
+                denom = per_cluster_denoms[c]
+                mu_j = center[j]
+                # s = S_total - contribution from feature j
+                s = per_cluster_s[c] - (((x_instance[j] - mu_j) ** 2) / denom[j])
 
                 if radius < s:
                     continue  # No interval from this cluster
 
-                d = (radius - s) * (sigma_j**2)
+                # sigma_j^2 is denom[j]
+                d = (radius - s) * denom[j]
                 if d < 0:
                     continue
 
@@ -167,19 +194,34 @@ class ConformalRegionOracle:
                 low = mu_j - delta
                 high = mu_j + delta
 
-                # Convert to relative intervals around x_instance[j]
-                rel_low = low - x_instance[j]
-                rel_high = high - x_instance[j]
+                # Intersect with known global feature domain (if available)
+                if self._global_mins is not None and self._global_maxs is not None:
+                    low = max(low, float(self._global_mins[j]))
+                    high = min(high, float(self._global_maxs[j]))
+                    if low > high:
+                        continue
 
-                feature_intervals.append((rel_low, rel_high))
+                abs_intervals.append((low, high))
 
-            # Union intervals (simplified: just collect all)
+            # Merge overlapping absolute intervals to reduce sampling overhead (G-06)
+            merged = union_intervals(abs_intervals) if abs_intervals else []
+
+            # Convert merged absolute intervals into relative intervals around x_instance[j]
+            feature_intervals = [
+                (low - x_instance[j], high - x_instance[j]) for (low, high) in merged
+            ]
             intervals.append(feature_intervals)
 
         return intervals
 
     def accept(self, x_prime, label_ctx):
-        """True if x_prime is inside a calibrated region; applies e-test if enabled."""
+        """Return True if x_prime is inside a calibrated region; apply the e-test if enabled.
+
+        The method returns a boolean indicating whether the provided point
+        ``x_prime`` lies inside the calibrated region for ``label_ctx``. If an
+        e-test (martingale) has been attached to the oracle it is consulted and
+        may cause the point to be rejected.
+        """
         if not self._fitted:
             return True  # If not fitted, accept
 
@@ -201,5 +243,14 @@ class ConformalRegionOracle:
         if mahal > radius:
             return False
 
-        # TODO: implement martingale if use_martingale
-        return not (self._martingale is not None and self._martingale.reject(x_prime))
+        # If a martingale e-test has been attached (either created in `fit`
+        # or injected manually in tests), consult it. This preserves the
+        # previous behavior where presence of `_martingale` governs whether
+        # the e-test is applied. The `use_martingale` flag controls whether
+        # `fit()` creates the `_martingale` by default, but we allow manual
+        # injection for tests and advanced usage.
+        if self._martingale is not None:
+            if self._martingale.reject(x_prime):
+                return False
+
+        return True
