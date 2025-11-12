@@ -116,7 +116,7 @@ G-13 ADR-028 skeleton (S)
 - Steps: Create ADR file defining guard semantics, constraints, guarantees, and caveats about structured perturbations.
 - Files: `docs/appendices/adr/ADR-028-guard-semantics.md`
 
-G-14 User guide `docs/guards.md` (M)
+G-14 User guide `docs/practitioner/guards.md` (M)
 - Steps: Usage examples; configuration; limitations; metrics to monitor.
 
 ### 6. Diagnostics and metrics
