@@ -351,6 +351,15 @@ class CalibratedExplainer:
 
         self.init_time = time() - init_time
 
+    def _label_ctx(self, x):
+        if self.guard is None:
+            return None
+        return self.guard.label_context(
+            x,
+            clf_predict_proba=getattr(self, "predict_function", None) if self.mode == "classification" else None,
+            reg_predict=getattr(self, "predict_function", None) if self.mode != "classification" else None,
+        )
+
     def _accept(self, x_prime, label_ctx):
         return True if self.guard is None else self.guard.accept(x_prime, label_ctx)
     
