@@ -948,8 +948,8 @@ class CalibratedExplainer:
             return None
         return self.guard.label_context(
             x,
-            clf_predict_proba=getattr(self, "_predict_proba", None),
-            reg_predict=getattr(self, "_predict_reg", None),
+            clf_predict_proba=getattr(self, "predict_function", None) if self.mode == "classification" else None,
+            reg_predict=getattr(self, "predict_function", None) if self.mode != "classification" else None,
         )
 
     def _accept(self, x_prime, label_ctx):

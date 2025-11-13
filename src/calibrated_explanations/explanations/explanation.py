@@ -1226,6 +1226,9 @@ class FactualExplanation(CalibratedExplanation):
                 continue
             if self.prediction["predict"] == self.feature_predict["predict"][f]:
                 continue
+            # Skip rules with empty weight uncertainty intervals
+            if self.feature_weights["low"][f] == self.feature_weights["high"][f]:
+                continue
             factual["predict"].append(self.feature_predict["predict"][f])
             factual["predict_low"].append(self.feature_predict["low"][f])
             factual["predict_high"].append(self.feature_predict["high"][f])
@@ -1381,16 +1384,19 @@ class FactualExplanation(CalibratedExplanation):
                     if rule_predict is None:
                         continue
 
+                    weight = rule_predict - self.prediction["predict"]
+                    weight_low = rule_low - self.prediction["predict"] if rule_low != -np.inf else -np.inf
+                    weight_high = rule_high - self.prediction["predict"] if rule_high != np.inf else np.inf
+                    # Skip rules with empty weight uncertainty intervals
+                    if weight_low == weight_high:
+                        continue
+                    
                     conjunctive_state["predict"].append(rule_predict)
                     conjunctive_state["predict_low"].append(rule_low)
                     conjunctive_state["predict_high"].append(rule_high)
-                    conjunctive_state["weight"].append(rule_predict - self.prediction["predict"])
-                    conjunctive_state["weight_low"].append(
-                        rule_low - self.prediction["predict"] if rule_low != -np.inf else -np.inf
-                    )
-                    conjunctive_state["weight_high"].append(
-                        rule_high - self.prediction["predict"] if rule_high != np.inf else np.inf
-                    )
+                    conjunctive_state["weight"].append(weight)
+                    conjunctive_state["weight_low"].append(weight_low)
+                    conjunctive_state["weight_high"].append(weight_high)
                     conjunctive_state["value"].append(
                         factual["value"][f1] + "\n" + conjunctive_state["value"][cf2]
                     )
@@ -1793,22 +1799,27 @@ class AlternativeExplanation(CalibratedExplanation):
                         and self.prediction["high"] == instance_high[f][value_bin]
                     ):
                         continue
+                    weight_low = (
+                        instance_low[f][value_bin] - self.prediction["predict"]
+                        if instance_low[f][value_bin] != -np.inf
+                        else instance_low[f][value_bin]
+                    )
+                    weight_high = (
+                        instance_high[f][value_bin] - self.prediction["predict"]
+                        if instance_high[f][value_bin] != np.inf
+                        else instance_high[f][value_bin]
+                    )
+                    # Skip rules with empty weight uncertainty intervals
+                    if weight_low == weight_high:
+                        continue
                     alternative["predict"].append(instance_predict[f][value_bin])
                     alternative["predict_low"].append(instance_low[f][value_bin])
                     alternative["predict_high"].append(instance_high[f][value_bin])
                     alternative["weight"].append(
                         instance_predict[f][value_bin] - self.prediction["predict"]
                     )
-                    alternative["weight_low"].append(
-                        instance_low[f][value_bin] - self.prediction["predict"]
-                        if instance_low[f][value_bin] != -np.inf
-                        else instance_low[f][value_bin]
-                    )
-                    alternative["weight_high"].append(
-                        instance_high[f][value_bin] - self.prediction["predict"]
-                        if instance_high[f][value_bin] != np.inf
-                        else instance_high[f][value_bin]
-                    )
+                    alternative["weight_low"].append(weight_low)
+                    alternative["weight_high"].append(weight_high)
                     if self._get_explainer().categorical_labels is not None:
                         alternative["value"].append(
                             self._get_explainer().categorical_labels[f][int(instance[f])]
@@ -1841,22 +1852,27 @@ class AlternativeExplanation(CalibratedExplanation):
                         instance_low[f][value_bin]
                     ) and self.prediction["high"] == safe_mean(instance_high[f][value_bin]):
                         continue
+                    weight_low = (
+                        safe_mean(instance_low[f][value_bin]) - self.prediction["predict"]
+                        if instance_low[f][value_bin] != -np.inf
+                        else instance_low[f][value_bin]
+                    )
+                    weight_high = (
+                        safe_mean(instance_high[f][value_bin]) - self.prediction["predict"]
+                        if instance_high[f][value_bin] != np.inf
+                        else instance_high[f][value_bin]
+                    )
+                    # Skip rules with empty weight uncertainty intervals
+                    if weight_low == weight_high:
+                        continue
                     alternative["predict"].append(safe_mean(instance_predict[f][value_bin]))
                     alternative["predict_low"].append(safe_mean(instance_low[f][value_bin]))
                     alternative["predict_high"].append(safe_mean(instance_high[f][value_bin]))
                     alternative["weight"].append(
                         safe_mean(instance_predict[f][value_bin]) - self.prediction["predict"]
                     )
-                    alternative["weight_low"].append(
-                        safe_mean(instance_low[f][value_bin]) - self.prediction["predict"]
-                        if instance_low[f][value_bin] != -np.inf
-                        else instance_low[f][value_bin]
-                    )
-                    alternative["weight_high"].append(
-                        safe_mean(instance_high[f][value_bin]) - self.prediction["predict"]
-                        if instance_high[f][value_bin] != np.inf
-                        else instance_high[f][value_bin]
-                    )
+                    alternative["weight_low"].append(weight_low)
+                    alternative["weight_high"].append(weight_high)
                     alternative["value"].append(str(np.around(instance[f], decimals=2)))
                     alternative["feature"].append(f)
                     alternative["sampled_values"].append(self.binned["rule_values"][f][0][0])
@@ -1873,22 +1889,27 @@ class AlternativeExplanation(CalibratedExplanation):
                         instance_low[f][value_bin]
                     ) and self.prediction["high"] == safe_mean(instance_high[f][value_bin]):
                         continue
+                    weight_low = (
+                        safe_mean(instance_low[f][value_bin]) - self.prediction["predict"]
+                        if instance_low[f][value_bin] != -np.inf
+                        else instance_low[f][value_bin]
+                    )
+                    weight_high = (
+                        safe_mean(instance_high[f][value_bin]) - self.prediction["predict"]
+                        if instance_high[f][value_bin] != np.inf
+                        else instance_high[f][value_bin]
+                    )
+                    # Skip rules with empty weight uncertainty intervals
+                    if weight_low == weight_high:
+                        continue
                     alternative["predict"].append(safe_mean(instance_predict[f][value_bin]))
                     alternative["predict_low"].append(safe_mean(instance_low[f][value_bin]))
                     alternative["predict_high"].append(safe_mean(instance_high[f][value_bin]))
                     alternative["weight"].append(
                         safe_mean(instance_predict[f][value_bin]) - self.prediction["predict"]
                     )
-                    alternative["weight_low"].append(
-                        safe_mean(instance_low[f][value_bin]) - self.prediction["predict"]
-                        if instance_low[f][value_bin] != -np.inf
-                        else instance_low[f][value_bin]
-                    )
-                    alternative["weight_high"].append(
-                        safe_mean(instance_high[f][value_bin]) - self.prediction["predict"]
-                        if instance_high[f][value_bin] != np.inf
-                        else instance_high[f][value_bin]
-                    )
+                    alternative["weight_low"].append(weight_low)
+                    alternative["weight_high"].append(weight_high)
                     alternative["value"].append(str(np.around(instance[f], decimals=2)))
                     alternative["feature"].append(f)
                     alternative["sampled_values"].append(
@@ -2289,16 +2310,20 @@ class AlternativeExplanation(CalibratedExplanation):
                     if rule_predict is None:
                         continue
 
+                    weight = rule_predict - self.prediction["predict"]
+                    weight_low = rule_low - self.prediction["predict"] if rule_low != -np.inf else -np.inf
+                    weight_high = rule_high - self.prediction["predict"] if rule_high != np.inf else np.inf
+                    # Skip rules with empty weight uncertainty intervals
+                    if weight_low == weight_high:
+                        continue
+                    
                     conjunctive_state["predict"].append(rule_predict)
                     conjunctive_state["predict_low"].append(rule_low)
                     conjunctive_state["predict_high"].append(rule_high)
-                    conjunctive_state["weight"].append(rule_predict - self.prediction["predict"])
-                    conjunctive_state["weight_low"].append(
-                        rule_low - self.prediction["predict"] if rule_low != -np.inf else -np.inf
-                    )
-                    conjunctive_state["weight_high"].append(
-                        rule_high - self.prediction["predict"] if rule_high != np.inf else np.inf
-                    )
+                    conjunctive_state["weight"].append(weight)
+                    conjunctive_state["weight_low"].append(weight_low)
+                    conjunctive_state["weight_high"].append(weight_high)
+                    
                     conjunctive_state["value"].append(
                         alternative["value"][f1] + "\n" + conjunctive_state["value"][cf2]
                     )
