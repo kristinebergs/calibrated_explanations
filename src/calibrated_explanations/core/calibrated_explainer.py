@@ -104,7 +104,6 @@ class CalibratedExplainer:
         class_labels=None,
         bins=None,
         difficulty_estimator=None,
-        guard=None,
         guard_params=None,
         **kwargs,
     ) -> None:
@@ -133,10 +132,10 @@ class CalibratedExplainer:
             Pre-computed Mondrian categories for fast explanations.
         difficulty_estimator : Any or None, optional
             Optional crepes ``DifficultyEstimator`` instance for regression tasks.
-        guard : Any or None, optional
-            Optional perturbation guard object or factory spec. Default None.
         guard_params : dict or None, optional
-            Parameters for guard instantiation if guard is a spec.
+            Optional dict of parameters for ConformalRegionOracle (e.g., 
+            ``{'alpha': 0.1, 'n_clusters': 5}``). If provided, a fitted guard
+            will be initialized after interval_learner setup.
         **kwargs : Any
             Advanced configuration flags preserved for backward compatibility.
 
@@ -152,7 +151,6 @@ class CalibratedExplainer:
 
         init_time = time()
         self.__initialized = False
-        self._guard_spec = None
         preprocessor_metadata = kwargs.pop("preprocessor_metadata", None)
         if isinstance(preprocessor_metadata, Mapping):
             self._preprocessor_metadata: Dict[str, Any] | None = dict(preprocessor_metadata)
@@ -170,6 +168,8 @@ class CalibratedExplainer:
         # crepes broadcasting/shape errors (useful for synthetic tiny datasets).
         self.suppress_crepes_errors = bool(kwargs.get("suppress_crepes_errors", False))
         self.oob = kwargs.get("oob", False)
+        self.guard = None  # Will be fitted after interval_learner is initialized
+        self.guard_params = guard_params if isinstance(guard_params, dict) else {}
         self._categorical_value_counts_cache: Dict[int, Dict[Any, int]] | None = None
         self._numeric_sorted_cache: Dict[int, np.ndarray] | None = None
         self._calibration_summary_shape: Tuple[int, int] | None = None
@@ -340,12 +340,14 @@ class CalibratedExplainer:
         from .calibration.interval_learner import initialize_interval_learner as _init_il
 
         _init_il(self)
+
+        # Fit guard if guard_params provided
+        if self.guard_params:
+            self.__fit_guard()
+
         self.reject_learner = (
             self.initialize_reject_learner() if kwargs.get("reject", False) else None
         )
-
-        # Initialize guard
-        self.set_guard(guard, guard_params)
 
         self._predict_bridge = LegacyPredictBridge(self)
 
@@ -552,46 +554,6 @@ class CalibratedExplainer:
             self._preprocessor_metadata = None
         else:
             self._preprocessor_metadata = dict(metadata)
-
-    def set_guard(self, guard: Any, guard_params: Dict[str, Any] | None = None) -> None:
-        """Set or update the perturbation guard.
-
-        Parameters
-        ----------
-        guard : Any or None
-            The perturbation guard object, class, or factory spec (e.g., "conformal_regions").
-        guard_params : dict or None, optional
-            Parameters for guard instantiation if guard is a spec. Default None.
-        """
-        self._guard_spec = guard if isinstance(guard, (str, type)) else None
-        self.guard = guard
-        self.guard_params = guard_params or {}
-        if self.guard is not None:
-            if isinstance(self.guard, type):
-                # It's a class, instantiate
-                self.guard = self.guard(**self.guard_params)
-            elif isinstance(self.guard, str):
-                # Factory spec, e.g., "conformal_regions"
-                if self.guard == "conformal_regions":
-                    from ..guards import ConformalRegionOracle
-
-                    self.guard = ConformalRegionOracle(**self.guard_params)
-                else:
-                    raise ValueError(f"Unknown guard spec: {self.guard}")
-            # Fit the guard if calibration data is available
-            if hasattr(self, "_X_cal") and hasattr(self, "_y_cal"):
-                self.guard.fit(self.x_cal, self.y_cal)
-
-    def _update_guard(self) -> None:
-        """Re-instantiate or refit the guard if previously set."""
-        # Use getattr to tolerate instances created via __new__ in tests
-        guard_spec = getattr(self, "_guard_spec", None)
-        guard_params = getattr(self, "guard_params", {})
-        guard_obj = getattr(self, "guard", None)
-        if guard_spec is not None:
-            self.set_guard(guard_spec, guard_params)
-        elif guard_obj is not None and hasattr(guard_obj, "fit"):
-            guard_obj.fit(self.x_cal, self.y_cal)
 
     @property
     def x_cal(self):
@@ -823,7 +785,6 @@ class CalibratedExplainer:
 
             _init_il(self)
         self.__initialized = True
-        self._update_guard()
 
     def __repr__(self):
         """Return the string representation of the CalibratedExplainer."""
@@ -1126,7 +1087,7 @@ class CalibratedExplainer:
 
         return _ih(self, x, low_high_percentiles, threshold, bins, features_to_ignore)
 
-    def explain_fast(
+        def explain_fast(
         self,
         x,
         threshold=None,
@@ -1337,29 +1298,9 @@ class CalibratedExplainer:
         candidates = np.percentile(
             self.x_cal[self.x_cal[:, f] > greater, f], self.sample_percentiles
         )
-        if getattr(self, "guard", None) is not None and x is not None and label_ctx is not None:
-            from ..guards.intervals import in_intervals
-
-            try:
-                allowed_intervals = self.guard.intervals(x, label_ctx)[f]
-                candidates = np.array(
-                    [v for v in candidates if in_intervals(v - x[f], allowed_intervals)]
-                )
-            except (
-                Exception
-            ) as exc:  # Defensive: if guard fails, fall back to unfiltered candidates
-                _logging.getLogger("calibrated_explanations").warning(
-                    "Perturbation guard.intervals failed; falling back to unfiltered candidates: %s",
-                    exc,
-                )
-                if getattr(self, "verbose", False):
-                    _warnings.warn(
-                        "Perturbation guard failed during interval computation; proceeding without guard filtering.",
-                        stacklevel=2,
-                    )
         return candidates
 
-    def __get_lesser_values(self, f: int, lesser: float, x=None, label_ctx=None):
+    def __get_lesser_values(self, f: int, lesser: float):
         """Get sampled values below ``lesser`` for numerical features.
 
         Uses percentile sampling from calibration data.
@@ -1369,29 +1310,9 @@ class CalibratedExplainer:
         candidates = np.percentile(
             self.x_cal[self.x_cal[:, f] < lesser, f], self.sample_percentiles
         )
-        if getattr(self, "guard", None) is not None and x is not None and label_ctx is not None:
-            from ..guards.intervals import in_intervals
-
-            try:
-                allowed_intervals = self.guard.intervals(x, label_ctx)[f]
-                candidates = np.array(
-                    [v for v in candidates if in_intervals(v - x[f], allowed_intervals)]
-                )
-            except (
-                Exception
-            ) as exc:  # Defensive: if guard fails, fall back to unfiltered candidates
-                _logging.getLogger("calibrated_explanations").warning(
-                    "Perturbation guard.intervals failed; falling back to unfiltered candidates: %s",
-                    exc,
-                )
-                if getattr(self, "verbose", False):
-                    _warnings.warn(
-                        "Perturbation guard failed during interval computation; proceeding without guard filtering.",
-                        stacklevel=2,
-                    )
         return candidates
 
-    def __get_covered_values(self, f: int, lesser: float, greater: float, x=None, label_ctx=None):
+    def __get_covered_values(self, f: int, lesser: float, greater: float):
         """Get sampled values within the ``[lesser, greater]`` interval.
 
         Uses percentile sampling from calibration data.
@@ -1400,26 +1321,6 @@ class CalibratedExplainer:
         if len(covered) == 0:
             return np.array([])
         candidates = np.percentile(self.x_cal[covered, f], self.sample_percentiles)
-        if getattr(self, "guard", None) is not None and x is not None and label_ctx is not None:
-            from ..guards.intervals import in_intervals
-
-            try:
-                allowed_intervals = self.guard.intervals(x, label_ctx)[f]
-                candidates = np.array(
-                    [v for v in candidates if in_intervals(v - x[f], allowed_intervals)]
-                )
-            except (
-                Exception
-            ) as exc:  # Defensive: if guard fails, fall back to unfiltered candidates
-                _logging.getLogger("calibrated_explanations").warning(
-                    "Perturbation guard.intervals failed; falling back to unfiltered candidates: %s",
-                    exc,
-                )
-                if getattr(self, "verbose", False):
-                    _warnings.warn(
-                        "Perturbation guard failed during interval computation; proceeding without guard filtering.",
-                        stacklevel=2,
-                    )
         return candidates
 
     def set_seed(self, seed: int) -> None:
