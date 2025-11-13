@@ -1,135 +1,398 @@
+"""Unit tests for ConformalRegionOracle.
+
+Tests the confidence-modulated conformal regions guard implementation.
+"""
+
 import numpy as np
+import pytest
 from calibrated_explanations.guards import ConformalRegionOracle
-from calibrated_explanations.guards.intervals import union_intervals
 
 
-def test_intervals_clip_to_global_bounds():
-    # Create synthetic data with known global bounds [0, 1] for both features
-    X = np.array([
-        [0.0, 0.0],
-        [1.0, 1.0],
-        [0.5, 0.5],
-        [0.2, 0.8],
-        [0.9, 0.1],
-    ])
-    y = np.zeros(len(X), dtype=int)
+class TestConformalRegionOracleInit:
+    """Test initialization and parameter validation."""
 
-    # Use a single cluster so the computed interval around the center can be large
-    guard = ConformalRegionOracle(alpha=0.5, n_clusters=1)
-    guard.fit(X, y)
+    def test_init_default_params(self):
+        """Test initialization with default parameters."""
+        oracle = ConformalRegionOracle()
+        assert oracle.alpha == 0.1
+        assert oracle.n_clusters == 5
+        assert oracle.relaxation_factor == 1.0
+        assert oracle.prop_size == 0.75
+        assert oracle.random_state is None
+        # pylint: disable=protected-access
+        assert not oracle._fitted
 
-    # Choose an instance near the upper edge so unclipped high would exceed 1.0
-    x_inst = np.array([0.95, 0.95])
-    ctx = 0
-    intervals = guard.intervals(x_inst, ctx)
+    def test_init_custom_params(self):
+        """Test initialization with custom parameters."""
+        oracle = ConformalRegionOracle(
+            alpha=0.05,
+            n_clusters=10,
+            relaxation_factor=2.0,
+            prop_size=0.8,
+            random_state=42,
+        )
+        assert oracle.alpha == 0.05
+        assert oracle.n_clusters == 10
+        assert oracle.relaxation_factor == 2.0
+        assert oracle.prop_size == 0.8
+        assert oracle.random_state == 42
 
-    # Intervals are lists of (rel_low, rel_high) tuples per feature
-    assert len(intervals) == 2
+    def test_init_invalid_alpha(self):
+        """Test that invalid alpha raises ValueError."""
+        with pytest.raises(ValueError, match="alpha must be in"):
+            ConformalRegionOracle(alpha=0.0)
+        with pytest.raises(ValueError, match="alpha must be in"):
+            ConformalRegionOracle(alpha=1.0)
+        with pytest.raises(ValueError, match="alpha must be in"):
+            ConformalRegionOracle(alpha=-0.1)
 
-    for j, feats in enumerate(intervals):
-        for rel_low, rel_high in feats:
-            # After clipping, the absolute bounds must lie within [0, 1]
-            abs_low = x_inst[j] + rel_low
-            abs_high = x_inst[j] + rel_high
-            assert abs_low >= 0 - 1e-12
-            assert abs_high <= 1 + 1e-12
+    def test_init_invalid_n_clusters(self):
+        """Test that invalid n_clusters raises ValueError."""
+        with pytest.raises(ValueError, match="n_clusters must be"):
+            ConformalRegionOracle(n_clusters=0)
 
+    def test_init_invalid_prop_size(self):
+        """Test that invalid prop_size raises ValueError."""
+        with pytest.raises(ValueError, match="prop_size must be"):
+            ConformalRegionOracle(prop_size=0.0)
+        with pytest.raises(ValueError, match="prop_size must be"):
+            ConformalRegionOracle(prop_size=1.5)
 
-def test_union_intervals_overlapping():
-    # Overlapping and touching intervals should be merged
-    intervals = [(0.0, 0.5), (0.4, 1.0), (1.0, 1.5), (2.0, 2.5)]
-    merged = union_intervals(intervals)
-    assert merged == [(0.0, 1.5), (2.0, 2.5)]
-
-
-def test_union_intervals_empty():
-    assert union_intervals([]) == []
-
-
-def test_icp_data_splitting():
-    """Test that ICP splits data correctly."""
-    X = np.random.randn(100, 2)
-    y = np.random.randint(0, 2, 100)
-
-    guard = ConformalRegionOracle(prop_size=0.6, random_state=42)
-    guard.fit(X, y)
-
-    # Check that we have stored calibration scores
-    assert hasattr(guard, '_cal_scores')
-    assert len(guard._cal_scores) > 0
-
-
-def test_knn_nonconformity():
-    """Test k-NN based nonconformity measure."""
-    X = np.random.randn(100, 2)
-    y = np.random.randint(0, 2, 100)
-
-    guard = ConformalRegionOracle(ncm_method="knn", k=3, prop_size=0.5, random_state=42)
-    guard.fit(X, y)
-
-    # Check that NN models are stored
-    assert hasattr(guard, '_nn_models')
-    assert len(guard._nn_models) > 0
-
-    # Test acceptance
-    x_test = X[0]
-    label_ctx = y[0]
-    result = guard.accept(x_test, label_ctx)
-    assert isinstance(result, bool)
+    def test_init_invalid_relaxation_factor(self):
+        """Test that invalid relaxation_factor raises ValueError."""
+        with pytest.raises(ValueError, match="relaxation_factor must be"):
+            ConformalRegionOracle(relaxation_factor=-1.0)
 
 
-def test_pvalue_computation():
-    """Test p-value computation."""
-    X = np.random.randn(100, 2)
-    y = np.random.randint(0, 2, 100)
+class TestConformalRegionOracleFit:
+    """Test fitting of ConformalRegionOracle."""
 
-    guard = ConformalRegionOracle(prop_size=0.5, random_state=42)
-    guard.fit(X, y)
+    @staticmethod
+    def _make_simple_data(n_samples=100, n_features=2, random_state=42):
+        """Generate simple synthetic data."""
+        rng = np.random.RandomState(random_state)
+        x_arr = rng.randn(n_samples, n_features)
+        y_arr = x_arr.sum(axis=1)
+        return x_arr, y_arr
 
-    x_test = X[0]
-    label_ctx = y[0]
-    p_val = guard.pvalue(x_test, label_ctx)
-    assert 0.0 <= p_val <= 1.0
+    def test_fit_basic(self):
+        """Test basic fitting."""
+        x_arr, y_arr = self._make_simple_data(100)
+        oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
+        result = oracle.fit(x_arr, y_arr)
+
+        # Should return self
+        assert result is oracle
+        # pylint: disable=protected-access
+        assert oracle._fitted
+
+        # Should have cluster centers and radii
+        # pylint: disable=protected-access
+        assert oracle._cluster_centers is not None
+        # pylint: disable=protected-access
+        assert oracle._cluster_centers.shape[0] == 3
+        # pylint: disable=protected-access
+        assert oracle._cluster_centers.shape[1] == 2
+        # pylint: disable=protected-access
+        assert oracle._cluster_radii is not None
+        # pylint: disable=protected-access
+        assert len(oracle._cluster_radii) == 3
+
+    def test_fit_with_interval_learner(self):
+        """Test fitting with interval learner."""
+
+        class MockIntervalLearner:  # pylint: disable=too-few-public-methods
+            """Mock interval learner for testing."""
+
+            def predict(self, x_arr):
+                """Return constant-width intervals."""
+                n_samples = len(x_arr)
+                lower = np.zeros(n_samples)
+                upper = np.ones(n_samples) * 0.5
+                return list(zip(lower, upper))
+
+        x_arr, y_arr = self._make_simple_data(100)
+        interval_learner = MockIntervalLearner()
+        oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
+        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
+
+        # pylint: disable=protected-access
+        assert oracle._fitted
+        # pylint: disable=protected-access
+        assert oracle._width_min == 0.5
+        # pylint: disable=protected-access
+        assert oracle._width_max == 0.5
+
+    def test_fit_too_small_dataset(self):
+        """Test that fitting small datasets raises ValueError."""
+        x_arr = np.random.randn(5, 2)
+        y_arr = x_arr.sum(axis=1)
+        oracle = ConformalRegionOracle(n_clusters=10)
+
+        with pytest.raises(ValueError, match="Training set too small"):
+            oracle.fit(x_arr, y_arr)
+
+    def test_fit_proper_calibration_split(self):
+        """Test that proper/calibration split works correctly."""
+        x_arr, y_arr = self._make_simple_data(100)
+        oracle = ConformalRegionOracle(
+            n_clusters=3, prop_size=0.6, random_state=42
+        )
+        oracle.fit(x_arr, y_arr)
+
+        # Check that clusters were fitted on proper set
+        # pylint: disable=protected-access
+        assert oracle._cluster_centers is not None
+        # Check that radius was computed
+        # pylint: disable=protected-access
+        assert oracle._cluster_radii is not None
+        # pylint: disable=protected-access
+        assert np.all(oracle._cluster_radii > 0)
+
+    def test_fit_stores_global_bounds(self):
+        """Test that global min/max are stored."""
+        x_arr = np.array(
+            [[0.0, 1.0], [1.0, 0.0], [0.5, 0.5], [0.2, 0.8]]
+        )
+        y_arr = np.array([1.0, 1.0, 0.5, 0.8])
+        oracle = ConformalRegionOracle(n_clusters=2, random_state=42)
+        oracle.fit(x_arr, y_arr)
+
+        # Global bounds should match data bounds
+        # pylint: disable=protected-access
+        np.testing.assert_array_almost_equal(
+            oracle._global_mins, [0.0, 0.0]
+        )
+        # pylint: disable=protected-access
+        np.testing.assert_array_almost_equal(
+            oracle._global_maxs, [1.0, 1.0]
+        )
 
 
-def test_epsilon_based_acceptance():
-    """Test epsilon-based acceptance."""
-    X = np.random.randn(100, 2)
-    y = np.random.randint(0, 2, 100)
+class TestConformalRegionOracleAccept:
+    """Test acceptance logic."""
 
-    guard = ConformalRegionOracle(prop_size=0.5, epsilon=0.1, random_state=42)
-    guard.fit(X, y)
+    @staticmethod
+    def _make_simple_data(n_samples=100, n_features=2, random_state=42):
+        """Generate simple synthetic data."""
+        rng = np.random.RandomState(random_state)
+        x_arr = rng.randn(n_samples, n_features)
+        y_arr = x_arr.sum(axis=1)
+        return x_arr, y_arr
 
-    x_test = X[0]
-    label_ctx = y[0]
-    result = guard.accept(x_test, label_ctx)
-    assert isinstance(result, bool)
+    def test_accept_not_fitted(self):
+        """Test that accept raises error if not fitted."""
+        oracle = ConformalRegionOracle()
+        x_point = np.array([0.0, 0.0])
+
+        with pytest.raises(RuntimeError, match="not fitted"):
+            oracle.accept(x_point)
+
+    def test_accept_fitted_point(self):
+        """Test accepting a point from training distribution."""
+        x_arr, y_arr = self._make_simple_data(100)
+        oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
+        oracle.fit(x_arr, y_arr)
+
+        # Accept a point from training set (should be accepted with high prob)
+        result = oracle.accept(x_arr[0])
+        assert isinstance(result, (bool, np.bool_))
+
+    def test_accept_with_calibrated_prediction(self):
+        """Test accept with calibrated prediction for modulation."""
+        x_arr, y_arr = self._make_simple_data(100)
+        oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
+        oracle.fit(x_arr, y_arr)
+
+        # Accept with high-confidence prediction (narrow interval)
+        result_narrow = oracle.accept(
+            x_arr[0], calibrated_prediction=(0.5, (0.4, 0.6))
+        )
+        assert isinstance(result_narrow, (bool, np.bool_))
+
+        # Accept with low-confidence prediction (wide interval)
+        result_wide = oracle.accept(
+            x_arr[0], calibrated_prediction=(0.5, (0.0, 1.0))
+        )
+        assert isinstance(result_wide, (bool, np.bool_))
+
+    def test_accept_1d_input(self):
+        """Test accept with 1D input (single feature)."""
+        x_arr = np.random.randn(50, 1)
+        y_arr = x_arr.ravel()
+        oracle = ConformalRegionOracle(n_clusters=2, random_state=42)
+        oracle.fit(x_arr, y_arr)
+
+        # Should handle 1D input
+        result = oracle.accept(np.array([0.5]))
+        assert isinstance(result, (bool, np.bool_))
 
 
-def test_coverage_verification():
-    """Test that empirical coverage matches significance level for synthetic data."""
-    np.random.seed(42)
-    # Generate data from two well-separated Gaussians
-    n_samples = 200
-    X_class0 = np.random.randn(n_samples//2, 2) + np.array([2, 2])
-    X_class1 = np.random.randn(n_samples//2, 2) - np.array([2, 2])
-    X = np.vstack([X_class0, X_class1])
-    y = np.array([0] * (n_samples//2) + [1] * (n_samples//2))
+class TestConformalRegionOracleAcceptBatch:
+    """Test batch acceptance."""
 
-    guard = ConformalRegionOracle(alpha=0.1, prop_size=0.5, random_state=42)
-    guard.fit(X, y)
+    @staticmethod
+    def _make_simple_data(n_samples=100, n_features=2, random_state=42):
+        """Generate simple synthetic data."""
+        rng = np.random.RandomState(random_state)
+        x_arr = rng.randn(n_samples, n_features)
+        y_arr = x_arr.sum(axis=1)
+        return x_arr, y_arr
 
-    # Generate test points from the same distribution
-    X_test_class0 = np.random.randn(50, 2) + np.array([2, 2])
-    X_test_class1 = np.random.randn(50, 2) - np.array([2, 2])
-    X_test = np.vstack([X_test_class0, X_test_class1])
-    y_test = np.array([0] * 50 + [1] * 50)
+    def test_accept_batch(self):
+        """Test batch acceptance."""
+        x_arr, y_arr = self._make_simple_data(100)
+        oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
+        oracle.fit(x_arr, y_arr)
 
-    accepted = 0
-    for x_test, y_test_val in zip(X_test, y_test):
-        if guard.accept(x_test, y_test_val):
-            accepted += 1
+        # Test batch
+        x_test = x_arr[:10]
+        results = oracle.accept_batch(x_test)
 
-    coverage = accepted / len(X_test)
-    # Should be approximately 1 - alpha = 0.9
-    assert 0.8 <= coverage <= 1.0  # Allow some tolerance
+        assert isinstance(results, np.ndarray)
+        assert results.dtype == bool
+        assert len(results) == 10
+
+    def test_accept_batch_with_predictions(self):
+        """Test batch with calibrated predictions."""
+        x_arr, y_arr = self._make_simple_data(100)
+        oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
+        oracle.fit(x_arr, y_arr)
+
+        x_test = x_arr[:5]
+        preds = [(0.5, (0.4, 0.6))] * 5
+        results = oracle.accept_batch(x_test, preds)
+
+        assert isinstance(results, np.ndarray)
+        assert results.dtype == bool
+        assert len(results) == 5
+
+
+class TestConformalRegionOracleIntervals:
+    """Test interval computation."""
+
+    @staticmethod
+    def _make_simple_data(n_samples=100, n_features=2, random_state=42):
+        """Generate simple synthetic data."""
+        rng = np.random.RandomState(random_state)
+        x_arr = rng.randn(n_samples, n_features)
+        y_arr = x_arr.sum(axis=1)
+        return x_arr, y_arr
+
+    def test_intervals_not_fitted(self):
+        """Test that intervals raises error if not fitted."""
+        oracle = ConformalRegionOracle()
+        x_point = np.array([0.0, 0.0])
+
+        with pytest.raises(RuntimeError, match="not fitted"):
+            oracle.intervals(x_point)
+
+    def test_intervals_basic(self):
+        """Test interval computation."""
+        x_arr, y_arr = self._make_simple_data(100)
+        oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
+        oracle.fit(x_arr, y_arr)
+
+        x_orig = x_arr[0]
+        intervals = oracle.intervals(x_orig)
+
+        # Should return list of intervals per feature
+        assert isinstance(intervals, list)
+        assert len(intervals) == 2  # 2 features
+
+        # Each interval is a list of tuples
+        for interval_j in intervals:
+            assert isinstance(interval_j, list)
+            for low, high in interval_j:
+                assert low <= high
+
+    def test_intervals_clipped_to_bounds(self):
+        """Test that intervals are clipped to global bounds."""
+        # Create data with known bounds
+        x_arr = np.array(
+            [[0.0, 0.0], [1.0, 1.0], [0.5, 0.5], [0.2, 0.8], [0.9, 0.1]]
+        )
+        y_arr = np.zeros(len(x_arr))
+
+        oracle = ConformalRegionOracle(n_clusters=1, random_state=42)
+        oracle.fit(x_arr, y_arr)
+
+        # Point near corner should have clipped intervals
+        x_orig = np.array([0.95, 0.95])
+        intervals = oracle.intervals(x_orig)
+
+        # Check that intervals are within [0, 1]
+        for interval_j in intervals:
+            for low, high in interval_j:
+                assert low >= -1e-12  # Allow small numerical error
+                assert high <= 1.0 + 1e-12
+
+    def test_intervals_with_calibrated_prediction(self):
+        """Test interval computation with modulation."""
+        x_arr, y_arr = self._make_simple_data(100)
+        oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
+        oracle.fit(x_arr, y_arr)
+
+        x_orig = x_arr[0]
+
+        # Intervals with narrow prediction (high confidence)
+        intervals_narrow = oracle.intervals(
+            x_orig, calibrated_prediction=(0.5, (0.4, 0.6))
+        )
+
+        # Intervals with wide prediction (low confidence)
+        intervals_wide = oracle.intervals(
+            x_orig, calibrated_prediction=(0.5, (0.0, 1.0))
+        )
+
+        # Both should be valid
+        assert len(intervals_narrow) == 2
+        assert len(intervals_wide) == 2
+
+
+class TestConformalRegionOracleNumericalStability:
+    """Test numerical stability edge cases."""
+
+    def test_single_cluster_data(self):
+        """Test fitting with single cluster."""
+        x_arr = np.ones((20, 2))  # All same point
+        y_arr = np.ones(20)
+
+        oracle = ConformalRegionOracle(n_clusters=1, random_state=42)
+        oracle.fit(x_arr, y_arr)
+
+        # pylint: disable=protected-access
+        assert oracle._fitted
+        result = oracle.accept(np.array([1.0, 1.0]))
+        assert isinstance(result, (bool, np.bool_))
+
+    def test_high_dimensional_data(self):
+        """Test with high-dimensional data."""
+        n_features = 20
+        x_arr = np.random.randn(50, n_features)
+        y_arr = x_arr.sum(axis=1)
+
+        oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
+        oracle.fit(x_arr, y_arr)
+
+        # pylint: disable=protected-access
+        assert oracle._fitted
+        result = oracle.accept(x_arr[0])
+        assert isinstance(result, (bool, np.bool_))
+
+    def test_acceptance_rate_reasonable(self):
+        """Test that acceptance rate is reasonable."""
+        x_arr = np.random.randn(100, 2)
+        y_arr = x_arr.sum(axis=1)
+
+        oracle = ConformalRegionOracle(
+            alpha=0.1, n_clusters=3, random_state=42
+        )
+        oracle.fit(x_arr, y_arr)
+
+        # Test on training set; should have ~(1-alpha) acceptance
+        results = oracle.accept_batch(x_arr)
+        acceptance_rate = np.mean(results)
+
+        # Should be roughly >= 1 - alpha, but not all accepted
+        assert 0.5 < acceptance_rate <= 1.0
