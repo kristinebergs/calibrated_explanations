@@ -171,7 +171,7 @@ class CalibratedExplainer:
         # crepes broadcasting/shape errors (useful for synthetic tiny datasets).
         self.suppress_crepes_errors = bool(kwargs.get("suppress_crepes_errors", False))
         self.oob = kwargs.get("oob", False)
-        self.guard = None  # Will be fitted after interval_learner is initialized
+        self.guard = kwargs.pop("guard", None)  # May be a pre-fitted guard or None
         self.guard_params = guard_params if isinstance(guard_params, dict) else {}
         self._categorical_value_counts_cache: Dict[int, Dict[Any, int]] | None = None
         self._numeric_sorted_cache: Dict[int, np.ndarray] | None = None
@@ -344,13 +344,16 @@ class CalibratedExplainer:
 
         _init_il(self)
 
-        # Fit guard if guard_params provided
+        # Fit guard if guard_params provided, or validate pre-fitted guard
         if self.guard_params:
             self.__fit_guard()
-
-        # Fit guard if guard_params provided
-        if self.guard_params:
-            self.__fit_guard()
+        elif self.guard is not None:
+            # Validate that pre-fitted guard has _fitted attribute
+            if not hasattr(self.guard, '_fitted') or not self.guard._fitted:
+                _logging.getLogger(__name__).warning(
+                    "Pre-fitted guard does not have _fitted=True. "
+                    "Guard initialization may not have completed properly."
+                )
 
         self.reject_learner = (
             self.initialize_reject_learner() if kwargs.get("reject", False) else None
@@ -1094,7 +1097,7 @@ class CalibratedExplainer:
 
         return _ih(self, x, low_high_percentiles, threshold, bins, features_to_ignore)
 
-        def explain_fast(
+    def explain_fast(
         self,
         x,
         threshold=None,

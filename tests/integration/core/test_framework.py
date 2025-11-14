@@ -170,17 +170,21 @@ def test_explanation_functions_regression(regression_dataset):
 
 def test_guard_integration(binary_dataset):
     """Test guard integration with CalibratedExplainer."""
-    from calibrated_explanations.guards import ConformalRegionOracle
-
     x_prop_train, y_prop_train, x_prop_test, y_prop_test, _, _, _, _, _, _ = binary_dataset
     model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
 
-    guard = ConformalRegionOracle(alpha=0.1, n_clusters=3)
-    ce = CalibratedExplainer(model, x_prop_train, y_prop_train, guard=guard)
+    # Use guard_params to have the guard fitted automatically during initialization
+    ce = CalibratedExplainer(
+        model,
+        x_prop_train,
+        y_prop_train,
+        guard_params={'alpha': 0.1, 'n_clusters': 3}
+    )
 
     # Explain a single instance
     explanation = ce.explain(x_prop_test[:1])
     assert explanation is not None
 
     # Check that guard is fitted
+    assert ce.guard is not None
     assert ce.guard._fitted
