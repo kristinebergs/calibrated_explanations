@@ -184,7 +184,6 @@ Input:
   X_train: n × d feature matrix
   y_train: n × 1 target (for interface; not strictly used)
   interval_learner: fitted calibrator returning (L, U) intervals
-  model: fitted predictor
 
 Output:
   Fitted guard ready for accept() calls

@@ -106,7 +106,7 @@ class ConformalRegionOracle:
         self._global_maxs = None
         self._kmeans = None
 
-    def fit(self, x_train, y_train, model=None, interval_learner=None):  # noqa: ARG002, ARG001
+    def fit(self, x_train, y_train, interval_learner=None):  # noqa: ARG002, ARG001
         """Fit the conformal region oracle.
 
         Performs inductive conformal prediction:
@@ -123,9 +123,6 @@ class ConformalRegionOracle:
 
         y_train : array-like, shape (n_samples,)
             Training targets. Not used directly but kept for interface consistency.
-
-        model : fitted predictor, optional
-            Fitted model. Currently not used; may be needed for future extensions.
 
         interval_learner : fitted calibrator, optional
             Fitted interval learner (e.g., from CalibratedExplainer).
