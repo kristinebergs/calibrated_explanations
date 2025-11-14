@@ -106,7 +106,7 @@ class ConformalRegionOracle:
         self._global_maxs = None
         self._kmeans = None
 
-    def fit(self, x_train, y_train, interval_learner=None):  # noqa: ARG002, ARG001
+    def fit(self, x_train, y_train, interval_learner, x_cal=None, y_cal=None):  # noqa: ARG002, ARG001
         """Fit the conformal region oracle.
 
         Performs inductive conformal prediction:
@@ -157,13 +157,17 @@ class ConformalRegionOracle:
 
         # ICP: Split into proper and calibration sets
         rng = np.random.RandomState(self.random_state)
-        indices = rng.permutation(n_samples)
-        n_proper = max(1, int(self.prop_size * n_samples))
-        prop_indices = indices[:n_proper]
-        cal_indices = indices[n_proper:]
+        if x_cal is not None and y_cal is not None:
+            x_proper = x_arr
+            n_samples += x_cal.shape[0]
+        else:
+            indices = rng.permutation(n_samples)
+            n_proper = max(1, int(self.prop_size * n_samples))
+            prop_indices = indices[:n_proper]
+            cal_indices = indices[n_proper:]
 
-        x_proper = x_arr[prop_indices]
-        x_cal = x_arr[cal_indices]
+            x_proper = x_arr[prop_indices]
+            x_cal = x_arr[cal_indices]
 
         if len(x_cal) == 0:
             raise ValueError(
