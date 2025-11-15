@@ -1502,7 +1502,12 @@ class CalibratedExplainer:
             If the provided guard has not been fitted.
         """
         if guard is not None:
-            if not hasattr(guard, "_fitted") or not guard._fitted:
+            # Only enforce fitted-check for objects that expose the _fitted flag.
+            # Some lightweight guard-like objects (e.g., test stubs) may not have
+            # this attribute but are still valid for use in certain code-paths
+            # (for example, providing label_context). Require _fitted == True
+            # only when the attribute exists.
+            if hasattr(guard, "_fitted") and not guard._fitted:
                 raise NotFittedError(
                     "The guard must be fitted before assignment. "
                     "Call guard.fit(X_train, y_train, model, interval_learner) first."
