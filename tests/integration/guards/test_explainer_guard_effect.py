@@ -41,7 +41,7 @@ def test_guard_reduces_candidate_rules():
 
     # Explainer with a strict guard: higher alpha and more clusters make
     # conformal regions tighter and more local, increasing filtering power.
-    guard_params = {"alpha": 0.9, "n_clusters": 8, "relaxation_factor": 0.0}
+    guard_params = {"alpha": 0.9, "n_clusters": 8}
     expl_guard = CalibratedExplainer(
         learner=clf, x_cal=x_cal, y_cal=y_cal, mode="classification", guard_params=guard_params
     )

@@ -123,7 +123,29 @@ def validate_explanation_batch(
     explanation_cls = batch.explanation_cls
     if not isinstance(explanation_cls, type):
         raise TypeError("batch.explanation_cls must be a class")
-    if not issubclass(explanation_cls, AbstractCalibratedExplanation):
+
+    def _inherits_calibrated_explanation(cls: type) -> bool:
+        """Return True when *cls* inherits from the abstract CalibratedExplanation.
+
+        We first try a normal issubclass check and fall back to a name-based
+        MRO scan. The fallback is important for interactive environments
+        (notebooks) where multiple copies of the module may exist and
+        issubclass can incorrectly fail despite structural compatibility.
+        """
+        try:
+            if issubclass(cls, AbstractCalibratedExplanation):
+                return True
+        except TypeError:
+            return False
+        # Fallback: check base class names in the MRO in case of module copy
+        for base in getattr(cls, "__mro__", ()):  # pragma: no cover - defensive
+            if base is cls:
+                continue
+            if base.__name__ == "CalibratedExplanation":
+                return True
+        return False
+
+    if not _inherits_calibrated_explanation(explanation_cls):
         raise TypeError("batch.explanation_cls must inherit from CalibratedExplanation")
 
     instances = batch.instances

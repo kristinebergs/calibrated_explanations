@@ -28,7 +28,7 @@ def test_guard_rejects_faraway_perturbations():
 
     # Fit a guard with moderate alpha so nearby perturbations are accepted
     # but far-away perturbations are rejected.
-    orch.fit_guard({"alpha": 0.1, "n_clusters": 3, "relaxation_factor": 0.0, "random_state": 0})
+    orch.fit_guard({"alpha": 0.1, "n_clusters": 3, "random_state": 0})
     guard = orch.get_guard()
 
     # Two perturbations: one near origin (should be accepted), one far away (rejected)

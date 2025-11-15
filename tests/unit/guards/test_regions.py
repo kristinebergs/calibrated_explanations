@@ -31,7 +31,6 @@ class TestConformalRegionOracleInit:
         oracle = ConformalRegionOracle()
         assert oracle.alpha == 0.1
         assert oracle.n_clusters == 5
-        assert oracle.relaxation_factor == 1.0
         assert oracle.prop_size == 0.75
         assert oracle.random_state is None
         # pylint: disable=protected-access
@@ -42,13 +41,11 @@ class TestConformalRegionOracleInit:
         oracle = ConformalRegionOracle(
             alpha=0.05,
             n_clusters=10,
-            relaxation_factor=2.0,
             prop_size=0.8,
             random_state=42,
         )
         assert oracle.alpha == 0.05
         assert oracle.n_clusters == 10
-        assert oracle.relaxation_factor == 2.0
         assert oracle.prop_size == 0.8
         assert oracle.random_state == 42
 
@@ -73,11 +70,7 @@ class TestConformalRegionOracleInit:
         with pytest.raises(ValueError, match="prop_size must be"):
             ConformalRegionOracle(prop_size=1.5)
 
-    def test_init_invalid_relaxation_factor(self):
-        """Test that invalid relaxation_factor raises ValueError."""
-        with pytest.raises(ValueError, match="relaxation_factor must be"):
-            ConformalRegionOracle(relaxation_factor=-1.0)
-
+    # Note: relaxation_factor removed from API; tests for invalid relaxation removed
 
 class TestConformalRegionOracleFit:
     """Test fitting of ConformalRegionOracle."""
@@ -94,7 +87,17 @@ class TestConformalRegionOracleFit:
         """Test basic fitting."""
         x_arr, y_arr = self._make_simple_data(100)
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        interval_learner = MockIntervalLearner()
+        # Interval learner that produces variable widths so confidence
+        # modulation is active during fit.
+        class VariableIntervalLearner:  # pylint: disable=too-few-public-methods
+            def predict(self, x_arr):
+                n = len(x_arr)
+                lowers = np.zeros(n)
+                # create slightly varying upper bounds so width_max > width_min
+                uppers = 0.1 + (np.arange(n) % 5) * 0.01
+                return list(zip(lowers, uppers))
+
+        interval_learner = VariableIntervalLearner()
 
         result = oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
@@ -194,7 +197,16 @@ class TestConformalRegionOracleAccept:
         """Test accepting a point from training distribution."""
         x_arr, y_arr = self._make_simple_data(100)
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        interval_learner = MockIntervalLearner()
+        # Interval learner that produces variable widths so confidence
+        # modulation is active during fit.
+        class VariableIntervalLearner:  # pylint: disable=too-few-public-methods
+            def predict(self, x_arr):
+                n = len(x_arr)
+                lowers = np.zeros(n)
+                uppers = 0.1 + (np.arange(n) % 5) * 0.01
+                return list(zip(lowers, uppers))
+
+        interval_learner = VariableIntervalLearner()
         oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         # Accept a point from training set (should be accepted with high prob)
@@ -205,7 +217,17 @@ class TestConformalRegionOracleAccept:
         """Test accept with calibrated prediction for modulation."""
         x_arr, y_arr = self._make_simple_data(100)
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        interval_learner = MockIntervalLearner()
+        # Create an interval learner with variable widths so modulation is active
+        class VariableIntervalLearner:  # pylint: disable=too-few-public-methods
+            """Interval learner producing varying upper bounds for widths."""
+
+            def predict(self, x_arr):
+                n_samples = len(x_arr)
+                lowers = np.zeros(n_samples)
+                uppers = 0.1 + (np.arange(n_samples) % 5) * 0.01
+                return list(zip(lowers, uppers))
+
+        interval_learner = VariableIntervalLearner()
         oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         # Accept with high-confidence prediction (narrow interval)
@@ -244,7 +266,16 @@ class TestConformalRegionOracleAcceptBatch:
         """Test batch acceptance."""
         x_arr, y_arr = self._make_simple_data(100)
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        interval_learner = MockIntervalLearner()
+        class VariableIntervalLearner:  # pylint: disable=too-few-public-methods
+            """Produces varying interval widths for modulation tests."""
+
+            def predict(self, x_arr):
+                n = len(x_arr)
+                lowers = np.zeros(n)
+                uppers = 0.1 + (np.arange(n) % 5) * 0.01
+                return list(zip(lowers, uppers))
+
+        interval_learner = VariableIntervalLearner()
         oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         # Test batch
@@ -259,7 +290,16 @@ class TestConformalRegionOracleAcceptBatch:
         """Test batch with calibrated predictions."""
         x_arr, y_arr = self._make_simple_data(100)
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        interval_learner = MockIntervalLearner()
+        class VariableIntervalLearner:  # pylint: disable=too-few-public-methods
+            """Produces varying interval widths for modulation tests."""
+
+            def predict(self, x_arr):
+                n = len(x_arr)
+                lowers = np.zeros(n)
+                uppers = 0.1 + (np.arange(n) % 5) * 0.01
+                return list(zip(lowers, uppers))
+
+        interval_learner = VariableIntervalLearner()
         oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         x_test = x_arr[:5]
@@ -294,7 +334,16 @@ class TestConformalRegionOracleIntervals:
         """Test interval computation."""
         x_arr, y_arr = self._make_simple_data(100)
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        interval_learner = MockIntervalLearner()
+        class VariableIntervalLearner:  # pylint: disable=too-few-public-methods
+            """Produces varying interval widths for modulation tests."""
+
+            def predict(self, x_arr):
+                n = len(x_arr)
+                lowers = np.zeros(n)
+                uppers = 0.1 + (np.arange(n) % 5) * 0.01
+                return list(zip(lowers, uppers))
+
+        interval_learner = VariableIntervalLearner()
         oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         x_orig = x_arr[0]
@@ -334,7 +383,16 @@ class TestConformalRegionOracleIntervals:
         """Test interval computation with modulation."""
         x_arr, y_arr = self._make_simple_data(100)
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        interval_learner = MockIntervalLearner()
+        class VariableIntervalLearner:  # pylint: disable=too-few-public-methods
+            """Produces varying interval widths for modulation tests."""
+
+            def predict(self, x_arr):
+                n = len(x_arr)
+                lowers = np.zeros(n)
+                uppers = 0.1 + (np.arange(n) % 5) * 0.01
+                return list(zip(lowers, uppers))
+
+        interval_learner = VariableIntervalLearner()
         oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         x_orig = x_arr[0]
@@ -374,7 +432,16 @@ class TestConformalRegionOracleNumericalStability:
         y_arr = x_arr.sum(axis=1)
 
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        interval_learner = MockIntervalLearner()
+        class VariableIntervalLearner:  # pylint: disable=too-few-public-methods
+            """Produces varying interval widths for modulation tests."""
+
+            def predict(self, x_arr):
+                n = len(x_arr)
+                lowers = np.zeros(n)
+                uppers = 0.1 + (np.arange(n) % 5) * 0.01
+                return list(zip(lowers, uppers))
+
+        interval_learner = VariableIntervalLearner()
         oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         # pylint: disable=protected-access
@@ -397,3 +464,75 @@ class TestConformalRegionOracleNumericalStability:
 
         # Should be roughly >= 1 - alpha, but not all accepted
         assert 0.5 < acceptance_rate <= 1.0
+
+
+class TestConformalRegionOracleDynamic:
+    """Test dynamic updates to alpha and width-based modulation."""
+
+    def test_width_normalization_modulates_radius(self):
+        """Width-normalization (normalized conformal regression).
+
+        Verify that normalized conformal regression uses interval width as a
+        difficulty estimate: the effective radius is proportional to the
+        interval width (r_eff = q_norm * width). Therefore, a narrow
+        interval yields a smaller effective radius than a wide interval.
+        """
+        rng = np.random.default_rng(42)
+        x_arr = rng.standard_normal((200, 2))
+        y_arr = x_arr.sum(axis=1)
+        oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
+        class VariableIntervalLearner:  # pylint: disable=too-few-public-methods
+            """Produces varying interval widths for modulation tests."""
+
+            def predict(self, x_arr):
+                n = len(x_arr)
+                lowers = np.zeros(n)
+                uppers = 0.1 + (np.arange(n) % 5) * 0.01
+                return list(zip(lowers, uppers))
+
+        interval_learner = VariableIntervalLearner()
+        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
+
+        # Pick a point and its nearest cluster base radius
+        x_point = x_arr[0]
+        distances = np.linalg.norm(oracle._cluster_centers - x_point, axis=1)
+        nearest = int(np.argmin(distances))
+        base_r = float(oracle._cluster_radii[nearest])
+
+        # Compare narrow vs wide intervals: with width-based normalization
+        # narrow intervals (more confident) should yield a larger effective
+        # radius (less restrictive) than wide intervals (more uncertain).
+        cal_pred_wide = (0.5, (0.0, 1.0))
+        cal_pred_narrow = (0.5, (0.0, 0.1))
+
+        r_eff_wide = oracle._compute_effective_radius(base_r, cal_pred_wide)
+        r_eff_narrow = oracle._compute_effective_radius(base_r, cal_pred_narrow)
+
+        # Under normalized conformal regression, r_eff is proportional to width
+        assert r_eff_narrow < r_eff_wide
+
+    def test_set_alpha_recomputes_radii_and_requires_fit(self):
+        """set_alpha should recompute cluster radii from cached calibration scores.
+
+        Also verify that calling set_alpha before fit raises a clear error.
+        """
+        # calling before fit should raise
+        oracle_unfitted = ConformalRegionOracle()
+        with pytest.raises(RuntimeError):
+            oracle_unfitted.set_alpha(0.2)
+
+        # After fit, changing alpha should update radii
+        rng = np.random.default_rng(42)
+        x_arr = rng.standard_normal((200, 2))
+        y_arr = x_arr.sum(axis=1)
+        oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
+        interval_learner = MockIntervalLearner()
+        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
+
+        old_radii = oracle._cluster_radii.copy()
+        # Pick a very different alpha to force a change
+        oracle.set_alpha(0.9, per_cluster=False)
+        new_radii = oracle._cluster_radii
+
+        # Radii should have changed (global quantile changed)
+        assert not np.allclose(old_radii, new_radii)

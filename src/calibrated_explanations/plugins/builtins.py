@@ -130,8 +130,14 @@ def _supports_calibrated_explainer(model: Any) -> bool:
     )
 
 
-def _collection_to_batch(collection: CalibratedExplanations) -> ExplanationBatch:
-    """Convert a legacy explanation collection into an :class:`ExplanationBatch`."""
+def _collection_to_batch(collection: CalibratedExplanations, *, mode: str | None = None) -> ExplanationBatch:
+    """Convert a legacy explanation collection into an :class:`ExplanationBatch`.
+
+    The optional *mode* argument can be supplied by callers (plugin adapters)
+    to ensure the returned batch embeds the active explanation mode (e.g.
+    'factual' / 'alternative'). If not provided, the function falls back to
+    any ``mode`` attribute present on the legacy collection.
+    """
     explanation_cls: type[_AbstractExplanation]
     if collection.explanations:
         explanation_cls = type(collection.explanations[0])
@@ -140,7 +146,7 @@ def _collection_to_batch(collection: CalibratedExplanations) -> ExplanationBatch
     instances = tuple({"explanation": exp} for exp in collection.explanations)
     metadata = {
         "container": collection,
-        "mode": getattr(collection, "mode", None),
+        "mode": mode if mode is not None else getattr(collection, "mode", None),
     }
     return ExplanationBatch(
         container_cls=type(collection),
@@ -267,7 +273,11 @@ class _LegacyExplanationBase(ExplanationPlugin):
         kwargs["_use_plugin"] = False
 
         collection: CalibratedExplanations = explanation_callable(x, **kwargs)
-        return _collection_to_batch(collection)
+        # Ensure the returned batch embeds the active plugin mode so that
+        # downstream validators receive the correct context ('factual',
+        # 'alternative', etc.). The helper accepts an explicit *mode*
+        # argument and otherwise falls back to collection.mode.
+        return _collection_to_batch(collection, mode=self._mode)
 
 
 class LegacyFactualExplanationPlugin(_LegacyExplanationBase):

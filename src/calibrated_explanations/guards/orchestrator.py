@@ -45,6 +45,7 @@ class GuardOrchestrator:
         guard will remain None and a warning will be emitted.
         """
         if not guard_params:
+            logger.info("No guard_params provided; guard disabled.")
             return
         self._guard_params = dict(guard_params)
         try:
@@ -79,10 +80,12 @@ class GuardOrchestrator:
         Returns True when guard is absent or the guard accepts the point.
         """
         if self._guard is None:
+            logger.debug("No guard present: accepting by default")
             return True
         try:
             return bool(self._guard.accept(x_new, calibrated_prediction))
-        except Exception:  # pylint: disable=broad-except # pragma: no cover - defensive
+        except Exception as exc:  # pylint: disable=broad-except # pragma: no cover - defensive
+            logger.warning("Guard accept() failed; defaulting to accept=True. Reason: %s", exc)
             return True
 
     def accept_batch(
@@ -96,10 +99,12 @@ class GuardOrchestrator:
         items to the guard's accept_batch.
         """
         if self._guard is None:
+            logger.debug("No guard present: accepting all by default for batch of size %d", len(x_new_batch))
             return np.ones(len(x_new_batch), dtype=bool)
         try:
             return self._guard.accept_batch(np.asarray(x_new_batch), calibrated_predictions)
-        except Exception:  # pylint: disable=broad-except # pragma: no cover - defensive
+        except Exception as exc:  # pylint: disable=broad-except # pragma: no cover - defensive
+            logger.warning("Guard accept_batch() failed; defaulting to accept_all. Reason: %s", exc)
             return np.ones(len(x_new_batch), dtype=bool)
 
     def intervals(

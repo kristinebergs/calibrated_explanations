@@ -39,11 +39,6 @@ class ConformalRegionOracle:
         Number of clusters for feature-space stratification.
         Rule of thumb: sqrt(n_samples / 10).
 
-    relaxation_factor : float, default=1.0
-        Controls how much to relax radius for low-confidence predictions.
-        Higher values = more leniency for uncertain predictions.
-        r_eff = r_base * (1 + (1 - confidence) * relaxation_factor)
-
     prop_size : float, default=0.75
         Proportion of training data to use for proper set (the rest for calibration).
         Must be in (0, 1). Inductive conformal prediction splits data internally.
@@ -75,7 +70,6 @@ class ConformalRegionOracle:
         self,
         alpha=0.1,
         n_clusters=5,
-        relaxation_factor=1.0,
         prop_size=0.75,
         random_state=None,
         ncm_method="mahalanobis",
@@ -86,12 +80,11 @@ class ConformalRegionOracle:
             raise ValueError(f"n_clusters must be >= 1, got {n_clusters}")
         if not 0 < prop_size <= 1:
             raise ValueError(f"prop_size must be in (0, 1], got {prop_size}")
-        if relaxation_factor < 0:
-            raise ValueError(f"relaxation_factor must be >= 0, got {relaxation_factor}")
-
         self.alpha = alpha
         self.n_clusters = n_clusters
-        self.relaxation_factor = relaxation_factor
+        # Bounds for width-based modulation (clamped)
+        self._modulation_min = 0.5
+        self._modulation_max = 2.0
         self.prop_size = prop_size
         self.random_state = random_state
         self.ncm_method = ncm_method
@@ -105,8 +98,19 @@ class ConformalRegionOracle:
         self._global_mins = None
         self._global_maxs = None
         self._kmeans = None
+        # Cached calibration diagnostics (populated by fit())
+        self._cal_scores = None
+        # Cached calibration widths (for normalized conformal regression)
+        self._cal_widths = None
+        # Per-cluster normalized quantiles (q_norm) such that effective radius
+        # at test = q_norm[cluster] * width_test
+        self._cluster_norm_quantiles = None
+        # Small epsilon to stabilize division by width
+        self._eps_width = 1e-12
+        self._cal_nearest = None
 
-    def fit(self, x_train, y_train, interval_learner, x_cal=None, y_cal=None):  # noqa: ARG002, ARG001
+    # noqa: ARG002, ARG001
+    def fit(self, x_train, y_train, interval_learner, x_cal=None, y_cal=None):
         """Fit the conformal region oracle.
 
         Performs inductive conformal prediction:
@@ -201,10 +205,88 @@ class ConformalRegionOracle:
         # Compute nonconformity scores on calibration set
         cal_scores = self._compute_nonconformity_scores(x_cal)
 
-        # Compute conformal radius as (1 - alpha) quantile
+        # Cache calibration scores and assignments so callers can recompute
+        # radii for new alpha values without a full refit.
+        try:
+            # assign calibration points to nearest clusters
+            dists = np.linalg.norm(x_cal[:, None, :] - self._cluster_centers[None, :, :], axis=2)
+            nearest = np.argmin(dists, axis=1)
+        except Exception:  # pylint: disable=broad-except
+            nearest = np.zeros(len(cal_scores), dtype=int)
+
+        # store cached calibration diagnostics for later recomputation
+        self._cal_scores = np.asarray(cal_scores)
+        self._cal_nearest = np.asarray(nearest)
+
+        # --- Normalized conformal regression: use interval width as difficulty ---
+        # Compute calibration widths for x_cal (if interval_learner provided)
+        if interval_learner is not None:
+            try:
+                intervals_cal = interval_learner.predict(x_cal)
+                if intervals_cal is not None and len(intervals_cal) == len(x_cal):
+                    widths_cal = np.array([upper - lower for lower, upper in intervals_cal])
+                else:
+                    widths_cal = np.ones(len(cal_scores))
+            except Exception:  # pylint: disable=broad-except
+                widths_cal = np.ones(len(cal_scores))
+        else:
+            widths_cal = np.ones(len(cal_scores))
+
+        # Cache widths for later recomputation in set_alpha
+        self._cal_widths = widths_cal
+
+        # Compute normalized calibration scores and store per-cluster normalized quantile
+        try:
+            s_cal_norm = self._cal_scores / (widths_cal + self._eps_width)
+            global_norm_q = float(np.quantile(s_cal_norm, 1.0 - self.alpha))
+            self._cluster_norm_quantiles = np.full(n_clusters_actual, global_norm_q)
+        except Exception:  # pylint: disable=broad-except
+            # Fallback: if normalization fails, leave cluster_norm_quantiles unset
+            self._cluster_norm_quantiles = None
+
+        # Compute conformal radius as (1 - alpha) quantile (global by default)
         quantile_idx = int(np.ceil((1 - self.alpha) * len(cal_scores)))
         quantile_idx = min(quantile_idx, len(cal_scores) - 1)
-        self._cluster_radii = np.full(n_clusters_actual, np.sort(cal_scores)[quantile_idx])
+        global_radius = np.sort(cal_scores)[quantile_idx]
+        self._cluster_radii = np.full(n_clusters_actual, global_radius)
+
+        try:
+            # Report calibration diagnostics to help debugging (counts per cluster)
+            # Assign calibration points to nearest clusters
+            if len(x_cal) > 0 and self._cluster_centers is not None:
+                # distances shape: (n_cal, n_clusters)
+                dists = np.linalg.norm(
+                    x_cal[:, None, :] - self._cluster_centers[None, :, :], axis=2
+                )
+                nearest = np.argmin(dists, axis=1)
+                counts = np.bincount(nearest, minlength=n_clusters_actual)
+            else:
+                counts = np.zeros(n_clusters_actual, dtype=int)
+        except Exception:  # pylint: disable=broad-except
+            logger.debug("Could not compute per-cluster calibration counts")
+            counts = np.zeros(n_clusters_actual, dtype=int)
+
+        # Summary in two shorter log lines to respect line-length
+        logger.info(
+            "Guard fit summary: alpha=%s, n_cal=%d, quantile_idx=%d",
+            self.alpha,
+            len(cal_scores),
+            quantile_idx,
+        )
+        logger.info(
+            "cluster_cal_counts=%s, cluster_radii_sample=%s",
+            counts.tolist(),
+            np.sort(cal_scores)[max(0, quantile_idx - 1) : quantile_idx + 1].tolist(),
+        )
+
+        # Warn about clusters with very few calibration points (estimates unreliable)
+        for k, count in enumerate(counts.tolist()):
+            if count < 2:
+                logger.warning(
+                    "Cluster %d has only %d calibration points; radius estimate may be unreliable",
+                    k,
+                    count,
+                )
 
         # Record width statistics for confidence modulation
         if interval_learner is not None:
@@ -231,8 +313,116 @@ class ConformalRegionOracle:
             self._width_min = 0.0
             self._width_max = 1.0
 
+        # Inform whether confidence modulation will be active
+        if self._width_max <= self._width_min:
+            logger.info(
+                "Confidence modulation disabled: width_min=%s, width_max=%s",
+                self._width_min,
+                self._width_max,
+            )
+        else:
+            logger.info(
+                "Confidence modulation active: width_min=%s, width_max=%s",
+                self._width_min,
+                self._width_max,
+            )
+
         self._fitted = True
         return self
+
+    def set_alpha(
+        self,
+        alpha: float,
+        *,
+        per_cluster: bool = False,
+        min_cluster_samples: int = 5,
+    ) -> None:
+        """Set a new alpha and recompute conformal radii from cached calibration scores.
+
+        If per_cluster is True, attempt to compute a (1 - alpha) quantile per
+        cluster using cached calibration-to-cluster assignments. Clusters with
+        fewer than ``min_cluster_samples`` calibration points will fall back to
+        the global quantile to avoid unstable estimates.
+
+        Raises
+        ------
+        RuntimeError
+            If the oracle has not been fitted or calibration scores are not cached.
+        ValueError
+            If alpha is not in (0, 1).
+        """
+        if not 0 < alpha < 1:
+            raise ValueError(f"alpha must be in (0, 1), got {alpha}")
+        if not getattr(self, "_fitted", False):
+            raise RuntimeError("ConformalRegionOracle not fitted; set alpha after fit")
+        if (
+            not hasattr(self, "_cal_scores")
+            or self._cal_scores is None
+            or len(self._cal_scores) == 0
+        ):
+            raise RuntimeError("No cached calibration scores available; refit required")
+
+        self.alpha = alpha
+
+        # compute normalized global quantile (normalized conformal regression)
+        # If calibration widths are cached, compute quantiles on normalized scores
+        if hasattr(self, "_cal_widths") and self._cal_widths is not None:
+            try:
+                if len(self._cal_widths) == len(self._cal_scores):
+                    s_cal_norm = self._cal_scores / (self._cal_widths + self._eps_width)
+                    global_norm_q = float(np.quantile(s_cal_norm, 1.0 - self.alpha))
+                else:
+                    global_norm_q = None
+            except Exception:  # pylint: disable=broad-except
+                global_norm_q = None
+        else:
+            global_norm_q = None
+
+        if not per_cluster:
+            # If normalized quantile available, store it as per-cluster norm quantile
+            if global_norm_q is not None:
+                self._cluster_norm_quantiles = np.full(len(self._cluster_centers), global_norm_q)
+            # Fallback: recompute unnormalized radii (legacy behavior)
+            global_quantile = float(np.quantile(self._cal_scores, 1.0 - self.alpha))
+            self._cluster_radii = np.full(len(self._cluster_centers), global_quantile)
+            return
+
+        # Per-cluster normalized quantiles with fallback for small clusters
+        n_clusters_actual = len(self._cluster_centers)
+        if global_norm_q is None:
+            # Fallback to computing raw per-cluster radii
+            radii = np.empty(n_clusters_actual, dtype=float)
+            for k in range(n_clusters_actual):
+                mask = self._cal_nearest == k
+                scores_k = self._cal_scores[mask]
+                if len(scores_k) >= min_cluster_samples:
+                    radii[k] = float(np.quantile(scores_k, 1.0 - self.alpha))
+                else:
+                    radii[k] = float(np.quantile(self._cal_scores, 1.0 - self.alpha))
+
+            self._cluster_radii = radii
+            return
+
+        # Compute per-cluster normalized quantiles
+        norm_qs = np.empty(n_clusters_actual, dtype=float)
+        for k in range(n_clusters_actual):
+            mask = self._cal_nearest == k
+            scores_k = self._cal_scores[mask]
+            widths_k = self._cal_widths[mask]
+            if (
+                len(scores_k) >= min_cluster_samples
+                and len(widths_k) == len(scores_k)
+                and np.any(widths_k >= 0)
+            ):
+                try:
+                    norm_scores_k = scores_k / (widths_k + self._eps_width)
+                    norm_qs[k] = float(np.quantile(norm_scores_k, 1.0 - self.alpha))
+                except Exception:  # pylint: disable=broad-except
+                    norm_qs[k] = global_norm_q
+            else:
+                norm_qs[k] = global_norm_q
+
+        self._cluster_norm_quantiles = norm_qs
 
     def accept(self, x_new, calibrated_prediction=None):
         """Check if perturbation is within conformal region.
@@ -293,11 +483,22 @@ class ConformalRegionOracle:
             )
             mahal_dist = np.linalg.norm(x_point - mu_center)
 
-        # Base conformal radius
+        # Base conformal radius (legacy fallback)
         base_radius = self._cluster_radii[nearest_cluster_idx]
 
-        # Compute effective radius with confidence modulation
-        r_eff = self._compute_effective_radius(base_radius, calibrated_prediction)
+        # If we have normalized quantiles from calibration, use normalized
+        # conformal regression: r_eff = q_norm(cluster) * width_test
+        r_eff = base_radius
+        if calibrated_prediction is not None and self._cluster_norm_quantiles is not None:
+            try:
+                _, (lower, upper) = calibrated_prediction
+                width = float(upper - lower)
+                width_safe = max(width, self._eps_width)
+                q_norm = float(self._cluster_norm_quantiles[nearest_cluster_idx])
+                r_eff = q_norm * width_safe
+            except Exception:  # pylint: disable=broad-except
+                # Fall back to legacy base radius
+                r_eff = base_radius
 
         return mahal_dist <= r_eff
 
@@ -362,7 +563,19 @@ class ConformalRegionOracle:
         mu_center = self._cluster_centers[nearest_cluster_idx]
         cov = self._cluster_covs[nearest_cluster_idx]
         base_radius = self._cluster_radii[nearest_cluster_idx]
-        r_eff = self._compute_effective_radius(base_radius, calibrated_prediction)
+
+        # Compute effective radius using normalized conformal regression if
+        # normalized quantiles are available; otherwise fallback to base radius
+        r_eff = base_radius
+        if calibrated_prediction is not None and self._cluster_norm_quantiles is not None:
+            try:
+                _, (lower, upper) = calibrated_prediction
+                width = float(upper - lower)
+                width_safe = max(width, self._eps_width)
+                q_norm = float(self._cluster_norm_quantiles[nearest_cluster_idx])
+                r_eff = q_norm * width_safe
+            except Exception:  # pylint: disable=broad-except
+                r_eff = base_radius
 
         # Compute effective radius squared
         r_eff_sq = r_eff**2
@@ -458,17 +671,18 @@ class ConformalRegionOracle:
         return np.array(scores)
 
     def _compute_effective_radius(self, base_radius, calibrated_prediction):
-        """Compute effective radius with confidence modulation.
+        """Compute effective radius using normalized conformal regression.
 
-        If calibrated_prediction is provided, uses interval width to modulate radius:
-        r_eff = base_radius * (1 + (1 - confidence) * relaxation_factor)
-
-        where confidence is normalized from interval width.
+        If normalized calibration quantiles are available (computed during
+        fit), this method returns r_eff = q_norm_global * width_test where
+        q_norm_global is a robust aggregate (median) of per-cluster normalized
+        quantiles. If normalized quantiles are not available, falls back to
+        returning the provided base_radius.
 
         Parameters
         ----------
         base_radius : float
-            Base conformal radius.
+            Legacy base radius (unused when normalized quantiles available).
 
         calibrated_prediction : tuple or None
             (pred_value, (lower, upper)) or None.
@@ -478,22 +692,29 @@ class ConformalRegionOracle:
         float
             Effective radius.
         """
-        if calibrated_prediction is None or self._width_max <= self._width_min:
-            # No modulation
+        if calibrated_prediction is None or self._cluster_norm_quantiles is None:
             return base_radius
 
         try:
             _, (lower, upper) = calibrated_prediction
-            width = upper - lower
-        except (ValueError, TypeError):
-            # Invalid format; no modulation
+            width = float(upper - lower)
+            width_safe = max(width, self._eps_width)
+        except Exception:  # pylint: disable=broad-except
             return base_radius
 
-        # Normalize confidence: narrow interval = high confidence
-        confidence = 1.0 - (width - self._width_min) / (self._width_max - self._width_min)
-        confidence = np.clip(confidence, 0.0, 1.0)
+        # Use a central value (median) of the per-cluster normalized quantiles
+        try:
+            q_norm_global = float(np.median(self._cluster_norm_quantiles))
+        except Exception:  # pylint: disable=broad-except
+            return base_radius
 
-        # Modulation: low confidence (wide interval) increases radius
-        modulation = 1.0 + (1.0 - confidence) * self.relaxation_factor
+        r_eff = q_norm_global * width_safe
 
-        return base_radius * modulation
+        logger.debug(
+            "_compute_effective_radius(ncrm): q_norm=%s, width=%s, r_eff=%s",
+            q_norm_global,
+            width_safe,
+            r_eff,
+        )
+
+        return r_eff
