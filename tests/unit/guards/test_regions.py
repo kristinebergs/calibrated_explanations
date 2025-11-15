@@ -3,6 +3,7 @@
 These tests are intentionally small and deterministic to exercise the
 algorithmic properties of the guard implementation.
 """
+
 from __future__ import annotations
 
 import numpy as np
@@ -21,9 +22,9 @@ class MockIntervalLearner:  # pylint: disable=too-few-public-methods
         upper = np.ones(n_samples) * 0.5
         return list(zip(lower, upper))
 
+
 class TestConformalRegionOracleInit:
     """Test initialization and parameter validation."""
-
 
     def test_init_default_params(self):
         """Test initialization with default parameters."""
@@ -84,8 +85,8 @@ class TestConformalRegionOracleFit:
     @staticmethod
     def _make_simple_data(n_samples=100, n_features=2, random_state=42):
         """Generate simple synthetic data."""
-        rng = np.random.RandomState(random_state)
-        x_arr = rng.randn(n_samples, n_features)
+        rng = np.random.default_rng(random_state)
+        x_arr = rng.standard_normal((n_samples, n_features))
         y_arr = x_arr.sum(axis=1)
         return x_arr, y_arr
 
@@ -131,7 +132,7 @@ class TestConformalRegionOracleFit:
 
     def test_fit_too_small_dataset(self):
         """Test that fitting small datasets raises ValueError."""
-        x_arr = np.random.randn(5, 2)
+        x_arr = np.random.default_rng(0).standard_normal((5, 2))
         y_arr = x_arr.sum(axis=1)
         oracle = ConformalRegionOracle(n_clusters=10)
         interval_learner = MockIntervalLearner()
@@ -142,9 +143,7 @@ class TestConformalRegionOracleFit:
     def test_fit_proper_calibration_split(self):
         """Test that proper/calibration split works correctly."""
         x_arr, y_arr = self._make_simple_data(100)
-        oracle = ConformalRegionOracle(
-            n_clusters=3, prop_size=0.6, random_state=42
-        )
+        oracle = ConformalRegionOracle(n_clusters=3, prop_size=0.6, random_state=42)
         interval_learner = MockIntervalLearner()
         oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
@@ -159,9 +158,7 @@ class TestConformalRegionOracleFit:
 
     def test_fit_stores_global_bounds(self):
         """Test that global min/max are stored."""
-        x_arr = np.array(
-            [[0.0, 1.0], [1.0, 0.0], [0.5, 0.5], [0.2, 0.8]]
-        )
+        x_arr = np.array([[0.0, 1.0], [1.0, 0.0], [0.5, 0.5], [0.2, 0.8]])
         y_arr = np.array([1.0, 1.0, 0.5, 0.8])
         oracle = ConformalRegionOracle(n_clusters=2, random_state=42)
         interval_learner = MockIntervalLearner()
@@ -169,13 +166,9 @@ class TestConformalRegionOracleFit:
 
         # Global bounds should match data bounds
         # pylint: disable=protected-access
-        np.testing.assert_array_almost_equal(
-            oracle._global_mins, [0.0, 0.0]
-        )
+        np.testing.assert_array_almost_equal(oracle._global_mins, [0.0, 0.0])
         # pylint: disable=protected-access
-        np.testing.assert_array_almost_equal(
-            oracle._global_maxs, [1.0, 1.0]
-        )
+        np.testing.assert_array_almost_equal(oracle._global_maxs, [1.0, 1.0])
 
 
 class TestConformalRegionOracleAccept:
@@ -184,8 +177,8 @@ class TestConformalRegionOracleAccept:
     @staticmethod
     def _make_simple_data(n_samples=100, n_features=2, random_state=42):
         """Generate simple synthetic data."""
-        rng = np.random.RandomState(random_state)
-        x_arr = rng.randn(n_samples, n_features)
+        rng = np.random.default_rng(random_state)
+        x_arr = rng.standard_normal((n_samples, n_features))
         y_arr = x_arr.sum(axis=1)
         return x_arr, y_arr
 
@@ -216,20 +209,16 @@ class TestConformalRegionOracleAccept:
         oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         # Accept with high-confidence prediction (narrow interval)
-        result_narrow = oracle.accept(
-            x_arr[0], calibrated_prediction=(0.5, (0.4, 0.6))
-        )
+        result_narrow = oracle.accept(x_arr[0], calibrated_prediction=(0.5, (0.4, 0.6)))
         assert isinstance(result_narrow, (bool, np.bool_))
 
         # Accept with low-confidence prediction (wide interval)
-        result_wide = oracle.accept(
-            x_arr[0], calibrated_prediction=(0.5, (0.0, 1.0))
-        )
+        result_wide = oracle.accept(x_arr[0], calibrated_prediction=(0.5, (0.0, 1.0)))
         assert isinstance(result_wide, (bool, np.bool_))
 
     def test_accept_1d_input(self):
         """Test accept with 1D input (single feature)."""
-        x_arr = np.random.randn(50, 1)
+        x_arr = np.random.default_rng(0).standard_normal((50, 1))
         y_arr = x_arr.ravel()
         oracle = ConformalRegionOracle(n_clusters=2, random_state=42)
         interval_learner = MockIntervalLearner()
@@ -246,8 +235,8 @@ class TestConformalRegionOracleAcceptBatch:
     @staticmethod
     def _make_simple_data(n_samples=100, n_features=2, random_state=42):
         """Generate simple synthetic data."""
-        rng = np.random.RandomState(random_state)
-        x_arr = rng.randn(n_samples, n_features)
+        rng = np.random.default_rng(random_state)
+        x_arr = rng.standard_normal((n_samples, n_features))
         y_arr = x_arr.sum(axis=1)
         return x_arr, y_arr
 
@@ -288,8 +277,8 @@ class TestConformalRegionOracleIntervals:
     @staticmethod
     def _make_simple_data(n_samples=100, n_features=2, random_state=42):
         """Generate simple synthetic data."""
-        rng = np.random.RandomState(random_state)
-        x_arr = rng.randn(n_samples, n_features)
+        rng = np.random.default_rng(random_state)
+        x_arr = rng.standard_normal((n_samples, n_features))
         y_arr = x_arr.sum(axis=1)
         return x_arr, y_arr
 
@@ -324,9 +313,7 @@ class TestConformalRegionOracleIntervals:
     def test_intervals_clipped_to_bounds(self):
         """Test that intervals are clipped to global bounds."""
         # Create data with known bounds
-        x_arr = np.array(
-            [[0.0, 0.0], [1.0, 1.0], [0.5, 0.5], [0.2, 0.8], [0.9, 0.1]]
-        )
+        x_arr = np.array([[0.0, 0.0], [1.0, 1.0], [0.5, 0.5], [0.2, 0.8], [0.9, 0.1]])
         y_arr = np.zeros(len(x_arr))
 
         oracle = ConformalRegionOracle(n_clusters=1, random_state=42)
@@ -353,14 +340,10 @@ class TestConformalRegionOracleIntervals:
         x_orig = x_arr[0]
 
         # Intervals with narrow prediction (high confidence)
-        intervals_narrow = oracle.intervals(
-            x_orig, calibrated_prediction=(0.5, (0.4, 0.6))
-        )
+        intervals_narrow = oracle.intervals(x_orig, calibrated_prediction=(0.5, (0.4, 0.6)))
 
         # Intervals with wide prediction (low confidence)
-        intervals_wide = oracle.intervals(
-            x_orig, calibrated_prediction=(0.5, (0.0, 1.0))
-        )
+        intervals_wide = oracle.intervals(x_orig, calibrated_prediction=(0.5, (0.0, 1.0)))
 
         # Both should be valid
         assert len(intervals_narrow) == 2
@@ -387,7 +370,7 @@ class TestConformalRegionOracleNumericalStability:
     def test_high_dimensional_data(self):
         """Test with high-dimensional data."""
         n_features = 20
-        x_arr = np.random.randn(50, n_features)
+        x_arr = np.random.default_rng(0).standard_normal((50, n_features))
         y_arr = x_arr.sum(axis=1)
 
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
@@ -401,12 +384,10 @@ class TestConformalRegionOracleNumericalStability:
 
     def test_acceptance_rate_reasonable(self):
         """Test that acceptance rate is reasonable."""
-        x_arr = np.random.randn(100, 2)
+        x_arr = np.random.default_rng(0).standard_normal((100, 2))
         y_arr = x_arr.sum(axis=1)
 
-        oracle = ConformalRegionOracle(
-            alpha=0.1, n_clusters=3, random_state=42
-        )
+        oracle = ConformalRegionOracle(alpha=0.1, n_clusters=3, random_state=42)
         interval_learner = MockIntervalLearner()
         oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 

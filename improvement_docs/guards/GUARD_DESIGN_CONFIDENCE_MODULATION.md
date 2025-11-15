@@ -1,8 +1,8 @@
 # Guard Design: Confidence-Modulated Conformal Regions
 
-**Date:** November 13, 2025  
-**Status:** Final Design (Ready for Implementation)  
-**Architecture:** Conformal prediction + calibrated confidence modulation  
+**Date:** November 13, 2025
+**Status:** Final Design (Ready for Implementation)
+**Architecture:** Conformal prediction + calibrated confidence modulation
 **Scope:** Both classification and regression
 
 **Related Documents:**
@@ -14,7 +14,7 @@
 
 ## Executive Summary
 
-The `ConformalRegionOracle` implements **confidence-modulated conformal regions** to filter out-of-distribution perturbations during explanation generation. 
+The `ConformalRegionOracle` implements **confidence-modulated conformal regions** to filter out-of-distribution perturbations during explanation generation.
 
 **Key insight:** Instead of categorical contexts based on arbitrary thresholds or binned predictions, use **continuous calibrated confidence** to modulate the conformal acceptance criterion.
 
@@ -61,9 +61,9 @@ In practice, we don't use the full training set for calibration (avoids data was
 
 1. **Proper set:** Train model and clustering on $\{\mathcal{Z}_{\text{prop}}\}$
 2. **Calibration set:** Compute nonconformity scores on $\{\mathcal{Z}_{\text{cal}}\}$ (held-out)
-3. **Radius computation:** 
+3. **Radius computation:**
    $$r_\alpha = \text{quantile}_{1-\alpha}(A_{\text{cal}})$$
-   
+
    This ensures: with probability $\geq 1 - \alpha$, a new point $x$ satisfies $A(x) \leq r_\alpha$
 
 **Implementation in `ConformalRegionOracle`:**
@@ -90,7 +90,7 @@ $$\text{Clusters: } C_k = \{x_i : \text{nearest center is } c_k\}$$
 
 For any point $x$, we can compute an **admissible interval** per feature.
 
-**Given:** 
+**Given:**
 - Cluster center $\mu$ with covariance $\Sigma$
 - Conformal radius $r$
 
@@ -216,20 +216,20 @@ Output:
 Steps:
   1. Find nearest cluster to x_orig:
      k* = argmin_k || x_orig - μ_k ||_2
-  
+
   2. Compute distance from x' to cluster center:
      dist = Mahalanobis(x', μ_k*)
-  
+
   3. Get interval width for x_orig:
      (L, U) = interval_learner.predict(x_orig)
      w = U - L
-  
+
   4. Normalize confidence:
      confidence = 1 - (w - w_min) / (w_max - w_min)
-  
+
   5. Compute effective radius:
      r_eff = r_k* * (1 + (1 - confidence) * λ)
-  
+
   6. Accept if within effective radius:
      return dist ≤ r_eff
 ```
@@ -244,12 +244,12 @@ ALGORITHM: ConformalRegionOracle.intervals(x_orig)
 For each feature j:
   1. Compute sum of squared Mahalanobis distances from all features except j:
      s_j = sum_{i ≠ j} ((x_orig[i] - μ[i])^2 / σ_i^2)
-  
+
   2. Remaining "budget" for feature j:
      budget_j = r_eff^2 - s_j
-  
+
   3. If budget_j < 0, no interval (feature is at boundary)
-  
+
   4. Otherwise, interval for feature j:
      delta_j = sqrt(budget_j * σ_j^2)
      interval_j = [x_orig[j] - delta_j, x_orig[j] + delta_j]
@@ -556,7 +556,7 @@ $$B_j = r_{\text{eff}}^2 - S_j$$
 
 If $B_j < 0$: No valid interval (point is already outside radius for other features).
 
-If $B_j \geq 0$: 
+If $B_j \geq 0$:
 $$\frac{(x_j - \mu_j)^2}{\sigma_j^2} \leq B_j$$
 
 $$|x_j - \mu_j| \leq \sqrt{B_j \sigma_j^2}$$
@@ -610,6 +610,6 @@ This is the cleanest and most principled design.
 
 ---
 
-**Document Version:** 2.0 (Revised to confidence modulation)  
-**Status:** Ready for implementation  
+**Document Version:** 2.0 (Revised to confidence modulation)
+**Status:** Ready for implementation
 **Next Step:** Implement core algorithm and tests

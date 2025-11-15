@@ -11,7 +11,6 @@ from calibrated_explanations.core import calibrated_explainer as explainer_modul
 from calibrated_explanations.core.calibrated_explainer import CalibratedExplainer
 from calibrated_explanations.core.explain.orchestrator import ExplanationOrchestrator
 from calibrated_explanations.core.exceptions import (
-    ConfigurationError,
     DataShapeError,
     ValidationError,
 )
@@ -44,6 +43,7 @@ def _make_base_explainer() -> CalibratedExplainer:
     explainer._explanation_orchestrator = ExplanationOrchestrator(explainer)
     # Initialize prediction orchestrator (Phase 4: Interval Registry)
     from calibrated_explanations.core.prediction import PredictionOrchestrator
+
     explainer._prediction_orchestrator = PredictionOrchestrator(explainer)
     return explainer
 
@@ -73,7 +73,7 @@ def test_build_plot_style_chain_inserts_before_legacy(monkeypatch):
 
 def test_slice_threshold_branches_exercised():
     """Test threshold slicing behavior through explain helpers (Phase 5).
-    
+
     Phase 5 consolidation: Tests should call explain module functions directly.
     """
     from calibrated_explanations.core.explain._helpers import slice_threshold
@@ -94,7 +94,7 @@ def test_slice_threshold_branches_exercised():
 
 def test_slice_bins_handles_collections():
     """Test bins slicing behavior through explain helpers (Phase 5).
-    
+
     Phase 5 consolidation: Tests should call explain module functions directly.
     """
     from calibrated_explanations.core.explain._helpers import slice_bins
@@ -193,7 +193,6 @@ def test_reinitialize_updates_state(monkeypatch):
 
     monkeypatch.setattr(explainer_module, "check_is_fitted", fake_check_is_fitted)
 
-
     update_calls: list[tuple] = []
 
     def fake_update(self, xs, ys, bins=None):
@@ -232,4 +231,3 @@ def test_reinitialize_updates_state(monkeypatch):
 
     explainer.reinitialize(learner)
     assert init_calls and init_calls[0][0] is explainer
-

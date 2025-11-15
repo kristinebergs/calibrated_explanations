@@ -38,7 +38,9 @@ def explain_predict_step(
     pre-refactor layout.  The implementation is intentionally verbose to
     minimise behavioural drift.
     """
-    from ._computation import explain_predict_step as _eps_comp  # pylint: disable=import-outside-toplevel
+    from ._computation import (
+        explain_predict_step as _eps_comp,  # pylint: disable=import-outside-toplevel
+    )
 
     (
         _base_predict,

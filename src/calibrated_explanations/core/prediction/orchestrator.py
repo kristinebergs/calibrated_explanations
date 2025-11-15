@@ -73,6 +73,7 @@ class PredictionOrchestrator:
         self.explainer = explainer
         # Initialize interval registry for managing interval learner lifecycle
         from .interval_registry import IntervalRegistry
+
         self._interval_registry = IntervalRegistry(explainer)
 
     def initialize_chains(self) -> None:

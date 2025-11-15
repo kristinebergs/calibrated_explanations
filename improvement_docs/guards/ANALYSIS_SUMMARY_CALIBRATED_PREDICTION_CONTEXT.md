@@ -1,7 +1,7 @@
 # Guard Threshold Elimination Analysis - Summary
 
-**Date:** November 13, 2025  
-**Status:** ✅ Analysis Complete & Final Design Locked  
+**Date:** November 13, 2025
+**Status:** ✅ Analysis Complete & Final Design Locked
 **Related Documents:**
 - 📐 `GUARD_MATHEMATICAL_FOUNDATIONS.md` — Formal conformal prediction theory
 - 🏗️ `GUARD_DESIGN_CONFIDENCE_MODULATION.md` — Implementation architecture
@@ -66,8 +66,8 @@ guard.fit(X_train, y_train)
 ### API After (Categorical Contexts - Rejected)
 ```python
 # ❌ Still needs quantile thresholds, adds complexity
-guard = ConformalRegionOracle(alpha=0.1, mode="regression", 
-                               context_mode="calibrated", 
+guard = ConformalRegionOracle(alpha=0.1, mode="regression",
+                               context_mode="calibrated",
                                quantile_thresholds=(0.5, 0.5))
 guard.fit(X_train, y_train, interval_learner=explainer.interval_learner)
 ```
@@ -132,18 +132,18 @@ def accept(x_prime, x_original):
     # 1. Find nearest cluster
     cluster_id = nearest_cluster(x_original, centers)
     base_radius = radii[cluster_id]
-    
+
     # 2. Compute distance
     dist = mahalanobis_distance(x_prime, centers[cluster_id])
-    
+
     # 3. Get confidence
     interval = interval_learner.predict(x_original)
     width = interval[1] - interval[0]
     confidence = 1 - (width - w_min) / (w_max - w_min)
-    
+
     # 4. Modulate radius
     effective_radius = base_radius * (1 + (1 - confidence) * relaxation_factor)
-    
+
     # 5. Accept/reject
     return dist <= effective_radius
 ```
@@ -340,19 +340,19 @@ Proceed to:
 
 **Auto-threshold (median, quantile, etc.) is tempting but insufficient:**
 
-❌ Still arbitrary (median is just as arbitrary as user-provided threshold)  
-❌ Doesn't use model predictions or confidence  
-❌ Loses regression structure (still binary)  
-❌ Doesn't leverage calibration machinery already in place  
-❌ Doesn't improve guarantees over manual threshold  
+❌ Still arbitrary (median is just as arbitrary as user-provided threshold)
+❌ Doesn't use model predictions or confidence
+❌ Loses regression structure (still binary)
+❌ Doesn't leverage calibration machinery already in place
+❌ Doesn't improve guarantees over manual threshold
 
 **Calibrated prediction context is the right solution:**
 
-✅ Principled (model predictions + calibration)  
-✅ Automatic (no parameter tuning)  
-✅ Stronger guarantees (conformal + calibration aligned)  
-✅ Richer structure (multi-way context)  
-✅ Leverages existing calibration framework  
+✅ Principled (model predictions + calibration)
+✅ Automatic (no parameter tuning)
+✅ Stronger guarantees (conformal + calibration aligned)
+✅ Richer structure (multi-way context)
+✅ Leverages existing calibration framework
 
 ---
 

@@ -1,9 +1,9 @@
 # In-Depth Guard Analysis: Eliminating Threshold via Calibrated Prediction Context
 
-**Date:** November 13, 2025  
-**Status:** Technical Analysis (Ready for Implementation)  
-**Scope:** Architecture redesign to eliminate regression threshold requirement  
-**Audience:** Technical team, Architecture review  
+**Date:** November 13, 2025
+**Status:** Technical Analysis (Ready for Implementation)
+**Scope:** Architecture redesign to eliminate regression threshold requirement
+**Audience:** Technical team, Architecture review
 
 ---
 
@@ -76,7 +76,7 @@ Problem:
 - Values 10 and 40 share a region, but are far apart in y-space
 - Values 60 and 100 share a region, but are far apart in y-space
 - Regions don't reflect true data structure
-- In-distribution guarantee is weak: "similar to training data ≥ $50k" 
+- In-distribution guarantee is weak: "similar to training data ≥ $50k"
   doesn't mean "in model's natural decision regime"
 ```
 
@@ -197,25 +197,25 @@ def fit(
 elif self.mode == "reg" and self.context_mode == "calibrated":
     if interval_learner is None:
         raise ValueError("interval_learner required for context_mode='calibrated'")
-    
+
     # Get predictions and intervals from calibration
     y_pred_prop = model.predict(x_prop)  # shape (n,)
     intervals_prop = interval_learner.predict(x_prop)  # shape (n, 2)
-    
+
     # Compute interval widths
     widths_prop = intervals_prop[:, 1] - intervals_prop[:, 0]
-    
+
     # Bin by median prediction and median interval width
     pred_threshold = np.median(y_pred_prop)
     conf_threshold = np.median(widths_prop)
-    
+
     # 4-way context: (high/low prediction) × (high/low confidence)
     # High confidence = narrow interval = width ≤ median
     context_prop = (
         2 * (y_pred_prop >= pred_threshold) +  # prediction: 0 or 2
         (widths_prop <= conf_threshold)         # confidence: 0 or 1
     )  # Result: 0, 1, 2, 3
-    
+
     labels = np.array([0, 1, 2, 3])
     y_prop_ctx = context_prop
     y_calib_ctx = (similarly computed)
@@ -229,11 +229,11 @@ elif self.mode == "clf" and self.context_mode == "calibrated":
     y_proba_prop = model.predict_proba(x_prop)  # shape (n, n_classes)
     max_proba = np.max(y_proba_prop, axis=1)  # confidence per sample
     predicted_class = np.argmax(y_proba_prop, axis=1)
-    
+
     # Bin confidence
     conf_threshold = np.median(max_proba)
     is_high_conf = (max_proba >= conf_threshold).astype(int)
-    
+
     # 2×n_classes context
     context_prop = 2 * predicted_class + is_high_conf
     labels = np.unique(context_prop)
@@ -352,12 +352,12 @@ def fit(self, xs, ys, x_cal=None, y_cal=None, prop_size=None, interval_learner=N
     x = check_array(xs)
     y = np.asarray(ys)
     # ... existing split logic ...
-    
+
     if self.mode == "clf":
         labels = np.unique(y_prop)
         y_prop_ctx = y_prop
         y_calib_ctx = y_calib
-    
+
     elif self.mode == "reg":
         if self.context_mode == "calibrated":
             if interval_learner is None:
@@ -370,7 +370,7 @@ def fit(self, xs, ys, x_cal=None, y_cal=None, prop_size=None, interval_learner=N
         else:
             # Fallback or error (if removing old threshold path)
             raise ValueError("For regression, use context_mode='calibrated'")
-    
+
     # Rest of fit: cluster per label, etc.
     for label in labels:
         # ... existing clustering logic ...
@@ -383,22 +383,22 @@ def _compute_calibrated_contexts_regression(
     self, x_prop, y_prop, x_calib, y_calib, interval_learner
 ):
     """Compute 4-way contexts from predictions + interval widths."""
-    
+
     # Predictions on proper set
     y_pred_prop = self.learner.predict(x_prop)  # or pass as param
     intervals_prop = interval_learner.predict(x_prop)  # (n, 2)
     widths_prop = intervals_prop[:, 1] - intervals_prop[:, 0]
-    
+
     # Predictions on calibration set
     y_pred_calib = self.learner.predict(x_calib)
     intervals_calib = interval_learner.predict(x_calib)
     widths_calib = intervals_calib[:, 1] - intervals_calib[:, 0]
-    
+
     # Thresholds (configurable quantiles)
     pred_q, conf_q = self.quantile_thresholds
     pred_thresh = np.quantile(y_pred_prop, pred_q)
     conf_thresh = np.quantile(widths_prop, conf_q)
-    
+
     # Compute contexts (0–3)
     context_prop = (
         2 * (y_pred_prop >= pred_thresh).astype(int) +
@@ -408,7 +408,7 @@ def _compute_calibrated_contexts_regression(
         2 * (y_pred_calib >= pred_thresh).astype(int) +
         (widths_calib <= conf_thresh).astype(int)
     )
-    
+
     labels = np.array([0, 1, 2, 3])
     return labels, context_prop, context_calib
 ```
@@ -484,12 +484,12 @@ def fit(self, ...):
 
 ```
 Old threshold approach:
-  "Perturbation is in-distribution if within radius of points 
+  "Perturbation is in-distribution if within radius of points
    where model.predict(·) ≥ arbitrary_threshold"
   → Weak (no connection to model behavior)
 
 Proposed calibrated approach:
-  "Perturbation is in-distribution if within radius of points 
+  "Perturbation is in-distribution if within radius of points
    where model made similar predictions with similar confidence"
   → Strong (prediction + calibration aligned)
 ```
@@ -525,15 +525,15 @@ Recommend adding a `GuardDiagnostics` class:
 class GuardDiagnostics:
     def __init__(self, guard):
         self.guard = guard
-    
+
     def check_context_balance(self) -> Dict[int, float]:
         """Return percentage of samples per context."""
         # Check all contexts have ≥ 5% of samples
-        
+
     def check_context_isolation(self) -> Dict[int, float]:
         """Return average intra-context distance vs inter-context."""
         # Ensure contexts are well-separated
-        
+
     def check_model_confidence(self, interval_learner) -> float:
         """Return average interval width as % of y-range."""
         # Warn if model is too confident or too uncertain
@@ -633,49 +633,49 @@ def _compute_calibrated_contexts_regression(
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Compute 4-way contexts from calibrated predictions and intervals.
-    
+
     Returns:
         labels: [0, 1, 2, 3]
         context_prop: context assignment for proper set
         context_calib: context assignment for calibration set
     """
     import numpy as np
-    
+
     # Get predictions
     try:
         y_pred_prop = self._model.predict(x_prop)
         y_pred_calib = self._model.predict(x_calib)
     except Exception as e:
         raise ValueError(f"Failed to get predictions: {e}")
-    
+
     # Get intervals
     try:
         intervals_prop = interval_learner.predict(x_prop)
         intervals_calib = interval_learner.predict(x_calib)
     except Exception as e:
         raise ValueError(f"Failed to get intervals from interval_learner: {e}")
-    
+
     # Ensure intervals are (n, 2)
     intervals_prop = np.asarray(intervals_prop)
     intervals_calib = np.asarray(intervals_calib)
-    
+
     if intervals_prop.ndim == 1 or intervals_prop.shape[1] != 2:
         raise ValueError("interval_learner must return (n, 2) array")
-    
+
     # Compute interval widths
     widths_prop = intervals_prop[:, 1] - intervals_prop[:, 0]
     widths_calib = intervals_calib[:, 1] - intervals_calib[:, 0]
-    
+
     # Get thresholds
     pred_q, conf_q = self.quantile_thresholds
     pred_thresh = np.quantile(y_pred_prop, pred_q)
     conf_thresh = np.quantile(widths_prop, conf_q)
-    
+
     _logger.info(
         f"Calibrated context: pred_threshold={pred_thresh:.4f} "
         f"(q={pred_q}), conf_threshold={conf_thresh:.4f} (q={conf_q})"
     )
-    
+
     # Compute contexts
     context_prop = (
         2 * (y_pred_prop >= pred_thresh).astype(int) +
@@ -685,9 +685,9 @@ def _compute_calibrated_contexts_regression(
         2 * (y_pred_calib >= pred_thresh).astype(int) +
         (widths_calib <= conf_thresh).astype(int)
     )
-    
+
     labels = np.array([0, 1, 2, 3])
-    
+
     return labels, context_prop, context_calib
 ```
 
@@ -701,7 +701,7 @@ elif self.mode == "reg":
                 "interval_learner required for context_mode='calibrated' in regression mode"
             )
         self._interval_learner = interval_learner
-        
+
         labels, y_prop_ctx, y_calib_ctx = (
             self._compute_calibrated_contexts_regression(
                 x_prop, y_prop, x_calib, y_calib, interval_learner
@@ -786,6 +786,6 @@ print(f"Contexts: {np.unique(guard._clusters.keys())}")
 
 ---
 
-**Document Version:** 1.0  
-**Status:** Ready for Architecture Review & Implementation Planning  
+**Document Version:** 1.0
+**Status:** Ready for Architecture Review & Implementation Planning
 **Next Step:** Engineering team to review and plan sprint allocation.

@@ -1,7 +1,7 @@
 # Mathematical Foundations: Conformal Prediction & Calibrated Guarantees
 
-**Date:** November 13, 2025  
-**Scope:** Formal theory underlying the confidence-modulated conformal guard  
+**Date:** November 13, 2025
+**Scope:** Formal theory underlying the confidence-modulated conformal guard
 **Audience:** Researchers, advanced practitioners, implementers
 
 ---
@@ -583,6 +583,6 @@ Together, they provide a principled mechanism to filter in-distribution perturba
 
 ---
 
-**Document Version:** 1.0  
-**Status:** Final  
+**Document Version:** 1.0
+**Status:** Final
 **Next:** Refer to `GUARD_DESIGN_CONFIDENCE_MODULATION.md` for implementation details

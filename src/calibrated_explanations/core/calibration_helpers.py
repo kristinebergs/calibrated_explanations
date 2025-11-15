@@ -13,6 +13,16 @@ Part of Phase 6: Refactor Calibration Functionality (ADR-001).
 from __future__ import annotations
 
 import warnings
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    # Expose names for static analysis tools to avoid F822 in __all__.
+    from .calibration.interval_learner import (
+        assign_threshold,
+        initialize_interval_learner,
+        initialize_interval_learner_for_fast_explainer,
+        update_interval_learner,
+    )
 
 __all__ = [
     "assign_threshold",
@@ -37,4 +47,3 @@ def __getattr__(name: str):
         return getattr(_il, name)
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-

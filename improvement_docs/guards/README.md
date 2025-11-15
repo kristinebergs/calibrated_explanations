@@ -1,7 +1,7 @@
 # Guards Documentation Index
 
-**Date:** November 13, 2025  
-**Status:** Complete & Final  
+**Date:** November 13, 2025
+**Status:** Complete & Final
 **Scope:** Confidence-modulated conformal region guard
 
 ---
@@ -29,9 +29,9 @@ This directory contains comprehensive documentation for the guard feature, inclu
 ## Documents in This Suite
 
 ### 1. GUARD_DESIGN_CONFIDENCE_MODULATION.md
-**Purpose:** Primary design and implementation specification  
-**Audience:** Developers, implementers  
-**Length:** ~800 lines  
+**Purpose:** Primary design and implementation specification
+**Audience:** Developers, implementers
+**Length:** ~800 lines
 **Key Sections:**
 - Conformal prediction overview (non-technical intro)
 - Confidence modulation mechanism
@@ -52,9 +52,9 @@ This directory contains comprehensive documentation for the guard feature, inclu
 ---
 
 ### 2. GUARD_MATHEMATICAL_FOUNDATIONS.md
-**Purpose:** Rigorous mathematical theory and proofs  
-**Audience:** Researchers, theoreticians, advanced practitioners  
-**Length:** ~1000 lines  
+**Purpose:** Rigorous mathematical theory and proofs
+**Audience:** Researchers, theoreticians, advanced practitioners
+**Length:** ~1000 lines
 **Key Sections:**
 - Exchangeability and i.i.d. assumptions
 - Nonconformity measures (definition and examples)
@@ -81,9 +81,9 @@ This directory contains comprehensive documentation for the guard feature, inclu
 ---
 
 ### 3. GUARD_FORMAL_GUARANTEES.md
-**Purpose:** Formal theorems and coverage guarantees  
-**Audience:** Researchers, implementers verifying correctness  
-**Length:** ~600 lines  
+**Purpose:** Formal theorems and coverage guarantees
+**Audience:** Researchers, implementers verifying correctness
+**Length:** ~600 lines
 **Key Sections:**
 - Overview of three core guarantees (G1, G2, G3)
 - G1: Conformal Coverage (finite-sample validity)
@@ -108,9 +108,9 @@ This directory contains comprehensive documentation for the guard feature, inclu
 ---
 
 ### 4. ANALYSIS_SUMMARY_CALIBRATED_PREDICTION_CONTEXT.md
-**Purpose:** Design evolution and justification  
-**Audience:** Decision-makers, design reviewers  
-**Length:** ~300 lines  
+**Purpose:** Design evolution and justification
+**Audience:** Decision-makers, design reviewers
+**Length:** ~300 lines
 **Key Sections:**
 - Final design (confidence modulation)
 - Key finding (why we chose this approach)
@@ -383,8 +383,8 @@ A: See `GUARD_DESIGN_CONFIDENCE_MODULATION.md` Part 4 (parameter selection & sca
 - [ ] Verify all cross-references are valid
 - [ ] Add any missing mathematical references
 
-**Owner:** Guard Feature Team  
-**Last Updated:** November 13, 2025  
+**Owner:** Guard Feature Team
+**Last Updated:** November 13, 2025
 **Next Review:** After implementation complete
 
 ---

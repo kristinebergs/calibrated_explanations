@@ -175,10 +175,7 @@ def test_guard_integration(binary_dataset):
 
     # Use guard_params to have the guard fitted automatically during initialization
     ce = CalibratedExplainer(
-        model,
-        x_prop_train,
-        y_prop_train,
-        guard_params={'alpha': 0.1, 'n_clusters': 3}
+        model, x_prop_train, y_prop_train, guard_params={"alpha": 0.1, "n_clusters": 3}
     )
 
     # Explain a single instance

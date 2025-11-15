@@ -89,4 +89,3 @@ class TestIntervalRegistry:
         assert registry.explainer is binary_explainer
         assert registry.explainer.mode == "classification"
         assert registry.explainer.num_features == binary_explainer.num_features
-

@@ -1,7 +1,7 @@
 # Guard Formal Guarantees & Proof Sketches
 
-**Date:** November 13, 2025  
-**Status:** Final  
+**Date:** November 13, 2025
+**Status:** Final
 **Audience:** Researchers, theoreticians, advanced implementers
 
 **Cross-references:**
@@ -178,7 +178,7 @@ This is a straightforward extension of G1 applied to each cluster independently.
 
 ### Conditional Coverage
 
-**Important:** This guarantee is **conditional on cluster membership**. 
+**Important:** This guarantee is **conditional on cluster membership**.
 
 - If $x' \in C_j$ but gets assigned to cluster $C_k$, the guarantee becomes weaker.
 
@@ -387,6 +387,6 @@ The confidence-modulated conformal guard provides:
 
 ---
 
-**Document Status:** Final  
-**For implementation details, see:** `GUARD_DESIGN_CONFIDENCE_MODULATION.md`  
+**Document Status:** Final
+**For implementation details, see:** `GUARD_DESIGN_CONFIDENCE_MODULATION.md`
 **For complete proofs, see:** `GUARD_MATHEMATICAL_FOUNDATIONS.md`

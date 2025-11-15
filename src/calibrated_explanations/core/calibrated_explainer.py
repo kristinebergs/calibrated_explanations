@@ -15,8 +15,6 @@ from __future__ import annotations
 
 import warnings as _warnings
 import logging as _logging
-import os
-from pathlib import Path
 from collections import Counter
 from time import time
 
@@ -136,7 +134,7 @@ class CalibratedExplainer:
         difficulty_estimator : Any or None, optional
             Optional crepes ``DifficultyEstimator`` instance for regression tasks.
         guard_params : dict or None, optional
-            Optional dict of parameters for ConformalRegionOracle (e.g., 
+            Optional dict of parameters for ConformalRegionOracle (e.g.,
             ``{'alpha': 0.1, 'n_clusters': 5}``). If provided, a fitted guard
             will be initialized after interval_learner setup.
         **kwargs : Any
@@ -347,7 +345,7 @@ class CalibratedExplainer:
         from .calibration.interval_learner import initialize_interval_learner
 
         initialize_interval_learner(self)
-        
+
         # Initialize guard orchestrator (hosts the guard lifecycle)
         from ..guards.orchestrator import GuardOrchestrator
 
@@ -372,7 +370,9 @@ class CalibratedExplainer:
                 # Keep guard lifecycle inside the orchestrator
                 self._guard_orchestrator.set_guard(prefit_guard)
             except Exception:  # pragma: no cover - defensive
-                _logging.getLogger(__name__).debug("GuardOrchestrator.set_guard failed for prefit guard")
+                _logging.getLogger(__name__).debug(
+                    "GuardOrchestrator.set_guard failed for prefit guard"
+                )
 
         self.reject_learner = (
             self.initialize_reject_learner() if kwargs.get("reject", False) else None
@@ -388,7 +388,7 @@ class CalibratedExplainer:
         Delegates to the guard orchestrator. Returns True if guard is disabled.
         """
         return self._guard_orchestrator.accept(x_prime, calibrated_prediction)
-    
+
     def _coerce_plugin_override(self, override: Any) -> Any:
         """Normalise a plugin override into an instance when possible.
 
@@ -789,7 +789,7 @@ class CalibratedExplainer:
         """
         return self._prediction_orchestrator._interval_registry.get_sigma_test(x)
 
-    def _CalibratedExplainer__initialize_interval_learner_for_fast_explainer(self) -> None:
+    def _CalibratedExplainer__initialize_interval_learner_for_fast_explainer(self) -> None:  # noqa: N802
         """Backward-compatible wrapper for fast-mode interval learner initialization.
 
         Notes
@@ -797,7 +797,7 @@ class CalibratedExplainer:
         This method delegates to the interval registry. It is kept for backward
         compatibility with the external fast_explanations plugin and other
         production code that calls this private method.
-        
+
         See ADR-001 and Phase 4 refactoring.
         """
         self._prediction_orchestrator._interval_registry.initialize_for_fast_explainer()
@@ -1095,7 +1095,7 @@ class CalibratedExplainer:
     @staticmethod
     def _slice_threshold(threshold, start: int, stop: int, total_len: int):
         """Delegate to explain._helpers (Phase 5).
-        
+
         Return the portion of *threshold* covering ``[start, stop)``.
         Moved to explain._helpers for consolidation.
         """
@@ -1106,18 +1106,17 @@ class CalibratedExplainer:
     @staticmethod
     def _compute_weight_delta(baseline, perturbed):
         """Delegate to explain._helpers (Phase 5).
-        
+
         Return the contribution weight delta between baseline and perturbed.
         Compatibility wrapper for compute_weight_delta moved to explain._helpers.
         """
-        from .explain._helpers import compute_weight_delta
 
         return compute_weight_delta(baseline, perturbed)
 
     @staticmethod
     def _slice_bins(bins, start: int, stop: int):
         """Delegate to explain._helpers (Phase 5).
-        
+
         Return the subset of *bins* covering ``[start, stop)``.
         Moved to explain._helpers for consolidation.
         """
@@ -1127,7 +1126,7 @@ class CalibratedExplainer:
 
     def _validate_and_prepare_input(self, x):
         """Delegate to explain helpers (Phase 5).
-        
+
         Validates and prepares input data for explanation generation.
         Moved to explain._helpers to consolidate all explanation logic.
         """
@@ -1137,7 +1136,7 @@ class CalibratedExplainer:
 
     def _initialize_explanation(self, x, low_high_percentiles, threshold, bins, features_to_ignore):
         """Delegate to explain computation (Phase 5).
-        
+
         Initializes a CalibratedExplanations object with all metadata.
         Moved to explain._computation to consolidate all explanation logic.
         """
@@ -1284,19 +1283,19 @@ class CalibratedExplainer:
 
     def _assign_weight(self, instance_predict, prediction):
         """Compute contribution weight as the delta from the global prediction.
-        
+
         This method computes per-instance or per-class weight deltas for
         probabilistic regression feature attribution. For scalar weight
         computation, use calibrated_explanations.core.explain.feature_task.assign_weight_scalar
         which is optimized for single-value inputs.
-        
+
         Parameters
         ----------
         instance_predict : scalar or array-like
             Baseline prediction(s).
         prediction : scalar or array-like
             Perturbed prediction(s).
-            
+
         Returns
         -------
         scalar or list
@@ -1344,10 +1343,16 @@ class CalibratedExplainer:
             Min and max values for each feature for each instance.
         """
         from .explain._computation import rule_boundaries as _rule_boundaries  # pylint: disable=import-outside-toplevel
+
         return _rule_boundaries(self, instances, perturbed_instances)
 
-    def __filter_perturbations_by_guard(self, perturbed_x: np.ndarray, perturbed_feature: np.ndarray,
-                                        x: np.ndarray, prediction: dict) -> tuple:
+    def __filter_perturbations_by_guard(
+        self,
+        perturbed_x: np.ndarray,
+        perturbed_feature: np.ndarray,
+        x: np.ndarray,
+        prediction: dict,
+    ) -> tuple:
         """Filter perturbations to keep only those within conformal regions.
 
         Applies guard.accept() to each perturbation using calibrated predictions
@@ -1380,8 +1385,13 @@ class CalibratedExplainer:
         # Legacy behaviour: no orchestrator available -> permissive (no filtering)
         return perturbed_x, perturbed_feature
 
-    def __filter_candidates_by_guard(self, f: int, candidates: np.ndarray, x_orig: np.ndarray = None,
-                                     calibrated_pred: tuple = None) -> np.ndarray:
+    def __filter_candidates_by_guard(
+        self,
+        f: int,
+        candidates: np.ndarray,
+        x_orig: np.ndarray = None,
+        calibrated_pred: tuple = None,
+    ) -> np.ndarray:
         """Filter candidate values using guard intervals if guard is active.
 
         Parameters
@@ -1501,17 +1511,16 @@ class CalibratedExplainer:
         NotFittedError
             If the provided guard has not been fitted.
         """
-        if guard is not None:
+        if guard is not None and hasattr(guard, "_fitted") and not guard._fitted:
             # Only enforce fitted-check for objects that expose the _fitted flag.
             # Some lightweight guard-like objects (e.g., test stubs) may not have
             # this attribute but are still valid for use in certain code-paths
             # (for example, providing label_context). Require _fitted == True
             # only when the attribute exists.
-            if hasattr(guard, "_fitted") and not guard._fitted:
-                raise NotFittedError(
-                    "The guard must be fitted before assignment. "
-                    "Call guard.fit(X_train, y_train, model, interval_learner) first."
-                )
+            raise NotFittedError(
+                "The guard must be fitted before assignment. "
+                "Call guard.fit(X_train, y_train, model, interval_learner) first."
+            )
         # Do not expose a top-level `guard` attribute on the explainer. Keep
         # guard lifecycle inside the orchestrator and delegate assignment.
         if hasattr(self, "_guard_orchestrator") and self._guard_orchestrator is not None:
@@ -1545,7 +1554,6 @@ class CalibratedExplainer:
                     "Guard fitting via GuardOrchestrator failed; guard disabled."
                 )
             return
-
 
     def __set_mode(self, mode, initialize=True) -> None:
         """Assign the mode of the explainer. The mode can be either 'classification' or 'regression'.
@@ -1692,6 +1700,7 @@ class CalibratedExplainer:
             The discretized data sample.
         """
         from .explain._computation import discretize  # pylint: disable=import-outside-toplevel
+
         return discretize(self, x)
 
     # pylint: disable=too-many-branches

@@ -13,8 +13,8 @@ import numpy as np
 from ...utils.helper import safe_mean
 
 if TYPE_CHECKING:
-    from ..calibrated_explainer import CalibratedExplainer
     from ...explanations import CalibratedExplanations
+    from ..calibrated_explainer import CalibratedExplainer
 
 # Type alias for feature task results
 FeatureTaskResult = Tuple[
@@ -111,7 +111,7 @@ def rule_boundaries(
     """
     # pylint: disable=invalid-name
     instances = np.array(instances)  # Ensure instances is a numpy array
-    
+
     # If no discretizer, return trivial boundaries (min=max=original value)
     if explainer.discretizer is None:
         if len(instances.shape) == 1:
@@ -120,7 +120,7 @@ def rule_boundaries(
         else:
             # Multiple instances: return array of shape (num_instances, num_features, 2)
             return np.array([[[val, val] for val in instance] for instance in instances])
-    
+
     # backwards compatibility
     if len(instances.shape) == 1:
         min_max = []
@@ -142,7 +142,7 @@ def rule_boundaries(
                     ]
                 )
         return np.array(min_max)
-    
+
     if perturbed_instances is None:
         perturbed_instances = discretize(explainer, instances)
     else:
@@ -205,7 +205,9 @@ def initialize_explanation(
     CalibratedExplanations
         Initialized explanation object.
     """
-    from ..prediction_helpers import initialize_explanation as _init_expl  # pylint: disable=import-outside-toplevel
+    from ..prediction_helpers import (
+        initialize_explanation as _init_expl,  # pylint: disable=import-outside-toplevel
+    )
 
     return _init_expl(explainer, x, low_high_percentiles, threshold, bins, features_to_ignore)
 
@@ -248,6 +250,7 @@ def explain_predict_step(
         Tuple containing predictions, perturbation metadata, and rule boundaries.
     """
     import logging  # pylint: disable=import-outside-toplevel
+
     from ..prediction_helpers import assert_threshold  # pylint: disable=import-outside-toplevel
 
     x_cal = explainer.x_cal

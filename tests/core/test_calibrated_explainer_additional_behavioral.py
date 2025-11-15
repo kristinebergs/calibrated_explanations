@@ -106,13 +106,14 @@ def _make_minimal_explainer(num_features: int = 2) -> CalibratedExplainer:
     explainer._shap_helper = ShapHelper(explainer)
     # Initialize the prediction orchestrator (Phase 4: Interval Registry)
     from calibrated_explanations.core.prediction import PredictionOrchestrator
+
     explainer._prediction_orchestrator = PredictionOrchestrator(explainer)
     return explainer
 
 
 def test_slice_helpers_support_multiple_input_types(fake_pandas):
     """Test threshold and bins slicing with multiple input types (Phase 5).
-    
+
     Phase 5 consolidation: Tests call explain module functions directly.
     """
     from calibrated_explanations.core.explain._helpers import slice_threshold, slice_bins
@@ -125,9 +126,7 @@ def test_slice_helpers_support_multiple_input_types(fake_pandas):
     assert slice_threshold(sequence, 0, 1, 4) is sequence
 
     array = np.array([4, 5, 6])
-    np.testing.assert_array_equal(
-        slice_threshold(array, 1, 3, 3), np.array([5, 6])
-    )
+    np.testing.assert_array_equal(slice_threshold(array, 1, 3, 3), np.array([5, 6]))
 
     series = fake_pandas.Series([7, 8, 9])
     sliced_series = slice_threshold(series, 1, 3, 3)
@@ -137,9 +136,7 @@ def test_slice_helpers_support_multiple_input_types(fake_pandas):
     bins = np.array([0.1, 0.2, 0.3])
     np.testing.assert_array_equal(slice_bins(bins, 1, 3), np.array([0.2, 0.3]))
     pandas_bins = fake_pandas.Series([10, 11, 12])
-    np.testing.assert_array_equal(
-        slice_bins(pandas_bins, 0, 2), np.array([10, 11])
-    )
+    np.testing.assert_array_equal(slice_bins(pandas_bins, 0, 2), np.array([10, 11]))
 
 
 def test_assign_threshold_and_weight_behaviour():

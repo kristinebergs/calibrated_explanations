@@ -8,9 +8,8 @@ exercise these wrappers to lock in semantics before moving logic bodies.
 
 from __future__ import annotations
 
-import logging
 import warnings as _warnings
-from typing import Any, Dict, Optional, Protocol, Sequence, Tuple, Union, cast
+from typing import Any, Optional, Protocol, Sequence, Tuple, Union, cast
 
 import numpy as np
 

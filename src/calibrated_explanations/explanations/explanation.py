@@ -681,12 +681,9 @@ class CalibratedExplanation(ABC):
             np.asarray(values) for values in rule_value_set[: len(original_features)]
         ]
 
-        # Build a canonical calibrated prediction tuple used by guards. This mirrors
-        # the structure produced elsewhere in the class: (predict, (low, high)).
-        calibrated_pred = (
-            self.prediction.get("predict"),
-            (self.prediction.get("low"), self.prediction.get("high")),
-        )
+        # Build a canonical calibrated prediction tuple used by guards when
+        # needed. We avoid allocating it here if it's not used to satisfy
+        # linter checks for unused-assignment while keeping the logic clear.
 
         def _restore() -> None:
             for pos, feat_idx in enumerate(original_features):
@@ -702,14 +699,18 @@ class CalibratedExplanation(ABC):
                     for value_2 in values2:
                         perturbed[of2] = value_2
                         perturbed_row[0, of2] = value_2
-                        
+
                         # Ask the public proxy on the collection to check
                         # acceptance. The proxy delegates to the frozen explainer
                         # which in turn calls the underlying explainer's accept
                         # wrapper when present. This keeps explanation code
                         # independent of internal representation.
                         accepted = self.calibrated_explanations.accept(
-                            perturbed_row[0], calibrated_pred
+                            perturbed_row[0],
+                            (
+                                self.prediction.get("predict"),
+                                (self.prediction.get("low"), self.prediction.get("high")),
+                            ),
                         )
                         if not accepted:
                             continue
@@ -736,10 +737,14 @@ class CalibratedExplanation(ABC):
                         for value_3 in values3:
                             perturbed[of3] = value_3
                             perturbed_row[0, of3] = value_3
-                            
+
                             # Ask the collection proxy for acceptance.
                             accepted = self.calibrated_explanations.accept(
-                                perturbed_row[0], calibrated_pred
+                                perturbed_row[0],
+                                (
+                                    self.prediction.get("predict"),
+                                    (self.prediction.get("low"), self.prediction.get("high")),
+                                ),
                             )
                             if not accepted:
                                 continue
@@ -1291,11 +1296,6 @@ class FactualExplanation(CalibratedExplanation):
 
         threshold = None if self.y_threshold is None else self.y_threshold
         scratch = np.array(self.x_test, copy=True)
-
-        calibrated_pred = (
-            self.prediction.get("predict"),
-            (self.prediction.get("low"), self.prediction.get("high")),
-        )
         predicted_class = factual["classes"]
         conjunctive_state["classes"] = predicted_class
 
@@ -1385,8 +1385,12 @@ class FactualExplanation(CalibratedExplanation):
                         continue
 
                     weight = rule_predict - self.prediction["predict"]
-                    weight_low = rule_low - self.prediction["predict"] if rule_low != -np.inf else -np.inf
-                    weight_high = rule_high - self.prediction["predict"] if rule_high != np.inf else np.inf
+                    weight_low = (
+                        rule_low - self.prediction["predict"] if rule_low != -np.inf else -np.inf
+                    )
+                    weight_high = (
+                        rule_high - self.prediction["predict"] if rule_high != np.inf else np.inf
+                    )
                     # Skip rules with empty weight uncertainty intervals
                     if weight_low == weight_high:
                         continue
@@ -2212,11 +2216,6 @@ class AlternativeExplanation(CalibratedExplanation):
 
         threshold = None if self.y_threshold is None else self.y_threshold
         scratch = np.array(self.x_test, copy=True)
-
-        calibrated_pred = (
-            self.prediction.get("predict"),
-            (self.prediction.get("low"), self.prediction.get("high")),
-        )
         predicted_class = alternative["classes"]
         conjunctive_state["classes"] = predicted_class
 
@@ -2309,19 +2308,23 @@ class AlternativeExplanation(CalibratedExplanation):
                         continue
 
                     weight = rule_predict - self.prediction["predict"]
-                    weight_low = rule_low - self.prediction["predict"] if rule_low != -np.inf else -np.inf
-                    weight_high = rule_high - self.prediction["predict"] if rule_high != np.inf else np.inf
+                    weight_low = (
+                        rule_low - self.prediction["predict"] if rule_low != -np.inf else -np.inf
+                    )
+                    weight_high = (
+                        rule_high - self.prediction["predict"] if rule_high != np.inf else np.inf
+                    )
                     # Skip rules with empty weight uncertainty intervals
                     if weight_low == weight_high:
                         continue
-                    
+
                     conjunctive_state["predict"].append(rule_predict)
                     conjunctive_state["predict_low"].append(rule_low)
                     conjunctive_state["predict_high"].append(rule_high)
                     conjunctive_state["weight"].append(weight)
                     conjunctive_state["weight_low"].append(weight_low)
                     conjunctive_state["weight_high"].append(weight_high)
-                    
+
                     conjunctive_state["value"].append(
                         alternative["value"][f1] + "\n" + conjunctive_state["value"][cf2]
                     )

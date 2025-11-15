@@ -5,10 +5,12 @@ lifecycle and runtime operations so that the rest of the codebase can keep
 thin delegators to it. It wraps the existing ConformalRegionOracle in
 `guards.regions` and exposes accept/intervals/filter helpers.
 """
+
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Sequence, Tuple
 import logging
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+
 import numpy as np
 
 from .regions import ConformalRegionOracle
@@ -178,8 +180,9 @@ class GuardOrchestrator:
                 for low, high in intervals[feature_index]:
                     mask |= (candidates >= low) & (candidates <= high)
                 return candidates[mask]
-        except Exception:  # pylint: disable=broad-except
-            pass
+        except Exception as exc:  # pylint: disable=broad-except
+            logger.debug("filter_candidates failed: %s", exc)
+            return candidates
         return candidates
 
 

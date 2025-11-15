@@ -16,9 +16,9 @@ No thresholds or categorical contexts required.
 import logging
 
 import numpy as np
+from scipy.linalg import pinvh
 from sklearn.cluster import KMeans
 from sklearn.utils import check_array
-from scipy.linalg import pinvh
 
 logger = logging.getLogger(__name__)
 
@@ -170,9 +170,7 @@ class ConformalRegionOracle:
             x_cal = x_arr[cal_indices]
 
         if len(x_cal) == 0:
-            raise ValueError(
-                "Calibration set is empty; increase training data or reduce prop_size"
-            )
+            raise ValueError("Calibration set is empty; increase training data or reduce prop_size")
 
         # Cluster on proper set
         n_clusters_actual = min(self.n_clusters, len(x_proper))
@@ -206,9 +204,7 @@ class ConformalRegionOracle:
         # Compute conformal radius as (1 - alpha) quantile
         quantile_idx = int(np.ceil((1 - self.alpha) * len(cal_scores)))
         quantile_idx = min(quantile_idx, len(cal_scores) - 1)
-        self._cluster_radii = np.full(
-            n_clusters_actual, np.sort(cal_scores)[quantile_idx]
-        )
+        self._cluster_radii = np.full(n_clusters_actual, np.sort(cal_scores)[quantile_idx])
 
         # Record width statistics for confidence modulation
         if interval_learner is not None:
@@ -273,9 +269,7 @@ class ConformalRegionOracle:
         x_point = x_arr[0]  # Take first row if multiple
 
         # Find nearest cluster center
-        distances_to_centers = np.linalg.norm(
-            self._cluster_centers - x_point, axis=1
-        )
+        distances_to_centers = np.linalg.norm(self._cluster_centers - x_point, axis=1)
         nearest_cluster_idx = np.argmin(distances_to_centers)
 
         # Compute Mahalanobis distance to nearest cluster center
@@ -303,9 +297,7 @@ class ConformalRegionOracle:
         base_radius = self._cluster_radii[nearest_cluster_idx]
 
         # Compute effective radius with confidence modulation
-        r_eff = self._compute_effective_radius(
-            base_radius, calibrated_prediction
-        )
+        r_eff = self._compute_effective_radius(base_radius, calibrated_prediction)
 
         return mahal_dist <= r_eff
 
@@ -360,23 +352,17 @@ class ConformalRegionOracle:
         if not self._fitted:
             raise RuntimeError("ConformalRegionOracle not fitted. Call fit() first.")
 
-        x_point = check_array(
-            x_orig, accept_sparse=False, ensure_2d=False
-        ).ravel()
+        x_point = check_array(x_orig, accept_sparse=False, ensure_2d=False).ravel()
         n_features = len(x_point)
 
         # Find nearest cluster
-        distances_to_centers = np.linalg.norm(
-            self._cluster_centers - x_point, axis=1
-        )
+        distances_to_centers = np.linalg.norm(self._cluster_centers - x_point, axis=1)
         nearest_cluster_idx = np.argmin(distances_to_centers)
 
         mu_center = self._cluster_centers[nearest_cluster_idx]
         cov = self._cluster_covs[nearest_cluster_idx]
         base_radius = self._cluster_radii[nearest_cluster_idx]
-        r_eff = self._compute_effective_radius(
-            base_radius, calibrated_prediction
-        )
+        r_eff = self._compute_effective_radius(base_radius, calibrated_prediction)
 
         # Compute effective radius squared
         r_eff_sq = r_eff**2
@@ -448,9 +434,7 @@ class ConformalRegionOracle:
         scores = []
         for x_point in x_arr:
             # Find nearest cluster
-            distances = np.linalg.norm(
-                self._cluster_centers - x_point, axis=1
-            )
+            distances = np.linalg.norm(self._cluster_centers - x_point, axis=1)
             nearest_idx = np.argmin(distances)
 
             # Mahalanobis distance to nearest cluster
@@ -513,4 +497,3 @@ class ConformalRegionOracle:
         modulation = 1.0 + (1.0 - confidence) * self.relaxation_factor
 
         return base_radius * modulation
-

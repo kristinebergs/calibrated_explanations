@@ -1,13 +1,12 @@
 import numpy as np
 
 from calibrated_explanations.guards.orchestrator import GuardOrchestrator
-from calibrated_explanations.guards.regions import ConformalRegionOracle
 
 
 class DummyIntervalLearner:
-    def predict(self, X):
+    def predict(self, x):
         # Return constant intervals for each row
-        return [(0.0, 1.0) for _ in range(len(X))]
+        return [(0.0, 1.0) for _ in range(len(x))]
 
 
 class FakeExplainer:
@@ -20,15 +19,14 @@ class FakeExplainer:
 
 def test_fit_guard_creates_guard():
     x_cal = np.random.RandomState(0).randn(80, 3)
-    y_cal = (np.random.RandomState(0).randint(0, 2, size=80))
+    y_cal = np.random.RandomState(0).randint(0, 2, size=80)
     expl = FakeExplainer(x_cal, y_cal)
     orch = GuardOrchestrator(expl)
 
     assert orch.get_guard() is None
     orch.fit_guard({"alpha": 0.1, "n_clusters": 3, "random_state": 42})
-    guard = orch.get_guard()
-    assert guard is not None
-    assert hasattr(guard, "_fitted") and guard._fitted
+    assert orch.get_guard() is not None
+    assert hasattr(orch.get_guard(), "_fitted") and orch.get_guard()._fitted
 
 
 def test_accept_and_intervals_after_fit():
@@ -38,7 +36,7 @@ def test_accept_and_intervals_after_fit():
     orch = GuardOrchestrator(expl)
     orch.fit_guard({"alpha": 0.1, "n_clusters": 2, "random_state": 0})
 
-    guard = orch.get_guard()
+    assert orch.get_guard() is not None
     # pick a calibration point, expect it to be accepted
     point = x_cal[0]
     assert orch.accept(point) in (True, False)
@@ -70,7 +68,11 @@ def test_filter_perturbations_delegation():
     perturbed_x = np.array([[0.0, 0.0], [10.0, 10.0]])
     # perturbed_feature second column is origin instance index
     perturbed_feature = np.array([[0, 0, 0, 0], [1, 1, 0, 0]])
-    prediction = {"predict": np.array([0.0, 1.0]), "low": np.array([0.0, 0.0]), "high": np.array([1.0, 1.0])}
+    prediction = {
+        "predict": np.array([0.0, 1.0]),
+        "low": np.array([0.0, 0.0]),
+        "high": np.array([1.0, 1.0]),
+    }
 
     fx, ff = orch.filter_perturbations(perturbed_x, perturbed_feature, x_cal, prediction)
     assert fx.shape[0] == 1

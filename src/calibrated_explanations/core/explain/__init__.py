@@ -11,7 +11,7 @@ providing clean separation between orchestration and execution strategies.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from ._base import BaseExplainPlugin
 from ._shared import ExplainConfig, ExplainRequest, ExplainResponse
@@ -21,7 +21,9 @@ from .parallel_instance import InstanceParallelExplainPlugin
 from .sequential import SequentialExplainPlugin
 
 if TYPE_CHECKING:
-    from ..calibrated_explainer import CalibratedExplainer
+    # The CalibratedExplainer type is intentionally omitted here; importing it
+    # only for TYPE_CHECKING when not used would trigger unused-import linting.
+    pass
 
 
 __all__ = [

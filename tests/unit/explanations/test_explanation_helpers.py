@@ -79,7 +79,9 @@ class ContainerStub:
     def accept(self, x_new, calibrated_prediction=None):  # pragma: no cover - trivial test shim
         return True
 
-    def accept_batch(self, x_new_batch, calibrated_predictions=None):  # pragma: no cover - trivial test shim
+    def accept_batch(
+        self, x_new_batch, calibrated_predictions=None
+    ):  # pragma: no cover - trivial test shim
         import numpy as _np
 
         try:
