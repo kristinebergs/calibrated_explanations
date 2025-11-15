@@ -352,19 +352,27 @@ class CalibratedExplainer:
         from ..guards.orchestrator import GuardOrchestrator
 
         self._guard_orchestrator = GuardOrchestrator(self)
-        # Set guard from kwargs (now that orchestrator exists)
-        self.guard = kwargs.pop("guard", None)  # May be a pre-fitted guard or None
-        # Fit guard if guard_params provided, or validate pre-fitted guard
+        # Handle optional pre-fitted guard passed via kwargs. Do NOT expose a
+        # top-level `guard` attribute on the explainer; all guard lifecycle
+        # operations must go through the GuardOrchestrator.
+        prefit_guard = kwargs.pop("guard", None)  # May be a pre-fitted guard or None
+        # Fit guard if guard_params provided, otherwise accept a pre-fitted guard
+        # by routing it to the orchestrator (no public `guard` attribute).
         if self.guard_params:
             # Delegate guard fit to orchestrator
             self._guard_orchestrator.fit_guard(self.guard_params)
-        elif self.guard is not None:
-            # Validate that pre-fitted guard has _fitted attribute
-            if not hasattr(self.guard, '_fitted') or not self.guard._fitted:
+        elif prefit_guard is not None:
+            # Validate that pre-fitted guard has _fitted attribute and set it
+            if not hasattr(prefit_guard, "_fitted") or not prefit_guard._fitted:
                 _logging.getLogger(__name__).warning(
                     "Pre-fitted guard does not have _fitted=True. "
                     "Guard initialization may not have completed properly."
                 )
+            try:
+                # Keep guard lifecycle inside the orchestrator
+                self._guard_orchestrator.set_guard(prefit_guard)
+            except Exception:  # pragma: no cover - defensive
+                _logging.getLogger(__name__).debug("GuardOrchestrator.set_guard failed for prefit guard")
 
         self.reject_learner = (
             self.initialize_reject_learner() if kwargs.get("reject", False) else None
@@ -727,37 +735,39 @@ class CalibratedExplainer:
         """
         self._prediction_orchestrator._interval_registry.interval_learner = value
 
+    # Guard property intentionally removed: guard lifecycle and access must be
+    # managed via the GuardOrchestrator (accessible on
+    # `explainer._guard_orchestrator`). Tests and callers should use the
+    # orchestrator API (fit_guard / set_guard / get_guard / accept / intervals).
+
     @property
     def guard(self) -> Any:
-        """Access the guard instance managed by the guard orchestrator.
+        """Public access to the guard via the GuardOrchestrator.
 
-        Returns
-        -------
-        Any or None
-            The fitted ConformalRegionOracle guard, or None if no guard is active.
+        Returns the currently set guard (typically a fitted
+        :class:`ConformalRegionOracle`) or ``None`` when no guard is active.
 
         Notes
         -----
-        This property delegates to the GuardOrchestrator for centralized guard lifecycle
-        management. The guard is fitted automatically if guard_params were provided during
-        initialization.
+        This is a thin delegator that keeps the orchestrator as the canonical
+        owner of guard lifecycle. Consumers may use ``explainer.guard`` as a
+        convenience but modifications should be performed via
+        ``explainer.set_guard()`` or the orchestrator APIs.
         """
-        return self._guard_orchestrator.get_guard()
+        if hasattr(self, "_guard_orchestrator") and self._guard_orchestrator is not None:
+            return self._guard_orchestrator.get_guard()
+        return None
 
     @guard.setter
     def guard(self, value: Any) -> None:
-        """Set the guard instance through the guard orchestrator.
+        """Set or clear the guard via the orchestrator.
 
-        Parameters
-        ----------
-        value : Any or None
-            The ConformalRegionOracle guard to set, or None to disable guarding.
-
-        Notes
-        -----
-        This setter delegates to the GuardOrchestrator for proper guard lifecycle management.
+        Validation (e.g., ensuring the guard is fitted) is performed by
+        ``CalibratedExplainer.set_guard`` which delegates to the orchestrator.
         """
-        self._guard_orchestrator.set_guard(value)
+        # Delegate to the existing set_guard method which handles validation
+        # and orchestrator delegation.
+        self.set_guard(value)
 
     def _get_sigma_test(self, x: np.ndarray) -> np.ndarray:
         """Return the difficulty (sigma) of the test instances.
@@ -1367,9 +1377,7 @@ class CalibratedExplainer:
                 )
             except Exception:  # pragma: no cover - defensive
                 return perturbed_x, perturbed_feature
-        # Legacy behaviour
-        if self.guard is None or len(perturbed_x) == 0:
-            return perturbed_x, perturbed_feature
+        # Legacy behaviour: no orchestrator available -> permissive (no filtering)
         return perturbed_x, perturbed_feature
 
     def __filter_candidates_by_guard(self, f: int, candidates: np.ndarray, x_orig: np.ndarray = None,
@@ -1403,38 +1411,6 @@ class CalibratedExplainer:
 
         # Legacy behaviour
         return candidates
-
-    def __filter_perturbations_by_guard(self, perturbed_x: np.ndarray, perturbed_feature: np.ndarray,
-                                        x: np.ndarray, prediction: dict) -> tuple:
-        """Filter perturbations to keep only those within conformal regions.
-
-        Parameters
-        ----------
-        perturbed_x : np.ndarray
-            Perturbation instances, shape (n_perturbed, n_features).
-        perturbed_feature : np.ndarray
-            Feature info for each perturbation, shape (n_perturbed, 4).
-        x : np.ndarray
-            Original instances, shape (n_instances, n_features).
-        prediction : dict
-            Prediction dict with calibrated intervals.
-
-        Returns
-        -------
-        tuple
-            (filtered_perturbed_x, filtered_perturbed_feature) keeping only accepted perturbations.
-        """
-        # Delegate to GuardOrchestrator for consistency
-        if hasattr(self, "_guard_orchestrator") and self._guard_orchestrator is not None:
-            try:
-                return self._guard_orchestrator.filter_perturbations(
-                    perturbed_x, perturbed_feature, x, prediction
-                )
-            except Exception:  # pragma: no cover - defensive
-                return perturbed_x, perturbed_feature
-        
-        # If guard filtering fails, return unfiltered perturbations
-        return perturbed_x, perturbed_feature
 
     def __get_greater_values(self, f: int, greater: float):
         """Get sampled values above ``greater`` for numerical features.
@@ -1526,13 +1502,13 @@ class CalibratedExplainer:
             If the provided guard has not been fitted.
         """
         if guard is not None:
-            if not hasattr(guard, '_fitted') or not guard._fitted:
+            if not hasattr(guard, "_fitted") or not guard._fitted:
                 raise NotFittedError(
                     "The guard must be fitted before assignment. "
                     "Call guard.fit(X_train, y_train, model, interval_learner) first."
                 )
-        self.guard = guard
-        # Ensure orchestrator is kept in sync
+        # Do not expose a top-level `guard` attribute on the explainer. Keep
+        # guard lifecycle inside the orchestrator and delegate assignment.
         if hasattr(self, "_guard_orchestrator") and self._guard_orchestrator is not None:
             try:
                 self._guard_orchestrator.set_guard(guard)
