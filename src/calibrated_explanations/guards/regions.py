@@ -110,11 +110,11 @@ class ConformalRegionOracle:
         self._cal_nearest = None
 
     # noqa: ARG002, ARG001
-    def fit(self, x_train, y_train, interval_learner, x_cal=None, y_cal=None):
+    def fit(self, x, y, interval_learner, x_cal=None, y_cal=None):
         """Fit the conformal region oracle.
 
         Performs inductive conformal prediction:
-        1. Split x_train into proper (75%) and calibration (25%) sets
+        1. Split x into proper (75%) and calibration (25%) sets
         2. Cluster the proper set in feature space
         3. Compute per-cluster covariance and Mahalanobis distances on proper set
         4. Compute conformal radii on calibration set
@@ -122,10 +122,10 @@ class ConformalRegionOracle:
 
         Parameters
         ----------
-        x_train : array-like, shape (n_samples, n_features)
+        x : array-like, shape (n_samples, n_features)
             Training instances. Used to define conformal regions.
 
-        y_train : array-like, shape (n_samples,)
+        y : array-like, shape (n_samples,)
             Training targets. Not used directly but kept for interface consistency.
 
         interval_learner : fitted calibrator
@@ -142,8 +142,13 @@ class ConformalRegionOracle:
         ValueError
             If training data is too small or malformed.
         """
-        x_arr = check_array(x_train, accept_sparse=False, ensure_2d=True)
-        _ = np.asarray(y_train)
+        x_arr = check_array(x, accept_sparse=False, ensure_2d=True)
+        _ = np.asarray(y)
+
+        # Require an interval learner: the oracle relies on interval widths
+        # for normalized conformal regression and confidence modulation.
+        if interval_learner is None:
+            raise ValueError("interval_learner must be provided; None is not allowed")
 
         if len(x_arr) < 2 * self.n_clusters:
             raise ValueError(
@@ -222,7 +227,7 @@ class ConformalRegionOracle:
         # Compute calibration widths for x_cal (if interval_learner provided)
         if interval_learner is not None:
             try:
-                intervals_cal = interval_learner.predict(x_cal)
+                intervals_cal, (lower, upper) = interval_learner.predict(x_cal, uq_interval=True)
                 if intervals_cal is not None and len(intervals_cal) == len(x_cal):
                     widths_cal = np.array([upper - lower for lower, upper in intervals_cal])
                 else:
@@ -291,7 +296,7 @@ class ConformalRegionOracle:
         # Record width statistics for confidence modulation
         if interval_learner is not None:
             try:
-                intervals = interval_learner.predict(x_train)
+                intervals = interval_learner.predict(x)
                 if intervals is not None and len(intervals) > 0:
                     widths = np.array([upper - lower for lower, upper in intervals])
                     self._width_min = np.min(widths)
