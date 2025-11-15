@@ -55,8 +55,17 @@ class TestGuardIntegration:
     def fitted_oracle(self, classification_data, fitted_classifier):
         """Create and fit a ConformalRegionOracle (for manual testing)."""
         x_train, _, y_train, _ = classification_data
+        
+        # Create a temporary explainer to get the interval_learner
+        temp_explainer = CalibratedExplainer(
+            learner=fitted_classifier,
+            x_cal=x_train,
+            y_cal=y_train,
+            mode="classification",
+        )
+        
         oracle = ConformalRegionOracle(alpha=0.1, n_clusters=3)
-        oracle.fit(x_train, y_train, model=fitted_classifier)
+        oracle.fit(x_train, y_train, interval_learner=temp_explainer.interval_learner)
         return oracle
 
     def test_no_guard_by_default(self, fitted_explainer_no_guard):

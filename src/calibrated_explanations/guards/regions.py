@@ -124,7 +124,7 @@ class ConformalRegionOracle:
         y_train : array-like, shape (n_samples,)
             Training targets. Not used directly but kept for interface consistency.
 
-        interval_learner : fitted calibrator, optional
+        interval_learner : fitted calibrator
             Fitted interval learner (e.g., from CalibratedExplainer).
             Provides (L, U) intervals for confidence modulation.
             Currently not used; will be called during accept().

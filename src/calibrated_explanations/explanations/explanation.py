@@ -640,7 +640,6 @@ class CalibratedExplanation(ABC):
         threshold,
         predicted_class,
         bins=None,
-        label_ctx=None,
     ):
         """
         Calculate the prediction for a conjunctive rule.
@@ -682,6 +681,13 @@ class CalibratedExplanation(ABC):
             np.asarray(values) for values in rule_value_set[: len(original_features)]
         ]
 
+        # Build a canonical calibrated prediction tuple used by guards. This mirrors
+        # the structure produced elsewhere in the class: (predict, (low, high)).
+        calibrated_pred = (
+            self.prediction.get("predict"),
+            (self.prediction.get("low"), self.prediction.get("high")),
+        )
+
         def _restore() -> None:
             for pos, feat_idx in enumerate(original_features):
                 perturbed[feat_idx] = base_values[pos]
@@ -696,12 +702,15 @@ class CalibratedExplanation(ABC):
                     for value_2 in values2:
                         perturbed[of2] = value_2
                         perturbed_row[0, of2] = value_2
-                        # G-04: validate conjunction candidate via guard if configured
-                        expl = self._get_explainer()
-                        try:
-                            accepted = expl._accept(perturbed_row[0], label_ctx)
-                        except Exception:
-                            accepted = True
+                        
+                        # Ask the public proxy on the collection to check
+                        # acceptance. The proxy delegates to the frozen explainer
+                        # which in turn calls the underlying explainer's accept
+                        # wrapper when present. This keeps explanation code
+                        # independent of internal representation.
+                        accepted = self.calibrated_explanations.accept(
+                            perturbed_row[0], calibrated_pred
+                        )
                         if not accepted:
                             continue
                         p_value, low, high, _ = predict_fn(
@@ -727,12 +736,11 @@ class CalibratedExplanation(ABC):
                         for value_3 in values3:
                             perturbed[of3] = value_3
                             perturbed_row[0, of3] = value_3
-                            # G-04: validate conjunction candidate via guard if configured
-                            expl = self._get_explainer()
-                            try:
-                                accepted = expl._accept(perturbed_row[0], label_ctx)
-                            except Exception:
-                                accepted = True
+                            
+                            # Ask the collection proxy for acceptance.
+                            accepted = self.calibrated_explanations.accept(
+                                perturbed_row[0], calibrated_pred
+                            )
                             if not accepted:
                                 continue
                             p_value, low, high, _ = predict_fn(
@@ -1283,18 +1291,11 @@ class FactualExplanation(CalibratedExplanation):
 
         threshold = None if self.y_threshold is None else self.y_threshold
         scratch = np.array(self.x_test, copy=True)
-        # G-04: compute label context once for this explanation instance
-        label_ctx = None
-        try:
-            label_ctx = self._get_explainer()._label_ctx(np.asarray(self.x_test))
-        except Exception:
-            label_ctx = None
-        # G-04: compute label context once for this explanation instance
-        label_ctx = None
-        try:
-            label_ctx = self._get_explainer()._label_ctx(np.asarray(self.x_test))
-        except Exception:
-            label_ctx = None
+
+        calibrated_pred = (
+            self.prediction.get("predict"),
+            (self.prediction.get("low"), self.prediction.get("high")),
+        )
         predicted_class = factual["classes"]
         conjunctive_state["classes"] = predicted_class
 
@@ -1377,7 +1378,6 @@ class FactualExplanation(CalibratedExplanation):
                         threshold,
                         predicted_class,
                         bins=self.bin,
-                        label_ctx=label_ctx,
                     )
 
                     # If guard rejected all combinations, skip this conjunction
@@ -1390,7 +1390,7 @@ class FactualExplanation(CalibratedExplanation):
                     # Skip rules with empty weight uncertainty intervals
                     if weight_low == weight_high:
                         continue
-                    
+
                     conjunctive_state["predict"].append(rule_predict)
                     conjunctive_state["predict_low"].append(rule_low)
                     conjunctive_state["predict_high"].append(rule_high)
@@ -2212,12 +2212,11 @@ class AlternativeExplanation(CalibratedExplanation):
 
         threshold = None if self.y_threshold is None else self.y_threshold
         scratch = np.array(self.x_test, copy=True)
-        # G-04: compute label context once for this explanation instance
-        label_ctx = None
-        try:
-            label_ctx = self._get_explainer()._label_ctx(np.asarray(self.x_test))
-        except Exception:
-            label_ctx = None
+
+        calibrated_pred = (
+            self.prediction.get("predict"),
+            (self.prediction.get("low"), self.prediction.get("high")),
+        )
         predicted_class = alternative["classes"]
         conjunctive_state["classes"] = predicted_class
 
@@ -2303,7 +2302,6 @@ class AlternativeExplanation(CalibratedExplanation):
                         threshold,
                         predicted_class,
                         bins=self.bin,
-                        label_ctx=label_ctx,
                     )
 
                     # If guard rejected all combinations, skip this conjunction

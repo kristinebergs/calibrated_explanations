@@ -154,6 +154,11 @@ class CalibratedExplainer:
 
         init_time = time()
         self.__initialized = False
+        # Ensure attribute exists on all instances so tests and callers
+        # that access `_guard_orchestrator` before full initialization
+        # do not raise AttributeError. The orchestrator may be
+        # instantiated later in the init sequence.
+        self._guard_orchestrator = None
         preprocessor_metadata = kwargs.pop("preprocessor_metadata", None)
         if isinstance(preprocessor_metadata, Mapping):
             self._preprocessor_metadata: Dict[str, Any] | None = dict(preprocessor_metadata)
@@ -171,7 +176,6 @@ class CalibratedExplainer:
         # crepes broadcasting/shape errors (useful for synthetic tiny datasets).
         self.suppress_crepes_errors = bool(kwargs.get("suppress_crepes_errors", False))
         self.oob = kwargs.get("oob", False)
-        self.guard = kwargs.pop("guard", None)  # May be a pre-fitted guard or None
         self.guard_params = guard_params if isinstance(guard_params, dict) else {}
         self._categorical_value_counts_cache: Dict[int, Dict[Any, int]] | None = None
         self._numeric_sorted_cache: Dict[int, np.ndarray] | None = None
@@ -317,7 +321,7 @@ class CalibratedExplainer:
         # runtime resolution, causing ConfigurationError during explain_fast.
         ensure_builtin_plugins()
 
-        # Phase 1: Initialize orchestrators BEFORE building chains.
+        # Initialize orchestrators BEFORE building chains.
         # The orchestrators will build and populate the fallback chains.
         self._explanation_orchestrator = ExplanationOrchestrator(self)
         from .prediction.orchestrator import PredictionOrchestrator
@@ -339,14 +343,21 @@ class CalibratedExplainer:
         # Initialize interval runtime state via orchestrator
         self._prediction_orchestrator._ensure_interval_runtime_state()
 
-        # Phase 1A delegation: interval learner initialization via helper
-        from .calibration.interval_learner import initialize_interval_learner as _init_il
+        # interval learner initialization via helper
+        from .calibration.interval_learner import initialize_interval_learner
 
-        _init_il(self)
+        initialize_interval_learner(self)
+        
+        # Initialize guard orchestrator (hosts the guard lifecycle)
+        from ..guards.orchestrator import GuardOrchestrator
 
+        self._guard_orchestrator = GuardOrchestrator(self)
+        # Set guard from kwargs (now that orchestrator exists)
+        self.guard = kwargs.pop("guard", None)  # May be a pre-fitted guard or None
         # Fit guard if guard_params provided, or validate pre-fitted guard
         if self.guard_params:
-            self.__fit_guard()
+            # Delegate guard fit to orchestrator
+            self._guard_orchestrator.fit_guard(self.guard_params)
         elif self.guard is not None:
             # Validate that pre-fitted guard has _fitted attribute
             if not hasattr(self.guard, '_fitted') or not self.guard._fitted:
@@ -363,17 +374,12 @@ class CalibratedExplainer:
 
         self.init_time = time() - init_time
 
-    def _label_ctx(self, x):
-        if self.guard is None:
-            return None
-        return self.guard.label_context(
-            x,
-            clf_predict_proba=getattr(self, "predict_function", None) if self.mode == "classification" else None,
-            reg_predict=getattr(self, "predict_function", None) if self.mode != "classification" else None,
-        )
+    def _accept(self, x_prime, calibrated_prediction=None):
+        """Backward-compatible acceptance wrapper.
 
-    def _accept(self, x_prime, label_ctx):
-        return True if self.guard is None else self.guard.accept(x_prime, label_ctx)
+        Delegates to the guard orchestrator. Returns True if guard is disabled.
+        """
+        return self._guard_orchestrator.accept(x_prime, calibrated_prediction)
     
     def _coerce_plugin_override(self, override: Any) -> Any:
         """Normalise a plugin override into an instance when possible.
@@ -720,6 +726,38 @@ class CalibratedExplainer:
         managed by the PredictionOrchestrator.
         """
         self._prediction_orchestrator._interval_registry.interval_learner = value
+
+    @property
+    def guard(self) -> Any:
+        """Access the guard instance managed by the guard orchestrator.
+
+        Returns
+        -------
+        Any or None
+            The fitted ConformalRegionOracle guard, or None if no guard is active.
+
+        Notes
+        -----
+        This property delegates to the GuardOrchestrator for centralized guard lifecycle
+        management. The guard is fitted automatically if guard_params were provided during
+        initialization.
+        """
+        return self._guard_orchestrator.get_guard()
+
+    @guard.setter
+    def guard(self, value: Any) -> None:
+        """Set the guard instance through the guard orchestrator.
+
+        Parameters
+        ----------
+        value : Any or None
+            The ConformalRegionOracle guard to set, or None to disable guarding.
+
+        Notes
+        -----
+        This setter delegates to the GuardOrchestrator for proper guard lifecycle management.
+        """
+        self._guard_orchestrator.set_guard(value)
 
     def _get_sigma_test(self, x: np.ndarray) -> np.ndarray:
         """Return the difficulty (sigma) of the test instances.
@@ -1321,46 +1359,17 @@ class CalibratedExplainer:
         tuple
             (filtered_perturbed_x, filtered_perturbed_feature) keeping only accepted perturbations.
         """
+        # Delegate to GuardOrchestrator for consistency
+        if hasattr(self, "_guard_orchestrator") and self._guard_orchestrator is not None:
+            try:
+                return self._guard_orchestrator.filter_perturbations(
+                    perturbed_x, perturbed_feature, x, prediction
+                )
+            except Exception:  # pragma: no cover - defensive
+                return perturbed_x, perturbed_feature
+        # Legacy behaviour
         if self.guard is None or len(perturbed_x) == 0:
             return perturbed_x, perturbed_feature
-
-        try:
-            # Get calibrated predictions for each original instance
-            pred_vals = prediction.get("predict", np.array([]))
-            lows = prediction.get("low", np.array([]))
-            highs = prediction.get("high", np.array([]))
-
-            # Build calibrated_pred tuples for each instance
-            cal_preds = {}
-            for i in range(len(x)):
-                if i < len(pred_vals) and i < len(lows) and i < len(highs):
-                    cal_preds[i] = (pred_vals[i], (lows[i], highs[i]))
-                else:
-                    cal_preds[i] = None
-
-            # Filter: keep only perturbations within conformal region
-            mask = np.zeros(len(perturbed_x), dtype=bool)
-            for idx, pert_x in enumerate(perturbed_x):
-                # Get which original instance this perturbation came from
-                instance_idx = 0
-                if len(perturbed_feature) > idx and len(perturbed_feature[idx]) > 1:
-                    try:
-                        instance_idx = int(perturbed_feature[idx, 1])
-                    except (ValueError, TypeError):
-                        instance_idx = 0
-
-                cal_pred = cal_preds.get(instance_idx)
-                # Use guard.accept() to check if perturbation is in-distribution
-                if self.guard.accept(pert_x, cal_pred):
-                    mask[idx] = True
-
-            return perturbed_x[mask], perturbed_feature[mask]
-        except Exception:  # pylint: disable=broad-except
-            # If guard filtering fails, return unfiltered perturbations
-            logger_instance = _logging.getLogger(__name__)
-            logger_instance.debug("Guard filtering failed; returning unfiltered perturbations")
-            pass
-
         return perturbed_x, perturbed_feature
 
     def __filter_candidates_by_guard(self, f: int, candidates: np.ndarray, x_orig: np.ndarray = None,
@@ -1383,23 +1392,16 @@ class CalibratedExplainer:
         np.ndarray
             Filtered candidates that fall within guard-allowed intervals.
         """
-        if self.guard is None or x_orig is None:
-            return candidates
+        # Delegate to GuardOrchestrator for consistency
+        if hasattr(self, "_guard_orchestrator") and self._guard_orchestrator is not None:
+            try:
+                return self._guard_orchestrator.filter_candidates(
+                    f, candidates, x_orig=x_orig, calibrated_pred=calibrated_pred
+                )
+            except Exception:  # pragma: no cover - defensive
+                return candidates
 
-        try:
-            intervals = self.guard.intervals(x_orig, calibrated_pred)
-            if f < len(intervals) and intervals[f]:
-                # intervals[f] is a list of (low, high) tuples
-                allowed_ranges = intervals[f]
-                # Keep candidates that fall within any allowed range
-                mask = np.zeros(len(candidates), dtype=bool)
-                for low, high in allowed_ranges:
-                    mask |= (candidates >= low) & (candidates <= high)
-                return candidates[mask]
-        except Exception:  # pylint: disable=broad-except
-            # If guard filtering fails, return unfiltered candidates
-            pass
-
+        # Legacy behaviour
         return candidates
 
     def __filter_perturbations_by_guard(self, perturbed_x: np.ndarray, perturbed_feature: np.ndarray,
@@ -1422,42 +1424,16 @@ class CalibratedExplainer:
         tuple
             (filtered_perturbed_x, filtered_perturbed_feature) keeping only accepted perturbations.
         """
-        if self.guard is None or len(perturbed_x) == 0:
-            return perturbed_x, perturbed_feature
-
-        try:
-            # Get calibrated predictions for each original instance
-            pred_vals = prediction.get("predict", np.array([]))
-            lows = prediction.get("low", np.array([]))
-            highs = prediction.get("high", np.array([]))
-
-            # Build calibrated_pred tuples for each instance
-            cal_preds = []
-            for i in range(len(x)):
-                if len(pred_vals) > i and len(lows) > i and len(highs) > i:
-                    cal_preds.append((pred_vals[i], (lows[i], highs[i])))
-                else:
-                    cal_preds.append(None)
-
-            # Filter: keep only perturbations within conformal region
-            mask = np.zeros(len(perturbed_x), dtype=bool)
-            for idx, pert_x in enumerate(perturbed_x):
-                # Get which original instance this perturbation came from (if available)
-                if len(perturbed_feature) > idx and len(perturbed_feature[idx]) > 1:
-                    instance_idx = int(perturbed_feature[idx, 1])
-                else:
-                    instance_idx = 0
-
-                cal_pred = cal_preds[instance_idx] if instance_idx < len(cal_preds) else None
-                # Use guard.accept() to check if perturbation is in-distribution
-                if self.guard.accept(pert_x, cal_pred):
-                    mask[idx] = True
-
-            return perturbed_x[mask], perturbed_feature[mask]
-        except Exception:  # pylint: disable=broad-except
-            # If guard filtering fails, return unfiltered perturbations
-            pass
-
+        # Delegate to GuardOrchestrator for consistency
+        if hasattr(self, "_guard_orchestrator") and self._guard_orchestrator is not None:
+            try:
+                return self._guard_orchestrator.filter_perturbations(
+                    perturbed_x, perturbed_feature, x, prediction
+                )
+            except Exception:  # pragma: no cover - defensive
+                return perturbed_x, perturbed_feature
+        
+        # If guard filtering fails, return unfiltered perturbations
         return perturbed_x, perturbed_feature
 
     def __get_greater_values(self, f: int, greater: float):
@@ -1556,6 +1532,12 @@ class CalibratedExplainer:
                     "Call guard.fit(X_train, y_train, model, interval_learner) first."
                 )
         self.guard = guard
+        # Ensure orchestrator is kept in sync
+        if hasattr(self, "_guard_orchestrator") and self._guard_orchestrator is not None:
+            try:
+                self._guard_orchestrator.set_guard(guard)
+            except Exception:  # pragma: no cover - defensive
+                _logging.getLogger(__name__).debug("GuardOrchestrator.set_guard failed")
 
     def __fit_guard(self) -> None:
         """Fit the ConformalRegionOracle using training data and interval_learner.
@@ -1573,35 +1555,16 @@ class CalibratedExplainer:
         Exception
             If fitting fails.
         """
-        try:
-            from ..guards import ConformalRegionOracle
-        except ImportError as exc:
-            _logging.getLogger(__name__).debug(
-                "ConformalRegionOracle not available; skipping guard fitting: %s", exc
-            )
+        # Prefer using the guard orchestrator when available
+        if hasattr(self, "_guard_orchestrator") and self._guard_orchestrator is not None:
+            try:
+                self._guard_orchestrator.fit_guard(self.guard_params)
+            except Exception:  # pragma: no cover - defensive
+                _logging.getLogger(__name__).warning(
+                    "Guard fitting via GuardOrchestrator failed; guard disabled."
+                )
             return
 
-        try:
-            # Create oracle with provided parameters
-            self.guard = ConformalRegionOracle(**self.guard_params)
-
-            # Fit using training data and interval learner
-            self.guard.fit(
-                self.x_cal,
-                self.y_cal,
-                model=self.learner,
-                interval_learner=self.interval_learner,
-            )
-
-            _logging.getLogger(__name__).info(
-                "ConformalRegionOracle fitted successfully with parameters: %s",
-                self.guard_params,
-            )
-        except Exception as exc:  # pylint: disable=broad-except
-            _logging.getLogger(__name__).warning(
-                "Failed to fit ConformalRegionOracle: %s. Guarding disabled.", exc
-            )
-            self.guard = None
 
     def __set_mode(self, mode, initialize=True) -> None:
         """Assign the mode of the explainer. The mode can be either 'classification' or 'regression'.
@@ -1850,7 +1813,7 @@ class CalibratedExplainer:
         """
         return self.bins is not None
 
-    # pylint: disable=too-many-return-statements
+    # pylint: disable=duplicate-code, too-many-branches, too-many-statements, too-many-locals
     def predict(self, x, uq_interval=False, calibrated=True, **kwargs):
         """Generate predictions for the test data.
 

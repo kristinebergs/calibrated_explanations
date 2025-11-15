@@ -229,6 +229,24 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
             payload.setdefault("schema_version", "1.0.0")
         return payload
 
+    # ------------------------------------------------------------------
+    # Guard/Orchestrator proxy helpers
+    # ------------------------------------------------------------------
+
+    def accept(self, x_new: Any, calibrated_prediction: Optional[tuple] = None) -> bool:
+        """Return whether a perturbed instance is accepted by the guard.
+
+        This is a small, stable public proxy that explanation code should call.
+        It delegates to the frozen explainer wrapper which in turn will call
+        into the underlying explainer's acceptance wrapper. If any step fails
+        (for example when running against lightweight test stubs), the call
+        falls back to permissive acceptance (True).
+        """
+        try:
+            return bool(self.calibrated_explainer.accept(x_new, calibrated_prediction))
+        except Exception:  # pragma: no cover - defensive fallback
+            return True
+
     @classmethod
     def from_json(cls, payload: Mapping[str, Any]) -> ExportedExplanationCollection:
         """Materialise domain explanations from a :meth:`to_json` payload."""
@@ -1141,6 +1159,23 @@ class FrozenCalibratedExplainer:
             Discretizer: The discretizer used by the explainer.
         """
         return self._explainer.discretizer
+
+    def accept(self, x_new: Any, calibrated_prediction: Optional[tuple] = None) -> bool:
+        """Proxy to the underlying explainer's acceptance logic.
+
+        This method hides the implementation detail that the frozen wrapper
+        stores a deep-copied explainer under ``_explainer``. It will call the
+        underlying explainer's ``_accept`` when available, otherwise return
+        True (permissive) for stubs and test fixtures.
+        """
+        try:
+            # Call protected helper on the copied explainer where present.
+            if hasattr(self._explainer, "_accept"):
+                return bool(self._explainer._accept(x_new, calibrated_prediction))
+        except Exception:
+            # Defensive fallback: if anything goes wrong, treat as accepted.
+            return True
+        return True
 
     @property
     def _discretize(self):

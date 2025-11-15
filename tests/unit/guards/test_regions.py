@@ -1,15 +1,29 @@
 """Unit tests for ConformalRegionOracle.
 
-Tests the confidence-modulated conformal regions guard implementation.
+These tests are intentionally small and deterministic to exercise the
+algorithmic properties of the guard implementation.
 """
+from __future__ import annotations
 
 import numpy as np
 import pytest
-from calibrated_explanations.guards import ConformalRegionOracle
 
+from calibrated_explanations.guards.regions import ConformalRegionOracle
+
+
+class MockIntervalLearner:  # pylint: disable=too-few-public-methods
+    """Mock interval learner for testing."""
+
+    def predict(self, x_arr):
+        """Return constant-width intervals."""
+        n_samples = len(x_arr)
+        lower = np.zeros(n_samples)
+        upper = np.ones(n_samples) * 0.5
+        return list(zip(lower, upper))
 
 class TestConformalRegionOracleInit:
     """Test initialization and parameter validation."""
+
 
     def test_init_default_params(self):
         """Test initialization with default parameters."""
@@ -79,7 +93,9 @@ class TestConformalRegionOracleFit:
         """Test basic fitting."""
         x_arr, y_arr = self._make_simple_data(100)
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        result = oracle.fit(x_arr, y_arr)
+        interval_learner = MockIntervalLearner()
+
+        result = oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         # Should return self
         assert result is oracle
@@ -101,16 +117,6 @@ class TestConformalRegionOracleFit:
     def test_fit_with_interval_learner(self):
         """Test fitting with interval learner."""
 
-        class MockIntervalLearner:  # pylint: disable=too-few-public-methods
-            """Mock interval learner for testing."""
-
-            def predict(self, x_arr):
-                """Return constant-width intervals."""
-                n_samples = len(x_arr)
-                lower = np.zeros(n_samples)
-                upper = np.ones(n_samples) * 0.5
-                return list(zip(lower, upper))
-
         x_arr, y_arr = self._make_simple_data(100)
         interval_learner = MockIntervalLearner()
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
@@ -128,9 +134,10 @@ class TestConformalRegionOracleFit:
         x_arr = np.random.randn(5, 2)
         y_arr = x_arr.sum(axis=1)
         oracle = ConformalRegionOracle(n_clusters=10)
+        interval_learner = MockIntervalLearner()
 
         with pytest.raises(ValueError, match="Training set too small"):
-            oracle.fit(x_arr, y_arr)
+            oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
     def test_fit_proper_calibration_split(self):
         """Test that proper/calibration split works correctly."""
@@ -138,7 +145,8 @@ class TestConformalRegionOracleFit:
         oracle = ConformalRegionOracle(
             n_clusters=3, prop_size=0.6, random_state=42
         )
-        oracle.fit(x_arr, y_arr)
+        interval_learner = MockIntervalLearner()
+        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         # Check that clusters were fitted on proper set
         # pylint: disable=protected-access
@@ -156,7 +164,8 @@ class TestConformalRegionOracleFit:
         )
         y_arr = np.array([1.0, 1.0, 0.5, 0.8])
         oracle = ConformalRegionOracle(n_clusters=2, random_state=42)
-        oracle.fit(x_arr, y_arr)
+        interval_learner = MockIntervalLearner()
+        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         # Global bounds should match data bounds
         # pylint: disable=protected-access
@@ -192,7 +201,8 @@ class TestConformalRegionOracleAccept:
         """Test accepting a point from training distribution."""
         x_arr, y_arr = self._make_simple_data(100)
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        oracle.fit(x_arr, y_arr)
+        interval_learner = MockIntervalLearner()
+        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         # Accept a point from training set (should be accepted with high prob)
         result = oracle.accept(x_arr[0])
@@ -202,7 +212,8 @@ class TestConformalRegionOracleAccept:
         """Test accept with calibrated prediction for modulation."""
         x_arr, y_arr = self._make_simple_data(100)
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        oracle.fit(x_arr, y_arr)
+        interval_learner = MockIntervalLearner()
+        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         # Accept with high-confidence prediction (narrow interval)
         result_narrow = oracle.accept(
@@ -221,7 +232,8 @@ class TestConformalRegionOracleAccept:
         x_arr = np.random.randn(50, 1)
         y_arr = x_arr.ravel()
         oracle = ConformalRegionOracle(n_clusters=2, random_state=42)
-        oracle.fit(x_arr, y_arr)
+        interval_learner = MockIntervalLearner()
+        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         # Should handle 1D input
         result = oracle.accept(np.array([0.5]))
@@ -243,7 +255,8 @@ class TestConformalRegionOracleAcceptBatch:
         """Test batch acceptance."""
         x_arr, y_arr = self._make_simple_data(100)
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        oracle.fit(x_arr, y_arr)
+        interval_learner = MockIntervalLearner()
+        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         # Test batch
         x_test = x_arr[:10]
@@ -257,7 +270,8 @@ class TestConformalRegionOracleAcceptBatch:
         """Test batch with calibrated predictions."""
         x_arr, y_arr = self._make_simple_data(100)
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        oracle.fit(x_arr, y_arr)
+        interval_learner = MockIntervalLearner()
+        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         x_test = x_arr[:5]
         preds = [(0.5, (0.4, 0.6))] * 5
@@ -291,7 +305,8 @@ class TestConformalRegionOracleIntervals:
         """Test interval computation."""
         x_arr, y_arr = self._make_simple_data(100)
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        oracle.fit(x_arr, y_arr)
+        interval_learner = MockIntervalLearner()
+        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         x_orig = x_arr[0]
         intervals = oracle.intervals(x_orig)
@@ -315,7 +330,8 @@ class TestConformalRegionOracleIntervals:
         y_arr = np.zeros(len(x_arr))
 
         oracle = ConformalRegionOracle(n_clusters=1, random_state=42)
-        oracle.fit(x_arr, y_arr)
+        interval_learner = MockIntervalLearner()
+        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         # Point near corner should have clipped intervals
         x_orig = np.array([0.95, 0.95])
@@ -331,7 +347,8 @@ class TestConformalRegionOracleIntervals:
         """Test interval computation with modulation."""
         x_arr, y_arr = self._make_simple_data(100)
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        oracle.fit(x_arr, y_arr)
+        interval_learner = MockIntervalLearner()
+        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         x_orig = x_arr[0]
 
@@ -359,7 +376,8 @@ class TestConformalRegionOracleNumericalStability:
         y_arr = np.ones(20)
 
         oracle = ConformalRegionOracle(n_clusters=1, random_state=42)
-        oracle.fit(x_arr, y_arr)
+        interval_learner = MockIntervalLearner()
+        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         # pylint: disable=protected-access
         assert oracle._fitted
@@ -373,7 +391,8 @@ class TestConformalRegionOracleNumericalStability:
         y_arr = x_arr.sum(axis=1)
 
         oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        oracle.fit(x_arr, y_arr)
+        interval_learner = MockIntervalLearner()
+        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         # pylint: disable=protected-access
         assert oracle._fitted
@@ -388,7 +407,8 @@ class TestConformalRegionOracleNumericalStability:
         oracle = ConformalRegionOracle(
             alpha=0.1, n_clusters=3, random_state=42
         )
-        oracle.fit(x_arr, y_arr)
+        interval_learner = MockIntervalLearner()
+        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
 
         # Test on training set; should have ~(1-alpha) acceptance
         results = oracle.accept_batch(x_arr)
