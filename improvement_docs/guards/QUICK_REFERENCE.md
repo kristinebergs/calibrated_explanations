@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-**Problem:** ConformalRegionOracle cannot extract calibrated intervals from interval_learner due to unpacking bugs.
+**Problem:** ConformalRegionOracle cannot extract calibrated intervals from interval_learner due to unpacking bugs, and the clustering step must operate on the concatenation of each perturbation's input features and its calibrated prediction/probability before widths are used for normalization.
 
 **Effect:** Confidence modulation is disabled; guard behaves like static conformal prediction.
 
@@ -121,6 +121,7 @@ explain()
   ├─ Get predictions with intervals: predict(x, uq_interval=True)
   ├─ Generate perturbations
   ├─ Filter with guard
+  │  ├─ Guard should cluster on [perturbation_input || calibrated_prediction/probability]
   │  ├─ Guard should scale acceptance by interval width
   │  ├─ Currently: Always uses static radius (BUG)
   │  ├─ After fix: Uses r_eff = q_norm * width (CORRECT)

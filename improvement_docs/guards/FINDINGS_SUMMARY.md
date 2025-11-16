@@ -8,7 +8,7 @@
 
 ## Quick Summary
 
-The `ConformalRegionOracle` is **architecturally sound** but **broken in implementation**. The core design—using prediction interval width to normalize conformal filtering—is correct but **cannot activate** due to critical unpacking bugs in the `fit()` method.
+The `ConformalRegionOracle` is **architecturally sound** but **broken in implementation**. The core design—augmenting perturbation features with calibrated predictions/probabilities, then using the resulting interval width to normalize conformal filtering—is correct but **cannot activate** due to critical unpacking bugs in the `fit()` method.
 
 **Impact:** Confidence modulation is **always disabled** in practice, causing the guard to fall back to static conformal radii that don't adapt to prediction confidence.
 
@@ -22,12 +22,13 @@ The guard is supposed to implement **Normalized Conformal Regression (NCR)**:
 
 ```
 For each perturbation x_new:
-  1. Extract its nearest cluster center
-  2. Compute Mahalanobis distance to that center
-  3. Get the original instance's prediction interval (L, U)
-  4. Compute interval width: w = U - L
-  5. Apply confidence modulation: r_eff = q_norm * w
-  6. Accept if: mahal_dist ≤ r_eff
+  1. Form the augmented feature `[x_new || calibrated_prediction/probability]`
+  2. Extract its nearest cluster center in this augmented space
+  3. Compute Mahalanobis distance to that center
+  4. Get the original instance's prediction interval (L, U)
+  5. Compute interval width: w = U - L
+  6. Apply confidence modulation: r_eff = q_norm * w
+  7. Accept if: mahal_dist ≤ r_eff
 ```
 
 **Why This Matters:**

@@ -58,7 +58,7 @@ This folder contains comprehensive analysis of the ConformalRegionOracle impleme
 ## At a Glance
 
 ### The Problem
-The ConformalRegionOracle has **critical unpacking bugs** that prevent it from extracting calibrated intervals from the interval_learner, disabling the core feature: confidence modulation through normalized conformal regression.
+The ConformalRegionOracle has **critical unpacking bugs** that prevent it from extracting calibrated intervals from the interval_learner, disabling the core feature: confidence modulation through normalized conformal regression. Additionally, the guard's clustering pipeline must run on the **concatenated vector of each perturbation's input features and its calibrated prediction/probability** so that cluster assignments respect both feature geometry and calibrated outputs before normalization.
 
 ### The Impact
 - Confidence modulation is always disabled
@@ -88,10 +88,11 @@ The intended feature:
 
 ```
 For each perturbation:
-  1. Compute Mahalanobis distance to nearest cluster
-  2. Get original prediction's interval width: w = upper - lower
-  3. Scale acceptance radius by width: r_eff = q_norm * w
-  4. Accept if: mahal_dist ≤ r_eff
+  1. Concatenate the perturbation input with its calibrated prediction/probability before clustering
+  2. Compute Mahalanobis distance to nearest cluster in this augmented space
+  3. Get original prediction's interval width: w = upper - lower
+  4. Scale acceptance radius by width: r_eff = q_norm * w
+  5. Accept if: mahal_dist ≤ r_eff
 
 Result:
   - Narrow intervals (high confidence) → strict filtering

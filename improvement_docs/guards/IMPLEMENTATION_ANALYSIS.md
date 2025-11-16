@@ -5,7 +5,7 @@
 
 ## Executive Summary
 
-The `ConformalRegionOracle` is designed as a Conformal clustering-based solution for perturbation guarding. It enriches perturbed instances with calibrated prediction/probability intervals and uses the **width of the uncertainty interval** to normalize conformal out-of-distribution filtering.
+The `ConformalRegionOracle` is designed as a Conformal clustering-based solution for perturbation guarding. It enriches perturbed instances with calibrated prediction/probability intervals, **clusters on the concatenation of the input features and those calibrated outputs**, and uses the **width of the uncertainty interval** to normalize conformal out-of-distribution filtering.
 
 **Current Status:** The implementation has **critical bugs** in how it calls and unpacks the `interval_learner.predict()` method, preventing proper uncertainty interval extraction and normalization.
 
@@ -21,7 +21,7 @@ The `ConformalRegionOracle` is designed as a Conformal clustering-based solution
    - Calibration set (25%) for conformal radius computation
 
 2. **Feature-Space Clustering**
-   - KMeans clustering on proper set to capture heteroscedasticity
+   - KMeans clustering on the proper set after concatenating inputs with calibrated predictions/probabilities
    - Per-cluster covariance matrices computed
    - Mahalanobis distance-based nonconformity scores
 
@@ -35,7 +35,7 @@ The `ConformalRegionOracle` is designed as a Conformal clustering-based solution
 4. **Confidence Modulation**
    - Effective radius computed as: `r_eff = q_norm * width_test`
    - Where `q_norm` is the (1 - α) quantile of normalized scores
-   - Dynamic radius scales with test-time prediction uncertainty
+   - Dynamic radius scales with test-time prediction uncertainty in the augmented cluster space
 
 ### How Explain Uses Intervals (Reference Implementation)
 

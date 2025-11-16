@@ -8,10 +8,11 @@
 
 ## Implementation Plan Overview
 
-This document outlines the steps to close all identified gaps in the `ConformalRegionOracle` implementation and fully activate the normalized conformal regression (NCR) feature for confidence-modulated guarding.
+This document outlines the steps to close all identified gaps in the `ConformalRegionOracle` implementation and fully activate the normalized conformal regression (NCR) feature for confidence-modulated guarding. The clustering stage must continue to operate on the **concatenation of each perturbation's input vector and its calibrated prediction/probability**, ensuring that the KMeans fit reflects calibration-aware geometry before normalization occurs.
 
 **Success Criteria:**
 - All critical bugs (Gap 1, Gap 2) fixed
+- Clustering confirmed to consume `[x || calibrated_prediction/probability]` feature vectors before covariance computation
 - Confidence modulation actively normalizes acceptance radius by prediction uncertainty
 - Unit tests verify normalized quantile computation and effective radius modulation
 - Documentation clearly explains the NCR mechanism
