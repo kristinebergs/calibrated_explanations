@@ -184,4 +184,9 @@ def test_guard_integration(binary_dataset):
 
     # Check that guard is fitted
     assert ce.guard is not None
+    # pylint: disable=protected-access
     assert ce.guard._fitted
+    
+    # Test that guard can accept/reject via orchestrator
+    result = ce.accept(x_prop_test[0])
+    assert isinstance(result, (bool, np.bool_))

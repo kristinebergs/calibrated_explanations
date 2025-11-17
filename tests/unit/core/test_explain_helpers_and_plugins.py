@@ -124,6 +124,10 @@ def test_sequential_plugin_execute_minimal(monkeypatch):
         greater_values = {}
         covered_values = {}
         x_cal = np.zeros((n, 1))
+        perturbed_threshold = np.empty((0,))
+        perturbed_bins = np.empty((0,))
+        perturbed_x = np.empty((0, x.shape[1]))
+        perturbed_class = np.empty((0,), dtype=int)
         return (
             predict,
             low,
@@ -135,6 +139,10 @@ def test_sequential_plugin_execute_minimal(monkeypatch):
             greater_values,
             covered_values,
             x_cal,
+            perturbed_threshold,
+            perturbed_bins,
+            perturbed_x,
+            perturbed_class,
         )
 
     class SimpleExplanation:
@@ -189,6 +197,109 @@ def test_sequential_plugin_execute_minimal(monkeypatch):
     out = plugin.execute(req, cfg, explainer)
     # expect an explanation object
     assert hasattr(out, "explanations")
+
+
+def test_sequential_plugin_calls_guard_filter(monkeypatch):
+    from calibrated_explanations.core.explain import _shared as shared_module
+    from calibrated_explanations.core.explain._shared import ExplainConfig, ExplainRequest
+
+    callback_data = {"perturbed_feature": None}
+    base_build = shared_module.build_feature_tasks
+
+    def hooked_build_feature_tasks(*args, **kwargs):
+        callback_data["perturbed_feature"] = np.asarray(args[2]).copy()
+        return base_build(*args, **kwargs)
+
+    monkeypatch.setattr(shared_module, "build_feature_tasks", hooked_build_feature_tasks)
+    monkeypatch.setattr(sequential, "build_feature_tasks", hooked_build_feature_tasks)
+
+    def fake_explain_predict_step(*args, **kwargs):
+        x_arg = args[1]
+        predict = np.zeros((x_arg.shape[0],))
+        low = np.zeros((x_arg.shape[0],))
+        high = np.zeros((x_arg.shape[0],))
+        prediction = {
+            "predict": np.zeros(x_arg.shape[0]),
+            "classes": np.zeros(x_arg.shape[0], dtype=int),
+        }
+        perturbed_feature = np.array([[0, 0, 0, 0]])
+        rule_boundaries = np.zeros((x_arg.shape[0], 1, 2))
+        lesser_values = {}
+        greater_values = {}
+        covered_values = {}
+        x_cal = np.zeros((x_arg.shape[0], 1))
+        perturbed_threshold = np.empty((0,))
+        perturbed_bins = np.empty((0,))
+        perturbed_x = np.zeros((1, x_arg.shape[1]))
+        perturbed_class = np.zeros((1,), dtype=int)
+        return (
+            predict,
+            low,
+            high,
+            prediction,
+            perturbed_feature,
+            rule_boundaries,
+            lesser_values,
+            greater_values,
+            covered_values,
+            x_cal,
+            perturbed_threshold,
+            perturbed_bins,
+            perturbed_x,
+            perturbed_class,
+        )
+
+    class SimpleExplanation:
+        def __init__(self, x):
+            self.x_test = x
+            self.explanations = []
+
+        def finalize(self, *args, **kwargs):
+            return self
+
+    monkeypatch.setattr(helpers, "explain_predict_step", fake_explain_predict_step)
+    monkeypatch.setattr(sequential, "explain_predict_step", fake_explain_predict_step)
+    initializer = lambda *a, **k: SimpleExplanation(a[1])
+    monkeypatch.setattr(helpers, "initialize_explanation", initializer)
+    monkeypatch.setattr(sequential, "initialize_explanation", initializer)
+
+    filter_calls = []
+    def fake_filter(px, pf, x_arg, prediction_arg):
+        filter_calls.append((px.copy(), pf.copy(), x_arg.copy()))
+        return px[:0], np.empty((0, 4))
+
+    req = ExplainRequest(
+        x=np.zeros((1, 1)),
+        threshold=None,
+        low_high_percentiles=(5, 95),
+        bins=None,
+        features_to_ignore=np.array([], dtype=int),
+    )
+    cfg = ExplainConfig(
+        executor=make_executor(),
+        num_features=1,
+        categorical_features=(),
+        feature_values={0: np.array([])},
+    )
+
+    explainer = type(
+        "E",
+        (),
+        {
+            "_get_calibration_summaries": lambda self, x: ({}, {}),
+            "_infer_explanation_mode": lambda self: "factual",
+            "_is_mondrian": lambda self: False,
+            "mode": "factual",
+            "_merge_feature_result": lambda self, *a, **k: helpers.merge_feature_result(*a, **k),
+        },
+    )()
+    explainer._CalibratedExplainer__filter_perturbations_by_guard = fake_filter
+
+    plugin = sequential.SequentialExplainPlugin()
+    plugin.execute(req, cfg, explainer)
+
+    assert filter_calls
+    assert callback_data["perturbed_feature"].shape[0] == 0
 
 
 def test_instance_parallel_plugin_empty_input(monkeypatch):
@@ -256,7 +367,8 @@ def test_feature_parallel_supports_and_execute(monkeypatch):
 
     # monkeypatch helpers similar to sequential test
     def fake_explain_predict_step(*args, **kwargs):
-        n = args[1].shape[0]
+        x = args[1]
+        n = x.shape[0]
         predict = np.zeros((n,))
         low = np.zeros((n,))
         high = np.zeros((n,))
@@ -267,6 +379,10 @@ def test_feature_parallel_supports_and_execute(monkeypatch):
         greater_values = {}
         covered_values = {}
         x_cal = np.zeros((n, 1))
+        perturbed_threshold = np.empty((0,))
+        perturbed_bins = np.empty((0,))
+        perturbed_x = np.empty((0, x.shape[1]))
+        perturbed_class = np.empty((0,), dtype=int)
         return (
             predict,
             low,
@@ -278,6 +394,10 @@ def test_feature_parallel_supports_and_execute(monkeypatch):
             greater_values,
             covered_values,
             x_cal,
+            perturbed_threshold,
+            perturbed_bins,
+            perturbed_x,
+            perturbed_class,
         )
 
     class SimpleExplanation:
@@ -339,6 +459,10 @@ def test_sequential_and_feature_parallel_equivalence(monkeypatch):
         greater_values = {}
         covered_values = {}
         x_cal = np.zeros((n, num_features))
+        perturbed_threshold = np.empty((0,))
+        perturbed_bins = np.empty((0,))
+        perturbed_x = np.empty((0, x.shape[1]))
+        perturbed_class = np.empty((0,), dtype=int)
         return (
             predict,
             low,
@@ -350,6 +474,10 @@ def test_sequential_and_feature_parallel_equivalence(monkeypatch):
             greater_values,
             covered_values,
             x_cal,
+            perturbed_threshold,
+            perturbed_bins,
+            perturbed_x,
+            perturbed_class,
         )
 
     class SimpleExplanation:

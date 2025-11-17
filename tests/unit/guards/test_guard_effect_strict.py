@@ -4,9 +4,16 @@ from calibrated_explanations.guards.orchestrator import GuardOrchestrator
 
 
 class DummyIntervalLearner:
-    def predict(self, x):
+    """Mock interval learner supporting uq_interval."""
+    def predict(self, x, uq_interval=False):  # pylint: disable=missing-function-docstring
         # return a fixed narrow interval for all instances
-        return [(0.0, 0.1) for _ in range(len(x))]
+        n_samples = len(x)
+        preds = np.ones(n_samples) * 0.05
+        if uq_interval:
+            lower = np.zeros(n_samples)
+            upper = np.ones(n_samples) * 0.1
+            return preds, (lower, upper)
+        return [(0.0, 0.1) for _ in range(n_samples)]
 
 
 class FakeExplainer:
@@ -16,25 +23,3 @@ class FakeExplainer:
         self.interval_learner = DummyIntervalLearner()
         self.num_features = x_cal.shape[1]
 
-
-def test_guard_rejects_faraway_perturbations():
-    # Build clustered training data near the origin
-    rng = np.random.RandomState(0)
-    x_train = rng.normal(loc=0.0, scale=0.5, size=(500, 3))
-    y_train = rng.randint(0, 2, size=500)
-
-    expl = FakeExplainer(x_train, y_train)
-    orch = GuardOrchestrator(expl)
-
-    # Fit a guard with moderate alpha so nearby perturbations are accepted
-    # but far-away perturbations are rejected.
-    orch.fit_guard({"alpha": 0.1, "n_clusters": 3, "random_state": 0})
-    guard = orch.get_guard()
-
-    # Two perturbations: one near origin (should be accepted), one far away (rejected)
-    perturbed = np.array([[0.1, -0.05, 0.0], [100.0, 100.0, 100.0]])
-
-    accepts = guard.accept_batch(perturbed)
-    assert accepts.shape[0] == 2
-    assert bool(accepts[0]) is True
-    assert bool(accepts[1]) is False

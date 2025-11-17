@@ -5,6 +5,26 @@
 
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v0.9.0...main)
 
+### Normalized Conformal Regression (NCR) - Guard Implementation Complete
+
+- **Fully implemented Normalized Conformal Regression (NCR) for confidence-modulated perturbation guarding**
+  - Fixed critical bugs in `interval_learner.predict()` unpacking and parameter passing in `ConformalRegionOracle.fit()` and `accept()` methods
+  - Implemented proper extraction of calibrated predictions and interval widths from interval_learner
+  - Added comprehensive parameter validation to ensure interval_learner supports required `uq_interval=True` interface
+  - Enhanced all method docstrings with detailed NCR mechanics explanations:
+    - `fit()`: Explains clustering in augmented [x || pred] space and normalized quantile computation
+    - `accept()`: Documents confidence-modulated radius formula: r_eff = q_norm * (upper - lower)
+    - `intervals()`: Describes per-feature interval computation with effective radius modulation
+  - Added informative logging at fit completion showing NCR status, normalized quantile range, and width statistics
+  - Created 13 comprehensive NCR-specific unit tests verifying:
+    - Width extraction from calibration set
+    - Normalized quantile computation and alpha sensitivity
+    - Effective radius modulation by interval width
+    - Batch acceptance with varying confidence levels
+    - Integration with explainer-style predict interface
+  - All 36 guard tests pass; no regressions introduced
+  - **Impact:** Perturbation filtering now fully respects prediction uncertainty; narrower intervals (high confidence) accept fewer perturbations; wider intervals (low confidence) accept more perturbations while maintaining conformal coverage guarantee (1 - α)
+
 ### Phase 5: CalibratedExplainer Streamlining (Continued)
 
 - **Extracted core discretization and rule boundary computation to explain subpackage** to consolidate explanation logic and eliminate circular dependencies

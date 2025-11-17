@@ -103,6 +103,10 @@ class SequentialExplainPlugin(BaseExplainPlugin):
             greater_values,
             covered_values,
             x_cal,
+            _perturbed_threshold,
+            _perturbed_bins,
+            perturbed_x,
+            _perturbed_class,
         ) = explain_predict_step(
             explainer,
             x_input,
@@ -111,6 +115,16 @@ class SequentialExplainPlugin(BaseExplainPlugin):
             request.bins,
             features_to_ignore_array,
         )
+
+        filter_hook = getattr(
+            explainer,
+            "_CalibratedExplainer__filter_perturbations_by_guard",
+            None,
+        )
+        if callable(filter_hook):
+            perturbed_x, perturbed_feature = filter_hook(
+                perturbed_x, perturbed_feature, x_input, prediction
+            )
 
         # Step 2: Initialize data structures to store feature-level results
         n_instances = x_input.shape[0]
