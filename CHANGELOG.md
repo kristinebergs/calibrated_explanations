@@ -25,7 +25,28 @@
   - All 36 guard tests pass; no regressions introduced
   - **Impact:** Perturbation filtering now fully respects prediction uncertainty; narrower intervals (high confidence) accept fewer perturbations; wider intervals (low confidence) accept more perturbations while maintaining conformal coverage guarantee (1 - α)
 
-### Phase 5: CalibratedExplainer Streamlining (Continued)
+### Execution Strategy Plugins
+
+- **Introduced execution strategy wrapper plugins for user-configurable parallelism strategies**
+  - Created 6 new wrapper explanation plugins bridging explanation layer and execution layer:
+    - `core.explanation.factual.sequential` - Single-threaded sequential processing
+    - `core.explanation.factual.feature_parallel` - Parallel processing across features
+    - `core.explanation.factual.instance_parallel` - Parallel processing across instances
+    - `core.explanation.alternative.sequential` - Alternative mode sequential processing
+    - `core.explanation.alternative.feature_parallel` - Alternative mode feature parallelism
+    - `core.explanation.alternative.instance_parallel` - Alternative mode instance parallelism
+  - Implemented `_ExecutionExplanationPluginBase` class for consistent bridging behavior
+  - Each strategy declares automatic fallback chain for graceful degradation (instance_parallel → feature_parallel → sequential → legacy)
+  - Users can now select execution strategies via configuration:
+    - Keyword argument: `explainer.explain_factual(x, explanation_plugin="core.explanation.factual.feature_parallel")`
+    - Environment variable: `CE_EXPLANATION_PLUGIN_FACTUAL="core.explanation.factual.feature_parallel"`
+    - pyproject.toml: `[tool.calibrated_explanations.explanations]`
+  - All execution plugins registered as trusted and automatically available
+  - Maintains full backward compatibility - legacy plugins remain as ultimate fallback
+  - Updated ADR-015 with execution strategy plugin documentation
+  - Added comprehensive unit tests (25 test cases) covering registration, metadata, modes, and fallback chains
+
+### CalibratedExplainer Streamlining
 
 - **Extracted core discretization and rule boundary computation to explain subpackage** to consolidate explanation logic and eliminate circular dependencies
   - Created `explain._computation.discretize()` function: pure function extracting discretization logic from `CalibratedExplainer._discretize()`
@@ -90,11 +111,11 @@ Note: Streaming-friendly, generator/chunked explanation exports were intentional
 
 - **Explanation schema v1 and ADR-005/008 compliance:** Updated explanation JSON schema v1 to include
   `explanation_type` field distinguishing factual and alternative explanations, aligned ADR-005 with paper-compliant semantics from ADR-008, and ensured all domain models, serialization, and adapters preserve the calibrated prediction baseline for both explanation types. This establishes stable round-trip serialization for instance-based explanations as defined in the CE papers.【F:docs/schema_v1.md†L1-L50】【F:improvement_docs/adrs/ADR-005-explanation-json-schema-versioning.md†L1-L80】【F:improvement_docs/adrs/ADR-008-explanation-domain-model-and-compat.md†L1-L60】【F:src/calibrated_explanations/schemas/explanation_schema_v1.json†L1-L40】
-- **Explain plugin decomposition (ADR-004 compliance):** Moved all explain execution
+- **Explain executor decomposition (ADR-004 compliance):** Moved all explain execution
   strategies into a plugin system (`src/calibrated_explanations/core/explain/`)
-  with three implementations: `SequentialExplainPlugin` (single-threaded fallback),
-  `FeatureParallelExplainPlugin` (executor-backed feature distribution), and
-  `InstanceParallelExplainPlugin` (instance-level chunking). `CalibratedExplainer.explain`
+  with three implementations: `SequentialExplainExecutor` (single-threaded fallback),
+  `FeatureParallelExplainExecutor` (executor-backed feature distribution), and
+  `InstanceParallelExplainExecutor` (instance-level chunking). `CalibratedExplainer.explain`
   is now a thin 13-line delegator that selects and invokes the appropriate plugin
   based on executor configuration. All legacy equivalence tests and instance-parallel
   tests pass, confirming behavioral parity with the original implementation.
