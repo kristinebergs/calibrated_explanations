@@ -137,6 +137,9 @@ underlying estimator and read the returned intervals.
 - Review the
   [contributing workflow](https://calibrated-explanations.readthedocs.io/en/latest/contributing.html)
   before submitting pull requests.
+- GitHub Copilot users can refer to
+  [.github/COPILOT_AGENTS.md](.github/COPILOT_AGENTS.md) for guidance on using
+  AI assistance in cloud or local development environments.
 
 ### Maintainers
 - Track release readiness through the

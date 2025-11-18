@@ -19,6 +19,22 @@ Current highlights coming from reported issues and the release plan:
 Prefer small, focused PRs that map to the plan’s daily/weekly slices (e.g., `feat/1b-exceptions`, `feat/1b-validation`).
 
 
+
+## Development tools
+
+### GitHub Copilot
+
+GitHub Copilot is available to assist with coding tasks in both cloud (GitHub Codespaces) and local (VS Code, JetBrains) environments. See [`.github/COPILOT_AGENTS.md`](.github/COPILOT_AGENTS.md) for a detailed comparison of cloud vs local capabilities, recommended usage patterns, and best practices for this project.
+
+Key points:
+- Both environments offer similar core AI-assisted coding features
+- Cloud provides seamless setup and GitHub integration
+- Local provides better IDE integration and offline capabilities
+- Always review and test Copilot suggestions against project standards
+
+Test generation follows strict guidelines in `.github/copilot-instructions.md` to maintain consistency.
+
+
 ## Feature requests
 
 File a new feature request by opening an issue and using the feature request template. Please make sure that the feature request is not already listed in the [enhancement issues](https://github.com/Moffran/calibrated_explanations/labels/enhancement).
