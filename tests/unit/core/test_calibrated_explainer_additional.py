@@ -10,6 +10,7 @@ from calibrated_explanations.core.calibrated_explainer import (
     CalibratedExplainer,
     ConfigurationError,
 )
+from calibrated_explanations.explanations import CalibratedExplanations
 from calibrated_explanations.core.config_helpers import (
     coerce_string_tuple as _coerce_string_tuple,
     read_pyproject_section as _read_pyproject_section,
@@ -26,6 +27,7 @@ from calibrated_explanations.core.exceptions import DataShapeError
 from calibrated_explanations.plugins.predict import PredictBridge
 from calibrated_explanations.plugins.registry import EXPLANATION_PROTOCOL_VERSION
 from calibrated_explanations.plugins.explanations import ExplanationContext
+
 
 
 def _make_test_context():
@@ -764,7 +766,8 @@ def test_instance_parallel_task_calls_explain(monkeypatch: pytest.MonkeyPatch) -
     # Replace the internal sequential plugin execute with a fake that records calls
     called: list[tuple] = []
 
-    def fake_seq_execute(req, cfg, expl):
+    def fake_seq_execute(req, cfg, expl, context):
+        """Fake sequential executor that records calls with context param."""
         called.append((req.x.shape[0], req.threshold, req.bins))
         ce = CalibratedExplanations(expl, req.x, None, None)
         stub = type("S", (), {})()

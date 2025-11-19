@@ -48,6 +48,7 @@ def test_explanation_context_is_frozen() -> None:
         predict_bridge=_DummyPredictBridge(),
         interval_settings={"plugin": "core.interval.legacy"},
         plot_settings={"style": "legacy"},
+        guard_orchestrator=None,
     )
 
     # Immutability contract: context must not allow field modification

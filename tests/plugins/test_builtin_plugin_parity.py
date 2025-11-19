@@ -42,6 +42,7 @@ def _make_context(explainer, mode: str) -> ExplanationContext:
         predict_bridge=bridge,
         interval_settings={"plugin": interval_dependency},
         plot_settings={"style": "legacy"},
+        guard_orchestrator=None,
     )
 
 

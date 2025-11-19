@@ -98,6 +98,7 @@ class TestPluginWorkflowIntegration:
             predict_bridge=object(),
             interval_settings={},
             plot_settings={},
+            guard_orchestrator=None,
         )
 
         # Initialize plugin - this should not raise
@@ -126,6 +127,7 @@ class TestPluginWorkflowIntegration:
             predict_bridge=object(),
             interval_settings={},
             plot_settings={},
+            guard_orchestrator=None,
         )
 
         # Initialize plugin

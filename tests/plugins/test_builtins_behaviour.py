@@ -63,6 +63,7 @@ def _make_explanation_context(explainer, predict_bridge, **overrides):
         "predict_bridge": predict_bridge,
         "interval_settings": {},
         "plot_settings": {},
+        "guard_orchestrator": None,
     }
     context.update(overrides)
     return ExplanationContext(**context)

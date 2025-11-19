@@ -128,7 +128,7 @@ def make_executor(enabled=True, min_batch_size=1):
 def test_sequential_plugin_execute_minimal(monkeypatch):
     # Monkeypatch explain_predict_step and initialize_explanation to return minimal data
     def fake_explain_predict_step(
-        explainer, x, threshold, low_high_percentiles, bins, features_to_ignore
+        explainer, x, threshold, low_high_percentiles, bins, features_to_ignore, guard_orchestrator
     ):
         n = x.shape[0]
         # predict, low, high arrays sized for the n instances (no perturbed entries)
@@ -284,6 +284,7 @@ def test_sequential_plugin_calls_guard_filter(monkeypatch):
 
     filter_calls = []
     def fake_filter(px, pf, x_arg, prediction_arg):
+        """Mock guard filter that tracks calls."""
         filter_calls.append((px.copy(), pf.copy(), x_arg.copy()))
         return px[:0], np.empty((0, 4))
 
@@ -312,13 +313,25 @@ def test_sequential_plugin_calls_guard_filter(monkeypatch):
             "_merge_feature_result": lambda self, *a, **k: helpers.merge_feature_result(*a, **k),
         },
     )()
-    explainer._CalibratedExplainer__filter_perturbations_by_guard = fake_filter
+
+    # Create context with a mock guard orchestrator
+    context = _make_test_context()
+    
+    # Create a mock guard orchestrator with filter_perturbations method
+    class MockGuardOrchestrator:
+        def filter_perturbations(self, px, pf, x_arg, prediction_arg):
+            return fake_filter(px, pf, x_arg, prediction_arg)
+    
+    # Update context to include guard orchestrator
+    # Since ExplanationContext is frozen, we need to create a new one
+    from dataclasses import replace as dataclass_replace
+    context = dataclass_replace(context, guard_orchestrator=MockGuardOrchestrator())
 
     plugin = sequential.SequentialExplainExecutor()
-    context = _make_test_context()
     plugin.execute(req, cfg, explainer, context)
 
-    assert filter_calls
+    # Guard filter should have been called
+    assert filter_calls, "Guard orchestrator.filter_perturbations should have been called"
     assert callback_data["perturbed_feature"].shape[0] == 0
 
 

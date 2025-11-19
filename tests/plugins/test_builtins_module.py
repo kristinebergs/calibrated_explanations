@@ -87,6 +87,7 @@ def explanation_context(monkeypatch: pytest.MonkeyPatch) -> ExplanationContext:
             collection = _make_collection(with_instances=True)
             return collection
 
+    explainer_instance = _Explainer()
     bridge = DummyPredictBridge()
     context = ExplanationContext(
         task="classification",
@@ -95,10 +96,11 @@ def explanation_context(monkeypatch: pytest.MonkeyPatch) -> ExplanationContext:
         categorical_features=(),
         categorical_labels={},
         discretizer=None,
-        helper_handles={"explainer": _Explainer()},
+        helper_handles={"explainer": explainer_instance},
         predict_bridge=bridge,
         interval_settings={},
         plot_settings={},
+        guard_orchestrator=None,
     )
     return context
 
@@ -364,6 +366,7 @@ def test_explanation_plugin_missing_explainer_raises(explanation_context: Explan
         predict_bridge=DummyPredictBridge(),
         interval_settings={},
         plot_settings={},
+        guard_orchestrator=None,
     )
     with pytest.raises(RuntimeError):
         plugin.initialize(context)

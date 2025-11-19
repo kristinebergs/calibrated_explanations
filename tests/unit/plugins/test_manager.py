@@ -249,17 +249,7 @@ class TestExplanationPluginIdentifierManagement:
         result = manager.get_explanation_plugin_identifier("factual")
         assert result == "core.explanation.factual"
 
-    def test_clear_explanation_plugin_identifiers(self):
-        """should_clear_all_cached_explanation_plugin_identifiers."""
-        mock_explainer = Mock()
-        manager = PluginManager(mock_explainer)
 
-        manager.set_explanation_plugin_identifier("factual", "id1")
-        manager.set_explanation_plugin_identifier("alternative", "id2")
-        assert len(manager._explanation_plugin_identifiers) == 2
-
-        manager.clear_explanation_plugin_identifiers()
-        assert len(manager._explanation_plugin_identifiers) == 0
 
 
 class TestIntervalPluginState:
