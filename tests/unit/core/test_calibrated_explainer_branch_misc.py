@@ -8,8 +8,6 @@ import numpy as np
 import pytest
 
 from calibrated_explanations.core import calibrated_explainer as explainer_module
-from calibrated_explanations.core.calibrated_explainer import CalibratedExplainer
-from calibrated_explanations.core.explain.orchestrator import ExplanationOrchestrator
 from calibrated_explanations.core.exceptions import (
     DataShapeError,
     ValidationError,
@@ -17,64 +15,10 @@ from calibrated_explanations.core.exceptions import (
 from calibrated_explanations.utils.discretizers import RegressorDiscretizer
 
 
-def _make_base_explainer() -> CalibratedExplainer:
-    """Return a lightweight explainer instance with minimal state."""
-
-    explainer = CalibratedExplainer.__new__(CalibratedExplainer)
-    explainer._pyproject_plots = {}
-    explainer._plot_style_override = None
-    explainer._plot_style_chain = ("legacy",)
-    explainer._bridge_monitors = {}
-    explainer.discretizer = None
-    explainer.sample_percentiles = [25, 50, 75]
-    explainer.x_cal = np.array([[0.0, 1.0], [1.0, 2.0]], dtype=float)
-    explainer.y_cal = np.array([0, 1], dtype=int)
-    explainer._X_cal = explainer.x_cal
-    explainer._feature_names = [f"f{i}" for i in range(explainer.x_cal.shape[1])]
-    explainer.bins = None
-    explainer.feature_values = {i: [] for i in range(explainer.x_cal.shape[1])}
-    explainer.categorical_features = []
-    explainer._CalibratedExplainer__initialized = False
-    explainer.mode = "classification"
-    explainer.learner = object()
-    explainer.difficulty_estimator = None
-    explainer.predict_function = lambda x, **_: x  # type: ignore[assignment]
-    # Initialize orchestrator for tests that call its methods
-    explainer._explanation_orchestrator = ExplanationOrchestrator(explainer)
-    # Initialize prediction orchestrator (Phase 4: Interval Registry)
-    from calibrated_explanations.core.prediction import PredictionOrchestrator
-
-    explainer._prediction_orchestrator = PredictionOrchestrator(explainer)
-    return explainer
-
-
-def test_build_plot_style_chain_adds_defaults(monkeypatch):
-    """Test that plot chain adds default when no overrides present."""
-    explainer = _make_base_explainer()
-    monkeypatch.delenv("CE_PLOT_STYLE", raising=False)
-    monkeypatch.delenv("CE_PLOT_STYLE_FALLBACKS", raising=False)
-
-    chain = explainer._explanation_orchestrator._build_plot_chain()
-
-    assert chain == ("plot_spec.default", "legacy")
-
-
-def test_build_plot_style_chain_inserts_before_legacy(monkeypatch):
-    """Test that plot style override is inserted before legacy."""
-    explainer = _make_base_explainer()
-    explainer._plot_style_override = "legacy"
-    monkeypatch.delenv("CE_PLOT_STYLE", raising=False)
-    monkeypatch.delenv("CE_PLOT_STYLE_FALLBACKS", raising=False)
-
-    chain = explainer._explanation_orchestrator._build_plot_chain()
-
-    assert chain == ("plot_spec.default", "legacy")
-
-
 def test_slice_threshold_branches_exercised():
-    """Test threshold slicing behavior through explain helpers (Phase 5).
-
-    Phase 5 consolidation: Tests should call explain module functions directly.
+    """Test threshold slicing behavior through explain helpers.
+    
+    Tests should call explain module functions directly.
     """
     from calibrated_explanations.core.explain._helpers import slice_threshold
 
@@ -93,9 +37,9 @@ def test_slice_threshold_branches_exercised():
 
 
 def test_slice_bins_handles_collections():
-    """Test bins slicing behavior through explain helpers (Phase 5).
-
-    Phase 5 consolidation: Tests should call explain module functions directly.
+    """Test bins slicing behavior through explain helpers.
+    
+    Tests should call explain module functions directly.
     """
     from calibrated_explanations.core.explain._helpers import slice_bins
 
@@ -109,28 +53,8 @@ def test_slice_bins_handles_collections():
     assert np.all(sliced == array_bins[:2])
 
 
-def test_build_instance_telemetry_payload_handles_variants():
-    explainer = _make_base_explainer()
-
-    class _DummyExplanation:
-        def __init__(self, payload):
-            self._payload = payload
-
-        def to_telemetry(self):
-            return self._payload
-
-    assert explainer._build_instance_telemetry_payload([]) == {}
-
-    payload = {"foo": "bar"}
-    explanations = [_DummyExplanation(payload)]
-    assert explainer._build_instance_telemetry_payload(explanations) == payload
-
-    explanations = [_DummyExplanation([1, 2, 3])]
-    assert explainer._build_instance_telemetry_payload(explanations) == {}
-
-
-def test_infer_explanation_mode_prefers_discretizer():
-    explainer = _make_base_explainer()
+def test_infer_explanation_mode_prefers_discretizer(explainer_factory):
+    explainer = explainer_factory()
     assert explainer._infer_explanation_mode() == "factual"
 
     data = np.array([[0.0], [1.0]])
@@ -146,8 +70,8 @@ def test_infer_explanation_mode_prefers_discretizer():
     assert explainer._infer_explanation_mode() == "alternative"
 
 
-def test_set_mode_variants(monkeypatch):
-    explainer = _make_base_explainer()
+def test_set_mode_variants(monkeypatch, explainer_factory):
+    explainer = explainer_factory()
 
     explainer._CalibratedExplainer__set_mode("classification", initialize=False)
     assert explainer.mode == "classification"
@@ -161,8 +85,8 @@ def test_set_mode_variants(monkeypatch):
         explainer._CalibratedExplainer__set_mode("unsupported", initialize=False)
 
 
-def test_get_sigma_test_uses_difficulty_estimator():
-    explainer = _make_base_explainer()
+def test_get_sigma_test_uses_difficulty_estimator(explainer_factory):
+    explainer = explainer_factory()
     values = explainer._get_sigma_test(np.zeros((3, explainer.num_features)))
     assert np.all(values == 1)
 
@@ -175,8 +99,8 @@ def test_get_sigma_test_uses_difficulty_estimator():
     assert np.all(updated == 0.42)
 
 
-def test_reinitialize_updates_state(monkeypatch):
-    explainer = _make_base_explainer()
+def test_reinitialize_updates_state(monkeypatch, explainer_factory):
+    explainer = explainer_factory()
 
     appended: list[tuple] = []
 

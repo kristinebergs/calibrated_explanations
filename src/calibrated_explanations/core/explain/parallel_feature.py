@@ -14,7 +14,7 @@ import numpy as np
 
 from ...explanations import CalibratedExplanations
 from ._base import BaseExplainExecutor
-from ._computation import explain_predict_step
+from ._legacy_explain import explain_predict_step
 from ._helpers import initialize_explanation, merge_feature_result
 from ._shared import (
     ExplainConfig,
@@ -108,10 +108,10 @@ class FeatureParallelExplainExecutor(BaseExplainExecutor):
             greater_values,
             covered_values,
             x_cal,
-            _perturbed_threshold,
-            _perturbed_bins,
+            perturbed_threshold,
+            perturbed_bins,
             perturbed_x,
-            _perturbed_class,
+            perturbed_class,
         ) = explain_predict_step(
             explainer,
             x_input,

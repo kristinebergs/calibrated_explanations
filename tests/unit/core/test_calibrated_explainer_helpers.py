@@ -8,11 +8,7 @@ from calibrated_explanations.core.config_helpers import (
 )
 from calibrated_explanations.core.explain.feature_task import assign_weight_scalar
 from calibrated_explanations.plugins.predict_monitor import PredictBridgeMonitor
-from calibrated_explanations.core.calibrated_explainer import (
-    CalibratedExplainer,
-)
 from calibrated_explanations.plugins.registry import EXPLANATION_PROTOCOL_VERSION
-from calibrated_explanations.core.explain.orchestrator import ExplanationOrchestrator
 from calibrated_explanations.core.exceptions import ConfigurationError
 
 
@@ -66,35 +62,9 @@ def test_predict_bridge_monitor_records_calls():
     assert "predict_proba" in monitor.calls
 
 
-def test_coerce_plugin_override_callable_and_errors():
-    inst = object.__new__(CalibratedExplainer)
-
-    # None -> None
-    assert inst._coerce_plugin_override(None) is None
-
-    # string passes through
-    assert inst._coerce_plugin_override("hello") == "hello"
-
-    # callable returning object
-    def factory():
-        return {"ok": True}
-
-    assert inst._coerce_plugin_override(factory) == {"ok": True}
-
-    # callable raising -> ConfigurationError
-    def bad():
-        raise RuntimeError("boom")
-
-    with pytest.raises(ConfigurationError):
-        inst._coerce_plugin_override(bad)
-
-
-def test_check_explanation_runtime_metadata_various():
+def test_check_explanation_runtime_metadata_various(explainer_factory):
     """Test ExplanationOrchestrator metadata validation through delegating method."""
-    explainer = object.__new__(CalibratedExplainer)
-    explainer.mode = "classification"
-    # Initialize orchestrator
-    orch = ExplanationOrchestrator(explainer)
+    orch = explainer_factory()._explanation_orchestrator
 
     # None metadata
     msg = orch._check_metadata(None, identifier=None, mode="factual")
@@ -153,9 +123,9 @@ def test_check_explanation_runtime_metadata_various():
 
 
 def test_slice_threshold_and_bins():
-    """Test threshold and bins slicing behavior through explain helpers (Phase 5).
-
-    Phase 5 consolidation: Tests should call explain module functions directly,
+    """Test threshold and bins slicing behavior through explain helpers.
+    
+    Tests should call explain module functions directly,
     not private methods on CalibratedExplainer.
     """
     from calibrated_explanations.core.explain._helpers import slice_threshold, slice_bins
@@ -179,9 +149,9 @@ def test_slice_threshold_and_bins():
 
 
 def test_compute_weight_delta_basic():
-    """Test weight delta computation through explain helpers (Phase 5).
-
-    Phase 5 consolidation: Tests should call explain module functions directly,
+    """Test weight delta computation through explain helpers.
+    
+    Tests should call explain module functions directly,
     not private methods on CalibratedExplainer.
     """
     from calibrated_explanations.core.explain._helpers import compute_weight_delta

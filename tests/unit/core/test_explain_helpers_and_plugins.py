@@ -124,8 +124,8 @@ def test_sequential_plugin_execute_minimal(monkeypatch):
         greater_values = {}
         covered_values = {}
         x_cal = np.zeros((n, 1))
-        perturbed_threshold = np.empty((0,))
-        perturbed_bins = np.empty((0,))
+        perturbed_threshold = None
+        perturbed_bins = None
         perturbed_x = np.empty((0, x.shape[1]))
         perturbed_class = np.empty((0,), dtype=int)
         return (
@@ -379,9 +379,9 @@ def test_feature_parallel_supports_and_execute(monkeypatch):
         greater_values = {}
         covered_values = {}
         x_cal = np.zeros((n, 1))
-        perturbed_threshold = np.empty((0,))
-        perturbed_bins = np.empty((0,))
-        perturbed_x = np.empty((0, x.shape[1]))
+        perturbed_threshold = None
+        perturbed_bins = None
+        perturbed_x = np.empty((0, args[1].shape[1]))
         perturbed_class = np.empty((0,), dtype=int)
         return (
             predict,
@@ -459,9 +459,9 @@ def test_sequential_and_feature_parallel_equivalence(monkeypatch):
         greater_values = {}
         covered_values = {}
         x_cal = np.zeros((n, num_features))
-        perturbed_threshold = np.empty((0,))
-        perturbed_bins = np.empty((0,))
-        perturbed_x = np.empty((0, x.shape[1]))
+        perturbed_threshold = None
+        perturbed_bins = None
+        perturbed_x = np.empty((0, num_features))
         perturbed_class = np.empty((0,), dtype=int)
         return (
             predict,
