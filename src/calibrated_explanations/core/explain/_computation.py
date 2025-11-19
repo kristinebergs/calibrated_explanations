@@ -6,7 +6,8 @@ and weight calculation used by all explain executors.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
+import logging
+from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional, Set, Tuple
 
 import numpy as np
 
@@ -16,6 +17,7 @@ from .feature_task import assign_threshold as normalize_threshold
 if TYPE_CHECKING:
     from ...explanations import CalibratedExplanations
     from ..calibrated_explainer import CalibratedExplainer
+    from .guards.guard_orchestrator import GuardOrchestrator
 
 # Type alias for feature task results
 FeatureTaskResult = Tuple[
@@ -49,6 +51,96 @@ ExplainPredictStepResult = Tuple[
     np.ndarray,  # perturbed_x
     np.ndarray,  # perturbed_class
 ]
+
+def _extract_scalar(value: Any) -> Optional[float]:
+    """Return the first scalar entry from *value* when possible."""
+    try:
+        array = np.asarray(value)
+    except Exception:  # pragma: no cover - defensive
+        return None
+    flat = array.reshape(-1)
+    if flat.size == 0:
+        return None
+    try:
+        return float(flat[0])
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        return None
+
+
+def _build_calibrated_prediction_tuple(
+    prediction: Mapping[str, Any], index: int
+) -> Optional[Tuple[float, Tuple[float, float]]]:
+    """Construct (predict, (low, high)) tuple for the given instance index."""
+    try:
+        predict_values = prediction.get("predict")
+        low_values = prediction.get("low")
+        high_values = prediction.get("high")
+    except AttributeError:
+        return None
+    if predict_values is None or low_values is None or high_values is None:
+        return None
+    predict_scalar = _extract_scalar(predict_values[index])
+    low_scalar = _extract_scalar(low_values[index])
+    high_scalar = _extract_scalar(high_values[index])
+    if predict_scalar is None or low_scalar is None or high_scalar is None:
+        return None
+    return (predict_scalar, (low_scalar, high_scalar))
+
+
+def _normalize_guard_candidate_result(allowed: Any, candidate_array: np.ndarray) -> np.ndarray:
+    """Normalize guard return payload into an ndarray of candidate values."""
+    normalized = np.asarray(allowed)
+    if normalized.dtype == bool and normalized.shape == candidate_array.shape:
+        return candidate_array[normalized]
+    if normalized.ndim == 0:
+        normalized = normalized.reshape(1)
+    try:
+        normalized = normalized.astype(candidate_array.dtype, copy=False)
+    except (TypeError, ValueError):  # pragma: no cover - defensive
+        pass
+    return normalized
+
+
+def _filter_candidates_for_instances(
+    guard_orchestrator: Optional["GuardOrchestrator"],
+    feature_index: int,
+    candidates: Any,
+    x_values: np.ndarray,
+    instance_indices: Optional[Sequence[int]],
+    prediction: Mapping[str, Any],
+) -> np.ndarray:
+    """Apply guard-based candidate filtering for the supplied instances."""
+    candidate_array = np.asarray(candidates)
+    if guard_orchestrator is None or candidate_array.size == 0:
+        return candidate_array
+    if instance_indices is None:
+        indices = list(range(x_values.shape[0]))
+    else:
+        indices = [int(idx) for idx in np.asarray(instance_indices, dtype=int).tolist()]
+    if not indices:
+        return candidate_array
+
+    filtered_values: List[Any] = []
+    for idx in indices:
+        row = np.asarray(x_values[idx : idx + 1])
+        calibrated_pred = _build_calibrated_prediction_tuple(prediction, idx)
+        try:
+            allowed = guard_orchestrator.filter_candidates(
+                feature_index, candidate_array, row, calibrated_pred
+            )
+        except Exception:  # pragma: no cover - defensive
+            logging.getLogger("calibrated_explanations").debug(
+                "Guard candidate filtering failed for feature %s; falling back to defaults",
+                feature_index,
+            )
+            return candidate_array
+        normalized = _normalize_guard_candidate_result(allowed, candidate_array)
+        if normalized.size:
+            filtered_values.extend(normalized.tolist())
+
+    if not filtered_values:
+        return np.empty((0,), dtype=candidate_array.dtype)
+    return np.asarray(filtered_values, dtype=candidate_array.dtype)
 
 
 def discretize(explainer: CalibratedExplainer, data: np.ndarray) -> np.ndarray:
@@ -329,6 +421,7 @@ def explain_predict_step(
     low_high_percentiles: Tuple[int, int],
     bins: Any,
     features_to_ignore: Any,  # pylint: disable=unused-argument
+    guard_orchestrator: Optional["GuardOrchestrator"] = None,
 ) -> ExplainPredictStepResult:
     """Execute the baseline prediction and perturbation planning step.
 
@@ -359,8 +452,6 @@ def explain_predict_step(
     ExplainPredictStepResult
         Tuple containing predictions, perturbation metadata, and rule boundaries.
     """
-    import logging  # pylint: disable=import-outside-toplevel
-
     from ..prediction_helpers import assert_threshold  # pylint: disable=import-outside-toplevel
 
     if features_to_ignore is None:
@@ -419,11 +510,19 @@ def explain_predict_step(
 
     categorical_features = set(getattr(explainer, "categorical_features", ()))
 
+    all_instance_indices = np.arange(x.shape[0], dtype=int)
+
     for f in range(explainer.num_features):
         if f in features_to_ignore:
             continue
         if f in categorical_features:
-            feature_values = explainer.feature_values[f]
+            feature_values = np.asarray(explainer.feature_values[f], dtype=object)
+            if feature_values.size and guard_orchestrator is not None:
+                feature_values = _filter_candidates_for_instances(
+                    guard_orchestrator, f, feature_values, x, all_instance_indices, prediction
+                )
+            if feature_values.size == 0:
+                continue
             x_copy = np.array(x, copy=True)
             for value in feature_values:
                 x_copy[:, f] = value
@@ -455,11 +554,18 @@ def explain_predict_step(
             greater_values[f] = {}
             covered_values[f] = {}
             for j, val in enumerate(np.unique(lower_boundary)):
-                lesser_values[f][j] = (
-                    np.unique(get_lesser_values(explainer, f, val)),
-                    val,
+                raw_values = np.unique(get_lesser_values(explainer, f, val))
+                filtered_values = (
+                    _filter_candidates_for_instances(
+                        guard_orchestrator, f, raw_values, x, np.where(lower_boundary == val)[0], prediction
+                    )
+                    if raw_values.size
+                    else raw_values
                 )
+                lesser_values[f][j] = (filtered_values, val)
                 indices = np.where(lower_boundary == val)[0]
+                if filtered_values.size == 0 or len(indices) == 0:
+                    continue
                 for value in lesser_values[f][j][0]:
                     x_local = x_copy[indices, :]
                     x_local[:, f] = value
@@ -481,11 +587,18 @@ def explain_predict_step(
                         perturbed_threshold, threshold, indices
                     )
             for j, val in enumerate(np.unique(upper_boundary)):
-                greater_values[f][j] = (
-                    np.unique(get_greater_values(explainer, f, val)),
-                    val,
+                raw_values = np.unique(get_greater_values(explainer, f, val))
+                filtered_values = (
+                    _filter_candidates_for_instances(
+                        guard_orchestrator, f, raw_values, x, np.where(upper_boundary == val)[0], prediction
+                    )
+                    if raw_values.size
+                    else raw_values
                 )
+                greater_values[f][j] = (filtered_values, val)
                 indices = np.where(upper_boundary == val)[0]
+                if filtered_values.size == 0 or len(indices) == 0:
+                    continue
                 for value in greater_values[f][j][0]:
                     x_local = x_copy[indices, :]
                     x_local[:, f] = value
@@ -508,10 +621,17 @@ def explain_predict_step(
                     )
             indices = range(len(x))
             for i in indices:
-                covered_values[f][i] = (
-                    get_covered_values(explainer, f, lower_boundary[i], upper_boundary[i]),
-                    (lower_boundary[i], upper_boundary[i]),
+                raw_values = get_covered_values(explainer, f, lower_boundary[i], upper_boundary[i])
+                filtered_values = (
+                    _filter_candidates_for_instances(
+                        guard_orchestrator, f, raw_values, x, [i], prediction
+                    )
+                    if raw_values.size
+                    else raw_values
                 )
+                covered_values[f][i] = (filtered_values, (lower_boundary[i], upper_boundary[i]))
+                if filtered_values.size == 0:
+                    continue
                 for value in covered_values[f][i][0]:
                     x_local = x_copy[i, :]
                     x_local[f] = value

@@ -92,7 +92,6 @@ class CalibratedExplainer:
         class_labels=None,
         bins=None,
         difficulty_estimator=None,
-        guard_params=None,
         **kwargs,
     ) -> None:
         """Initialize the explainer with calibration data and metadata.
@@ -120,12 +119,6 @@ class CalibratedExplainer:
             Pre-computed Mondrian categories for fast explanations.
         difficulty_estimator : Any or None, optional
             Optional crepes ``DifficultyEstimator`` instance for regression tasks.
-        guard_params : dict or None, optional
-            Optional dict of parameters for guard plugins (e.g.,
-            ``{'alpha': 0.1, 'n_clusters': 5}``). Guard support is communicated
-            through the plugin manager system, not only through this parameter.
-            Configuration can also be set via environment variables or pyproject.toml. The guard can be disabled 
-            through kwargs to explanation methods.
         **kwargs : Any
             Advanced configuration flags preserved for backward compatibility.
 
@@ -141,11 +134,6 @@ class CalibratedExplainer:
 
         init_time = time()
         self.__initialized = False
-        # Ensure attribute exists on all instances so tests and callers
-        # that access `_guard_orchestrator` before full initialization
-        # do not raise AttributeError. The orchestrator may be
-        # instantiated later in the init sequence.
-        self._guard_orchestrator = None
         preprocessor_metadata = kwargs.pop("preprocessor_metadata", None)
         if isinstance(preprocessor_metadata, Mapping):
             self._preprocessor_metadata: Dict[str, Any] | None = dict(preprocessor_metadata)
@@ -163,9 +151,6 @@ class CalibratedExplainer:
         # crepes broadcasting/shape errors (useful for synthetic tiny datasets).
         self.suppress_crepes_errors = bool(kwargs.get("suppress_crepes_errors", False))
         self.oob = kwargs.get("oob", False)
-        self.guard_params = guard_params if isinstance(guard_params, dict) else {}
-        if guard_params is not None:
-            kwargs.setdefault("guard_params", self.guard_params)
         self._categorical_value_counts_cache: Dict[int, Dict[Any, int]] | None = None
         self._numeric_sorted_cache: Dict[int, np.ndarray] | None = None
         self._calibration_summary_shape: Tuple[int, int] | None = None
@@ -290,15 +275,6 @@ class CalibratedExplainer:
         self._predict_bridge = LegacyPredictBridge(self)
 
         self.init_time = time() - init_time
-
-    def _accept(self, x_prime, calibrated_prediction=None):
-        """Backward-compatible acceptance wrapper.
-
-        Delegates to the guard orchestrator. Returns True if guard is disabled.
-        """
-        if hasattr(self, "_plugin_manager") and self._plugin_manager.guard_orchestrator is not None:
-            return self._plugin_manager.guard_orchestrator.accept(x_prime, calibrated_prediction)
-        return True
 
     def _coerce_plugin_override(self, override: Any) -> Any:
         """Normalise a plugin override into an instance when possible.
@@ -985,40 +961,6 @@ class CalibratedExplainer:
         """
         self._prediction_orchestrator._interval_registry.interval_learner = value
 
-    # Guard property intentionally removed: guard lifecycle and access must be
-    # managed via the GuardOrchestrator (accessible on
-    # `explainer._guard_orchestrator`). Tests and callers should use the
-    # orchestrator API (fit_guard / set_guard / get_guard / accept / intervals).
-
-    @property
-    def guard(self) -> Any:
-        """Public access to the guard via the GuardOrchestrator.
-
-        Returns the currently set guard (typically a fitted
-        :class:`ConformalRegionOracle`) or ``None`` when no guard is active.
-
-        Notes
-        -----
-        This is a thin delegator that keeps the orchestrator as the canonical
-        owner of guard lifecycle. Consumers may use ``explainer.guard`` as a
-        convenience but modifications should be performed via
-        ``explainer.set_guard()`` or the orchestrator APIs.
-        """
-        if hasattr(self, "_plugin_manager") and self._plugin_manager.guard_orchestrator is not None:
-            return self._plugin_manager.guard_orchestrator.get_guard()
-        return None
-
-    @guard.setter
-    def guard(self, value: Any) -> None:
-        """Set or clear the guard via the orchestrator.
-
-        Validation (e.g., ensuring the guard is fitted) is performed by
-        ``CalibratedExplainer.set_guard`` which delegates to the orchestrator.
-        """
-        # Delegate to the existing set_guard method which handles validation
-        # and orchestrator delegation.
-        self.set_guard(value)
-
     def _get_sigma_test(self, x: np.ndarray) -> np.ndarray:
         """Return the difficulty (sigma) of the test instances.
 
@@ -1564,66 +1506,6 @@ class CalibratedExplainer:
         self.difficulty_estimator = difficulty_estimator
         if initialize:
             self._prediction_orchestrator._interval_registry.initialize()  # type: ignore[attr-defined]
-
-    def set_guard(self, guard) -> None:
-        """Assign or replace the ConformalRegionOracle guard.
-
-        The guard filters out-of-distribution perturbations during explanation
-        generation. It must already be fitted before assignment.
-
-        Parameters
-        ----------
-        guard : ConformalRegionOracle or None
-            A fitted ConformalRegionOracle instance, or None to disable guarding.
-
-        Raises
-        ------
-        NotFittedError
-            If the provided guard has not been fitted.
-        """
-        if guard is not None and hasattr(guard, "_fitted") and not guard._fitted:
-            # Only enforce fitted-check for objects that expose the _fitted flag.
-            # Some lightweight guard-like objects (e.g., test stubs) may not have
-            # this attribute but are still valid for use in certain code-paths
-            # (for example, providing label_context). Require _fitted == True
-            # only when the attribute exists.
-            raise NotFittedError(
-                "The guard must be fitted before assignment. "
-                "Call guard.fit(X_train, y_train, model, interval_learner) first."
-            )
-        # Do not expose a top-level `guard` attribute on the explainer. Keep
-        # guard lifecycle inside the orchestrator and delegate assignment.
-        if hasattr(self, "_plugin_manager") and self._plugin_manager.guard_orchestrator is not None:
-            try:
-                self._plugin_manager.guard_orchestrator.set_guard(guard)
-            except Exception:  # pragma: no cover - defensive
-                _logging.getLogger(__name__).debug("GuardOrchestrator.set_guard failed")
-
-    def __fit_guard(self) -> None:
-        """Fit the ConformalRegionOracle using training data and interval_learner.
-
-        Called automatically during __init__ if guard_params is provided.
-        Fits the oracle with:
-        - x_cal, y_cal: training/calibration data
-        - model: the fitted learner
-        - interval_learner: the fitted interval calibrator
-
-        Raises
-        ------
-        ImportError
-            If ConformalRegionOracle cannot be imported.
-        Exception
-            If fitting fails.
-        """
-        # Prefer using the guard orchestrator when available
-        if hasattr(self, "_plugin_manager") and self._plugin_manager.guard_orchestrator is not None:
-            try:
-                self._plugin_manager.guard_orchestrator.fit_guard(self.guard_params)
-            except Exception:  # pragma: no cover - defensive
-                _logging.getLogger(__name__).warning(
-                    "Guard fitting via GuardOrchestrator failed; guard disabled."
-                )
-            return
 
     def __set_mode(self, mode, initialize=True) -> None:
         """Assign the mode of the explainer. The mode can be either 'classification' or 'regression'.

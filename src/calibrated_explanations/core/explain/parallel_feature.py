@@ -28,11 +28,12 @@ if TYPE_CHECKING:
 
 
 class FeatureParallelExplainExecutor(BaseExplainExecutor):
-    """Feature-parallel explain execution strategy.
+    """Feature-parallel explain strategy with optional guard filtering.
 
     Distributes feature perturbation tasks across an executor's workers,
     enabling parallel computation of feature effects. Falls back to sequential
-    processing if the executor is unavailable or disabled.
+    processing if the executor is unavailable or disabled. Guard plugins
+    (when configured) are honored during perturbation and candidate generation.
     """
 
     @property
@@ -120,6 +121,7 @@ class FeatureParallelExplainExecutor(BaseExplainExecutor):
             request.low_high_percentiles,
             request.bins,
             features_to_ignore_array,
+            context.guard_orchestrator,
         )
 
         if context.guard_orchestrator is not None:

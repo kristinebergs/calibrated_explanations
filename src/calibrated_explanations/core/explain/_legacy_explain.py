@@ -57,6 +57,11 @@ def explain(
 
     instance_time = time()
 
+    guard_orchestrator = None
+    plugin_manager = getattr(explainer, "_plugin_manager", None)
+    if plugin_manager is not None:
+        guard_orchestrator = getattr(plugin_manager, "guard_orchestrator", None)
+
     (
         predict,
         low,
@@ -79,6 +84,7 @@ def explain(
         low_high_percentiles,
         bins,
         features_to_ignore,
+        guard_orchestrator,
     )
 
     feature_weights: Dict[str, List[np.ndarray]] = {"predict": [], "low": [], "high": []}

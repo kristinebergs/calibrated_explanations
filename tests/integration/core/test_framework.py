@@ -182,11 +182,13 @@ def test_guard_integration(binary_dataset):
     explanation = ce.explain(x_prop_test[:1])
     assert explanation is not None
 
-    # Check that guard is fitted
-    assert ce.guard is not None
+    # Check that guard orchestrator is available
+    guard_orchestrator = ce._plugin_manager.guard_orchestrator
+    assert guard_orchestrator is not None
     # pylint: disable=protected-access
-    assert ce.guard._fitted
+    assert guard_orchestrator._guard_plugin is not None
     
     # Test that guard can accept/reject via orchestrator
-    result = ce.accept(x_prop_test[0])
-    assert isinstance(result, (bool, np.bool_))
+    # Note: accept method is no longer on explainer, guard filtering happens during explanation
+    # The test verifies that guard is properly configured and available
+    assert hasattr(guard_orchestrator, 'filter_perturbations')

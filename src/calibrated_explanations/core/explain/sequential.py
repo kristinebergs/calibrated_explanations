@@ -28,10 +28,12 @@ if TYPE_CHECKING:
 
 
 class SequentialExplainExecutor(BaseExplainExecutor):
-    """Sequential explain execution strategy.
+    """Sequential explain execution strategy with optional guard filtering.
 
     Processes all test instances and features in a single thread.
     This is the default fallback when parallelism is disabled or unavailable.
+    When a guard orchestrator is present in the execution context it is used to
+    filter perturbations and candidate values before weight computation.
     """
 
     @property
@@ -115,6 +117,7 @@ class SequentialExplainExecutor(BaseExplainExecutor):
             request.low_high_percentiles,
             request.bins,
             features_to_ignore_array,
+            context.guard_orchestrator,
         )
 
         if context.guard_orchestrator is not None:
