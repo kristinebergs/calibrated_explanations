@@ -25,7 +25,24 @@ from calibrated_explanations.plugins.predict_monitor import (
 from calibrated_explanations.core.exceptions import DataShapeError
 from calibrated_explanations.plugins.predict import PredictBridge
 from calibrated_explanations.plugins.registry import EXPLANATION_PROTOCOL_VERSION
-from calibrated_explanations.explanations.explanations import CalibratedExplanations
+from calibrated_explanations.plugins.explanations import ExplanationContext
+
+
+def _make_test_context():
+    """Create a minimal ExplanationContext for testing."""
+    return ExplanationContext(
+        task="classification",
+        mode="factual",
+        feature_names=["f0"],
+        categorical_features=[],
+        categorical_labels={},
+        discretizer=None,
+        helper_handles={},
+        predict_bridge=None,
+        interval_settings={},
+        plot_settings={},
+        guard_orchestrator=None,
+    )
 
 
 class DummyLearner:
@@ -683,8 +700,8 @@ def test_explain_parallel_instances_empty_and_combined(monkeypatch: pytest.Monke
         feature_values={},
     )
     plugin = InstanceParallelExplainExecutor()
-
-    empty = plugin.execute(req_empty, cfg_empty, explainer)
+    context = _make_test_context()
+    empty = plugin.execute(req_empty, cfg_empty, explainer, context)
     assert isinstance(empty, CalibratedExplanations)
     assert explainer.latest_explanation is empty
 
@@ -727,7 +744,7 @@ def test_explain_parallel_instances_empty_and_combined(monkeypatch: pytest.Monke
         feature_values={},
     )
 
-    combined = plugin.execute(req, cfg, explainer)
+    combined = plugin.execute(req, cfg, explainer, _make_test_context())
     # combined should contain the two explanations with indices 0 and 1
     assert isinstance(combined, CalibratedExplanations)
     assert len(combined.explanations) == 2
@@ -781,7 +798,7 @@ def test_instance_parallel_task_calls_explain(monkeypatch: pytest.MonkeyPatch) -
         feature_values={},
     )
 
-    out = plugin.execute(req, cfg, explainer)
+    out = plugin.execute(req, cfg, explainer, _make_test_context())
     # sequential plugin was invoked once for the single chunk
     assert len(called) == 1
     assert isinstance(out, CalibratedExplanations)

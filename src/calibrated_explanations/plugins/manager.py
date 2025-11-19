@@ -17,8 +17,10 @@ Responsibilities:
 
 from __future__ import annotations
 
+import json
+import logging
 import os
-from typing import Any, Dict, List, Mapping, Tuple
+from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from .guards import GuardContext
 from .predict_monitor import PredictBridgeMonitor
@@ -26,6 +28,8 @@ from .registry import (
     find_explanation_descriptor,
     find_interval_descriptor,
 )
+
+_LOGGER = logging.getLogger(__name__)
 
 
 # DEFAULT PLUGIN IDENTIFIERS (Single Source of Truth)
@@ -99,6 +103,7 @@ class PluginManager:
         self._fast_interval_plugin_override: Any = None
         self._plot_style_override: Any = None
         self._guard_plugin_override: Any = None
+        self._guard_enabled: bool = True
 
         # Plugin instance caching
         self._bridge_monitors: Dict[str, PredictBridgeMonitor] = {}
@@ -106,6 +111,7 @@ class PluginManager:
         self._explanation_plugin_identifiers: Dict[str, str] = {}
         self._guard_plugin_instance: Any = None
         self._guard_plugin_identifier: str | None = None
+        self._guard_params: Dict[str, Any] = {}
 
         # Fallback chains for plugin resolution (populated by initialize_chains)
         self._explanation_plugin_fallbacks: Dict[str, Tuple[str, ...]] = {}
@@ -175,6 +181,8 @@ class PluginManager:
         self._fast_interval_plugin_override = kwargs.get("fast_interval_plugin")
         self._plot_style_override = kwargs.get("plot_style")
         self._guard_plugin_override = kwargs.get("guard_plugin")
+        guard_enabled_kwarg = kwargs.get("guard_enabled")
+        guard_params_kwarg = kwargs.get("guard_params")
 
         # Cache pyproject.toml plugin configurations
         self._pyproject_explanations = read_pyproject_section(
@@ -189,6 +197,32 @@ class PluginManager:
         self._pyproject_guards = read_pyproject_section(
             ("tool", "calibrated_explanations", "guards")
         )
+
+        # Determine guard enabled flag with precedence: kwargs > env > pyproject > default True
+        env_guard_enabled = os.environ.get("CE_GUARD_ENABLED")
+        py_guard_enabled = None
+        py_guard_params: Any = None
+        if isinstance(self._pyproject_guards, Mapping):
+            py_guard_enabled = self._pyproject_guards.get("enabled")
+            py_guard_params = self._pyproject_guards.get("params")
+        guard_enabled = self._coerce_bool_flag(guard_enabled_kwarg)
+        if guard_enabled is None:
+            guard_enabled = self._coerce_bool_flag(env_guard_enabled)
+        if guard_enabled is None:
+            guard_enabled = self._coerce_bool_flag(py_guard_enabled)
+        if guard_enabled is None:
+            guard_enabled = True
+        self._guard_enabled = guard_enabled
+
+        # Merge guard parameters: pyproject -> env -> kwargs/explainer
+        merged_guard_params: Dict[str, Any] = {}
+        merged_guard_params.update(self._coerce_guard_params_dict(py_guard_params))
+        env_guard_params = os.environ.get("CE_GUARD_PARAMS")
+        merged_guard_params.update(self._parse_guard_params_blob(env_guard_params))
+        if guard_params_kwarg is None and hasattr(self.explainer, "guard_params"):
+            guard_params_kwarg = getattr(self.explainer, "guard_params")
+        merged_guard_params.update(self._coerce_guard_params_dict(guard_params_kwarg))
+        self._guard_params = merged_guard_params
 
     def initialize_chains(self) -> None:
         """Build and cache all plugin fallback chains.
@@ -421,6 +455,9 @@ class PluginManager:
         tuple of str
             Ordered list of guard plugin identifiers to try.
         """
+        if not self._guard_enabled:
+            return ()
+
         # Lazy import to avoid circular dependency
         from ..core.config_helpers import coerce_string_tuple, split_csv  # pylint: disable=import-outside-toplevel
 
@@ -456,6 +493,51 @@ class PluginManager:
                 seen.add(identifier)
 
         return tuple(result)
+
+    @staticmethod
+    def _coerce_bool_flag(value: Any) -> Optional[bool]:
+        """Coerce configuration flag *value* to boolean when possible."""
+        if value is None:
+            return None
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return bool(value)
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"1", "true", "yes", "on"}:
+                return True
+            if normalized in {"0", "false", "no", "off"}:
+                return False
+        return None
+
+    @staticmethod
+    def _coerce_guard_params_dict(candidate: Any) -> Dict[str, Any]:
+        """Coerce guard parameter source into a dictionary."""
+        if candidate is None:
+            return {}
+        if isinstance(candidate, Mapping):
+            return dict(candidate)
+        try:
+            return dict(candidate)
+        except Exception:  # pragma: no cover - defensive
+            _LOGGER.warning("guard_params override must be mapping-like; ignoring %r", candidate)
+        return {}
+
+    @staticmethod
+    def _parse_guard_params_blob(raw: Optional[str]) -> Dict[str, Any]:
+        """Parse JSON blob of guard params from environment variables."""
+        if not raw:
+            return {}
+        try:
+            parsed = json.loads(raw)
+        except json.JSONDecodeError:
+            _LOGGER.warning("CE_GUARD_PARAMS must be valid JSON; ignoring value")
+            return {}
+        if isinstance(parsed, Mapping):
+            return dict(parsed)
+        _LOGGER.warning("CE_GUARD_PARAMS JSON must decode to a mapping; ignoring value")
+        return {}
 
     def coerce_plugin_override(self, override: Any) -> Any:
         """Normalise a plugin override into an instance when possible.
@@ -503,6 +585,13 @@ class PluginManager:
         # Lazy import to avoid circular dependency
         from .registry import find_guard_plugin_trusted  # pylint: disable=import-outside-toplevel
 
+        if not self._guard_enabled:
+            self._guard_plugin_instance = None
+            self._guard_plugin_identifier = None
+            return None
+        if self._guard_plugin_instance is not None:
+            return self._guard_plugin_instance
+
         # 1. Check for direct override
         override = self.coerce_plugin_override(self._guard_plugin_override)
         if override is not None:
@@ -537,6 +626,8 @@ class PluginManager:
                 return plugin
 
         # 4. Try fallback chain
+        if not self._guard_plugin_fallbacks:
+            self._guard_plugin_fallbacks = self._build_guard_chain()
         for identifier in self._guard_plugin_fallbacks:
             plugin = find_guard_plugin_trusted(identifier)
             if plugin is not None:
@@ -656,7 +747,7 @@ class PluginManager:
         from ..core.explain.orchestrator import ExplanationOrchestrator  # pylint: disable=import-outside-toplevel
         from ..core.prediction.orchestrator import PredictionOrchestrator  # pylint: disable=import-outside-toplevel
         from ..core.reject.orchestrator import RejectOrchestrator  # pylint: disable=import-outside-toplevel
-        from ..core.explain.guard_orchestrator import GuardOrchestrator  # pylint: disable=import-outside-toplevel
+        from ..core.explain.guards.guard_orchestrator import GuardOrchestrator  # pylint: disable=import-outside-toplevel
         from ..core.calibration.interval_learner import initialize_interval_learner  # pylint: disable=import-outside-toplevel
 
         # Ensure builtin plugins (including optional fast plugins) are registered
@@ -665,18 +756,18 @@ class PluginManager:
         # runtime resolution, causing ConfigurationError during explain_fast.
         ensure_builtin_plugins()
 
+        # Build all plugin fallback chains before instantiating orchestrators
+        self.initialize_chains()
+
         # Initialize orchestrators
         self._explanation_orchestrator = ExplanationOrchestrator(self.explainer)
         self._prediction_orchestrator = PredictionOrchestrator(self.explainer)
         self._reject_orchestrator = RejectOrchestrator(self.explainer)
-        
+
         # Resolve guard plugin and initialize guard orchestrator
         guard_plugin = self.resolve_guard_plugin()
         self._guard_orchestrator = GuardOrchestrator(self.explainer, guard_plugin)
         self._explanation_orchestrator.set_guard_orchestrator(self._guard_orchestrator)
-
-        # Build all plugin fallback chains
-        self.initialize_chains()
 
         # Populate plot_style_chain from explanation orchestrator's chains
         self._plot_style_chain = self._plot_plugin_fallbacks.get("default")
@@ -698,21 +789,13 @@ class PluginManager:
         if self._guard_orchestrator is None:
             return None
 
-        raw_guard_params = getattr(self.explainer, "guard_params", None) or {}
         feature_names = tuple(getattr(self.explainer, "feature_names", ()) or ())
         categorical_features = tuple(getattr(self.explainer, "categorical_features", ()) or ())
-
-        if isinstance(raw_guard_params, Mapping):
-            guard_metadata: Dict[str, Any] = dict(raw_guard_params)
-        else:
-            try:
-                guard_metadata = dict(raw_guard_params)
-            except Exception:  # pylint: disable=broad-except
-                guard_metadata = {"value": raw_guard_params}
+        guard_metadata: Dict[str, Any] = dict(self._guard_params)
 
         return GuardContext(
             task=self.explainer.mode,
-            mode="default",
+            mode=self.explainer.mode,
             learner=self.explainer.learner,
             x_cal=self.explainer.x_cal,
             y_cal=self.explainer.y_cal,
@@ -720,5 +803,8 @@ class PluginManager:
             feature_names=feature_names,
             categorical_features=categorical_features,
             num_features=len(feature_names),
-            metadata={"guard_params": guard_metadata},
+            metadata={
+                "guard_params": guard_metadata,
+                "guard_enabled": self._guard_enabled,
+            },
         )

@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from ...explanations import CalibratedExplanations
     from ..calibrated_explainer import CalibratedExplainer
     from ._shared import ExplainConfig, ExplainRequest
+    from ...plugins.explanations import ExplanationContext
 
 
 class BaseExplainExecutor(ABC):
@@ -57,6 +58,7 @@ class BaseExplainExecutor(ABC):
         request: ExplainRequest,
         config: ExplainConfig,
         explainer: CalibratedExplainer,
+        context: ExplanationContext,
     ) -> CalibratedExplanations:
         """Execute the explain operation using this plugin's strategy.
 
@@ -75,6 +77,8 @@ class BaseExplainExecutor(ABC):
             Execution configuration with executor and settings
         explainer : CalibratedExplainer
             The explainer instance providing model access and helpers
+        context : ExplanationContext
+            The explanation context with guard orchestrator and settings
 
         Returns
         -------

@@ -9,11 +9,12 @@ Part of Phase 2: Move & Refactor GuardOrchestrator (ADR-001).
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
-from ...plugins.guards import GuardPlugin, GuardContext
+from calibrated_explanations.plugins.guards import GuardContext, GuardPlugin
 
 logger = logging.getLogger(__name__)
 
@@ -205,3 +206,69 @@ class GuardOrchestrator:
     def get_metrics(self) -> Dict[str, int]:
         """Return guard filtering metrics."""
         return dict(self.metrics)
+
+    def accept(
+        self,
+        x_instance: np.ndarray,
+        calibrated_prediction: Optional[Tuple[float, Tuple[float, float]]] = None,
+    ) -> bool:
+        """Backward-compatible single-instance accept helper."""
+        if self._guard_plugin is None:
+            return True
+
+        batch = np.asarray(x_instance)
+        if batch.ndim == 1:
+            batch = batch.reshape(1, -1)
+        elif batch.ndim == 0:
+            batch = batch.reshape(1, 1)
+        predictions: Optional[Sequence[Optional[Tuple]]] = None
+        if calibrated_prediction is not None:
+            predictions = [calibrated_prediction]
+
+        result = self.accept_batch(batch, predictions)
+        return bool(result[0]) if len(result) else True
+
+    def fit_guard(self, guard_params: Optional[Mapping[str, Any]] = None) -> None:
+        """Re-fit the guard plugin with updated metadata parameters."""
+        if self._guard_plugin is None:
+            logger.debug("fit_guard called without an active guard plugin; ignoring")
+            return
+        if self._context is None:
+            logger.debug("fit_guard called before guard context is available; ignoring")
+            return
+
+        metadata = dict(self._context.metadata)
+        if guard_params is not None:
+            try:
+                metadata["guard_params"] = dict(guard_params)
+            except Exception:  # pragma: no cover - defensive
+                metadata["guard_params"] = guard_params
+
+        refreshed_context = replace(self._context, metadata=metadata)
+        self.initialize(refreshed_context)
+
+    def get_guard(self) -> Any:
+        """Return the underlying guard instance when exposed by the plugin."""
+        if self._guard_plugin is None:
+            return None
+
+        getter = getattr(self._guard_plugin, "get_guard", None)
+        if callable(getter):
+            return getter()
+        return getattr(self._guard_plugin, "_guard", None)
+
+    def set_guard(self, guard: Any) -> None:
+        """Assign or replace the guard instance when supported by the plugin."""
+        if self._guard_plugin is None:
+            logger.debug("set_guard called without an active guard plugin; ignoring")
+            return
+
+        setter = getattr(self._guard_plugin, "set_guard", None)
+        if callable(setter):
+            setter(guard)
+            return
+        if hasattr(self._guard_plugin, "_guard"):
+            setattr(self._guard_plugin, "_guard", guard)
+
+
+__all__ = ["GuardOrchestrator"]

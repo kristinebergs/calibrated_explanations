@@ -164,6 +164,8 @@ class CalibratedExplainer:
         self.suppress_crepes_errors = bool(kwargs.get("suppress_crepes_errors", False))
         self.oob = kwargs.get("oob", False)
         self.guard_params = guard_params if isinstance(guard_params, dict) else {}
+        if guard_params is not None:
+            kwargs.setdefault("guard_params", self.guard_params)
         self._categorical_value_counts_cache: Dict[int, Dict[Any, int]] | None = None
         self._numeric_sorted_cache: Dict[int, np.ndarray] | None = None
         self._calibration_summary_shape: Tuple[int, int] | None = None

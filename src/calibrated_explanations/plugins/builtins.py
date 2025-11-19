@@ -402,7 +402,9 @@ class _ExecutionExplanationPluginBase(_LegacyExplanationBase):
 
             # Instantiate and execute the plugin
             plugin = self._execution_plugin_class()
-            collection = plugin.execute(explain_request, explain_config, self._explainer)
+            collection = plugin.execute(
+                explain_request, explain_config, self._explainer, self._context
+            )
 
         except Exception as exc:
             # Fallback to legacy implementation with warning

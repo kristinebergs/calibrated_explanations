@@ -27,7 +27,7 @@ from .base import ExplainerPlugin, PluginMeta
 from .predict import PredictBridge
 
 if TYPE_CHECKING:
-    from ..core.explain.guard_orchestrator import GuardOrchestrator
+    from ..core.explain.guards.guard_orchestrator import GuardOrchestrator
 
 
 @dataclass(frozen=True)

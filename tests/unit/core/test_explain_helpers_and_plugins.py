@@ -4,6 +4,24 @@ from calibrated_explanations.core.explain import _computation as comp
 from calibrated_explanations.core.explain import _helpers as helpers
 from calibrated_explanations.core.explain import sequential, parallel_feature, parallel_instance
 from calibrated_explanations.core.explain import feature_task as feature_task_module
+from calibrated_explanations.plugins.explanations import ExplanationContext
+
+
+def _make_test_context():
+    """Create a minimal ExplanationContext for testing."""
+    return ExplanationContext(
+        task="classification",
+        mode="factual",
+        feature_names=["f0"],
+        categorical_features=[],
+        categorical_labels={},
+        discretizer=None,
+        helper_handles={},
+        predict_bridge=None,
+        interval_settings={},
+        plot_settings={},
+        guard_orchestrator=None,
+    )
 
 
 def test_assign_weight_scalar_variants():
@@ -194,7 +212,8 @@ def test_sequential_plugin_execute_minimal(monkeypatch):
     )()
 
     plugin = sequential.SequentialExplainExecutor()
-    out = plugin.execute(req, cfg, explainer)
+    context = _make_test_context()
+    out = plugin.execute(req, cfg, explainer, context)
     # expect an explanation object
     assert hasattr(out, "explanations")
 
@@ -295,8 +314,9 @@ def test_sequential_plugin_calls_guard_filter(monkeypatch):
     )()
     explainer._CalibratedExplainer__filter_perturbations_by_guard = fake_filter
 
-    plugin = sequential.SequentialExplainPlugin()
-    plugin.execute(req, cfg, explainer)
+    plugin = sequential.SequentialExplainExecutor()
+    context = _make_test_context()
+    plugin.execute(req, cfg, explainer, context)
 
     assert filter_calls
     assert callback_data["perturbed_feature"].shape[0] == 0
@@ -345,7 +365,8 @@ def test_instance_parallel_plugin_empty_input(monkeypatch):
     )()
 
     plugin = parallel_instance.InstanceParallelExplainExecutor()
-    result = plugin.execute(req, cfg, explainer)
+    context = _make_test_context()
+    result = plugin.execute(req, cfg, explainer, context)
     assert hasattr(result, "explanations")
 
 
@@ -431,7 +452,8 @@ def test_feature_parallel_supports_and_execute(monkeypatch):
 
     plugin = parallel_feature.FeatureParallelExplainExecutor()
     assert plugin.supports(req, cfg)
-    out = plugin.execute(req, cfg, explainer)
+    context = _make_test_context()
+    out = plugin.execute(req, cfg, explainer, context)
     assert hasattr(out, "explanations")
 
 
@@ -584,9 +606,10 @@ def test_sequential_and_feature_parallel_equivalence(monkeypatch):
 
     seq_plugin = sequential.SequentialExplainExecutor()
     par_plugin = parallel_feature.FeatureParallelExplainExecutor()
+    context = _make_test_context()
 
-    out_seq = seq_plugin.execute(req, cfg_seq, explainer)
-    out_par = par_plugin.execute(req, cfg_par, explainer)
+    out_seq = seq_plugin.execute(req, cfg_seq, explainer, context)
+    out_par = par_plugin.execute(req, cfg_par, explainer, context)
 
     # Compare the aggregated per-instance per-feature predict matrices and weights
     for i in range(n_instances):

@@ -17,7 +17,7 @@ from ._base import BaseExplainExecutor
 from ._shared import ExplainConfig, ExplainRequest, ExplainResponse
 from .orchestrator import ExplanationOrchestrator
 from .parallel_feature import FeatureParallelExplainExecutor
-from .guard_orchestrator import GuardOrchestrator
+from .guards.guard_orchestrator import GuardOrchestrator
 from .sequential import SequentialExplainExecutor
 
 if TYPE_CHECKING:

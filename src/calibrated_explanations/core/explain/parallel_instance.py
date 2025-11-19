@@ -71,6 +71,7 @@ class InstanceParallelExplainExecutor(BaseExplainExecutor):
         request: ExplainRequest,
         config: ExplainConfig,
         explainer: CalibratedExplainer,
+        context: ExplanationContext,
     ) -> CalibratedExplanations:
         """Execute instance-parallel explain operation.
 
@@ -123,7 +124,7 @@ class InstanceParallelExplainExecutor(BaseExplainExecutor):
                 use_plugin=False,
                 skip_instance_parallel=True,  # Prevent recursive parallelism
             )
-            result = self._sequential_plugin.execute(chunk_request, config, explainer)
+            result = self._sequential_plugin.execute(chunk_request, config, explainer, context)
             explainer.latest_explanation = result
             explainer._last_explanation_mode = explainer._infer_explanation_mode()
             return result
@@ -149,7 +150,7 @@ class InstanceParallelExplainExecutor(BaseExplainExecutor):
                 use_plugin=False,
                 skip_instance_parallel=True,  # Prevent recursive parallelism
             )
-            result = self._sequential_plugin.execute(chunk_request, config, explainer)
+            result = self._sequential_plugin.execute(chunk_request, config, explainer, context)
             return start_idx, result
 
         # Step 5: Execute tasks in parallel

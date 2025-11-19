@@ -30,7 +30,7 @@ from ...plugins.registry import (
 from ...core.config_helpers import coerce_string_tuple
 from ...utils.discretizers import EntropyDiscretizer, RegressorDiscretizer
 from ..exceptions import ConfigurationError
-from .guard_orchestrator import GuardOrchestrator
+from .guards.guard_orchestrator import GuardOrchestrator
 
 if TYPE_CHECKING:
     from ..calibrated_explainer import CalibratedExplainer

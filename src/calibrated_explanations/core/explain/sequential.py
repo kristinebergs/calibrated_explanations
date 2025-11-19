@@ -64,6 +64,7 @@ class SequentialExplainExecutor(BaseExplainExecutor):
         request: ExplainRequest,
         config: ExplainConfig,
         explainer: CalibratedExplainer,
+        context: ExplanationContext,
     ) -> CalibratedExplanations:
         """Execute sequential explain operation.
 
@@ -116,24 +117,9 @@ class SequentialExplainExecutor(BaseExplainExecutor):
             features_to_ignore_array,
         )
 
-        filter_hook = getattr(
-            explainer,
-            "_CalibratedExplainer__filter_perturbations_by_guard",
-            None,
-        )
-        if callable(filter_hook):
-            perturbed_x, perturbed_feature = filter_hook(
+        if context.guard_orchestrator is not None:
+            perturbed_x, perturbed_feature = context.guard_orchestrator.filter_perturbations(
                 perturbed_x, perturbed_feature, x_input, prediction
-            )
-        elif (
-            hasattr(explainer, "_plugin_manager") and
-            explainer._plugin_manager.guard_orchestrator is not None
-        ):
-            # Use guard orchestrator plugin
-            perturbed_x, perturbed_feature = (
-                explainer._plugin_manager.guard_orchestrator.filter_perturbations(
-                    perturbed_x, perturbed_feature, x_input, prediction
-                )
             )
 
         # Step 2: Initialize data structures to store feature-level results
