@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Optional, Protocol, Sequence, Tuple
 import numpy as np
 
-from .types import PluginMeta
+from .base import PluginMeta
 
 
 @dataclass(frozen=True)

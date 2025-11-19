@@ -130,6 +130,16 @@ class FeatureParallelExplainExecutor(BaseExplainExecutor):
             perturbed_x, perturbed_feature = filter_hook(
                 perturbed_x, perturbed_feature, x_input, prediction
             )
+        elif (
+            hasattr(explainer, "_plugin_manager") and
+            explainer._plugin_manager.guard_orchestrator is not None
+        ):
+            # Use guard orchestrator plugin
+            perturbed_x, perturbed_feature = (
+                explainer._plugin_manager.guard_orchestrator.filter_perturbations(
+                    perturbed_x, perturbed_feature, x_input, prediction
+                )
+            )
 
         # Step 2: Initialize data structures to store feature-level results
         n_instances = x_input.shape[0]

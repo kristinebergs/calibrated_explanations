@@ -1,7 +1,5 @@
 import numpy as np
 
-from calibrated_explanations.guards.orchestrator import GuardOrchestrator
-
 
 class DummyIntervalLearner:
     """Mock interval learner supporting uq_interval."""

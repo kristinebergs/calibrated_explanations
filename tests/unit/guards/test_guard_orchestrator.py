@@ -1,6 +1,7 @@
 import numpy as np
 
-from calibrated_explanations.guards.orchestrator import GuardOrchestrator
+from calibrated_explanations.core.explain.guard_orchestrator import GuardOrchestratorPlugin
+from calibrated_explanations.plugins.guards import GuardContext
 
 
 class DummyIntervalLearner:
@@ -28,11 +29,32 @@ def test_filter_perturbations_delegation():
     x_cal = np.array([[0.0, 0.0], [1.0, 1.0]])
     y_cal = np.array([0, 1])
     expl = FakeExplainer(x_cal, y_cal)
-    orch = GuardOrchestrator(expl)
+    
+    # Create GuardContext for initialization
+    context = GuardContext(
+        task="classification",
+        mode="factual",
+        learner=None,
+        x_cal=x_cal,
+        y_cal=y_cal,
+        interval_learner=expl.interval_learner,
+        feature_names=["f0", "f1"],
+        categorical_features=[],
+        num_features=2,
+        metadata={},
+    )
+    
+    orch = GuardOrchestratorPlugin()
+    orch.initialize(context)
 
     # Create dummy guard that rejects second perturbed row
     class DummyGuard:
-        def accept_batch(self, arr, preds=None):
+        """Dummy guard for testing."""
+        def __init__(self):
+            self._fitted = True
+        
+        def accept_batch(self, arr, preds=None):  # noqa: ARG002
+            """Accept batch method."""
             return np.array([True, False])
 
     orch.set_guard(DummyGuard())
@@ -46,7 +68,9 @@ def test_filter_perturbations_delegation():
         "high": np.array([1.0, 1.0]),
     }
 
-    fx, ff = orch.filter_perturbations(perturbed_x, perturbed_feature, x_cal, prediction)
-    assert fx.shape[0] == 1
-    assert ff.shape[0] == 1
+    filtered_x, filtered_feature = orch.filter_perturbations(
+        perturbed_x, perturbed_feature, x_cal, prediction
+    )
+    assert filtered_x.shape[0] == 1
+    assert filtered_feature.shape[0] == 1
 

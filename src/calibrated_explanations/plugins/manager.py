@@ -139,6 +139,7 @@ class PluginManager:
         self._explanation_orchestrator: Any = None
         self._prediction_orchestrator: Any = None
         self._reject_orchestrator: Any = None
+        self._guard_orchestrator: Any = None
 
     def initialize_from_kwargs(self, kwargs: Dict[str, Any]) -> None:
         """Initialize plugin overrides from keyword arguments.
@@ -514,9 +515,10 @@ class PluginManager:
         """
         self._explanation_plugin_identifiers[mode] = identifier
 
-    def clear_explanation_plugin_identifiers(self) -> None:
-        """Clear all cached explanation plugin identifiers."""
-        self._explanation_plugin_identifiers.clear()
+    @property
+    def guard_orchestrator(self) -> Any:
+        """Access the guard orchestrator instance."""
+        return self._guard_orchestrator
 
     # =========================================================================
     # Orchestrator initialization (moved from CalibratedExplainer)
@@ -530,6 +532,7 @@ class PluginManager:
         2. Ensures builtin plugins are registered
         3. Builds all plugin fallback chains
         4. Initializes interval runtime state
+        5. Initializes guard orchestrator with context
 
         Called from CalibratedExplainer.__init__ after PluginManager is initialized.
         """
@@ -538,7 +541,9 @@ class PluginManager:
         from ..core.explain.orchestrator import ExplanationOrchestrator  # pylint: disable=import-outside-toplevel
         from ..core.prediction.orchestrator import PredictionOrchestrator  # pylint: disable=import-outside-toplevel
         from ..core.reject.orchestrator import RejectOrchestrator  # pylint: disable=import-outside-toplevel
+        from ..core.explain.guard_orchestrator import GuardOrchestratorPlugin  # pylint: disable=import-outside-toplevel
         from ..core.calibration.interval_learner import initialize_interval_learner  # pylint: disable=import-outside-toplevel
+        from ..plugins.guards import GuardContext  # pylint: disable=import-outside-toplevel
 
         # Ensure builtin plugins (including optional fast plugins) are registered
         # before we compute fallback chains. Without this, the initial chain
@@ -550,6 +555,7 @@ class PluginManager:
         self._explanation_orchestrator = ExplanationOrchestrator(self.explainer)
         self._prediction_orchestrator = PredictionOrchestrator(self.explainer)
         self._reject_orchestrator = RejectOrchestrator(self.explainer)
+        self._guard_orchestrator = GuardOrchestratorPlugin()
 
         # Build all plugin fallback chains
         self.initialize_chains()
@@ -562,3 +568,18 @@ class PluginManager:
 
         # Initialize interval learner
         initialize_interval_learner(self.explainer)
+
+        # Initialize guard orchestrator with context
+        guard_context = GuardContext(
+            task=self.explainer.mode,
+            mode="default",  # Guards apply to all modes
+            learner=self.explainer.learner,
+            x_cal=self.explainer.x_cal,
+            y_cal=self.explainer.y_cal,
+            interval_learner=self.explainer.interval_learner,
+            feature_names=tuple(self.explainer.feature_names),
+            categorical_features=tuple(self.explainer.categorical_features),
+            num_features=len(self.explainer.feature_names),
+            metadata={"guard_params": self.explainer.guard_params},
+        )
+        self._guard_orchestrator.initialize(guard_context)

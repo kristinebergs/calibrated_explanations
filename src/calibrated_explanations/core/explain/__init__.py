@@ -33,6 +33,7 @@ __all__ = [
     "ExplainResponse",
     "ExplanationOrchestrator",
     "FeatureParallelExplainExecutor",
+    "GuardOrchestratorPlugin",
     "InstanceParallelExplainExecutor",
     "SequentialExplainExecutor",
 ]

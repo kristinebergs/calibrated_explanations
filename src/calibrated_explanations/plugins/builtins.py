@@ -43,6 +43,7 @@ from .explanations import (
     ExplanationPlugin,
     ExplanationRequest,
 )
+from .guards import GuardPlugin
 from .intervals import IntervalCalibratorContext, IntervalCalibratorPlugin
 from .plots import PlotBuilder, PlotRenderContext, PlotRenderer, PlotRenderResult
 from .predict import PredictBridge
@@ -50,6 +51,7 @@ from .registry import (
     find_explanation_descriptor,
     find_interval_descriptor,
     register_explanation_plugin,
+    register_guard_plugin,
     register_interval_plugin,
     register_plot_builder,
     register_plot_renderer,
@@ -1274,6 +1276,10 @@ def _register_builtins() -> None:
         },
     )
 
+    # Register guard plugin
+    from ..core.explain.guard_orchestrator import GuardOrchestratorPlugin
+    register_guard_plugin("core.guard.conformal_regions", GuardOrchestratorPlugin())
+
 
 _register_builtins()
 
@@ -1287,6 +1293,7 @@ __all__ = [
     "SequentialAlternativeExplanationPlugin",
     "FeatureParallelAlternativeExplanationPlugin",
     "InstanceParallelAlternativeExplanationPlugin",
+    "GuardOrchestratorPlugin",
     "LegacyPlotBuilder",
     "LegacyPlotRenderer",
     "PlotSpecDefaultBuilder",

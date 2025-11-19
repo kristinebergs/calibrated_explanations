@@ -292,7 +292,9 @@ class CalibratedExplainer:
 
         Delegates to the guard orchestrator. Returns True if guard is disabled.
         """
-        return self._guard_orchestrator.accept(x_prime, calibrated_prediction)
+        if hasattr(self, "_plugin_manager") and self._plugin_manager.guard_orchestrator is not None:
+            return self._plugin_manager.guard_orchestrator.accept(x_prime, calibrated_prediction)
+        return True
 
     def _coerce_plugin_override(self, override: Any) -> Any:
         """Normalise a plugin override into an instance when possible.
@@ -998,8 +1000,8 @@ class CalibratedExplainer:
         convenience but modifications should be performed via
         ``explainer.set_guard()`` or the orchestrator APIs.
         """
-        if hasattr(self, "_guard_orchestrator") and self._guard_orchestrator is not None:
-            return self._guard_orchestrator.get_guard()
+        if hasattr(self, "_plugin_manager") and self._plugin_manager.guard_orchestrator is not None:
+            return self._plugin_manager.guard_orchestrator.get_guard()
         return None
 
     @guard.setter
@@ -1587,9 +1589,9 @@ class CalibratedExplainer:
             )
         # Do not expose a top-level `guard` attribute on the explainer. Keep
         # guard lifecycle inside the orchestrator and delegate assignment.
-        if hasattr(self, "_guard_orchestrator") and self._guard_orchestrator is not None:
+        if hasattr(self, "_plugin_manager") and self._plugin_manager.guard_orchestrator is not None:
             try:
-                self._guard_orchestrator.set_guard(guard)
+                self._plugin_manager.guard_orchestrator.set_guard(guard)
             except Exception:  # pragma: no cover - defensive
                 _logging.getLogger(__name__).debug("GuardOrchestrator.set_guard failed")
 
@@ -1610,9 +1612,9 @@ class CalibratedExplainer:
             If fitting fails.
         """
         # Prefer using the guard orchestrator when available
-        if hasattr(self, "_guard_orchestrator") and self._guard_orchestrator is not None:
+        if hasattr(self, "_plugin_manager") and self._plugin_manager.guard_orchestrator is not None:
             try:
-                self._guard_orchestrator.fit_guard(self.guard_params)
+                self._plugin_manager.guard_orchestrator.fit_guard(self.guard_params)
             except Exception:  # pragma: no cover - defensive
                 _logging.getLogger(__name__).warning(
                     "Guard fitting via GuardOrchestrator failed; guard disabled."
