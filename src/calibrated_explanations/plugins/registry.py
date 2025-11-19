@@ -427,6 +427,41 @@ def validate_interval_metadata(meta: Mapping[str, Any]) -> Mapping[str, Any]:
     return meta_copy
 
 
+def validate_guard_metadata(meta: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Validate metadata requirements for guard plugins."""
+    modes = _ensure_sequence(
+        meta,
+        "modes",
+        allowed={"factual", "alternative", "fast"},
+    )
+    if not modes:
+        raise ValueError("guard plugin must declare at least one mode")
+
+    tasks = _ensure_sequence(
+        meta,
+        "tasks",
+        allowed={"classification", "regression", "both"},
+    )
+    if not tasks:
+        raise ValueError("guard plugin must declare at least one task")
+
+    _ensure_sequence(meta, "capabilities", allow_empty=False)
+    _validate_dependencies(meta)
+
+    # Trust must be explicitly present
+    if "trust" not in meta:
+        raise ValueError("plugin_meta missing required key: trust")
+
+    # Reconcile trust/trusted to be consistent, mutating in place when possible
+    declared_trust = _normalise_trust(meta)
+    if isinstance(meta, dict):
+        _update_trust_keys(meta, declared_trust)  # type: ignore[arg-type]
+        return meta
+    meta_copy: Dict[str, Any] = dict(meta)
+    _update_trust_keys(meta_copy, declared_trust)
+    return meta_copy
+
+
 def validate_plot_builder_metadata(meta: Mapping[str, Any]) -> Mapping[str, Any]:
     """Validate ADR-014 metadata requirements for plot builders."""
     _ensure_string(meta, "style")
@@ -535,6 +570,24 @@ _TRUSTED_INTERVALS: set[str] = set()
 
 
 @dataclass(frozen=True)
+class GuardPluginDescriptor:
+    """Descriptor for guard plugins keyed by identifier."""
+
+    identifier: str
+    plugin: Any
+    metadata: Mapping[str, Any] = field(repr=False)
+    trusted: bool = False
+
+    def __post_init__(self) -> None:  # pragma: no cover - dataclass hook
+        """Freeze the metadata mapping for immutability."""
+        object.__setattr__(self, "metadata", _freeze_meta(self.metadata))
+
+
+_GUARD_PLUGINS: Dict[str, GuardPluginDescriptor] = {}
+_TRUSTED_GUARDS: set[str] = set()
+
+
+@dataclass(frozen=True)
 class PlotBuilderDescriptor:
     """Descriptor for plot builders."""
 
@@ -595,6 +648,12 @@ def clear_interval_plugins() -> None:
     _TRUSTED_INTERVALS.clear()
 
 
+def clear_guard_plugins() -> None:
+    """Clear guard plugin descriptors (testing helper)."""
+    _GUARD_PLUGINS.clear()
+    _TRUSTED_GUARDS.clear()
+
+
 def clear_plot_plugins() -> None:
     """Clear plot plugin descriptors (testing helper)."""
     _PLOT_BUILDERS.clear()
@@ -612,6 +671,7 @@ def ensure_builtin_plugins() -> None:
         "core.explanation.fast",
     }
     expected_intervals = {"core.interval.legacy", "core.interval.fast"}
+    expected_guards = {"core.guard.conformal_regions"}
     expected_plot_builders = {"core.plot.legacy", "core.plot.plot_spec.default"}
     expected_plot_renderers = {"core.plot.legacy", "core.plot.plot_spec.default"}
     expected_plot_styles = {"legacy", "plot_spec.default"}
@@ -619,6 +679,9 @@ def ensure_builtin_plugins() -> None:
     missing = any(identifier not in _EXPLANATION_PLUGINS for identifier in expected_explanations)
     missing = missing or any(
         identifier not in _INTERVAL_PLUGINS for identifier in expected_intervals
+    )
+    missing = missing or any(
+        identifier not in _GUARD_PLUGINS for identifier in expected_guards
     )
     missing = missing or any(
         identifier not in _PLOT_BUILDERS for identifier in expected_plot_builders
@@ -747,6 +810,61 @@ def find_interval_plugin(identifier: str) -> Any | None:
 def find_interval_plugin_trusted(identifier: str) -> Any | None:
     """Return the trusted interval plugin instance when available."""
     descriptor = find_interval_descriptor(identifier)
+    if descriptor and descriptor.trusted:
+        return descriptor.plugin
+    return None
+
+
+def register_guard_plugin(
+    identifier: str,
+    plugin: Any,
+    *,
+    metadata: Mapping[str, Any] | None = None,
+) -> GuardPluginDescriptor:
+    """Register a guard plugin descriptor."""
+    if not isinstance(identifier, str) or not identifier:
+        raise ValueError("identifier must be a non-empty string")
+    raw_meta = metadata or getattr(plugin, "plugin_meta", None)
+    if raw_meta is None:
+        raise ValueError("plugin must expose plugin_meta metadata")
+    meta: Dict[str, Any] = dict(raw_meta)
+    validate_plugin_meta(meta)
+    validate_guard_metadata(meta)
+    trusted = _should_trust(meta)
+    _update_trust_keys(meta, trusted)
+    _verify_plugin_checksum(plugin, meta)
+    if isinstance(raw_meta, dict):
+        raw_meta["trusted"] = meta["trusted"]
+        raw_meta["trust"] = meta["trust"]
+
+    descriptor = GuardPluginDescriptor(
+        identifier=identifier,
+        plugin=plugin,
+        metadata=meta,
+        trusted=trusted,
+    )
+    _GUARD_PLUGINS[identifier] = descriptor
+    if trusted:
+        _TRUSTED_GUARDS.add(identifier)
+    else:
+        _TRUSTED_GUARDS.discard(identifier)
+    return descriptor
+
+
+def find_guard_descriptor(identifier: str) -> GuardPluginDescriptor | None:
+    """Return the descriptor for a guard plugin by identifier."""
+    return _GUARD_PLUGINS.get(identifier)
+
+
+def find_guard_plugin(identifier: str) -> Any | None:
+    """Return the guard plugin instance for *identifier* if registered."""
+    descriptor = find_guard_descriptor(identifier)
+    return descriptor.plugin if descriptor else None
+
+
+def find_guard_plugin_trusted(identifier: str) -> Any | None:
+    """Return the trusted guard plugin instance when available."""
+    descriptor = find_guard_descriptor(identifier)
     if descriptor and descriptor.trusted:
         return descriptor.plugin
     return None
@@ -1186,6 +1304,44 @@ def mark_interval_untrusted(identifier: str) -> IntervalPluginDescriptor:
     return _refresh_interval_descriptor_trust(identifier, trusted=False)
 
 
+def _refresh_guard_descriptor_trust(
+    identifier: str, *, trusted: bool
+) -> GuardPluginDescriptor:
+    """Return guard descriptor with updated trust state."""
+    descriptor = find_guard_descriptor(identifier)
+    if descriptor is None:
+        raise KeyError(f"Guard plugin '{identifier}' is not registered")
+
+    updated_meta = dict(descriptor.metadata)
+    _update_trust_keys(updated_meta, trusted)
+
+    updated = GuardPluginDescriptor(
+        identifier=descriptor.identifier,
+        plugin=descriptor.plugin,
+        metadata=updated_meta,
+        trusted=trusted,
+    )
+
+    _GUARD_PLUGINS[identifier] = updated
+    if trusted:
+        _TRUSTED_GUARDS.add(identifier)
+    else:
+        _TRUSTED_GUARDS.discard(identifier)
+
+    _propagate_trust_metadata(descriptor.plugin, updated_meta)
+    return updated
+
+
+def mark_guard_trusted(identifier: str) -> GuardPluginDescriptor:
+    """Mark the guard plugin *identifier* as trusted."""
+    return _refresh_guard_descriptor_trust(identifier, trusted=True)
+
+
+def mark_guard_untrusted(identifier: str) -> GuardPluginDescriptor:
+    """Remove the guard plugin *identifier* from the trusted set."""
+    return _refresh_guard_descriptor_trust(identifier, trusted=False)
+
+
 def _refresh_plot_builder_trust(identifier: str, *, trusted: bool) -> PlotBuilderDescriptor:
     """Return builder descriptor with updated trust metadata."""
     descriptor = find_plot_builder_descriptor(identifier)
@@ -1398,32 +1554,38 @@ def _safe_supports(plugin: ExplainerPlugin, model: Any) -> bool:
 __all__ = [
     "ExplanationPluginDescriptor",
     "IntervalPluginDescriptor",
+    "GuardPluginDescriptor",
     "PlotBuilderDescriptor",
     "PlotRendererDescriptor",
     "PlotStyleDescriptor",
     "EXPLANATION_PROTOCOL_VERSION",
     "validate_explanation_metadata",
+    "validate_guard_metadata",
     "validate_interval_metadata",
     "validate_plot_builder_metadata",
     "validate_plot_renderer_metadata",
     "validate_plot_style_metadata",
     "clear_explanation_plugins",
+    "clear_guard_plugins",
     "clear_interval_plugins",
     "clear_plot_plugins",
     "ensure_builtin_plugins",
     "is_identifier_denied",
     "register_explanation_plugin",
+    "register_guard_plugin",
     "register_interval_plugin",
     "register_plot_builder",
     "register_plot_renderer",
     "register_plot_style",
     "register_plot_plugin",
     "find_explanation_descriptor",
+    "find_guard_descriptor",
     "find_interval_descriptor",
     "find_plot_builder_descriptor",
     "find_plot_renderer_descriptor",
     "find_plot_style_descriptor",
     "find_explanation_plugin",
+    "find_guard_plugin",
     "find_interval_plugin",
     "find_plot_builder",
     "find_plot_renderer",
@@ -1437,6 +1599,8 @@ __all__ = [
     "load_entrypoint_plugins",
     "mark_explanation_trusted",
     "mark_explanation_untrusted",
+    "mark_guard_trusted",
+    "mark_guard_untrusted",
     "mark_interval_trusted",
     "mark_interval_untrusted",
     "mark_plot_builder_trusted",

@@ -17,6 +17,7 @@ from .explanations import (  # noqa: F401
     ExplanationRequest,
     validate_explanation_batch,
 )
+from .guards import GuardContext, GuardPlugin  # noqa: F401
 from .intervals import (  # noqa: F401
     ClassificationIntervalCalibrator,
     IntervalCalibratorContext,
@@ -34,6 +35,7 @@ from .plots import (  # noqa: F401
 from .predict import PredictBridge  # noqa: F401
 from .registry import (  # noqa: F401
     clear_explanation_plugins,
+    clear_guard_plugins,
     clear_interval_plugins,
     clear_plot_plugins,
     find_for_trusted,
@@ -49,6 +51,8 @@ __all__ = [
     "ExplanationPlugin",
     "ExplanationRequest",
     "validate_explanation_batch",
+    "GuardContext",
+    "GuardPlugin",
     "IntervalCalibratorContext",
     "IntervalCalibratorPlugin",
     "PlotArtifact",
@@ -65,6 +69,7 @@ __all__ = [
     "untrust_plugin",
     "find_for_trusted",
     "clear_explanation_plugins",
+    "clear_guard_plugins",
     "clear_interval_plugins",
     "clear_plot_plugins",
 ]
