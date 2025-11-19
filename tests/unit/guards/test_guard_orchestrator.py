@@ -1,6 +1,6 @@
 import numpy as np
 
-from calibrated_explanations.core.explain.guard_orchestrator import GuardOrchestratorPlugin
+from calibrated_explanations.core.explain.guards.conformal_regions_plugin import ConformalRegionsGuardPlugin
 from calibrated_explanations.plugins.guards import GuardContext
 
 
@@ -44,7 +44,7 @@ def test_filter_perturbations_delegation():
         metadata={},
     )
     
-    orch = GuardOrchestratorPlugin()
+    orch = ConformalRegionsGuardPlugin()
     orch.initialize(context)
 
     # Create dummy guard that rejects second perturbed row

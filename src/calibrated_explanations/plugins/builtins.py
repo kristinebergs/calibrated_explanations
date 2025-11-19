@@ -1277,8 +1277,8 @@ def _register_builtins() -> None:
     )
 
     # Register guard plugin
-    from ..core.explain.guard_orchestrator import GuardOrchestratorPlugin
-    register_guard_plugin("core.guard.conformal_regions", GuardOrchestratorPlugin())
+    from ..core.explain.guards.conformal_regions_plugin import ConformalRegionsGuardPlugin
+    register_guard_plugin("core.guard.conformal_regions", ConformalRegionsGuardPlugin())
 
 
 _register_builtins()
@@ -1293,7 +1293,7 @@ __all__ = [
     "SequentialAlternativeExplanationPlugin",
     "FeatureParallelAlternativeExplanationPlugin",
     "InstanceParallelAlternativeExplanationPlugin",
-    "GuardOrchestratorPlugin",
+    "ConformalRegionsGuardPlugin",
     "LegacyPlotBuilder",
     "LegacyPlotRenderer",
     "PlotSpecDefaultBuilder",

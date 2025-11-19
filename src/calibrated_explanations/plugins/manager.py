@@ -541,7 +541,7 @@ class PluginManager:
         from ..core.explain.orchestrator import ExplanationOrchestrator  # pylint: disable=import-outside-toplevel
         from ..core.prediction.orchestrator import PredictionOrchestrator  # pylint: disable=import-outside-toplevel
         from ..core.reject.orchestrator import RejectOrchestrator  # pylint: disable=import-outside-toplevel
-        from ..core.explain.guard_orchestrator import GuardOrchestratorPlugin  # pylint: disable=import-outside-toplevel
+        from ..core.explain.guard_orchestrator import GuardOrchestrator  # pylint: disable=import-outside-toplevel
         from ..core.calibration.interval_learner import initialize_interval_learner  # pylint: disable=import-outside-toplevel
         from ..plugins.guards import GuardContext  # pylint: disable=import-outside-toplevel
 
@@ -555,7 +555,7 @@ class PluginManager:
         self._explanation_orchestrator = ExplanationOrchestrator(self.explainer)
         self._prediction_orchestrator = PredictionOrchestrator(self.explainer)
         self._reject_orchestrator = RejectOrchestrator(self.explainer)
-        self._guard_orchestrator = GuardOrchestratorPlugin()
+        self._guard_orchestrator = GuardOrchestrator(self.explainer)
 
         # Build all plugin fallback chains
         self.initialize_chains()
