@@ -232,6 +232,12 @@ _EXPLANATION_MODE_ALIASES = {
 
 _EXPLANATION_VALID_MODES = {"factual", "alternative", "fast"}
 
+_GUARD_PROTOCOL_VERSION = 1
+GUARD_PROTOCOL_VERSION = _GUARD_PROTOCOL_VERSION
+
+_GUARD_VALID_MODES = {"factual", "alternative", "fast"}
+_GUARD_VALID_TASKS = {"classification", "regression"}
+
 
 def _ensure_sequence(
     meta: Mapping[str, Any],
@@ -367,6 +373,55 @@ def validate_explanation_metadata(meta: Mapping[str, Any]) -> Dict[str, Any]:
     _normalise_dependency_field(meta, "interval_dependency", optional=True)
     _normalise_dependency_field(meta, "plot_dependency", optional=True)
     _normalise_dependency_field(meta, "fallbacks", optional=True, allow_empty=True)
+    # Trust flags can be bool or mapping; ensure the key exists for explicitness
+    if "trust" not in meta:
+        if "trusted" in meta:
+            meta["trust"] = meta["trusted"]
+        else:
+            raise ValueError("plugin_meta missing required key: trust")
+    return meta
+
+
+def validate_guard_metadata(meta: Mapping[str, Any]) -> Dict[str, Any]:
+    """Validate metadata requirements for guard plugins."""
+    if not isinstance(meta, dict):
+        meta = dict(meta)
+    schema_version = meta.get("schema_version")
+    if isinstance(schema_version, int) and schema_version > _GUARD_PROTOCOL_VERSION:
+        raise ValueError(
+            "guard plugin declares unsupported schema_version "
+            f"{schema_version}; runtime supports {_GUARD_PROTOCOL_VERSION}"
+        )
+
+    # Validate modes
+    raw_modes = _ensure_sequence(meta, "modes", allowed=_GUARD_VALID_MODES)
+    normalised_modes: List[str] = []
+    seen: set[str] = set()
+    for mode in raw_modes:
+        if mode not in _GUARD_VALID_MODES:
+            raise ValueError(f"plugin_meta['modes'] has unsupported values: {mode}")
+        if mode not in seen:
+            seen.add(mode)
+            normalised_modes.append(mode)
+    if not normalised_modes:
+        raise ValueError("guard plugin must declare at least one mode")
+    meta["modes"] = tuple(normalised_modes)
+
+    # Validate tasks
+    raw_tasks = _ensure_sequence(meta, "tasks", allowed=_GUARD_VALID_TASKS)
+    normalised_tasks: List[str] = []
+    seen_tasks: set[str] = set()
+    for task in raw_tasks:
+        if task not in _GUARD_VALID_TASKS:
+            raise ValueError(f"plugin_meta['tasks'] has unsupported values: {task}")
+        if task not in seen_tasks:
+            seen_tasks.add(task)
+            normalised_tasks.append(task)
+    if not normalised_tasks:
+        raise ValueError("guard plugin must declare at least one task")
+    meta["tasks"] = tuple(normalised_tasks)
+
+    meta["capabilities"] = _ensure_sequence(meta, "capabilities", allow_empty=False)
     # Trust flags can be bool or mapping; ensure the key exists for explicitness
     if "trust" not in meta:
         if "trusted" in meta:
@@ -741,6 +796,42 @@ def register_explanation_plugin(
     return descriptor
 
 
+def register_guard_plugin(
+    identifier: str,
+    plugin: Any,
+    *,
+    metadata: Mapping[str, Any] | None = None,
+) -> GuardPluginDescriptor:
+    """Register a guard plugin under the given identifier."""
+    if not isinstance(identifier, str) or not identifier:
+        raise ValueError("identifier must be a non-empty string")
+    raw_meta = metadata or getattr(plugin, "plugin_meta", None)
+    if raw_meta is None:
+        raise ValueError("plugin must expose plugin_meta metadata")
+    meta: Dict[str, Any] = dict(raw_meta)
+    validate_plugin_meta(meta)
+    meta = validate_guard_metadata(meta)
+    trusted = _should_trust(meta)
+    _update_trust_keys(meta, trusted)
+    _verify_plugin_checksum(plugin, meta)
+    if isinstance(raw_meta, dict):
+        raw_meta["trusted"] = meta["trusted"]
+        raw_meta["trust"] = meta["trust"]
+
+    descriptor = GuardPluginDescriptor(
+        identifier=identifier,
+        plugin=plugin,
+        metadata=meta,
+        trusted=trusted,
+    )
+    _GUARD_PLUGINS[identifier] = descriptor
+    if trusted:
+        _TRUSTED_GUARDS.add(identifier)
+    else:
+        _TRUSTED_GUARDS.discard(identifier)
+    return descriptor
+
+
 def find_explanation_descriptor(identifier: str) -> ExplanationPluginDescriptor | None:
     """Return the explanation plugin descriptor for *identifier* if present."""
     return _EXPLANATION_PLUGINS.get(identifier)
@@ -755,6 +846,25 @@ def find_explanation_plugin(identifier: str) -> ExplainerPlugin | None:
 def find_explanation_plugin_trusted(identifier: str) -> ExplainerPlugin | None:
     """Return the trusted explanation plugin instance for *identifier* if any."""
     descriptor = find_explanation_descriptor(identifier)
+    if descriptor and descriptor.trusted:
+        return descriptor.plugin
+    return None
+
+
+def find_guard_descriptor(identifier: str) -> GuardPluginDescriptor | None:
+    """Return the guard plugin descriptor for *identifier* if present."""
+    return _GUARD_PLUGINS.get(identifier)
+
+
+def find_guard_plugin(identifier: str) -> Any | None:
+    """Return the guard plugin instance for *identifier* if present."""
+    descriptor = find_guard_descriptor(identifier)
+    return descriptor.plugin if descriptor else None
+
+
+def find_guard_plugin_trusted(identifier: str) -> Any | None:
+    """Return the trusted guard plugin instance for *identifier* if any."""
+    descriptor = find_guard_descriptor(identifier)
     if descriptor and descriptor.trusted:
         return descriptor.plugin
     return None
@@ -868,6 +978,47 @@ def find_guard_plugin_trusted(identifier: str) -> Any | None:
     if descriptor and descriptor.trusted:
         return descriptor.plugin
     return None
+
+
+def clear_guard_plugins() -> None:
+    """Clear all registered guard plugins."""
+    _GUARD_PLUGINS.clear()
+    _TRUSTED_GUARDS.clear()
+
+
+def mark_guard_trusted(identifier: str) -> None:
+    """Mark a guard plugin as trusted."""
+    descriptor = _GUARD_PLUGINS.get(identifier)
+    if descriptor is None:
+        raise ValueError(f"Guard plugin '{identifier}' is not registered")
+    descriptor = GuardPluginDescriptor(
+        identifier=descriptor.identifier,
+        plugin=descriptor.plugin,
+        metadata=descriptor.metadata,
+        trusted=True,
+    )
+    _GUARD_PLUGINS[identifier] = descriptor
+    _TRUSTED_GUARDS.add(identifier)
+
+
+def mark_guard_untrusted(identifier: str) -> None:
+    """Mark a guard plugin as untrusted."""
+    descriptor = _GUARD_PLUGINS.get(identifier)
+    if descriptor is None:
+        raise ValueError(f"Guard plugin '{identifier}' is not registered")
+    descriptor = GuardPluginDescriptor(
+        identifier=descriptor.identifier,
+        plugin=descriptor.plugin,
+        metadata=descriptor.metadata,
+        trusted=False,
+    )
+    _GUARD_PLUGINS[identifier] = descriptor
+    _TRUSTED_GUARDS.discard(identifier)
+
+
+def list_guard_descriptors() -> Tuple[GuardPluginDescriptor, ...]:
+    """Return all registered guard plugin descriptors."""
+    return tuple(_GUARD_PLUGINS.values())
 
 
 def register_plot_builder(

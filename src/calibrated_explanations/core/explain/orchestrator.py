@@ -30,6 +30,7 @@ from ...plugins.registry import (
 from ...core.config_helpers import coerce_string_tuple
 from ...utils.discretizers import EntropyDiscretizer, RegressorDiscretizer
 from ..exceptions import ConfigurationError
+from .guard_orchestrator import GuardOrchestrator
 
 if TYPE_CHECKING:
     from ..calibrated_explainer import CalibratedExplainer
@@ -73,6 +74,11 @@ class ExplanationOrchestrator:
         - explainer._explanation_contexts
         """
         self.explainer = explainer
+        self._guard_orchestrator: GuardOrchestrator | None = None
+
+    def set_guard_orchestrator(self, guard_orchestrator: GuardOrchestrator | None) -> None:
+        """Attach the guard orchestrator used for explanation contexts."""
+        self._guard_orchestrator = guard_orchestrator
 
     def initialize_chains(self) -> None:
         """Delegate to PluginManager for chain initialization.
@@ -695,6 +701,7 @@ class ExplanationOrchestrator:
             predict_bridge=monitor,
             interval_settings=interval_settings,
             plot_settings=plot_settings,
+            guard_orchestrator=self._guard_orchestrator,
         )
         return context
 

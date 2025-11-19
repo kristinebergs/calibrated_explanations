@@ -121,9 +121,11 @@ class CalibratedExplainer:
         difficulty_estimator : Any or None, optional
             Optional crepes ``DifficultyEstimator`` instance for regression tasks.
         guard_params : dict or None, optional
-            Optional dict of parameters for ConformalRegionOracle (e.g.,
-            ``{'alpha': 0.1, 'n_clusters': 5}``). If provided, a fitted guard
-            will be initialized after interval_learner setup.
+            Optional dict of parameters for guard plugins (e.g.,
+            ``{'alpha': 0.1, 'n_clusters': 5}``). Guard support is communicated
+            through the plugin manager system, not only through this parameter.
+            Configuration can also be set via environment variables or pyproject.toml. The guard can be disabled 
+            through kwargs to explanation methods.
         **kwargs : Any
             Advanced configuration flags preserved for backward compatibility.
 

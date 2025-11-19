@@ -7,6 +7,7 @@ from collections.abc import MutableMapping as MutableMappingABC
 from collections.abc import Sequence as SequenceABC
 from dataclasses import dataclass
 from typing import (
+    TYPE_CHECKING,
     Any,
     Mapping,
     MutableMapping,
@@ -25,6 +26,9 @@ from ..explanations.explanations import CalibratedExplanations
 from .base import ExplainerPlugin, PluginMeta
 from .predict import PredictBridge
 
+if TYPE_CHECKING:
+    from ..core.explain.guard_orchestrator import GuardOrchestrator
+
 
 @dataclass(frozen=True)
 class ExplanationContext:
@@ -40,6 +44,7 @@ class ExplanationContext:
     predict_bridge: PredictBridge
     interval_settings: Mapping[str, object]
     plot_settings: Mapping[str, object]
+    guard_orchestrator: Optional["GuardOrchestrator"]
 
 
 @dataclass(frozen=True)

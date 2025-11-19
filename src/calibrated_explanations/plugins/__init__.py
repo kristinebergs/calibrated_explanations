@@ -39,6 +39,13 @@ from .registry import (  # noqa: F401
     clear_interval_plugins,
     clear_plot_plugins,
     find_for_trusted,
+    find_guard_descriptor,
+    find_guard_plugin,
+    find_guard_plugin_trusted,
+    list_guard_descriptors,
+    mark_guard_trusted,
+    mark_guard_untrusted,
+    register_guard_plugin,
     trust_plugin,
     untrust_plugin,
 )
