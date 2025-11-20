@@ -57,6 +57,25 @@
   - Both extracted functions exported in `explain._computation.__all__` for public use
   - No breaking changes: all public and private APIs remain unchanged
 
+### Guards Plugin Architecture Refactoring
+
+- **Refactored guards from CalibratedExplainer into explain subpackage via plugin system**
+  - Moved `GuardOrchestrator` from temporary location to permanent home: `src/calibrated_explanations/core/explain/guards/guard_orchestrator.py`
+  - Created guard plugin protocol: `GuardPlugin` and `GuardContext` in `src/calibrated_explanations/plugins/guards.py`
+    - `GuardContext`: Frozen dataclass encapsulating task, mode, learner, calibration data, interval_learner, feature metadata, and arbitrary plugin metadata
+    - `GuardPlugin`: Protocol defining `supports_mode()`, `initialize()`, `filter_perturbations()`, `filter_candidates()`, and `accept_batch()` methods
+  - Wrapped existing `ConformalRegionOracle` as `ConformalRegionsGuardPlugin` in `src/calibrated_explanations/core/explain/guards/conformal_regions_plugin.py`
+    - Plugin registered as `"core.guard.conformal_regions"` with trust=True and support for both factual/alternative modes and classification/regression tasks
+  - Extended `PluginManager` to resolve and manage guard plugins with full lifecycle integration
+    - Resolution precedence: direct kwargs override → environment variable `CE_GUARD_PLUGIN` → pyproject.toml `[tool.calibrated_explanations.guards]` → fallback chain → None
+    - Guard plugin parameters configurable via `CE_GUARD_PARAMS` environment variable or pyproject.toml
+  - Updated `ExplanationContext` to include `guard_orchestrator` field for explicit guard access from explanation plugins
+  - Refactored sequential and parallel explanation plugins to use explicit `context.guard_orchestrator.filter_perturbations()` instead of name-mangled private hooks
+  - Removed all guard state from `CalibratedExplainer` (`guard_params`, `_guard_orchestrator`, `set_guard()`, `get_guard()`, guard property)
+  - Updated 121 guard-related tests to use new plugin-based architecture; all tests passing (100%)
+  - **Alignment:** Fully adheres to ADR-001 (package boundaries), ADR-006 (plugin trust model), ADR-013 (interval calibrator plugins), ADR-015 (explanation plugins)
+  - **No breaking changes:** Guards are not publicly released; refactoring is internal architectural improvement
+
 ### Terminology Standardization
 
 - **Standardized on "probabilistic regression" as the canonical user-facing term** for regression with threshold-based probability predictions. "Thresholded regression" is used in technical architecture documents (ADRs, design notes) to describe the implementation mechanism (CPS-based threshold calibration).
