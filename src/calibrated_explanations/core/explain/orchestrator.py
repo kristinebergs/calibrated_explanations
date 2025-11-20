@@ -18,6 +18,7 @@ import contextlib
 import copy
 from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Mapping, Tuple
 
+from ...core.config_helpers import coerce_string_tuple
 from ...plugins import ExplanationContext, ExplanationRequest, validate_explanation_batch
 from ...plugins.predict_monitor import PredictBridgeMonitor
 from ...plugins.registry import (
@@ -27,12 +28,11 @@ from ...plugins.registry import (
     find_explanation_plugin,
     is_identifier_denied,
 )
-from ...core.config_helpers import coerce_string_tuple
 from ...utils.discretizers import EntropyDiscretizer, RegressorDiscretizer
 from ..exceptions import ConfigurationError
-from .guards.guard_orchestrator import GuardOrchestrator
 
 if TYPE_CHECKING:
+    from .guards.guard_orchestrator import GuardOrchestrator
     from ..calibrated_explainer import CalibratedExplainer
 
 _EXPLANATION_MODES: Tuple[str, ...] = ("factual", "alternative", "fast")

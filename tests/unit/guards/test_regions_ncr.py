@@ -10,9 +10,8 @@ These tests verify the core NCR functionality:
 from __future__ import annotations
 
 import numpy as np
-import pytest
 
-from calibrated_explanations.guards.regions import ConformalRegionOracle
+from calibrated_explanations.core.explain.guards.regions import ConformalRegionOracle
 
 
 class VariableWidthIntervalLearner:  # pylint: disable=too-few-public-methods
@@ -83,8 +82,10 @@ class TestNCRWidthExtraction:
 
     def test_width_extraction_handles_scalar_result(self):
         """Verify width extraction handles edge case of scalar width."""
+
         class ScalarWidthLearner:  # pylint: disable=too-few-public-methods
             """Returns scalar width (edge case)."""
+
             def predict(self, x_arr, uq_interval=False):
                 n_samples = len(x_arr)
                 preds = np.ones(n_samples) * 0.5
@@ -263,12 +264,8 @@ class TestNCREffectiveRadiusModulation:
 
         # Wide interval intervals should generally be larger
         # (measure by summing the widths of non-empty intervals)
-        total_width_narrow = sum(
-            (iv[0][1] - iv[0][0]) if iv else 0 for iv in intervals_narrow
-        )
-        total_width_wide = sum(
-            (iv[0][1] - iv[0][0]) if iv else 0 for iv in intervals_wide
-        )
+        total_width_narrow = sum((iv[0][1] - iv[0][0]) if iv else 0 for iv in intervals_narrow)
+        total_width_wide = sum((iv[0][1] - iv[0][0]) if iv else 0 for iv in intervals_wide)
 
         # Wide interval should allow larger perturbations (or equal)
         assert total_width_wide >= total_width_narrow
@@ -296,11 +293,11 @@ class TestNCRBatchAcceptance:
 
         # Create predictions with varying widths
         preds = [
-            (0.5, (0.49, 0.51)),    # narrow
-            (0.5, (0.4, 0.6)),      # medium
-            (0.5, (0.0, 1.0)),      # wide
-            (0.5, (0.45, 0.55)),    # narrow
-            (0.5, (0.3, 0.7)),      # medium-wide
+            (0.5, (0.49, 0.51)),  # narrow
+            (0.5, (0.4, 0.6)),  # medium
+            (0.5, (0.0, 1.0)),  # wide
+            (0.5, (0.45, 0.55)),  # narrow
+            (0.5, (0.3, 0.7)),  # medium-wide
         ]
 
         results = oracle.accept_batch(batch, calibrated_predictions=preds)
@@ -331,9 +328,7 @@ class TestNCRIntegrationWithExplainer:
         x_test = x_arr[0]
 
         # Simulate explainer.predict(x, uq_interval=True) output
-        preds, (lowers, uppers) = interval_learner.predict(
-            x_test.reshape(1, -1), uq_interval=True
-        )
+        preds, (lowers, uppers) = interval_learner.predict(x_test.reshape(1, -1), uq_interval=True)
 
         # Extract single prediction tuple (explainer returns arrays)
         calibrated_pred = (preds[0], (lowers[0], uppers[0]))
@@ -355,9 +350,7 @@ class TestNCRIntegrationWithExplainer:
         preds, (lowers, uppers) = interval_learner.predict(batch, uq_interval=True)
 
         # Convert to list of tuples (explainer returns arrays)
-        calibrated_preds = [
-            (preds[i], (lowers[i], uppers[i])) for i in range(len(batch))
-        ]
+        calibrated_preds = [(preds[i], (lowers[i], uppers[i])) for i in range(len(batch))]
 
         # Should accept batch without error
         results = oracle.accept_batch(batch, calibrated_predictions=calibrated_preds)

@@ -17,7 +17,7 @@ from calibrated_explanations.utils.discretizers import RegressorDiscretizer
 
 def test_slice_threshold_branches_exercised():
     """Test threshold slicing behavior through explain helpers.
-    
+
     Tests should call explain module functions directly.
     """
     from calibrated_explanations.core.explain._helpers import slice_threshold
@@ -38,7 +38,7 @@ def test_slice_threshold_branches_exercised():
 
 def test_slice_bins_handles_collections():
     """Test bins slicing behavior through explain helpers.
-    
+
     Tests should call explain module functions directly.
     """
     from calibrated_explanations.core.explain._helpers import slice_bins

@@ -9,7 +9,6 @@ Part of Phase 6: Refactor Calibration Functionality (ADR-001).
 
 from __future__ import annotations
 
- 
 import numpy as np
 
 __all__ = [
@@ -52,9 +51,5 @@ def identify_constant_features(x_cal: np.ndarray) -> list:
     list
         Indices of features that have constant values across all calibration samples.
     """
-    constant_columns = [
-        f for f in range(x_cal.shape[1]) if np.all(x_cal[:, f] == x_cal[0, f])
-    ]
+    constant_columns = [f for f in range(x_cal.shape[1]) if np.all(x_cal[:, f] == x_cal[0, f])]
     return constant_columns
-
-

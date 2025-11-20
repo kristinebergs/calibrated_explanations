@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from calibrated_explanations.guards.regions import ConformalRegionOracle
+from calibrated_explanations.core.explain.guards.regions import ConformalRegionOracle
 
 
 class MockIntervalLearner:  # pylint: disable=too-few-public-methods
@@ -109,6 +109,7 @@ class TestConformalRegionOracleFitting:
 
         class VariableWidthLearner:  # pylint: disable=too-few-public-methods
             """Interval learner with varying widths."""
+
             def predict(self, x_arr, uq_interval=False):  # pylint: disable=missing-function-docstring
                 n = len(x_arr)
                 preds = np.ones(n) * 0.5

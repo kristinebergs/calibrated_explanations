@@ -8,7 +8,6 @@ from unittest.mock import create_autospec
 
 from calibrated_explanations.core.calibrated_explainer import (
     CalibratedExplainer,
-    ConfigurationError,
 )
 from calibrated_explanations.explanations import CalibratedExplanations
 from calibrated_explanations.core.config_helpers import (
@@ -27,7 +26,6 @@ from calibrated_explanations.core.exceptions import DataShapeError
 from calibrated_explanations.plugins.predict import PredictBridge
 from calibrated_explanations.plugins.registry import EXPLANATION_PROTOCOL_VERSION
 from calibrated_explanations.plugins.explanations import ExplanationContext
-
 
 
 def _make_test_context():

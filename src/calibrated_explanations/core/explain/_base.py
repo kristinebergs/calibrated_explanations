@@ -11,9 +11,9 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ...explanations import CalibratedExplanations
+    from ...plugins.explanations import ExplanationContext
     from ..calibrated_explainer import CalibratedExplainer
     from ._shared import ExplainConfig, ExplainRequest
-    from ...plugins.explanations import ExplanationContext
 
 
 class BaseExplainExecutor(ABC):

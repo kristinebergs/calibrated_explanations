@@ -10,14 +10,14 @@ import numpy as np
 
 class IntervalLearnerAdapter:
     """Adapter providing uq_interval interface for standard calibration learners.
-    
+
     Wraps VennAbers, IntervalRegressor, or similar learners to provide a consistent
     predict() method that supports the uq_interval=True parameter.
     """
 
     def __init__(self, interval_learner):
         """Initialize adapter wrapping the interval learner.
-        
+
         Parameters
         ----------
         interval_learner : object
@@ -29,7 +29,7 @@ class IntervalLearnerAdapter:
 
     def predict(self, x_arr, uq_interval=False):
         """Predict with optional uncertainty quantification.
-        
+
         Parameters
         ----------
         x_arr : array-like
@@ -37,7 +37,7 @@ class IntervalLearnerAdapter:
         uq_interval : bool, default=False
             If True, return (predictions, (lower, upper)) tuple.
             If False, return legacy format [(lower, upper), ...] for backward compatibility.
-            
+
         Returns
         -------
         predictions or list
@@ -45,10 +45,10 @@ class IntervalLearnerAdapter:
             If uq_interval=False: List of (lower, upper) tuples
         """
         # Try to detect the learner type and call appropriate method
-        if hasattr(self._learner, 'predict_proba'):
+        if hasattr(self._learner, "predict_proba"):
             # Classification: VennAbers
             return self._predict_classification(x_arr, uq_interval)
-        elif hasattr(self._learner, 'predict') and not isinstance(self._learner, list):
+        elif hasattr(self._learner, "predict") and not isinstance(self._learner, list):
             # Regression: IntervalRegressor or similar
             return self._predict_regression(x_arr, uq_interval)
         else:
@@ -66,7 +66,7 @@ class IntervalLearnerAdapter:
                 probs, low, high, _ = result
             else:
                 probs, low, high = result
-            
+
             # Extract positive class probability (for binary) or use as-is
             if probs.ndim == 2 and probs.shape[1] == 2:
                 # Binary classification: use positive class probability
@@ -78,7 +78,7 @@ class IntervalLearnerAdapter:
                 preds = probs[:, 0] if probs.ndim == 2 else probs
                 low_values = low
                 high_values = high
-            
+
             if uq_interval:
                 # Convert arrays if needed
                 if not isinstance(low_values, np.ndarray):
@@ -101,7 +101,7 @@ class IntervalLearnerAdapter:
         try:
             # IntervalRegressor returns (predictions, (lower, upper)) or similar
             result = self._learner.predict(x_arr)
-            
+
             # Handle different return formats
             if isinstance(result, tuple) and len(result) == 2:
                 preds, intervals = result
@@ -115,20 +115,18 @@ class IntervalLearnerAdapter:
                 preds = result
                 lower = np.zeros_like(preds)
                 upper = np.ones_like(preds)
-            
+
             preds = np.asarray(preds)
             lower = np.asarray(lower)
             upper = np.asarray(upper)
-            
+
             if uq_interval:
                 return preds, (lower, upper)
             else:
                 # Legacy format: list of (lower, upper) tuples
                 return list(zip(lower, upper))
         except Exception as exc:
-            raise ValueError(
-                f"IntervalRegressor.predict(x) failed: {exc}"
-            ) from exc
+            raise ValueError(f"IntervalRegressor.predict(x) failed: {exc}") from exc
 
     def __getattr__(self, name):
         """Delegate unknown attributes to wrapped learner."""

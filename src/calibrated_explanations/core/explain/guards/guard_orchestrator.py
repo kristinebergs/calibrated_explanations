@@ -10,11 +10,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import replace
-from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
-from calibrated_explanations.plugins.guards import GuardContext, GuardPlugin
+if TYPE_CHECKING:
+    from calibrated_explanations.plugins.guards import GuardContext, GuardPlugin
 
 logger = logging.getLogger(__name__)
 
@@ -241,7 +242,7 @@ class GuardOrchestrator:
         if guard_params is not None:
             try:
                 metadata["guard_params"] = dict(guard_params)
-            except Exception:  # pragma: no cover - defensive
+            except (TypeError, ValueError):  # pragma: no cover - defensive
                 metadata["guard_params"] = guard_params
 
         refreshed_context = replace(self._context, metadata=metadata)
@@ -252,9 +253,9 @@ class GuardOrchestrator:
         if self._guard_plugin is None:
             return None
 
-        getter = getattr(self._guard_plugin, "get_guard", None)
-        if callable(getter):
-            return getter()
+        guard_getter = getattr(self._guard_plugin, "get_guard", None)
+        if callable(guard_getter):
+            return guard_getter()  # pylint: disable=not-callable
         return getattr(self._guard_plugin, "_guard", None)
 
     def set_guard(self, guard: Any) -> None:
@@ -263,12 +264,12 @@ class GuardOrchestrator:
             logger.debug("set_guard called without an active guard plugin; ignoring")
             return
 
-        setter = getattr(self._guard_plugin, "set_guard", None)
-        if callable(setter):
-            setter(guard)
+        guard_setter = getattr(self._guard_plugin, "set_guard", None)
+        if callable(guard_setter):
+            guard_setter(guard)  # pylint: disable=not-callable
             return
         if hasattr(self._guard_plugin, "_guard"):
-            setattr(self._guard_plugin, "_guard", guard)
+            self._guard_plugin._guard = guard
 
 
 __all__ = ["GuardOrchestrator"]

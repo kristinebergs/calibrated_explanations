@@ -3,6 +3,7 @@ import numpy as np
 
 class DummyIntervalLearner:
     """Mock interval learner supporting uq_interval."""
+
     def predict(self, x, uq_interval=False):  # pylint: disable=missing-function-docstring
         # return a fixed narrow interval for all instances
         n_samples = len(x)
@@ -20,4 +21,3 @@ class FakeExplainer:
         self.y_cal = y_cal
         self.interval_learner = DummyIntervalLearner()
         self.num_features = x_cal.shape[1]
-

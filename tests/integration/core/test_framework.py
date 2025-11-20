@@ -187,8 +187,8 @@ def test_guard_integration(binary_dataset):
     assert guard_orchestrator is not None
     # pylint: disable=protected-access
     assert guard_orchestrator._guard_plugin is not None
-    
+
     # Test that guard can accept/reject via orchestrator
     # Note: accept method is no longer on explainer, guard filtering happens during explanation
     # The test verifies that guard is properly configured and available
-    assert hasattr(guard_orchestrator, 'filter_perturbations')
+    assert hasattr(guard_orchestrator, "filter_perturbations")

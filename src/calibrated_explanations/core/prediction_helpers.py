@@ -318,9 +318,7 @@ def handle_uncalibrated_classification_prediction(
         If threshold is provided.
     """
     if threshold is not None:
-        raise ValidationError(
-            "A thresholded prediction is not possible for uncalibrated learners."
-        )
+        raise ValidationError("A thresholded prediction is not possible for uncalibrated learners.")
 
     # Use learner.predict() to get class predictions, not probabilities
     predictions = learner.predict(x)

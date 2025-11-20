@@ -250,8 +250,6 @@ class TestExplanationPluginIdentifierManagement:
         assert result == "core.explanation.factual"
 
 
-
-
 class TestIntervalPluginState:
     """Tests for interval plugin state management."""
 

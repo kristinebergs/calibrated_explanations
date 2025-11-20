@@ -36,7 +36,6 @@ from ..utils.discretizers import (
     RegressorDiscretizer,
 )
 from ..utils.helper import calculate_metrics, prepare_for_saving, safe_first_element, safe_mean
-from calibrated_explanations.core.explain.feature_task import assign_threshold as normalize_threshold
 
 # @dataclass
 # class PredictionInterval:
@@ -825,6 +824,9 @@ class CalibratedExplanation(ABC):
             return self
 
         threshold = self.y_threshold
+        from calibrated_explanations.core.explain.feature_task import (
+            assign_threshold as normalize_threshold,
+        )
         perturbed_threshold = normalize_threshold(threshold)
         perturbed_bins = np.empty((0,)) if self.bin is not None else None
         perturbed_x = np.empty((0, self._get_explainer().num_features))

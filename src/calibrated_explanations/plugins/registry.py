@@ -735,9 +735,7 @@ def ensure_builtin_plugins() -> None:
     missing = missing or any(
         identifier not in _INTERVAL_PLUGINS for identifier in expected_intervals
     )
-    missing = missing or any(
-        identifier not in _GUARD_PLUGINS for identifier in expected_guards
-    )
+    missing = missing or any(identifier not in _GUARD_PLUGINS for identifier in expected_guards)
     missing = missing or any(
         identifier not in _PLOT_BUILDERS for identifier in expected_plot_builders
     )
@@ -1455,9 +1453,7 @@ def mark_interval_untrusted(identifier: str) -> IntervalPluginDescriptor:
     return _refresh_interval_descriptor_trust(identifier, trusted=False)
 
 
-def _refresh_guard_descriptor_trust(
-    identifier: str, *, trusted: bool
-) -> GuardPluginDescriptor:
+def _refresh_guard_descriptor_trust(identifier: str, *, trusted: bool) -> GuardPluginDescriptor:
     """Return guard descriptor with updated trust state."""
     descriptor = find_guard_descriptor(identifier)
     if descriptor is None:

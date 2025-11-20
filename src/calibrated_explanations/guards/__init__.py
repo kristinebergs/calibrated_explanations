@@ -1,10 +1,27 @@
-"""Guards submodule for calibrated explanations.
+"""Backward compatibility module for guards.
 
-This module provides the ConformalRegionOracle for filtering out-of-distribution
-perturbations during explanation generation. The oracle uses conformal prediction
-with confidence modulation to provide finite-sample coverage guarantees.
+This module provides imports from the new location for code that uses the old
+calibrated_explanations.guards location.
+
+All guard implementations have been moved to:
+    calibrated_explanations.core.explain.guards
+
+This module is deprecated and should not be used in new code.
 """
 
-from .regions import ConformalRegionOracle
+import warnings
 
-__all__ = ["ConformalRegionOracle"]
+from calibrated_explanations.core.explain.guards.interval_learner_adapter import (
+    IntervalLearnerAdapter,
+)
+from calibrated_explanations.core.explain.guards.regions import ConformalRegionOracle
+
+# Issue deprecation warning
+warnings.warn(
+    "importing from calibrated_explanations.guards is deprecated. "
+    "Use calibrated_explanations.core.explain.guards instead.",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
+__all__ = ["ConformalRegionOracle", "IntervalLearnerAdapter"]

@@ -204,7 +204,7 @@ class ConformalRegionOracle:
         # Validate interval_learner supports required interface
         try:
             # Test predict signature with small sample
-            test_sample = x_arr[:min(2, len(x_arr))]
+            test_sample = x_arr[: min(2, len(x_arr))]
             test_result = interval_learner.predict(test_sample, uq_interval=True)
             # Verify return format: (predictions, (lower, upper))
             if not isinstance(test_result, tuple) or len(test_result) != 2:
@@ -232,10 +232,9 @@ class ConformalRegionOracle:
         except Exception as exc:  # pylint: disable=broad-except
             logger.warning(
                 "interval_learner validation encountered unexpected error; "
-                "confidence modulation may not work correctly. Error: %s", exc
+                "confidence modulation may not work correctly. Error: %s",
+                exc,
             )
-
-
 
         # Ensure input array is float type
         x_arr = np.asarray(x_arr, dtype=float)
@@ -281,7 +280,8 @@ class ConformalRegionOracle:
         except Exception as exc:  # pylint: disable=broad-except
             logger.error(
                 "Failed to extract calibrated predictions for proper set: %s. "
-                "interval_learner must provide uq_interval=True output.", exc
+                "interval_learner must provide uq_interval=True output.",
+                exc,
             )
             raise ValueError(
                 f"interval_learner.predict(x, uq_interval=True) failed: {exc}"
@@ -290,7 +290,7 @@ class ConformalRegionOracle:
         # Handle case where predictions are returned as string class labels
         # (e.g., from CalibratedExplainer with class_labels mapping)
         preds_proper_arr = np.asarray(preds_proper)
-        if preds_proper_arr.dtype.kind in ('U', 'O', 'S'):  # Unicode, object, or bytes string
+        if preds_proper_arr.dtype.kind in ("U", "O", "S"):  # Unicode, object, or bytes string
             # Try to convert string labels to numeric
             try:
                 preds_proper = np.asarray(preds_proper, dtype=float)
@@ -338,13 +338,12 @@ class ConformalRegionOracle:
         # Compute nonconformity scores on calibration set
         # Extract calibrated predictions for calibration set
         try:
-            preds_cal, (_lower_cal, _upper_cal) = interval_learner.predict(
-                x_cal, uq_interval=True
-            )
+            preds_cal, (_lower_cal, _upper_cal) = interval_learner.predict(x_cal, uq_interval=True)
         except Exception as exc:  # pylint: disable=broad-except
             logger.error(
                 "Failed to extract calibrated predictions for calibration set: %s. "
-                "interval_learner must provide uq_interval=True output.", exc
+                "interval_learner must provide uq_interval=True output.",
+                exc,
             )
             raise ValueError(
                 f"interval_learner.predict(x_cal, uq_interval=True) failed: {exc}"
@@ -352,7 +351,7 @@ class ConformalRegionOracle:
 
         # Handle case where predictions are returned as string class labels
         preds_cal_arr = np.asarray(preds_cal)
-        if preds_cal_arr.dtype.kind in ('U', 'O', 'S'):  # Unicode, object, or bytes string
+        if preds_cal_arr.dtype.kind in ("U", "O", "S"):  # Unicode, object, or bytes string
             # Try to convert string labels to numeric
             try:
                 preds_cal = np.asarray(preds_cal, dtype=float)
@@ -372,7 +371,9 @@ class ConformalRegionOracle:
             preds_cal_arr = np.asarray(preds_cal, dtype=float).ravel()
             x_cal_augmented = np.column_stack([x_cal, preds_cal_arr])
             x_cal_augmented = np.asarray(x_cal_augmented, dtype=float)
-            dists = np.linalg.norm(x_cal_augmented[:, None, :] - self._cluster_centers[None, :, :], axis=2)
+            dists = np.linalg.norm(
+                x_cal_augmented[:, None, :] - self._cluster_centers[None, :, :], axis=2
+            )
             nearest = np.argmin(dists, axis=1)
         except (ValueError, np.linalg.LinAlgError) as exc:
             if self.enforcement:
@@ -468,8 +469,8 @@ class ConformalRegionOracle:
         # Record width statistics for confidence modulation
         # Extract predictions and interval bounds from full training set
         try:
-            prediction_full, (lower_full, upper_full) = (
-                interval_learner.predict(x, uq_interval=True)
+            prediction_full, (lower_full, upper_full) = interval_learner.predict(
+                x, uq_interval=True
             )
             if prediction_full is not None and len(prediction_full) > 0:
                 # Direct array subtraction: upper_full and lower_full are already arrays
@@ -499,7 +500,9 @@ class ConformalRegionOracle:
                 "Normalized Conformal Regression (NCR) disabled: "
                 "width_min=%s, width_max=%s. "
                 "Confidence modulation will not be active. "
-                "Check interval_learner output.", self._width_min, self._width_max
+                "Check interval_learner output.",
+                self._width_min,
+                self._width_max,
             )
         else:
             try:
@@ -513,21 +516,25 @@ class ConformalRegionOracle:
                         "Effective radius will scale with prediction interval width. "
                         "q_norm range: [%.6f, %.6f], median: %.6f. "
                         "width range: [%.6f, %.6f]",
-                        q_norm_min, q_norm_max, q_norm_med,
-                        self._width_min, self._width_max
+                        q_norm_min,
+                        q_norm_max,
+                        q_norm_med,
+                        self._width_min,
+                        self._width_max,
                     )
                 else:
                     logger.info(
                         "Normalized Conformal Regression (NCR) initialized. "
                         "width range: [%.6f, %.6f]. "
                         "Effective radius will scale with prediction confidence.",
-                        self._width_min, self._width_max
+                        self._width_min,
+                        self._width_max,
                     )
             except Exception:  # pylint: disable=broad-except
                 logger.info(
-                    "Normalized Conformal Regression (NCR) active. "
-                    "width_min=%s, width_max=%s",
-                    self._width_min, self._width_max
+                    "Normalized Conformal Regression (NCR) active. " "width_min=%s, width_max=%s",
+                    self._width_min,
+                    self._width_max,
                 )
 
         self._fitted = True
@@ -709,18 +716,16 @@ class ConformalRegionOracle:
         # Extract prediction value from calibrated_prediction
         try:
             pred_value, (_lower, _upper) = calibrated_prediction
-        except (TypeError, ValueError) as exc:
+        except (TypeError, ValueError) as e:
             raise ValueError(
-                f"calibrated_prediction must be (pred_value, (lower, upper)). Got {exc}"
+                f"calibrated_prediction must be (pred_value, (lower, upper)). Got {e}"
             ) from e
 
         # Augment feature space: [x || calibrated_prediction]
         x_point_augmented = np.concatenate([x_point, [pred_value]])
 
         # Find nearest cluster center in augmented space
-        distances_to_centers = np.linalg.norm(
-            self._cluster_centers - x_point_augmented, axis=1
-        )
+        distances_to_centers = np.linalg.norm(self._cluster_centers - x_point_augmented, axis=1)
         nearest_cluster_idx = np.argmin(distances_to_centers)
 
         # Compute Mahalanobis distance to nearest cluster center in augmented space
@@ -892,9 +897,7 @@ class ConformalRegionOracle:
         x_point_augmented = np.concatenate([x_point, [pred_value]])
 
         # Find nearest cluster in augmented space
-        distances_to_centers = np.linalg.norm(
-            self._cluster_centers - x_point_augmented, axis=1
-        )
+        distances_to_centers = np.linalg.norm(self._cluster_centers - x_point_augmented, axis=1)
         nearest_cluster_idx = np.argmin(distances_to_centers)
 
         mu_center = self._cluster_centers[nearest_cluster_idx]
@@ -1053,7 +1056,9 @@ class ConformalRegionOracle:
         """
         if calibrated_prediction is None or self._cluster_norm_quantiles is None:
             if self.enforcement:
-                raise RuntimeError("Confidence modulation requires calibrated_prediction and quantiles")
+                raise RuntimeError(
+                    "Confidence modulation requires calibrated_prediction and quantiles"
+                )
             return base_radius
 
         try:

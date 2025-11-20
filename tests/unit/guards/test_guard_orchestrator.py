@@ -1,11 +1,14 @@
 import numpy as np
 
-from calibrated_explanations.core.explain.guards.conformal_regions_plugin import ConformalRegionsGuardPlugin
+from calibrated_explanations.core.explain.guards.conformal_regions_plugin import (
+    ConformalRegionsGuardPlugin,
+)
 from calibrated_explanations.plugins.guards import GuardContext
 
 
 class DummyIntervalLearner:
     """Mock interval learner supporting uq_interval."""
+
     def predict(self, x, uq_interval=False):
         n_samples = len(x)
         preds = np.ones(n_samples) * 0.5
@@ -29,7 +32,7 @@ def test_filter_perturbations_delegation():
     x_cal = np.array([[0.0, 0.0], [1.0, 1.0]])
     y_cal = np.array([0, 1])
     expl = FakeExplainer(x_cal, y_cal)
-    
+
     # Create GuardContext for initialization
     context = GuardContext(
         task="classification",
@@ -43,16 +46,17 @@ def test_filter_perturbations_delegation():
         num_features=2,
         metadata={},
     )
-    
+
     orch = ConformalRegionsGuardPlugin()
     orch.initialize(context)
 
     # Create dummy guard that rejects second perturbed row
     class DummyGuard:
         """Dummy guard for testing."""
+
         def __init__(self):
             self._fitted = True
-        
+
         def accept_batch(self, arr, preds=None):  # noqa: ARG002
             """Accept batch method."""
             return np.array([True, False])
@@ -73,4 +77,3 @@ def test_filter_perturbations_delegation():
     )
     assert filtered_x.shape[0] == 1
     assert filtered_feature.shape[0] == 1
-

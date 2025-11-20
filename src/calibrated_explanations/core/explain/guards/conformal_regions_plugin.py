@@ -14,10 +14,11 @@ from typing import Any, Dict, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
-from ....guards.regions import ConformalRegionOracle
-from ....guards.interval_learner_adapter import IntervalLearnerAdapter
-from ....plugins.guards import GuardContext, GuardPlugin
-from ...exceptions import ConfigurationError
+from calibrated_explanations.core.exceptions import ConfigurationError
+from calibrated_explanations.plugins.guards import GuardContext, GuardPlugin
+
+from .interval_learner_adapter import IntervalLearnerAdapter
+from .regions import ConformalRegionOracle
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,11 @@ class ConformalRegionsGuardPlugin(GuardPlugin):
     }
 
     def __init__(self) -> None:
+        """Initialize the conformal regions guard plugin.
+
+        Initializes internal state for guard orchestration including metrics
+        tracking and context storage.
+        """
         self._guard: Optional[ConformalRegionOracle] = None
         self._guard_params: Dict[str, Any] | None = None
         self._enforcement: bool = False
@@ -60,10 +66,7 @@ class ConformalRegionsGuardPlugin(GuardPlugin):
 
     def supports_mode(self, mode: str, *, task: str) -> bool:
         """Check if this guard supports the given explanation mode and task."""
-        return (
-            mode in self.plugin_meta["modes"] and
-            task in self.plugin_meta["tasks"]
-        )
+        return mode in self.plugin_meta["modes"] and task in self.plugin_meta["tasks"]
 
     def initialize(self, context: GuardContext) -> None:
         """Initialize the guard with explainer context.
@@ -77,7 +80,9 @@ class ConformalRegionsGuardPlugin(GuardPlugin):
         guard_params = context.metadata.get("guard_params", {})
         params_copy = dict(guard_params) if guard_params else {}
 
-        self._enforcement = bool(params_copy.pop("enforcement", False))  # Default to False for plugin
+        # Default to False for plugin
+        enforcement = bool(params_copy.pop("enforcement", False))
+        self._enforcement = enforcement
         if not params_copy:
             msg = "No guard_params provided; guard disabled."
             logger.info(msg)
@@ -108,6 +113,44 @@ class ConformalRegionsGuardPlugin(GuardPlugin):
                 raise ConfigurationError(msg) from exc
             logger.warning(msg)
 
+    def _build_calibrated_predictions(
+        self,
+        prediction: Mapping[str, Any],
+        x_orig: np.ndarray,
+    ) -> list[Optional[Tuple[float, Tuple[float, float]]]]:
+        """Build calibrated prediction tuples from prediction dict and original data."""
+        pred_vals = prediction.get("predict", np.array([]))
+        lows = prediction.get("low", np.array([]))
+        highs = prediction.get("high", np.array([]))
+
+        cal_preds: list[Optional[Tuple[float, Tuple[float, float]]]] = []
+        for i in range(len(x_orig)):
+            if i < len(pred_vals) and i < len(lows) and i < len(highs):
+                cal_preds.append((pred_vals[i], (lows[i], highs[i])))
+            else:
+                cal_preds.append(None)
+        return cal_preds
+
+    def _map_perturbed_to_calibrated_preds(
+        self,
+        perturbed_x: np.ndarray,
+        perturbed_feature: np.ndarray,
+        cal_preds: list[Optional[Tuple[float, Tuple[float, float]]]],
+    ) -> list[Optional[Tuple[float, Tuple[float, float]]]]:
+        """Map perturbed rows to their associated calibrated predictions."""
+        calibrated_pred_list = []
+        for idx in range(len(perturbed_x)):
+            instance_idx = 0
+            if len(perturbed_feature) > idx and len(perturbed_feature[idx]) > 1:
+                try:
+                    instance_idx = int(perturbed_feature[idx, 1])
+                except (ValueError, TypeError):
+                    instance_idx = 0
+            calibrated_pred_list.append(
+                cal_preds[instance_idx] if instance_idx < len(cal_preds) else None
+            )
+        return calibrated_pred_list
+
     def filter_perturbations(
         self,
         perturbed_x: np.ndarray,
@@ -129,34 +172,14 @@ class ConformalRegionsGuardPlugin(GuardPlugin):
             return perturbed_x, perturbed_feature
 
         try:  # pylint: disable=broad-except
-            pred_vals = prediction.get("predict", np.array([]))
-            lows = prediction.get("low", np.array([]))
-            highs = prediction.get("high", np.array([]))
-
-            # Build calibrated predictions per instance
-            cal_preds: list[Optional[Tuple[float, Tuple[float, float]]]] = []
-            n_instances = len(x_orig)
-            for i in range(n_instances):
-                if i < len(pred_vals) and i < len(lows) and i < len(highs):
-                    cal_preds.append((pred_vals[i], (lows[i], highs[i])))
-                else:
-                    cal_preds.append(None)
-
-            # For each perturbed row, fetch associated instance calibrated pred
-            calibrated_pred_list = []
-            for idx in range(len(perturbed_x)):
-                instance_idx = 0
-                if len(perturbed_feature) > idx and len(perturbed_feature[idx]) > 1:
-                    try:
-                        instance_idx = int(perturbed_feature[idx, 1])
-                    except (ValueError, TypeError):
-                        instance_idx = 0
-                calibrated_pred_list.append(
-                    cal_preds[instance_idx] if instance_idx < len(cal_preds) else None
-                )
+            cal_preds = self._build_calibrated_predictions(prediction, x_orig)
+            calibrated_pred_list = self._map_perturbed_to_calibrated_preds(
+                perturbed_x, perturbed_feature, cal_preds
+            )
 
             mask = self._guard.accept_batch(perturbed_x, calibrated_pred_list)
-            filtered_x, filtered_feat = perturbed_x[mask], perturbed_feature[mask]
+            filtered_x = perturbed_x[mask]
+            filtered_feat = perturbed_feature[mask]
             self.metrics["filtered_perturbations"] += int(np.count_nonzero(~mask))
             return filtered_x, filtered_feat
 
@@ -207,7 +230,9 @@ class ConformalRegionsGuardPlugin(GuardPlugin):
     def accept_batch(
         self,
         x_batch: np.ndarray,
-        calibrated_predictions: Optional[Sequence[Optional[Tuple[float, Tuple[float, float]]]]] = None,
+        calibrated_predictions: Optional[
+            Sequence[Optional[Tuple[float, Tuple[float, float]]]]
+        ] = None,
     ) -> np.ndarray:
         """Batch acceptance check for guard constraints."""
         if self._guard is None:
@@ -235,7 +260,6 @@ class ConformalRegionsGuardPlugin(GuardPlugin):
                 raise
             logger.warning(msg)
             return np.ones(len(x_batch), dtype=bool)
-
 
     def get_guard(self) -> Optional[ConformalRegionOracle]:
         """Return the fitted guard or None if disabled."""

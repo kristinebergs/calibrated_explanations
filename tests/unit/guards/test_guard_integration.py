@@ -13,17 +13,16 @@ Ref: improvement_docs/ignore/guards/IMPLEMENTATION_CHECKLIST.md Phase 7-8
 
 import numpy as np
 import pytest
-from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
-from sklearn.datasets import make_classification, make_regression
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.datasets import make_classification
 
 from calibrated_explanations import CalibratedExplainer
-from calibrated_explanations.guards import ConformalRegionOracle
-from calibrated_explanations.core.exceptions import NotFittedError
+from calibrated_explanations.core.explain.guards.regions import ConformalRegionOracle
 
 
 class TestGuardPluginIntegration:
     """Test guard plugin integration with CalibratedExplainer.
-    
+
     These tests verify that the guard plugin system works correctly.
     They focus on user-facing behavior rather than internal implementation.
     Per test guidelines (TEST_GUIDELINES_ENHANCED.md), tests should verify:
@@ -80,14 +79,14 @@ class TestGuardPluginIntegration:
         self, classification_data, fitted_classifier
     ):
         """Verify that guard_params are passed to PluginManager and guard is initialized.
-        
+
         Domain Rule: When guard_params provided, the plugin system should:
         1. Accept the parameters
         2. Initialize guard plugin with those parameters
         3. Make guard available through plugin manager
         """
         _, x_cal, _, y_cal = classification_data
-        
+
         explainer = CalibratedExplainer(
             learner=fitted_classifier,
             x_cal=x_cal,
@@ -95,11 +94,11 @@ class TestGuardPluginIntegration:
             mode="classification",
             guard_params={"alpha": 0.1, "n_clusters": 3},
         )
-        
+
         # Guard orchestrator should be initialized
         guard_orch = explainer._plugin_manager.guard_orchestrator
         assert guard_orch is not None
-        
+
         # Guard plugin should be configured (not None)
         assert guard_orch._guard_plugin is not None
 
@@ -107,20 +106,20 @@ class TestGuardPluginIntegration:
         self, classification_data, fitted_classifier
     ):
         """Verify that explanation generation works without guard.
-        
+
         Behavior: Explanations should be generated successfully
         whether or not a guard is configured.
         """
         _, x_cal, _, y_cal = classification_data
         x_test = x_cal[:1]
-        
+
         explainer = CalibratedExplainer(
             learner=fitted_classifier,
             x_cal=x_cal,
             y_cal=y_cal,
             mode="classification",
         )
-        
+
         # Should not raise
         explanation = explainer.explain_factual(x_test)
         assert explanation is not None
@@ -130,13 +129,13 @@ class TestGuardPluginIntegration:
         self, classification_data, fitted_classifier
     ):
         """Verify that explanation generation works with guard configured.
-        
+
         Behavior: Guard configuration should not break explanation pipeline;
         explanations should be generated with guard filtering active.
         """
         _, x_cal, _, y_cal = classification_data
         x_test = x_cal[:1]
-        
+
         explainer = CalibratedExplainer(
             learner=fitted_classifier,
             x_cal=x_cal,
@@ -144,7 +143,7 @@ class TestGuardPluginIntegration:
             mode="classification",
             guard_params={"alpha": 0.1, "n_clusters": 3},
         )
-        
+
         # Should not raise
         explanation = explainer.explain_factual(x_test)
         assert explanation is not None
@@ -154,12 +153,12 @@ class TestGuardPluginIntegration:
         self, classification_data, fitted_classifier
     ):
         """Verify that guard orchestrator is accessible through PluginManager.
-        
+
         Behavior: After explainer initialization, guard orchestrator should be
         available via plugin manager for testing/diagnostics.
         """
         _, x_cal, _, y_cal = classification_data
-        
+
         explainer = CalibratedExplainer(
             learner=fitted_classifier,
             x_cal=x_cal,
@@ -167,25 +166,27 @@ class TestGuardPluginIntegration:
             mode="classification",
             guard_params={"alpha": 0.1, "n_clusters": 3},
         )
-        
+
         # Guard orchestrator should be accessible
         guard_orch = explainer._plugin_manager.guard_orchestrator
         assert guard_orch is not None
-        
+
         # Should have filter_perturbations method (guard plugin protocol)
-        assert hasattr(guard_orch, 'filter_perturbations')
+        assert hasattr(guard_orch, "filter_perturbations")
         assert callable(guard_orch.filter_perturbations)
 
     def test_oracle__should_have_accept_method(self, classification_data, fitted_classifier):
         """Verify that ConformalRegionOracle.accept() works.
-        
+
         Behavior: Guard oracle should have accept() method that works
         with calibrated predictions.
         """
-        from calibrated_explanations.guards.interval_learner_adapter import IntervalLearnerAdapter
-        
+        from calibrated_explanations.core.explain.guards.interval_learner_adapter import (
+            IntervalLearnerAdapter,
+        )
+
         x_train, _, y_train, _ = classification_data
-        
+
         # Create oracle and fit it
         temp_explainer = CalibratedExplainer(
             learner=fitted_classifier,
@@ -193,31 +194,31 @@ class TestGuardPluginIntegration:
             y_cal=y_train,
             mode="classification",
         )
-        
+
         wrapped_learner = IntervalLearnerAdapter(temp_explainer.interval_learner)
         oracle = ConformalRegionOracle(alpha=0.1, n_clusters=3)
         oracle.fit(x_train, y_train, interval_learner=wrapped_learner)
-        
+
         # Test that oracle can accept/reject a prediction
         x_test = x_train[:1]
         calibrated_pred = (0.5, (0.0, 1.0))
         result = oracle.accept(x_test[0], calibrated_prediction=calibrated_pred)
-        
+
         # Should return a boolean
         assert isinstance(result, (bool, np.bool_))
 
-    def test_oracle__should_have_intervals_method(
-        self, classification_data, fitted_classifier
-    ):
+    def test_oracle__should_have_intervals_method(self, classification_data, fitted_classifier):
         """Verify that ConformalRegionOracle.intervals() works.
-        
+
         Behavior: Guard oracle should have intervals() method that returns
         candidate intervals for a given instance.
         """
-        from calibrated_explanations.guards.interval_learner_adapter import IntervalLearnerAdapter
-        
+        from calibrated_explanations.core.explain.guards.interval_learner_adapter import (
+            IntervalLearnerAdapter,
+        )
+
         x_train, _, y_train, _ = classification_data
-        
+
         # Create oracle and fit it
         temp_explainer = CalibratedExplainer(
             learner=fitted_classifier,
@@ -225,16 +226,16 @@ class TestGuardPluginIntegration:
             y_cal=y_train,
             mode="classification",
         )
-        
+
         wrapped_learner = IntervalLearnerAdapter(temp_explainer.interval_learner)
         oracle = ConformalRegionOracle(alpha=0.1, n_clusters=3)
         oracle.fit(x_train, y_train, interval_learner=wrapped_learner)
-        
+
         # Test that oracle can return intervals
         x_test = x_train[:1]
         calibrated_pred = (0.5, (0.0, 1.0))
         intervals = oracle.intervals(x_test[0], calibrated_prediction=calibrated_pred)
-        
+
         # Should return list of intervals
         assert isinstance(intervals, list)
         assert len(intervals) > 0

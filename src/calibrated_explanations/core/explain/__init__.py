@@ -17,13 +17,10 @@ from ._base import BaseExplainExecutor
 from ._shared import ExplainConfig, ExplainRequest, ExplainResponse
 from .orchestrator import ExplanationOrchestrator
 from .parallel_feature import FeatureParallelExplainExecutor
-from .guards.guard_orchestrator import GuardOrchestrator
 from .sequential import SequentialExplainExecutor
 
 if TYPE_CHECKING:
-    # The CalibratedExplainer type is intentionally omitted here; importing it
-    # only for TYPE_CHECKING when not used would trigger unused-import linting.
-    pass
+    from .guards.guard_orchestrator import GuardOrchestrator
 
 
 __all__ = [
@@ -33,7 +30,6 @@ __all__ = [
     "ExplainResponse",
     "ExplanationOrchestrator",
     "FeatureParallelExplainExecutor",
-    "GuardOrchestrator",
     "InstanceParallelExplainExecutor",
     "SequentialExplainExecutor",
 ]

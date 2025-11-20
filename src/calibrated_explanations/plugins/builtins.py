@@ -43,7 +43,6 @@ from .explanations import (
     ExplanationPlugin,
     ExplanationRequest,
 )
-from .guards import GuardPlugin
 from .intervals import IntervalCalibratorContext, IntervalCalibratorPlugin
 from .plots import PlotBuilder, PlotRenderContext, PlotRenderer, PlotRenderResult
 from .predict import PredictBridge
@@ -132,7 +131,9 @@ def _supports_calibrated_explainer(model: Any) -> bool:
     )
 
 
-def _collection_to_batch(collection: CalibratedExplanations, *, mode: str | None = None) -> ExplanationBatch:
+def _collection_to_batch(
+    collection: CalibratedExplanations, *, mode: str | None = None
+) -> ExplanationBatch:
     """Convert a legacy explanation collection into an :class:`ExplanationBatch`.
 
     The optional *mode* argument can be supplied by callers (plugin adapters)
@@ -373,7 +374,8 @@ class _ExecutionExplanationPluginBase(_LegacyExplanationBase):
 
         try:
             # Import here to avoid circular imports
-            from ..core.explain._shared import ExplainConfig, ExplainRequest as _ExplainRequest
+            from ..core.explain._shared import ExplainConfig
+            from ..core.explain._shared import ExplainRequest as _ExplainRequest
 
             # Build the execute request from the explanation request
             explain_request = _ExplainRequest(
@@ -388,9 +390,9 @@ class _ExecutionExplanationPluginBase(_LegacyExplanationBase):
 
             # Build execution config from explainer state
             calibration_data = {}
-            if hasattr(self._explainer, '_get_calibration_summaries'):
+            if hasattr(self._explainer, "_get_calibration_summaries"):
                 calibration_data = self._explainer._get_calibration_summaries()[1]
-            
+
             explain_config = ExplainConfig(
                 executor=getattr(self._explainer, "executor", None),
                 granularity=getattr(self._explainer, "granularity", "feature"),
@@ -459,6 +461,7 @@ class SequentialExplanationPlugin(_ExecutionExplanationPluginBase):
     def __init__(self) -> None:
         """Configure the plugin to use sequential execution."""
         from ..core.explain.sequential import SequentialExplainExecutor
+
         self._execution_plugin_class = SequentialExplainExecutor
         super().__init__(
             _mode="factual",
@@ -499,6 +502,7 @@ class FeatureParallelExplanationPlugin(_ExecutionExplanationPluginBase):
     def __init__(self) -> None:
         """Configure the plugin to use feature-parallel execution."""
         from ..core.explain.parallel_feature import FeatureParallelExplainExecutor
+
         self._execution_plugin_class = FeatureParallelExplainExecutor
         super().__init__(
             _mode="factual",
@@ -543,6 +547,7 @@ class InstanceParallelExplanationPlugin(_ExecutionExplanationPluginBase):
     def __init__(self) -> None:
         """Configure the plugin to use instance-parallel execution."""
         from ..core.explain.parallel_instance import InstanceParallelExplainExecutor
+
         self._execution_plugin_class = InstanceParallelExplainExecutor
         super().__init__(
             _mode="factual",
@@ -583,6 +588,7 @@ class SequentialAlternativeExplanationPlugin(_ExecutionExplanationPluginBase):
     def __init__(self) -> None:
         """Configure the plugin to use sequential execution."""
         from ..core.explain.sequential import SequentialExplainExecutor
+
         self._execution_plugin_class = SequentialExplainExecutor
         super().__init__(
             _mode="alternative",
@@ -623,6 +629,7 @@ class FeatureParallelAlternativeExplanationPlugin(_ExecutionExplanationPluginBas
     def __init__(self) -> None:
         """Configure the plugin to use feature-parallel execution."""
         from ..core.explain.parallel_feature import FeatureParallelExplainExecutor
+
         self._execution_plugin_class = FeatureParallelExplainExecutor
         super().__init__(
             _mode="alternative",
@@ -667,6 +674,7 @@ class InstanceParallelAlternativeExplanationPlugin(_ExecutionExplanationPluginBa
     def __init__(self) -> None:
         """Configure the plugin to use instance-parallel execution."""
         from ..core.explain.parallel_instance import InstanceParallelExplainExecutor
+
         self._execution_plugin_class = InstanceParallelExplainExecutor
         super().__init__(
             _mode="alternative",
@@ -1280,6 +1288,7 @@ def _register_builtins() -> None:
 
     # Register guard plugin
     from ..core.explain.guards.conformal_regions_plugin import ConformalRegionsGuardPlugin
+
     register_guard_plugin("core.guard.conformal_regions", ConformalRegionsGuardPlugin())
 
 

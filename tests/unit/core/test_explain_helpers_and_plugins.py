@@ -283,6 +283,7 @@ def test_sequential_plugin_calls_guard_filter(monkeypatch):
     monkeypatch.setattr(sequential, "initialize_explanation", initializer)
 
     filter_calls = []
+
     def fake_filter(px, pf, x_arg, prediction_arg):
         """Mock guard filter that tracks calls."""
         filter_calls.append((px.copy(), pf.copy(), x_arg.copy()))
@@ -316,15 +317,16 @@ def test_sequential_plugin_calls_guard_filter(monkeypatch):
 
     # Create context with a mock guard orchestrator
     context = _make_test_context()
-    
+
     # Create a mock guard orchestrator with filter_perturbations method
     class MockGuardOrchestrator:
         def filter_perturbations(self, px, pf, x_arg, prediction_arg):
             return fake_filter(px, pf, x_arg, prediction_arg)
-    
+
     # Update context to include guard orchestrator
     # Since ExplanationContext is frozen, we need to create a new one
     from dataclasses import replace as dataclass_replace
+
     context = dataclass_replace(context, guard_orchestrator=MockGuardOrchestrator())
 
     plugin = sequential.SequentialExplainExecutor()

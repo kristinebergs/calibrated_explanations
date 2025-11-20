@@ -9,7 +9,9 @@ from typing import Iterable
 import numpy as np
 import pytest
 
-from calibrated_explanations.core.explain.feature_task import assign_threshold as normalize_threshold
+from calibrated_explanations.core.explain.feature_task import (
+    assign_threshold as normalize_threshold,
+)
 from calibrated_explanations.core.explain.feature_task import assign_weight
 from calibrated_explanations.core.exceptions import (
     DataShapeError,
@@ -78,7 +80,7 @@ def fake_pandas(monkeypatch):
 
 def test_slice_helpers_support_multiple_input_types(fake_pandas):
     """Test threshold and bins slicing with multiple input types.
-    
+
     Tests call explain module functions directly.
     """
     from calibrated_explanations.core.explain._helpers import slice_threshold, slice_bins

@@ -170,7 +170,9 @@ class PluginManager:
             - plot_style for plot style override
         """
         # Lazy import to avoid circular dependency
-        from ..core.config_helpers import read_pyproject_section  # pylint: disable=import-outside-toplevel
+        from ..core.config_helpers import (
+            read_pyproject_section,  # pylint: disable=import-outside-toplevel
+        )
 
         explanation_modes = ("factual", "alternative", "fast")
 
@@ -191,9 +193,7 @@ class PluginManager:
         self._pyproject_intervals = read_pyproject_section(
             ("tool", "calibrated_explanations", "intervals")
         )
-        self._pyproject_plots = read_pyproject_section(
-            ("tool", "calibrated_explanations", "plots")
-        )
+        self._pyproject_plots = read_pyproject_section(("tool", "calibrated_explanations", "plots"))
         self._pyproject_guards = read_pyproject_section(
             ("tool", "calibrated_explanations", "guards")
         )
@@ -220,7 +220,7 @@ class PluginManager:
         env_guard_params = os.environ.get("CE_GUARD_PARAMS")
         merged_guard_params.update(self._parse_guard_params_blob(env_guard_params))
         if guard_params_kwarg is None and hasattr(self.explainer, "guard_params"):
-            guard_params_kwarg = getattr(self.explainer, "guard_params")
+            guard_params_kwarg = self.explainer.guard_params
         merged_guard_params.update(self._coerce_guard_params_dict(guard_params_kwarg))
         self._guard_params = merged_guard_params
 
@@ -272,7 +272,10 @@ class PluginManager:
             Ordered list of plugin identifiers to try for this mode.
         """
         # Lazy import to avoid circular dependency
-        from ..core.config_helpers import coerce_string_tuple, split_csv  # pylint: disable=import-outside-toplevel
+        from ..core.config_helpers import (  # pylint: disable=import-outside-toplevel
+            coerce_string_tuple,
+            split_csv,
+        )
 
         entries: List[str] = []
 
@@ -338,14 +341,13 @@ class PluginManager:
             Ordered list of interval plugin identifiers to try.
         """
         # Lazy import to avoid circular dependency
-        from ..core.config_helpers import coerce_string_tuple, split_csv  # pylint: disable=import-outside-toplevel
+        from ..core.config_helpers import (  # pylint: disable=import-outside-toplevel
+            coerce_string_tuple,
+            split_csv,
+        )
 
         entries: List[str] = []
-        override = (
-            self._fast_interval_plugin_override
-            if fast
-            else self._interval_plugin_override
-        )
+        override = self._fast_interval_plugin_override if fast else self._interval_plugin_override
         preferred_identifier: str | None = None
 
         if isinstance(override, str) and override:
@@ -412,7 +414,10 @@ class PluginManager:
             Ordered list of plot style identifiers to try.
         """
         # Lazy import to avoid circular dependency
-        from ..core.config_helpers import coerce_string_tuple, split_csv  # pylint: disable=import-outside-toplevel
+        from ..core.config_helpers import (  # pylint: disable=import-outside-toplevel
+            coerce_string_tuple,
+            split_csv,
+        )
 
         entries: List[str] = []
 
@@ -459,7 +464,10 @@ class PluginManager:
             return ()
 
         # Lazy import to avoid circular dependency
-        from ..core.config_helpers import coerce_string_tuple, split_csv  # pylint: disable=import-outside-toplevel
+        from ..core.config_helpers import (  # pylint: disable=import-outside-toplevel
+            coerce_string_tuple,
+            split_csv,
+        )
 
         entries: List[str] = []
 
@@ -566,7 +574,9 @@ class PluginManager:
                 candidate = override()
             except Exception as exc:  # pragma: no cover - defensive
                 # Lazy import to avoid circular dependency
-                from ..core.exceptions import ConfigurationError  # pylint: disable=import-outside-toplevel
+                from ..core.exceptions import (
+                    ConfigurationError,  # pylint: disable=import-outside-toplevel
+                )
 
                 raise ConfigurationError(
                     "Callable explanation plugin override raised an exception"
@@ -743,12 +753,22 @@ class PluginManager:
         Called from CalibratedExplainer.__init__ after PluginManager is initialized.
         """
         # Lazy import to avoid circular dependency
+        from ..core.calibration.interval_learner import (
+            initialize_interval_learner,  # pylint: disable=import-outside-toplevel
+        )
+        from ..core.explain.guards.guard_orchestrator import (
+            GuardOrchestrator,  # pylint: disable=import-outside-toplevel
+        )
+        from ..core.explain.orchestrator import (
+            ExplanationOrchestrator,  # pylint: disable=import-outside-toplevel
+        )
+        from ..core.prediction.orchestrator import (
+            PredictionOrchestrator,  # pylint: disable=import-outside-toplevel
+        )
+        from ..core.reject.orchestrator import (
+            RejectOrchestrator,  # pylint: disable=import-outside-toplevel
+        )
         from .registry import ensure_builtin_plugins  # pylint: disable=import-outside-toplevel
-        from ..core.explain.orchestrator import ExplanationOrchestrator  # pylint: disable=import-outside-toplevel
-        from ..core.prediction.orchestrator import PredictionOrchestrator  # pylint: disable=import-outside-toplevel
-        from ..core.reject.orchestrator import RejectOrchestrator  # pylint: disable=import-outside-toplevel
-        from ..core.explain.guards.guard_orchestrator import GuardOrchestrator  # pylint: disable=import-outside-toplevel
-        from ..core.calibration.interval_learner import initialize_interval_learner  # pylint: disable=import-outside-toplevel
 
         # Ensure builtin plugins (including optional fast plugins) are registered
         # before we compute fallback chains. Without this, the initial chain
