@@ -46,9 +46,13 @@ class ConformalRegionOracle:
     random_state : int or None, default=None
         Random seed for reproducibility (clustering, data splitting).
 
-    ncm_method : str, default="mahalanobis"
-        Nonconformity measure method.
-        Options: "mahalanobis" (Mahalanobis distance to cluster center)
+    nonconformity_metric : str, default="mahalanobis"
+        Distance metric for nonconformity scoring in conformal prediction.
+        Options:
+            - "euclidean" (L2 norm): General-purpose, isotropic
+            - "mahalanobis" (Mahalanobis distance): Accounts for covariance structure
+            - "cosine" (Angle-based): For high-dimensional/embedding data;
+              falls back to Euclidean for score computation (Mahalanobis incompatible)
 
     Attributes
     ----------
@@ -72,7 +76,7 @@ class ConformalRegionOracle:
         n_clusters=5,
         prop_size=0.75,
         random_state=None,
-        ncm_method="mahalanobis",
+        nonconformity_metric="mahalanobis",
         enforcement: bool = True,
     ):
         if not 0 < alpha < 1:
@@ -81,6 +85,15 @@ class ConformalRegionOracle:
             raise ValueError(f"n_clusters must be >= 1, got {n_clusters}")
         if not 0 < prop_size <= 1:
             raise ValueError(f"prop_size must be in (0, 1], got {prop_size}")
+        
+        # Validate nonconformity_metric
+        valid_metrics = {"euclidean", "mahalanobis", "cosine"}
+        if nonconformity_metric not in valid_metrics:
+            raise ValueError(
+                f"nonconformity_metric must be one of {valid_metrics}, "
+                f"got '{nonconformity_metric}'"
+            )
+        
         self.alpha = alpha
         self.n_clusters = n_clusters
         # Bounds for width-based modulation (clamped)
@@ -88,7 +101,7 @@ class ConformalRegionOracle:
         self._modulation_max = 2.0
         self.prop_size = prop_size
         self.random_state = random_state
-        self.ncm_method = ncm_method
+        self._nonconformity_metric = nonconformity_metric
         self.enforcement = enforcement
 
         self._fitted = False
@@ -319,21 +332,27 @@ class ConformalRegionOracle:
         self._kmeans.fit(x_proper_augmented)
         self._cluster_centers = self._kmeans.cluster_centers_
 
-        # Compute per-cluster covariance on augmented space
+        # Compute per-cluster covariance on augmented space only when needed
+        # for Mahalanobis-based nonconformity. This avoids unnecessary O(d^3)
+        # work and memory use for Euclidean/Cosine metrics.
         self._cluster_covs = []
-        for k in range(n_clusters_actual):
-            mask = self._kmeans.labels_ == k
-            if np.sum(mask) > 1:
-                cov = np.cov(x_proper_augmented[mask].T)
-                # Handle 1D covariance
-                if cov.ndim == 0:
-                    cov = np.array([[cov]])
-                elif cov.ndim == 1:
-                    cov = np.diag(cov)
-            else:
-                # Single point in cluster; use identity
-                cov = np.eye(n_features)
-            self._cluster_covs.append(cov)
+        if self._nonconformity_metric == "mahalanobis":
+            for k in range(n_clusters_actual):
+                mask = self._kmeans.labels_ == k
+                if np.sum(mask) > 1:
+                    cov = np.cov(x_proper_augmented[mask].T)
+                    # Handle 1D covariance
+                    if cov.ndim == 0:
+                        cov = np.array([[cov]])
+                    elif cov.ndim == 1:
+                        cov = np.diag(cov)
+                else:
+                    # Single point in cluster; use identity in augmented space
+                    cov = np.eye(x_proper_augmented.shape[1])
+                self._cluster_covs.append(cov)
+        else:
+            # For non-Mahalanobis metrics, covariance matrices are not used.
+            self._cluster_covs = None
 
         # Compute nonconformity scores on calibration set
         # Extract calibrated predictions for calibration set
@@ -724,30 +743,14 @@ class ConformalRegionOracle:
         # Augment feature space: [x || calibrated_prediction]
         x_point_augmented = np.concatenate([x_point, [pred_value]])
 
-        # Find nearest cluster center in augmented space
-        distances_to_centers = np.linalg.norm(self._cluster_centers - x_point_augmented, axis=1)
-        nearest_cluster_idx = np.argmin(distances_to_centers)
+        # Find nearest cluster center in augmented space (always Euclidean)
+        nearest_cluster_idx = self._find_nearest_cluster(x_point_augmented)
 
-        # Compute Mahalanobis distance to nearest cluster center in augmented space
+        # Compute nonconformity distance using selected metric
         mu_center = self._cluster_centers[nearest_cluster_idx]
-        cov = self._cluster_covs[nearest_cluster_idx]
-
-        try:
-            # Regularize covariance if needed (for numerical stability)
-            cov_reg = cov + 1e-6 * np.eye(cov.shape[0])
-            cov_inv = pinvh(cov_reg)
-            mahal_dist = np.sqrt(
-                np.dot(
-                    (x_point_augmented - mu_center),
-                    np.dot(cov_inv, (x_point_augmented - mu_center).T),
-                )
-            )
-        except Exception as exc:  # pylint: disable=broad-except
-            logger.warning(
-                "Mahalanobis distance computation failed: %s. Using Euclidean.",
-                exc,
-            )
-            mahal_dist = np.linalg.norm(x_point_augmented - mu_center)
+        mahal_dist = self._compute_single_nonconformity_score(
+            x_point_augmented, mu_center, nearest_cluster_idx
+        )
 
         # Base conformal radius (legacy fallback)
         base_radius = self._cluster_radii[nearest_cluster_idx]
@@ -896,9 +899,8 @@ class ConformalRegionOracle:
         # Augment feature space: [x || calibrated_prediction]
         x_point_augmented = np.concatenate([x_point, [pred_value]])
 
-        # Find nearest cluster in augmented space
-        distances_to_centers = np.linalg.norm(self._cluster_centers - x_point_augmented, axis=1)
-        nearest_cluster_idx = np.argmin(distances_to_centers)
+        # Find nearest cluster in augmented space (always Euclidean)
+        nearest_cluster_idx = self._find_nearest_cluster(x_point_augmented)
 
         mu_center = self._cluster_centers[nearest_cluster_idx]
         cov = self._cluster_covs[nearest_cluster_idx]
@@ -978,6 +980,113 @@ class ConformalRegionOracle:
     # Private helpers
     # =====================================================================
 
+    def _compute_distances(self, points, center):
+        """Compute Euclidean distances from points to center.
+        
+        Parameters
+        ----------
+        points : np.ndarray, shape (n_points, n_features)
+            Points to measure distances from.
+        center : np.ndarray, shape (n_features,)
+            Reference center point.
+        
+        Returns
+        -------
+        np.ndarray, shape (n_points,)
+            Euclidean distance from each point to center.
+        
+        Notes
+        -----
+        Clustering always uses Euclidean distance (sklearn KMeans limitation).
+        The nonconformity_metric affects only the nonconformity score computation,
+        not cluster selection.
+        """
+        return np.linalg.norm(points - center, axis=1)
+
+    def _find_nearest_cluster(self, point_augmented):
+        """Find the index of nearest cluster center for augmented point.
+        
+        Parameters
+        ----------
+        point_augmented : np.ndarray, shape (n_features + 1,)
+            Augmented point [x || prediction_value] in cluster space.
+        
+        Returns
+        -------
+        int
+            Index of nearest cluster center.
+        """
+        distances = self._compute_distances(self._cluster_centers, point_augmented)
+        return int(np.argmin(distances))
+
+    def _compute_single_nonconformity_score(self, x_augmented, mu_center, cluster_idx):
+        """Compute nonconformity score for a single instance using selected metric.
+
+        Parameters
+        ----------
+        x_augmented : np.ndarray, shape (n_features + 1,)
+            Augmented point [x || calibrated_prediction] in cluster space.
+        mu_center : np.ndarray, shape (n_features + 1,)
+            Center (mean) of the nearest cluster in augmented space.
+        cluster_idx : int
+            Index of the nearest cluster.
+
+        Returns
+        -------
+        float
+            Nonconformity score (distance from point to cluster center).
+
+        Raises
+        ------
+        ValueError
+            If metric is not recognized or computation fails with enforcement enabled.
+        """
+        if self._nonconformity_metric == "euclidean":
+            return float(np.linalg.norm(x_augmented - mu_center))
+
+        elif self._nonconformity_metric == "mahalanobis":
+            cov = self._cluster_covs[cluster_idx]
+            try:
+                cov_reg = cov + 1e-6 * np.eye(cov.shape[0])
+                cov_inv = pinvh(cov_reg)
+                mahal_dist = np.sqrt(
+                    np.dot(
+                        (x_augmented - mu_center),
+                        np.dot(cov_inv, (x_augmented - mu_center).T),
+                    )
+                )
+                return float(mahal_dist)
+            except (ValueError, np.linalg.LinAlgError) as exc:
+                if self.enforcement:
+                    raise
+                logger.debug("Mahalanobis fallback to Euclidean: %s", exc)
+                return float(np.linalg.norm(x_augmented - mu_center))
+
+        elif self._nonconformity_metric == "cosine":
+            try:
+                norm_aug = np.linalg.norm(x_augmented)
+                norm_center = np.linalg.norm(mu_center)
+                if norm_aug == 0 or norm_center == 0:
+                    if self.enforcement:
+                        raise ZeroDivisionError("Zero norm encountered in cosine distance")
+                    logger.debug("Cosine fallback to Euclidean due to zero norm")
+                    return float(np.linalg.norm(x_augmented - mu_center))
+                cosine_sim = np.dot(x_augmented, mu_center) / (norm_aug * norm_center)
+                # Clamp to [-1, 1] to handle numerical errors
+                cosine_sim = np.clip(cosine_sim, -1.0, 1.0)
+                return float(1.0 - cosine_sim)
+            except (ValueError, ZeroDivisionError) as exc:
+                if self.enforcement:
+                    raise
+                logger.debug("Cosine fallback to Euclidean: %s", exc)
+                return float(np.linalg.norm(x_augmented - mu_center))
+
+        else:
+            raise ValueError(
+                f"Unknown nonconformity_metric: {self._nonconformity_metric}. "
+                f"Supported metrics: euclidean, mahalanobis, cosine"
+            )
+
     def _compute_nonconformity_scores(self, x_arr, calibrated_predictions):
         """Compute nonconformity scores for instances in augmented feature space.
 
@@ -996,7 +1105,7 @@ class ConformalRegionOracle:
         Returns
         -------
         np.ndarray, shape (n_samples,)
-            Nonconformity scores (Mahalanobis distances in augmented space).
+            Nonconformity scores using the selected distance metric.
         """
         scores = []
         for idx, x_point in enumerate(x_arr):
@@ -1005,30 +1114,15 @@ class ConformalRegionOracle:
             # Augment feature space: [x || calibrated_prediction]
             x_augmented = np.concatenate([x_point, [pred_value]])
 
-            # Find nearest cluster in augmented space
-            distances = np.linalg.norm(self._cluster_centers - x_augmented, axis=1)
-            nearest_idx = np.argmin(distances)
+            # Find nearest cluster in augmented space (always Euclidean)
+            nearest_idx = self._find_nearest_cluster(x_augmented)
 
-            # Mahalanobis distance to nearest cluster in augmented space
+            # Nonconformity distance using selected metric
             mu_center = self._cluster_centers[nearest_idx]
-            cov = self._cluster_covs[nearest_idx]
-
-            try:
-                cov_reg = cov + 1e-6 * np.eye(cov.shape[0])
-                cov_inv = pinvh(cov_reg)
-                mahal_dist = np.sqrt(
-                    np.dot(
-                        (x_augmented - mu_center),
-                        np.dot(cov_inv, (x_augmented - mu_center).T),
-                    )
-                )
-            except Exception as exc:  # pylint: disable=broad-except
-                if self.enforcement:
-                    raise
-                logger.debug("Mahalanobis fallback to Euclidean: %s", exc)
-                mahal_dist = np.linalg.norm(x_point - mu_center)
-
-            scores.append(mahal_dist)
+            score = self._compute_single_nonconformity_score(
+                x_augmented, mu_center, nearest_idx
+            )
+            scores.append(score)
 
         return np.array(scores)
 

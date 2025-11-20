@@ -244,3 +244,65 @@ class TestGuardPluginIntegration:
 __all__ = [
     "TestGuardPluginIntegration",
 ]
+
+
+class TestConformalRegionOracleMetrics:
+    """Unit tests for ConformalRegionOracle distance metric handling.
+
+    These tests focus on the nonconformity_metric configuration and
+    basic behavioral differences between supported metrics.
+    """
+
+    def test_should_raise_when_nonconformity_metric_invalid(self):
+        """Constructor should validate nonconformity_metric choices.
+
+        Guardrails: invalid metric names must fail fast with ValueError.
+        """
+
+        with pytest.raises(ValueError):
+            ConformalRegionOracle(nonconformity_metric="invalid-metric")
+
+    def test_should_support_euclidean_mahalanobis_and_cosine_metrics(self):
+        """Smoke-test nonconformity scores for all supported metrics.
+
+        The goal is not to assert exact values but to ensure
+        that score computation runs without crashing and that
+        different metrics can produce different scores for the
+        same inputs.
+        """
+
+        x = np.array([[0.0, 0.0], [1.0, 0.0]], dtype=float)
+        preds = np.array([0.0, 1.0], dtype=float)
+
+        # Shared dummy state
+        cluster_centers = np.array([[0.0, 0.0, 0.0]], dtype=float)
+        cov_identity = np.eye(3, dtype=float)
+
+        def make_oracle(metric: str) -> ConformalRegionOracle:
+            oracle = ConformalRegionOracle(nonconformity_metric=metric)
+            oracle._fitted = True
+            oracle._cluster_centers = cluster_centers
+            oracle._cluster_covs = [cov_identity]
+            return oracle
+
+        oracle_euclidean = make_oracle("euclidean")
+        oracle_mahalanobis = make_oracle("mahalanobis")
+        oracle_cosine = make_oracle("cosine")
+
+        scores_euclidean = oracle_euclidean._compute_nonconformity_scores(x, preds)
+        scores_mahalanobis = oracle_mahalanobis._compute_nonconformity_scores(x, preds)
+        scores_cosine = oracle_cosine._compute_nonconformity_scores(x, preds)
+
+        # All metrics should return finite scores with the expected shape
+        assert scores_euclidean.shape == (2,)
+        assert scores_mahalanobis.shape == (2,)
+        assert scores_cosine.shape == (2,)
+
+        assert np.all(np.isfinite(scores_euclidean))
+        assert np.all(np.isfinite(scores_mahalanobis))
+        assert np.all(np.isfinite(scores_cosine))
+
+        # At least one metric should differ from another to confirm
+        # that switching metrics has an effect on scoring.
+        assert not np.allclose(scores_euclidean, scores_mahalanobis)
+        assert not np.allclose(scores_euclidean, scores_cosine)
