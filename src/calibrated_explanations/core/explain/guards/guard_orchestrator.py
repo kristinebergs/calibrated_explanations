@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import replace
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Sequence, Tuple
+from typing import TYPE_CHECKING, Any, Dict, Mapping, Optional, Tuple
 
 import numpy as np
 
@@ -46,10 +46,10 @@ class GuardOrchestrator:
         self._guard_plugin = guard_plugin
         self._context: Optional[GuardContext] = None
         self.metrics: Dict[str, int] = {
-            "accept_calls": 0,
-            "accept_rejections": 0,
-            "filtered_perturbations": 0,
-            "filtered_candidates": 0,
+            "accepted_perturbations": 0,
+            "accepted_candidates": 0,
+            "rejected_perturbations": 0,
+            "rejected_candidates": 0,
         }
 
     def initialize(self, context: GuardContext) -> None:
@@ -114,21 +114,22 @@ class GuardOrchestrator:
 
         Returns
         -------
-        perturbed_x_filtered : ndarray
-            Filtered perturbed instances.
-        perturbed_feature_filtered : ndarray
+        accepted_x : ndarray
+            Accepted perturbed instances.
+        accepted_feature : ndarray
             Corresponding metadata rows.
         """
         if self._guard_plugin is None or len(perturbed_x) == 0:
             return perturbed_x, perturbed_feature
 
         try:
-            filtered_x, filtered_feature = self._guard_plugin.filter_perturbations(
+            accepted_x, accepted_feature = self._guard_plugin.filter_perturbations(
                 perturbed_x, perturbed_feature, x_orig, prediction
             )
-            n_rejected = len(perturbed_x) - len(filtered_x)
-            self.metrics["filtered_perturbations"] += n_rejected
-            return filtered_x, filtered_feature
+            n_rejected = len(perturbed_x) - len(accepted_x)
+            self.metrics["accepted_perturbations"] += len(accepted_x)
+            self.metrics["rejected_perturbations"] += n_rejected
+            return accepted_x, accepted_feature
         except Exception as exc:  # pragma: no cover
             logger.error("Guard perturbation filtering failed: %s", exc)
             raise
@@ -155,79 +156,27 @@ class GuardOrchestrator:
 
         Returns
         -------
-        filtered_candidates : ndarray
-            Filtered candidate values.
+        accepted : ndarray
+            Accepted candidate values.
         """
         if self._guard_plugin is None:
             return candidates
 
         try:
-            filtered = self._guard_plugin.filter_candidates(
+            accepted = self._guard_plugin.filter_candidates(
                 feature_index, candidates, x_orig, calibrated_pred
             )
-            n_rejected = len(candidates) - len(filtered)
-            self.metrics["filtered_candidates"] += n_rejected
-            return filtered
+            n_rejected = len(candidates) - len(accepted)
+            self.metrics["accepted_candidates"] += len(accepted)
+            self.metrics["rejected_candidates"] += n_rejected
+            return accepted
         except Exception as exc:  # pragma: no cover
             logger.error("Guard candidate filtering failed: %s", exc)
-            raise
-
-    def accept_batch(
-        self,
-        x_batch: np.ndarray,
-        calibrated_predictions: Optional[Sequence[Optional[Tuple]]] = None,
-    ) -> np.ndarray:
-        """Batch acceptance check using guard plugin.
-
-        Parameters
-        ----------
-        x_batch : ndarray
-            Batch of instances to check.
-        calibrated_predictions : Sequence, optional
-            Per-instance calibrated predictions.
-
-        Returns
-        -------
-        mask : ndarray of bool
-            True for accepted instances.
-        """
-        if self._guard_plugin is None:
-            return np.ones(len(x_batch), dtype=bool)
-
-        try:
-            mask = self._guard_plugin.accept_batch(x_batch, calibrated_predictions)
-            n_rejected = int(np.count_nonzero(~mask))
-            self.metrics["accept_calls"] += len(mask)
-            self.metrics["accept_rejections"] += n_rejected
-            return mask
-        except Exception as exc:  # pragma: no cover
-            logger.error("Guard accept_batch failed: %s", exc)
             raise
 
     def get_metrics(self) -> Dict[str, int]:
         """Return guard filtering metrics."""
         return dict(self.metrics)
-
-    def accept(
-        self,
-        x_instance: np.ndarray,
-        calibrated_prediction: Optional[Tuple[float, Tuple[float, float]]] = None,
-    ) -> bool:
-        """Backward-compatible single-instance accept helper."""
-        if self._guard_plugin is None:
-            return True
-
-        batch = np.asarray(x_instance)
-        if batch.ndim == 1:
-            batch = batch.reshape(1, -1)
-        elif batch.ndim == 0:
-            batch = batch.reshape(1, 1)
-        predictions: Optional[Sequence[Optional[Tuple]]] = None
-        if calibrated_prediction is not None:
-            predictions = [calibrated_prediction]
-
-        result = self.accept_batch(batch, predictions)
-        return bool(result[0]) if len(result) else True
 
     def fit_guard(self, guard_params: Optional[Mapping[str, Any]] = None) -> None:
         """Re-fit the guard plugin with updated metadata parameters."""

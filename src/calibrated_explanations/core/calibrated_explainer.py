@@ -780,6 +780,29 @@ class CalibratedExplainer:
         return dict(self._last_telemetry)
 
     @property
+    def guard_enabled(self) -> bool:
+        """Return True if the guard is enabled."""
+        return bool(self._require_plugin_manager()._guard_params)
+
+    @property
+    def guard(self) -> Any:
+        """Return the guard oracle instance if available."""
+        orchestrator = self._require_plugin_manager().guard_orchestrator
+        if orchestrator is not None:
+            plugin = orchestrator.get_plugin()
+            if plugin is not None and hasattr(plugin, '_guard'):
+                return plugin._guard
+        return None
+
+    @property
+    def guard_metrics(self) -> Dict[str, int] | None:
+        """Return the guard metrics if available."""
+        orchestrator = self._require_plugin_manager().guard_orchestrator
+        if orchestrator is not None:
+            return orchestrator.metrics
+        return None
+
+    @property
     def preprocessor_metadata(self) -> Dict[str, Any] | None:
         """Return the telemetry-safe preprocessing snapshot if available."""
         if self._preprocessor_metadata is None:
