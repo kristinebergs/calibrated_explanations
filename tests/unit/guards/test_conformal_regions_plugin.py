@@ -128,6 +128,41 @@ class TestPluginInitialize:
             assert plugin._context == sample_context
             assert plugin._guard_params == {"alpha": 0.9, "n_clusters": 5}
 
+    def test_should_use_training_data_from_guard_params(self, plugin, sample_context):
+        """Verify plugin uses x_train and y_train from guard_params if provided."""
+        import numpy as np
+
+        # Create mock training data
+        x_train = np.array([[1, 2], [3, 4]])
+        y_train = np.array([0, 1])
+
+        # Add guard_params with training data
+        sample_context.metadata["guard_params"] = {
+            "alpha": 0.9,
+            "n_clusters": 5,
+            "x_train": x_train,
+            "y_train": y_train,
+        }
+
+        with patch(
+            "calibrated_explanations.core.explain.guards.conformal_regions_plugin."
+            "ConformalRegionOracle"
+        ) as mock_oracle:
+            mock_guard = MagicMock()
+            mock_oracle.return_value = mock_guard
+
+            plugin.initialize(sample_context)
+
+            # Verify guard was created and fitted with provided training data
+            assert mock_oracle.called
+            mock_guard.fit.assert_called_once()
+            # Check that fit was called with x_train, y_train, and interval_learner
+            args, kwargs = mock_guard.fit.call_args
+            assert np.array_equal(args[0], x_train)  # x
+            assert np.array_equal(args[1], y_train)  # y
+            assert "interval_learner" in kwargs
+            assert plugin._guard_params == {"alpha": 0.9, "n_clusters": 5}
+
     def test_should_log_info_when_no_params_provided(self, plugin, sample_context, caplog):
         """Verify plugin logs info when no guard_params in context."""
         with caplog.at_level(logging.INFO):

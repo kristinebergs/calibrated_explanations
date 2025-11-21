@@ -71,14 +71,22 @@ class ConformalRegionsGuardPlugin(GuardPlugin):
     def initialize(self, context: GuardContext) -> None:
         """Initialize the guard with explainer context.
 
-        Creates and fits the ConformalRegionOracle using calibration data
-        from the provided context.
+        Creates and fits the ConformalRegionOracle using training and calibration data.
+        Training data can be provided via guard_params["x_train"] and guard_params["y_train"].
+        If not provided, uses context.x_cal and context.y_cal as training data.
+        Calibration data can be overridden via guard_params["x_cal"] and guard_params["y_cal"].
         """
         self._context = context
 
         # Extract guard parameters from context metadata
         guard_params = context.metadata.get("guard_params", {})
         params_copy = dict(guard_params) if guard_params else {}
+
+        # Extract training and calibration data from params if provided
+        x_train = params_copy.pop("x_train", None)
+        y_train = params_copy.pop("y_train", None)
+        x_cal = params_copy.pop("x_cal", None)
+        y_cal = params_copy.pop("y_cal", None)
 
         # Default to False for plugin
         enforcement = bool(params_copy.pop("enforcement", False))
@@ -96,11 +104,19 @@ class ConformalRegionsGuardPlugin(GuardPlugin):
 
             guard = ConformalRegionOracle(**self._guard_params, enforcement=self._enforcement)
 
-            # Fit using context calibration data and wrapped interval learner
+            # Use provided training data or fall back to context calibration data
+            fit_x = x_train if x_train is not None else context.x_cal
+            fit_y = y_train if y_train is not None else context.y_cal
+            fit_x_cal = x_cal if x_cal is not None else None
+            fit_y_cal = y_cal if y_cal is not None else None
+
+            # Fit using training data and wrapped interval learner
             guard.fit(
-                context.x_cal,
-                context.y_cal,
+                fit_x,
+                fit_y,
                 interval_learner=wrapped_learner,
+                x_cal=fit_x_cal,
+                y_cal=fit_y_cal,
             )
 
             self._guard = guard
