@@ -489,6 +489,7 @@ def test_interval_requires_idx_and_two_sided(tmp_path):
 
 
 def test_plot_global_threshold_requires_scalar():
+    import warnings
     class _NonProbExplainer:
         def __init__(self):
             self.learner = object()
@@ -510,14 +511,16 @@ def test_plot_global_threshold_requires_scalar():
     x = np.zeros((3, 1))
     y = np.array([0.1, 0.2, 0.3])
 
-    with pytest.raises(AssertionError):
-        plotting._plot_global(
-            explainer,
-            x,
-            y=y,
-            threshold=(0.2, 0.5),
-            show=False,
-        )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        with pytest.raises(AssertionError):
+            plotting._plot_global(
+                explainer,
+                x,
+                y=y,
+                threshold=(0.2, 0.5),
+                show=False,
+            )
 
 
 def test_regression_interval_one_sided_error(tmp_path):
@@ -866,6 +869,7 @@ def test_plot_global_headless_short_circuit(monkeypatch):
 
 
 def test_plot_global_requires_scalar_threshold_for_predict_only(disable_show):
+    import warnings
     class _PredictOnlyExplainer:
         def __init__(self):
             self.learner = types.SimpleNamespace()
@@ -888,14 +892,16 @@ def test_plot_global_requires_scalar_threshold_for_predict_only(disable_show):
     x = np.zeros((3, 1))
     y = np.array([0.1, 0.2, 0.3])
 
-    with pytest.raises(AssertionError):
-        plotting._plot_global(
-            explainer,
-            x,
-            y=y,
-            threshold=(0.2, 0.4),
-            show=False,
-        )
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        with pytest.raises(AssertionError):
+            plotting._plot_global(
+                explainer,
+                x,
+                y=y,
+                threshold=(0.2, 0.4),
+                show=False,
+            )
 
 
 def test_plot_proba_triangle_helper():

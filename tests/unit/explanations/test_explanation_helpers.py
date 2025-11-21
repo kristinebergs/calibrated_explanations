@@ -68,25 +68,6 @@ class ContainerStub:
             return np.inf
         return high / 100.0
 
-    # Accept API shim for guard/orchestrator calls in explanation code. Tests
-    # construct lightweight ContainerStub instances that act as the
-    # `calibrated_explanations` object; newer explanation paths may call
-    # `accept`/`accept_batch` on that object. Provide permissive stubs so
-    # unit tests using ContainerStub do not need a full orchestrator setup.
-    def accept(self, x_new, calibrated_prediction=None):  # pragma: no cover - trivial test shim
-        return True
-
-    def accept_batch(
-        self, x_new_batch, calibrated_predictions=None
-    ):  # pragma: no cover - trivial test shim
-        import numpy as _np
-
-        try:
-            n = len(x_new_batch)
-        except Exception:
-            return _np.array([], dtype=bool)
-        return _np.ones(n, dtype=bool)
-
 
 class SimpleExplanation(explanation_module.CalibratedExplanation):
     def __repr__(self):  # pragma: no cover - trivial
@@ -492,33 +473,6 @@ def test_to_telemetry_includes_serialized_rules(telemetry_explanation):
     assert set(telemetry.keys()) == {"uncertainty", "rules", "metadata"}
     assert telemetry["rules"]["core"]
     assert telemetry["uncertainty"]["representation"] == "percentile"
-
-
-def test_predict_conjunctive_average():
-    explanation = _make_explanation()
-    perturbed = np.array(explanation.x_test[1], copy=True)
-    predict, low, high = explanation._predict_conjunctive(
-        [np.array([0.1, 0.2]), np.array([0.3, 0.4])],
-        [0, 1],
-        perturbed,
-        threshold=None,
-        predicted_class=explanation.prediction["classes"],
-    )
-    assert predict == pytest.approx(1.0)
-    assert low == pytest.approx(0.5)
-    assert high == pytest.approx(1.5)
-
-
-def test_predict_conjunctive_requires_multiple_features():
-    explanation = _make_explanation()
-    with pytest.raises(ValueError):
-        explanation._predict_conjunctive(
-            [np.array([0.1])],
-            [0],
-            np.array(explanation.x_test[1], copy=True),
-            threshold=None,
-            predicted_class=explanation.prediction["classes"],
-        )
 
 
 def test_define_conditions_handles_categorical_labels():

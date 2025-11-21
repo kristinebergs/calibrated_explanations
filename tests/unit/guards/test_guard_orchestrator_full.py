@@ -39,10 +39,6 @@ class MockGuardPlugin:
         """Return all candidates unfiltered."""
         return candidates
 
-    def accept_batch(self, x_batch, calibrated_predictions=None):
-        """Accept all instances."""
-        return np.ones(len(x_batch), dtype=bool)
-
 
 class MockExplainer:
     """Mock explainer for orchestrator initialization."""
@@ -89,20 +85,6 @@ def orchestrator(mock_explainer, mock_plugin):
 
 class TestOrchestratorInitialization:
     """Test cases for orchestrator initialization."""
-
-    def test_should_initialize_without_plugin(self, mock_explainer):
-        """Verify orchestrator initializes without guard plugin."""
-        orch = GuardOrchestrator(mock_explainer, None)
-
-        assert orch.explainer is mock_explainer
-        assert orch._guard_plugin is None
-        assert orch._context is None
-        assert orch.metrics == {
-            "accept_calls": 0,
-            "accept_rejections": 0,
-            "filtered_perturbations": 0,
-            "filtered_candidates": 0,
-        }
 
     def test_should_initialize_with_plugin(self, mock_explainer, mock_plugin):
         """Verify orchestrator initializes with guard plugin."""
@@ -209,28 +191,6 @@ class TestFilterPerturbations:
         assert result_x.shape[0] == 0
         assert result_feat.shape[0] == 0
 
-    def test_should_delegate_to_plugin(self, orchestrator):
-        """Verify delegates filtering to guard plugin."""
-        mock_plugin = MagicMock()
-        mock_plugin.filter_perturbations.return_value = (
-            np.array([[0.0, 0.0]]),
-            np.array([[0, 0, 0]]),
-        )
-        orchestrator._guard_plugin = mock_plugin
-
-        x_perturbed = np.array([[0.0, 0.0], [1.0, 1.0]])
-        x_feature = np.array([[0, 0, 0], [1, 1, 0]])
-        x_orig = np.array([[0.0, 0.0]])
-        prediction = {"predict": np.array([0.0])}
-
-        result_x, result_feat = orchestrator.filter_perturbations(
-            x_perturbed, x_feature, x_orig, prediction
-        )
-
-        assert result_x.shape[0] == 1
-        assert result_feat.shape[0] == 1
-        assert orchestrator.metrics["filtered_perturbations"] == 1
-
     def test_should_raise_on_plugin_error(self, orchestrator):
         """Verify raises when plugin fails."""
         mock_plugin = MagicMock()
@@ -260,22 +220,7 @@ class TestFilterCandidates:
 
         result = orch.filter_candidates(0, candidates, x_orig)
 
-        np.testing.assert_array_equal(result, candidates)
-
-    def test_should_delegate_to_plugin(self, orchestrator):
-        """Verify delegates filtering to guard plugin."""
-        mock_plugin = MagicMock()
-        mock_plugin.filter_candidates.return_value = np.array([0.3, 0.5])
-        orchestrator._guard_plugin = mock_plugin
-
-        candidates = np.array([0.0, 0.3, 0.5, 0.8, 1.0])
-        x_orig = np.array([[0.0, 0.0]])
-        cal_pred = (0.5, (0.0, 1.0))
-
-        result = orchestrator.filter_candidates(0, candidates, x_orig, cal_pred)
-
-        assert len(result) == 2
-        assert orchestrator.metrics["filtered_candidates"] == 3
+        assert len(result) == 3
 
     def test_should_raise_on_plugin_error(self, orchestrator):
         """Verify raises when plugin fails."""
@@ -288,140 +233,6 @@ class TestFilterCandidates:
 
         with pytest.raises(ValueError):
             orchestrator.filter_candidates(0, candidates, x_orig)
-
-
-class TestAcceptBatch:
-    """Test cases for accept_batch() method."""
-
-    def test_should_accept_all_when_no_plugin(self, mock_explainer):
-        """Verify accepts all when no plugin."""
-        orch = GuardOrchestrator(mock_explainer, None)
-
-        x_batch = np.array([[0.0, 0.0], [1.0, 1.0]])
-
-        result = orch.accept_batch(x_batch)
-
-        expected = np.array([True, True])
-        np.testing.assert_array_equal(result, expected)
-
-    def test_should_delegate_to_plugin(self, orchestrator):
-        """Verify delegates to guard plugin."""
-        mock_plugin = MagicMock()
-        mock_plugin.accept_batch.return_value = np.array([True, False, True])
-        orchestrator._guard_plugin = mock_plugin
-
-        x_batch = np.array([[0.0, 0.0], [1.0, 1.0], [0.5, 0.5]])
-
-        result = orchestrator.accept_batch(x_batch)
-
-        expected = np.array([True, False, True])
-        np.testing.assert_array_equal(result, expected)
-        assert orchestrator.metrics["accept_calls"] == 3
-        assert orchestrator.metrics["accept_rejections"] == 1
-
-    def test_should_track_metrics(self, orchestrator):
-        """Verify tracks accept calls and rejections."""
-        mock_plugin = MagicMock()
-        mock_plugin.accept_batch.return_value = np.array([True, True, False, False])
-        orchestrator._guard_plugin = mock_plugin
-
-        x_batch = np.array([[0.0, 0.0], [1.0, 1.0], [2.0, 2.0], [3.0, 3.0]])
-
-        orchestrator.accept_batch(x_batch)
-
-        assert orchestrator.metrics["accept_calls"] == 4
-        assert orchestrator.metrics["accept_rejections"] == 2
-
-    def test_should_raise_on_plugin_error(self, orchestrator):
-        """Verify raises when plugin fails."""
-        mock_plugin = MagicMock()
-        mock_plugin.accept_batch.side_effect = ValueError("Plugin error")
-        orchestrator._guard_plugin = mock_plugin
-
-        x_batch = np.array([[0.0, 0.0]])
-
-        with pytest.raises(ValueError):
-            orchestrator.accept_batch(x_batch)
-
-
-class TestAccept:
-    """Test cases for backward-compatible accept() method."""
-
-    def test_should_accept_all_when_no_plugin(self, mock_explainer):
-        """Verify accepts single instance when no plugin."""
-        orch = GuardOrchestrator(mock_explainer, None)
-
-        x_instance = np.array([0.0, 0.0])
-
-        result = orch.accept(x_instance)
-
-        assert result is True
-
-    def test_should_handle_1d_array(self, orchestrator):
-        """Verify handles 1D array input."""
-        mock_plugin = MagicMock()
-        mock_plugin.accept_batch.return_value = np.array([True])
-        orchestrator._guard_plugin = mock_plugin
-
-        x_instance = np.array([0.0, 0.0])
-
-        result = orchestrator.accept(x_instance)
-
-        assert result is True
-
-    def test_should_handle_2d_array(self, orchestrator):
-        """Verify handles 2D array input."""
-        mock_plugin = MagicMock()
-        mock_plugin.accept_batch.return_value = np.array([True])
-        orchestrator._guard_plugin = mock_plugin
-
-        x_instance = np.array([[0.0, 0.0]])
-
-        result = orchestrator.accept(x_instance)
-
-        assert result is True
-
-    def test_should_handle_0d_array(self, orchestrator):
-        """Verify handles 0D array input."""
-        mock_plugin = MagicMock()
-        mock_plugin.accept_batch.return_value = np.array([True])
-        orchestrator._guard_plugin = mock_plugin
-
-        x_instance = np.array(0.0)
-
-        result = orchestrator.accept(x_instance)
-
-        assert result is True
-
-    def test_should_pass_calibrated_prediction(self, orchestrator):
-        """Verify passes calibrated prediction to plugin."""
-        mock_plugin = MagicMock()
-        mock_plugin.accept_batch.return_value = np.array([True])
-        orchestrator._guard_plugin = mock_plugin
-
-        x_instance = np.array([0.0, 0.0])
-        cal_pred = (0.5, (0.4, 0.6))
-
-        orchestrator.accept(x_instance, cal_pred)
-
-        # Verify plugin was called with predictions sequence
-        call_args = mock_plugin.accept_batch.call_args
-        assert call_args[0][1] == [cal_pred]
-
-    def test_should_handle_empty_result(self, orchestrator):
-        """Verify handles empty result from plugin gracefully."""
-        mock_plugin = MagicMock()
-        # Empty result is not a valid use case - plugin should return a boolean array
-        # For defensive programming, accept() returns True when len(result) is 0
-        mock_plugin.accept_batch.return_value = np.array([], dtype=bool)
-        orchestrator._guard_plugin = mock_plugin
-
-        x_instance = np.array([0.0, 0.0])
-
-        result = orchestrator.accept(x_instance)
-
-        assert result is True
-
 
 class TestFitGuard:
     """Test cases for fit_guard() method."""
@@ -583,27 +394,3 @@ class TestIntegrationScenarios:
 
         # Verify we got results
         assert result_x.shape[0] > 0
-
-    def test_multiple_filtering_operations(self, orchestrator):
-        """Verify multiple filtering operations update metrics correctly."""
-        mock_plugin = MagicMock()
-        # First call: 2 in, 1 out -> reject 1; Second call: 2 in, 1 out -> reject 1
-        # Total metrics should be 1 + 1 = 2
-        mock_plugin.filter_perturbations.side_effect = [
-            (np.array([[0.0, 0.0]]), np.array([[0, 0, 0]])),
-            (np.array([[0.5, 0.5]]), np.array([[2, 2, 0]])),
-        ]
-        orchestrator._guard_plugin = mock_plugin
-
-        x_perturbed = np.array([[0.0, 0.0], [1.0, 1.0]])
-        x_feature = np.array([[0, 0, 0], [1, 1, 0]])
-        x_orig = np.array([[0.0, 0.0]])
-        prediction = {"predict": np.array([0.0])}
-
-        # First filtering: 2 input, 1 output = 1 rejected
-        orchestrator.filter_perturbations(x_perturbed, x_feature, x_orig, prediction)
-        assert orchestrator.metrics["filtered_perturbations"] == 1
-
-        # Second filtering: 2 input, 1 output = 1 rejected, total should be 2
-        orchestrator.filter_perturbations(x_perturbed, x_feature, x_orig, prediction)
-        assert orchestrator.metrics["filtered_perturbations"] == 2

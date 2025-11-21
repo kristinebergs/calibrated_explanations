@@ -253,6 +253,26 @@ class IntervalRegressor:
             None,
         )
 
+    def predict_interval(self, x, low_high_percentiles=(5, 95), bins=None):
+        """Predict intervals for regression using conformal predictive systems.
+
+        Parameters
+        ----------
+        x : array-like
+            Input data for prediction.
+        low_high_percentiles : tuple, default=(5, 95)
+            Lower and upper percentiles for the prediction interval.
+        bins : array-like, default=None
+            Mondrian categories.
+
+        Returns
+        -------
+        tuple
+            (predictions, (lower_bounds, upper_bounds))
+        """
+        median, lower, upper, _ = self.predict_uncertainty(x, low_high_percentiles, bins)
+        return median, (lower, upper)
+
     def predict_proba(self, x, bins=None):
         """Predict the probabilities for being below the y_threshold (for float threshold) or below the lower bound and above the upper bound (for tuple threshold).
 

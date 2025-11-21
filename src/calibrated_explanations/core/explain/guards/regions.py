@@ -387,8 +387,10 @@ class ConformalRegionOracle:
         # radii for new alpha values without a full refit.
         try:
             # Augment x_cal with predictions to match cluster_centers dimensionality
-            preds_cal_arr = np.asarray(preds_cal, dtype=float).ravel()
-            x_cal_augmented = np.column_stack([x_cal, preds_cal_arr])
+            x_cal_augmented = np.array([
+                np.concatenate([x_cal[i], preds_cal[i].ravel()])
+                for i in range(len(x_cal))
+            ])
             x_cal_augmented = np.asarray(x_cal_augmented, dtype=float)
             dists = np.linalg.norm(
                 x_cal_augmented[:, None, :] - self._cluster_centers[None, :, :], axis=2

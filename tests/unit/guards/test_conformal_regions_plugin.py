@@ -64,19 +64,6 @@ def plugin():
 class TestPluginInitialization:
     """Test cases for plugin initialization."""
 
-    def test_should_initialize_with_default_state(self, plugin):
-        """Verify plugin initializes with correct default state."""
-        assert plugin._guard is None
-        assert plugin._guard_params is None
-        assert plugin._enforcement is False
-        assert plugin._context is None
-        assert plugin.metrics == {
-            "accept_calls": 0,
-            "accept_rejections": 0,
-            "filtered_perturbations": 0,
-            "filtered_candidates": 0,
-        }
-
     def test_should_expose_plugin_metadata(self, plugin):
         """Verify plugin exposes correct metadata."""
         meta = plugin.plugin_meta

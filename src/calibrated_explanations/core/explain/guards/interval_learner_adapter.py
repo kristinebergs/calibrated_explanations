@@ -45,16 +45,17 @@ class IntervalLearnerAdapter:
             If uq_interval=False: List of (lower, upper) tuples
         """
         # Try to detect the learner type and call appropriate method
-        if hasattr(self._learner, "predict_proba"):
+        learner_type = str(type(self._learner))
+        if "VennAbers" in learner_type:
             # Classification: VennAbers
             return self._predict_classification(x_arr, uq_interval)
-        elif hasattr(self._learner, "predict") and not isinstance(self._learner, list):
-            # Regression: IntervalRegressor or similar
+        elif "IntervalRegressor" in learner_type:
+            # Regression: IntervalRegressor
             return self._predict_regression(x_arr, uq_interval)
         else:
             raise TypeError(
                 f"Unsupported interval learner type: {type(self._learner)}. "
-                "Expected object with predict_proba (classification) or predict (regression) method."
+                "Expected VennAbers (classification) or IntervalRegressor (regression)."
             )
 
     def _predict_classification(self, x_arr, uq_interval):
@@ -99,8 +100,8 @@ class IntervalLearnerAdapter:
     def _predict_regression(self, x_arr, uq_interval):
         """Adapt IntervalRegressor.predict() to uq_interval interface."""
         try:
-            # IntervalRegressor returns (predictions, (lower, upper)) or similar
-            result = self._learner.predict(x_arr)
+            # IntervalRegressor from crepes uses predict_interval
+            result = self._learner.predict_interval(x_arr)
 
             # Handle different return formats
             if isinstance(result, tuple) and len(result) == 2:
@@ -126,7 +127,9 @@ class IntervalLearnerAdapter:
                 # Legacy format: list of (lower, upper) tuples
                 return list(zip(lower, upper))
         except Exception as exc:
-            raise ValueError(f"IntervalRegressor.predict(x) failed: {exc}") from exc
+            raise ValueError(
+                f"IntervalRegressor.predict_interval(x) failed: {exc}"
+            ) from exc
 
     def __getattr__(self, name):
         """Delegate unknown attributes to wrapped learner."""

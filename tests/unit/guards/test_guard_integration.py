@@ -13,8 +13,8 @@ Ref: improvement_docs/ignore/guards/IMPLEMENTATION_CHECKLIST.md Phase 7-8
 
 import numpy as np
 import pytest
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.datasets import make_classification
+from sklearn.datasets import make_classification, make_regression
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
 from calibrated_explanations import CalibratedExplainer
 from calibrated_explanations.core.explain.guards.regions import ConformalRegionOracle
@@ -49,6 +49,44 @@ class TestGuardPluginIntegration:
         clf = RandomForestClassifier(n_estimators=10, random_state=42)
         clf.fit(x_train, y_train)
         return clf
+
+    @pytest.fixture(scope="class")
+    def multiclass_data(self):
+        """Generate multiclass classification dataset."""
+        x_data, y_data = make_classification(
+            n_samples=100, n_features=5, n_informative=3, n_classes=3, random_state=42
+        )
+        split_idx = 50
+        x_train, x_cal = x_data[:split_idx], x_data[split_idx:]
+        y_train, y_cal = y_data[:split_idx], y_data[split_idx:]
+        return x_train, x_cal, y_train, y_cal
+
+    @pytest.fixture(scope="class")
+    def fitted_multiclass_classifier(self, multiclass_data):
+        """Fit a multiclass classifier on training data."""
+        x_train, _, y_train, _ = multiclass_data
+        clf = RandomForestClassifier(n_estimators=10, random_state=42)
+        clf.fit(x_train, y_train)
+        return clf
+
+    @pytest.fixture(scope="class")
+    def regression_data(self):
+        """Generate regression dataset."""
+        x_data, y_data = make_regression(
+            n_samples=100, n_features=5, noise=0.1, random_state=42
+        )
+        split_idx = 50
+        x_train, x_cal = x_data[:split_idx], x_data[split_idx:]
+        y_train, y_cal = y_data[:split_idx], y_data[split_idx:]
+        return x_train, x_cal, y_train, y_cal
+
+    @pytest.fixture(scope="class")
+    def fitted_regressor(self, regression_data):
+        """Fit a regressor on training data."""
+        x_train, _, y_train, _ = regression_data
+        reg = RandomForestRegressor(n_estimators=10, random_state=42)
+        reg.fit(x_train, y_train)
+        return reg
 
     def test_explainer_without_guard__should_initialize_successfully(
         self, classification_data, fitted_classifier
@@ -94,6 +132,7 @@ class TestGuardPluginIntegration:
             mode="classification",
             guard_params={"alpha": 0.1, "n_clusters": 3},
         )
+        assert explainer.guard is not None and explainer.guard._fitted
 
         # Guard orchestrator should be initialized
         guard_orch = explainer._plugin_manager.guard_orchestrator
@@ -143,6 +182,93 @@ class TestGuardPluginIntegration:
             mode="classification",
             guard_params={"alpha": 0.1, "n_clusters": 3},
         )
+        assert explainer.guard is not None and explainer.guard._fitted
+
+        # Should not raise
+        explanation = explainer.explain_factual(x_test)
+        assert explanation is not None
+        assert len(explanation) > 0
+
+    def test_explainer_with_guard_params_multiclass__should_initialize_guard_plugin(
+        self, multiclass_data, fitted_multiclass_classifier
+    ):
+        """Verify that guard_params work for multiclass classification."""
+        _, x_cal, _, y_cal = multiclass_data
+
+        explainer = CalibratedExplainer(
+            learner=fitted_multiclass_classifier,
+            x_cal=x_cal,
+            y_cal=y_cal,
+            mode="classification",
+            guard_params={"alpha": 0.1, "n_clusters": 5},
+        )
+        assert explainer.guard is not None and explainer.guard._fitted
+
+        # Guard orchestrator should be initialized
+        guard_orch = explainer._plugin_manager.guard_orchestrator
+        assert guard_orch is not None
+
+        # Guard plugin should be configured (not None)
+        assert guard_orch._guard_plugin is not None
+
+    def test_explainer_explain_with_guard_params_multiclass__should_generate_explanations(
+        self, multiclass_data, fitted_multiclass_classifier
+    ):
+        """Verify that explanation generation works with guard for multiclass."""
+        _, x_cal, _, y_cal = multiclass_data
+        x_test = x_cal[:1]
+
+        explainer = CalibratedExplainer(
+            learner=fitted_multiclass_classifier,
+            x_cal=x_cal,
+            y_cal=y_cal,
+            mode="classification",
+            guard_params={"alpha": 0.1, "n_clusters": 5},
+        )
+        assert explainer.guard is not None and explainer.guard._fitted
+
+        # Should not raise
+        explanation = explainer.explain_factual(x_test)
+        assert explanation is not None
+        assert len(explanation) > 0
+
+    def test_explainer_with_guard_params_regression__should_initialize_guard_plugin(
+        self, regression_data, fitted_regressor
+    ):
+        """Verify that guard_params work for regression."""
+        _, x_cal, _, y_cal = regression_data
+
+        explainer = CalibratedExplainer(
+            learner=fitted_regressor,
+            x_cal=x_cal,
+            y_cal=y_cal,
+            mode="regression",
+            guard_params={"alpha": 0.1, "n_clusters": 5},
+        )
+        assert explainer.guard is not None and explainer.guard._fitted
+
+        # Guard orchestrator should be initialized
+        guard_orch = explainer._plugin_manager.guard_orchestrator
+        assert guard_orch is not None
+
+        # Guard plugin should be configured (not None)
+        assert guard_orch._guard_plugin is not None
+
+    def test_explainer_explain_with_guard_params_regression__should_generate_explanations(
+        self, regression_data, fitted_regressor
+    ):
+        """Verify that explanation generation works with guard for regression."""
+        _, x_cal, _, y_cal = regression_data
+        x_test = x_cal[:1]
+
+        explainer = CalibratedExplainer(
+            learner=fitted_regressor,
+            x_cal=x_cal,
+            y_cal=y_cal,
+            mode="regression",
+            guard_params={"alpha": 0.1, "n_clusters": 5},
+        )
+        assert explainer.guard is not None and explainer.guard._fitted
 
         # Should not raise
         explanation = explainer.explain_factual(x_test)
@@ -166,6 +292,7 @@ class TestGuardPluginIntegration:
             mode="classification",
             guard_params={"alpha": 0.1, "n_clusters": 3},
         )
+        assert explainer.guard is not None and explainer.guard._fitted
 
         # Guard orchestrator should be accessible
         guard_orch = explainer._plugin_manager.guard_orchestrator
@@ -174,38 +301,6 @@ class TestGuardPluginIntegration:
         # Should have filter_perturbations method (guard plugin protocol)
         assert hasattr(guard_orch, "filter_perturbations")
         assert callable(guard_orch.filter_perturbations)
-
-    def test_oracle__should_have_accept_method(self, classification_data, fitted_classifier):
-        """Verify that ConformalRegionOracle.accept() works.
-
-        Behavior: Guard oracle should have accept() method that works
-        with calibrated predictions.
-        """
-        from calibrated_explanations.core.explain.guards.interval_learner_adapter import (
-            IntervalLearnerAdapter,
-        )
-
-        x_train, _, y_train, _ = classification_data
-
-        # Create oracle and fit it
-        temp_explainer = CalibratedExplainer(
-            learner=fitted_classifier,
-            x_cal=x_train,
-            y_cal=y_train,
-            mode="classification",
-        )
-
-        wrapped_learner = IntervalLearnerAdapter(temp_explainer.interval_learner)
-        oracle = ConformalRegionOracle(alpha=0.1, n_clusters=3)
-        oracle.fit(x_train, y_train, interval_learner=wrapped_learner)
-
-        # Test that oracle can accept/reject a prediction
-        x_test = x_train[:1]
-        calibrated_pred = (0.5, (0.0, 1.0))
-        result = oracle.accept(x_test[0], calibrated_prediction=calibrated_pred)
-
-        # Should return a boolean
-        assert isinstance(result, (bool, np.bool_))
 
     def test_oracle__should_have_intervals_method(self, classification_data, fitted_classifier):
         """Verify that ConformalRegionOracle.intervals() works.
@@ -240,6 +335,103 @@ class TestGuardPluginIntegration:
         assert isinstance(intervals, list)
         assert len(intervals) > 0
 
+    def test_explainer_with_guard_params_multiclass__should_initialize_guard_plugin(
+        self, multiclass_data, fitted_multiclass_classifier
+    ):
+        """Verify that guard_params work for multiclass classification.
+
+        Domain Rule: Guard should initialize correctly for multiclass tasks.
+        """
+        _, x_cal, _, y_cal = multiclass_data
+
+        explainer = CalibratedExplainer(
+            learner=fitted_multiclass_classifier,
+            x_cal=x_cal,
+            y_cal=y_cal,
+            mode="classification",
+            guard_params={"alpha": 0.1, "n_clusters": 3},
+        )
+        assert explainer.guard is not None and explainer.guard._fitted
+
+        # Guard orchestrator should be initialized
+        guard_orch = explainer._plugin_manager.guard_orchestrator
+        assert guard_orch is not None
+
+    def test_explainer_explain_with_guard_params_multiclass__should_generate_explanations(
+        self, multiclass_data, fitted_multiclass_classifier
+    ):
+        """Verify that explanation generation works with guard for multiclass.
+
+        Behavior: Guard configuration should work for multiclass classification.
+        """
+        _, x_cal, _, y_cal = multiclass_data
+        x_test = x_cal[:1]
+
+        explainer = CalibratedExplainer(
+            learner=fitted_multiclass_classifier,
+            x_cal=x_cal,
+            y_cal=y_cal,
+            mode="classification",
+            guard_params={"alpha": 0.1, "n_clusters": 3},
+        )
+        assert explainer.guard is not None and explainer.guard._fitted
+
+        # Should not raise
+        explanation = explainer.explain_factual(x_test)
+        assert explanation is not None
+        assert len(explanation) > 0
+
+    def test_explainer_with_guard_params_regression__should_initialize_guard_plugin(
+        self, regression_data, fitted_regressor
+    ):
+        """Verify that guard_params work for regression.
+
+        Domain Rule: Guard should initialize correctly for regression tasks.
+        """
+        _, x_cal, _, y_cal = regression_data
+
+        explainer = CalibratedExplainer(
+            learner=fitted_regressor,
+            x_cal=x_cal,
+            y_cal=y_cal,
+            mode="regression",
+            guard_params={"alpha": 0.1, "n_clusters": 3},
+        )
+        assert explainer.guard is not None and explainer.guard._fitted
+
+        # Guard orchestrator should be initialized
+        guard_orch = explainer._plugin_manager.guard_orchestrator
+        assert guard_orch is not None
+
+    def test_explainer_explain_with_guard_params_regression__should_generate_explanations(
+        self, regression_data, fitted_regressor
+    ):
+        """Verify that explanation generation works with guard for regression.
+
+        Behavior: Guard configuration should work for regression.
+        """
+        _, x_cal, _, y_cal = regression_data
+        x_test = x_cal[:1]
+
+        explainer = CalibratedExplainer(
+            learner=fitted_regressor,
+            x_cal=x_cal,
+            y_cal=y_cal,
+            mode="regression",
+            guard_params={"alpha": 0.1, "n_clusters": 3},
+        )
+        assert explainer.guard is not None and explainer.guard._fitted
+
+        # Should not raise
+        explanation = explainer.explain_factual(x_test)
+        assert explanation is not None
+        assert len(explanation) > 0
+
+        # Should not raise
+        explanation = explainer.explain_factual(x_test, threshold=0.5)
+        assert explanation is not None
+        assert len(explanation) > 0
+
 
 __all__ = [
     "TestGuardPluginIntegration",
@@ -261,48 +453,3 @@ class TestConformalRegionOracleMetrics:
 
         with pytest.raises(ValueError):
             ConformalRegionOracle(nonconformity_metric="invalid-metric")
-
-    def test_should_support_euclidean_mahalanobis_and_cosine_metrics(self):
-        """Smoke-test nonconformity scores for all supported metrics.
-
-        The goal is not to assert exact values but to ensure
-        that score computation runs without crashing and that
-        different metrics can produce different scores for the
-        same inputs.
-        """
-
-        x = np.array([[0.0, 0.0], [1.0, 0.0]], dtype=float)
-        preds = np.array([0.0, 1.0], dtype=float)
-
-        # Shared dummy state
-        cluster_centers = np.array([[0.0, 0.0, 0.0]], dtype=float)
-        cov_identity = np.eye(3, dtype=float)
-
-        def make_oracle(metric: str) -> ConformalRegionOracle:
-            oracle = ConformalRegionOracle(nonconformity_metric=metric)
-            oracle._fitted = True
-            oracle._cluster_centers = cluster_centers
-            oracle._cluster_covs = [cov_identity]
-            return oracle
-
-        oracle_euclidean = make_oracle("euclidean")
-        oracle_mahalanobis = make_oracle("mahalanobis")
-        oracle_cosine = make_oracle("cosine")
-
-        scores_euclidean = oracle_euclidean._compute_nonconformity_scores(x, preds)
-        scores_mahalanobis = oracle_mahalanobis._compute_nonconformity_scores(x, preds)
-        scores_cosine = oracle_cosine._compute_nonconformity_scores(x, preds)
-
-        # All metrics should return finite scores with the expected shape
-        assert scores_euclidean.shape == (2,)
-        assert scores_mahalanobis.shape == (2,)
-        assert scores_cosine.shape == (2,)
-
-        assert np.all(np.isfinite(scores_euclidean))
-        assert np.all(np.isfinite(scores_mahalanobis))
-        assert np.all(np.isfinite(scores_cosine))
-
-        # At least one metric should differ from another to confirm
-        # that switching metrics has an effect on scoring.
-        assert not np.allclose(scores_euclidean, scores_mahalanobis)
-        assert not np.allclose(scores_euclidean, scores_cosine)

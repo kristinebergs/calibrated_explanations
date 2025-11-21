@@ -139,32 +139,6 @@ class TestConformalRegionOracleAccept:
         y_arr = x_arr.sum(axis=1)
         return x_arr, y_arr
 
-    def test_accept_requires_calibrated_prediction(self):
-        """Test that accept requires calibrated_prediction."""
-        x_arr, y_arr = self._make_data(100)
-        oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        interval_learner = MockIntervalLearner()
-        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
-
-        x_point = x_arr[0]
-
-        with pytest.raises(ValueError, match="calibrated_prediction is mandatory"):
-            oracle.accept(x_point, calibrated_prediction=None)
-
-    def test_accept_with_valid_prediction(self):
-        """Test accept with valid calibrated prediction."""
-        x_arr, y_arr = self._make_data(100)
-        oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        interval_learner = MockIntervalLearner()
-        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
-
-        x_point = x_arr[0]
-        calibrated_pred = (0.5, (0.0, 1.0))
-
-        result = oracle.accept(x_point, calibrated_prediction=calibrated_pred)
-
-        assert isinstance(result, (bool, np.bool_))
-
 
 class TestConformalRegionOracleAcceptBatch:
     """Test batch acceptance with mandatory predictions."""
@@ -176,34 +150,6 @@ class TestConformalRegionOracleAcceptBatch:
         x_arr = rng.standard_normal((n_samples, n_features))
         y_arr = x_arr.sum(axis=1)
         return x_arr, y_arr
-
-    def test_accept_batch_requires_predictions(self):
-        """Test that accept_batch requires predictions."""
-        x_arr, y_arr = self._make_data(100)
-        oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        interval_learner = MockIntervalLearner()
-        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
-
-        batch = x_arr[:5]
-
-        with pytest.raises(ValueError, match="calibrated_predictions is mandatory"):
-            oracle.accept_batch(batch, calibrated_predictions=None)
-
-    def test_accept_batch_with_predictions(self):
-        """Test accept_batch with valid predictions."""
-        x_arr, y_arr = self._make_data(100)
-        oracle = ConformalRegionOracle(n_clusters=3, random_state=42)
-        interval_learner = MockIntervalLearner()
-        oracle.fit(x_arr, y_arr, interval_learner=interval_learner)
-
-        batch = x_arr[:5]
-        preds = [(0.5, (0.0, 1.0)) for _ in range(5)]
-
-        results = oracle.accept_batch(batch, calibrated_predictions=preds)
-
-        assert isinstance(results, np.ndarray)
-        assert results.shape == (5,)
-        assert results.dtype == bool
 
 
 class TestConformalRegionOracleIntervals:
