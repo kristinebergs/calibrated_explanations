@@ -702,10 +702,10 @@ class CalibratedExplanation(ABC):
 
                         # Ask the public proxy on the collection to check
                         # acceptance. The proxy delegates to the frozen explainer
-                        # which in turn calls the underlying explainer's accept
-                        # wrapper when present. This keeps explanation code
+                        # which in turn calls the underlying explainer's guard
+                        # orchestrator when present. This keeps explanation code
                         # independent of internal representation.
-                        accepted = self.calibrated_explanations.accept(
+                        accepted = self.calibrated_explanations._check_perturbation_accepted(
                             perturbed_row[0],
                             (
                                 self.prediction.get("predict"),
@@ -739,7 +739,7 @@ class CalibratedExplanation(ABC):
                             perturbed_row[0, of3] = value_3
 
                             # Ask the collection proxy for acceptance.
-                            accepted = self.calibrated_explanations.accept(
+                            accepted = self.calibrated_explanations._check_perturbation_accepted(
                                 perturbed_row[0],
                                 (
                                     self.prediction.get("predict"),
@@ -895,6 +895,35 @@ class CalibratedExplanation(ABC):
                 perturbed_threshold = threshold
             else:
                 perturbed_threshold = np.concatenate((perturbed_threshold, threshold))
+
+        # Filter perturbed instances through the guard (if configured)
+        if len(perturbed_x) > 0:
+            plugin_manager = getattr(self._get_explainer(), '_plugin_manager', None)
+            if plugin_manager is not None:
+                guard_orchestrator = getattr(plugin_manager, 'guard_orchestrator', None)
+                if guard_orchestrator is not None:
+                    # Build prediction mapping for guard filtering
+                    guard_prediction = {
+                        "predict": np.array([self.prediction.get("predict")] * len(perturbed_x)),
+                        "low": np.array([self.prediction.get("low")] * len(perturbed_x)),
+                        "high": np.array([self.prediction.get("high")] * len(perturbed_x)),
+                    }
+                    x_orig_for_guard = np.atleast_2d(self.x_test)
+
+                    # Filter through guard - returns only accepted instances and metadata
+                    perturbed_x, perturbed_feature = guard_orchestrator.filter_perturbations(
+                        perturbed_x,
+                        perturbed_feature,
+                        x_orig_for_guard,
+                        guard_prediction
+                    )
+
+                    if len(perturbed_x) == 0:
+                        warnings.warn(
+                            "All perturbed instances were rejected by the guard; no alternative rule generated",
+                            stacklevel=2,
+                        )
+                        return self
 
         # pylint: disable=protected-access
         predict, low, high, _ = self._get_explainer()._predict(

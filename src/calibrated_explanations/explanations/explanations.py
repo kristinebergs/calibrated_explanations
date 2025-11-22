@@ -233,19 +233,32 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
     # Guard/Orchestrator proxy helpers
     # ------------------------------------------------------------------
 
-    def accept(self, x_new: Any, calibrated_prediction: Optional[tuple] = None) -> bool:
-        """Return whether a perturbed instance is accepted by the guard.
+    def _check_perturbation_accepted(
+        self, x_new: np.ndarray, calibrated_prediction: Optional[tuple] = None
+    ) -> bool:
+        """Check if a perturbed instance is accepted by the guard.
 
-        This is a small, stable public proxy that explanation code should call.
-        It delegates to the frozen explainer wrapper which in turn will call
-        into the underlying explainer's acceptance wrapper. If any step fails
-        (for example when running against lightweight test stubs), the call
-        falls back to permissive acceptance (True).
+        This helper checks individual perturbed instances against guard constraints
+        by delegating to the guard plugin's accept_batch() method via the frozen
+        explainer's guard orchestrator.
+
+        Parameters
+        ----------
+        x_new : np.ndarray
+            Single perturbed instance to check.
+        calibrated_prediction : Tuple, optional
+            Calibrated prediction (predict, (low, high)) for the original instance.
+
+        Returns
+        -------
+        bool
+            True if the instance is accepted by the guard, False otherwise.
+
+        Raises
+        ------
+        Any exception from the guard orchestrator is propagated (not silently caught).
         """
-        try:
-            return bool(self.calibrated_explainer.accept(x_new, calibrated_prediction))
-        except Exception:  # pragma: no cover - defensive fallback
-            return True
+        return bool(self.calibrated_explainer._check_perturbation_accepted(x_new, calibrated_prediction))
 
     @classmethod
     def from_json(cls, payload: Mapping[str, Any]) -> ExportedExplanationCollection:
@@ -1141,23 +1154,6 @@ class FrozenCalibratedExplainer:
         """
         return self._explainer.discretizer
 
-    def accept(self, x_new: Any, calibrated_prediction: Optional[tuple] = None) -> bool:
-        """Proxy to the underlying explainer's acceptance logic.
-
-        This method hides the implementation detail that the frozen wrapper
-        stores a deep-copied explainer under ``_explainer``. It will call the
-        underlying explainer's ``_accept`` when available, otherwise return
-        True (permissive) for stubs and test fixtures.
-        """
-        try:
-            # Call protected helper on the copied explainer where present.
-            if hasattr(self._explainer, "_accept"):
-                return bool(self._explainer._accept(x_new, calibrated_prediction))
-        except Exception:
-            # Defensive fallback: if anything goes wrong, treat as accepted.
-            return True
-        return True
-
     @property
     def _discretize(self):
         """
@@ -1249,9 +1245,57 @@ class FrozenCalibratedExplainer:
         """
         return self._explainer._preload_shap  # pylint: disable=protected-access
 
+    def _check_perturbation_accepted(
+        self, x_new: np.ndarray, calibrated_prediction: Optional[tuple] = None
+    ) -> bool:
+        """Check if a perturbed instance is accepted by the guard.
+
+        Delegates to the underlying explainer's guard orchestrator to check
+        whether the perturbation is within the conformal region or other guard
+        constraints.
+
+        Parameters
+        ----------
+        x_new : np.ndarray
+            Single perturbed instance to check (1D array).
+        calibrated_prediction : Tuple, optional
+            Calibrated prediction (predict, (low, high)) for the original instance.
+
+        Returns
+        -------
+        bool
+            True if the instance is accepted by the guard, False otherwise.
+
+        Raises
+        ------
+        Exceptions from the guard orchestrator are propagated without catching.
+        If no guard is configured, returns True (accept all).
+        """
+        plugin_manager = getattr(self._explainer, '_plugin_manager', None)
+        if plugin_manager is None:
+            # No plugin manager means no guard available, accept all
+            return True
+
+        guard_orchestrator = getattr(plugin_manager, 'guard_orchestrator', None)
+        if guard_orchestrator is None:
+            # No orchestrator means no guard available, accept all
+            return True
+
+        guard_plugin = guard_orchestrator.get_plugin()
+        if guard_plugin is None:
+            # No guard plugin, accept all
+            return True
+
+        # Use accept_batch to check a single instance
+        x_batch = np.atleast_2d(x_new)
+        calibrated_preds = [calibrated_prediction]
+        mask = guard_plugin.accept_batch(x_batch, calibrated_preds)
+        return bool(mask[0])
+
     def __setattr__(self, key, value):
         """Prevent modification of attributes except for '_explainer'."""
         if key == "_explainer":
             super().__setattr__(key, value)
         else:
             raise AttributeError("Cannot modify frozen instance")
+
