@@ -1,0 +1,77 @@
+{
+  "probabilistic_regression": {
+    "study_name": "guard_ablation_probabilistic_regression_20251124_120345",
+    "task_type": "probabilistic_regression",
+    "n_trials": 1,
+    "n_complete_trials": 1,
+    "best_trial_number": 0,
+    "best_trial_value": 0.95,
+    "best_params": {
+      "alpha": 0.05,
+      "distance": "euclidean",
+      "n_clusters": 5
+    },
+    "results_count": 1,
+    "timestamp": "2025-11-24T12:05:06.515993",
+    "aggregated_by_config": {
+      "alpha_0.05_dist_euclidean_clusters_5": {
+        "acceptance_rate": {
+          "mean": 0.95,
+          "std": 0.0,
+          "min": 0.95,
+          "max": 0.95,
+          "count": 1
+        },
+        "rejection_rate": {
+          "mean": 0.050000000000000044,
+          "std": 0.0,
+          "min": 0.050000000000000044,
+          "max": 0.050000000000000044,
+          "count": 1
+        },
+        "coverage": {
+          "mean": 0.95,
+          "std": 0.0,
+          "min": 0.95,
+          "max": 0.95,
+          "count": 1
+        },
+        "factual_validity_rate": {
+          "mean": 1.0,
+          "std": 0.0,
+          "min": 1.0,
+          "max": 1.0,
+          "count": 1
+        },
+        "num_factual_valid": {
+          "mean": 50.0,
+          "std": 0.0,
+          "min": 50.0,
+          "max": 50.0,
+          "count": 1
+        },
+        "num_factual_total": {
+          "mean": 50.0,
+          "std": 0.0,
+          "min": 50.0,
+          "max": 50.0,
+          "count": 1
+        },
+        "factual_explanation_runtime": {
+          "mean": 18.574577432000012,
+          "std": 0.0,
+          "min": 18.574577432000012,
+          "max": 18.574577432000012,
+          "count": 1
+        },
+        "alternative_explanations_runtime": {
+          "mean": 24.719923852000022,
+          "std": 0.0,
+          "min": 24.719923852000022,
+          "max": 24.719923852000022,
+          "count": 1
+        }
+      }
+    }
+  }
+}
