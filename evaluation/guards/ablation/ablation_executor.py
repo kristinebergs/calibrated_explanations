@@ -9,8 +9,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Union, List
 from datetime import datetime
 
 import optuna
@@ -76,10 +77,20 @@ class AblationExecutor:
 
         # Store all results for later analysis
         self.results: list[Dict[str, Any]] = []
+        
+        # Load existing results if available
+        details_file = self.storage_dir / "ablation_details.json"
+        if details_file.exists():
+            try:
+                with open(details_file, "r") as f:
+                    self.results = json.load(f)
+                logger.info(f"Loaded {len(self.results)} existing results from {details_file}")
+            except Exception as e:
+                logger.warning(f"Failed to load existing results: {e}")
 
     def run(
         self,
-        task_type: str = "binary_classification",
+        task_type: Union[str, List[str]] = "binary_classification",
         n_workers: int = 1,
         timeout: Optional[int] = None,
     ) -> Dict[str, Any]:
@@ -88,8 +99,8 @@ class AblationExecutor:
 
         Parameters
         ----------
-        task_type : str
-            One of: "binary_classification", "multiclass_classification", "regression"
+        task_type : str or List[str]
+            One or more of: "binary_classification", "multiclass_classification", "regression", "probabilistic_regression"
         n_workers : int, optional
             Number of parallel workers. Default 1 (serial execution).
         timeout : int, optional
@@ -100,42 +111,53 @@ class AblationExecutor:
         dict
             Summary of ablation results including best configurations.
         """
+        # Disable plugin fallback to ensure guards are used
+        os.environ["CE_DISABLE_PLUGIN_FALLBACK"] = "1"
+        
+        task_types = [task_type] if isinstance(task_type, str) else task_type
+        
         logger.info(
-            f"Starting ablation study: task_type={task_type}, "
+            f"Starting ablation study: task_types={task_types}, "
             f"n_trials={self.n_trials}, n_seeds={self.n_seeds}"
         )
 
-        # Create Optuna study
-        study_name = f"guard_ablation_{task_type}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-        storage_url = f"sqlite:///{self.storage_dir / f'{study_name}.db'}"
+        summaries = {}
 
-        sampler = TPESampler(seed=42)
-        study = optuna.create_study(
-            study_name=study_name,
-            storage=storage_url,
-            sampler=sampler,
-            load_if_exists=False,
-            direction="maximize",  # Maximize coverage/validity
-        )
+        for task in task_types:
+            logger.info(f"Running ablation for task: {task}")
+            
+            # Create Optuna study
+            study_name = f"guard_ablation_{task}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            storage_url = f"sqlite:///{self.storage_dir / f'{study_name}.db'}"
 
-        # Define objective function
-        def objective(trial: optuna.Trial) -> float:
-            return self._evaluate_trial(trial, task_type)
+            sampler = TPESampler(seed=42)
+            study = optuna.create_study(
+                study_name=study_name,
+                storage=storage_url,
+                sampler=sampler,
+                load_if_exists=False,
+                direction="maximize",  # Maximize coverage/validity
+            )
 
-        # Run optimization
-        study.optimize(
-            objective,
-            n_trials=self.n_trials,
-            n_jobs=n_workers,
-            timeout=timeout,
-        )
+            # Define objective function
+            def objective(trial: optuna.Trial) -> float:
+                return self._evaluate_trial(trial, task)
 
-        # Summarize results
-        summary = self._summarize_results(study, task_type)
-        self._save_results(summary)
+            # Run optimization
+            study.optimize(
+                objective,
+                n_trials=self.n_trials,
+                n_jobs=n_workers,
+                timeout=timeout,
+            )
+
+            # Summarize results
+            summary = self._summarize_results(study, task)
+            self._save_results(summary)
+            summaries[task] = summary
 
         logger.info(f"Ablation study completed. Results saved to {self.storage_dir}")
-        return summary
+        return summaries
 
     def _evaluate_trial(self, trial: optuna.Trial, task_type: str) -> float:
         """
@@ -231,23 +253,25 @@ class AblationExecutor:
             "best_trial_number": best_trial.number,
             "best_trial_value": best_trial.value,
             "best_params": best_trial.params,
-            "results_count": len(self.results),
+            "results_count": len([r for r in self.results if r.get("task_type") == task_type]),
             "timestamp": datetime.now().isoformat(),
         }
 
         # Aggregate metrics by parameter configuration
-        config_results = self._aggregate_by_config()
+        config_results = self._aggregate_by_config(task_type)
         summary["aggregated_by_config"] = config_results
 
         return summary
 
-    def _aggregate_by_config(self) -> Dict[str, Any]:
+    def _aggregate_by_config(self, task_type: str | None = None) -> Dict[str, Any]:
         """Aggregate results by parameter configuration."""
         from collections import defaultdict
 
         by_config = defaultdict(list)
 
         for result in self.results:
+            if task_type and result.get("task_type") != task_type:
+                continue
             key = (result["alpha"], result["distance"], result["n_clusters"])
             by_config[key].append(result)
 
@@ -263,9 +287,27 @@ class AblationExecutor:
         results_file = self.storage_dir / "ablation_summary.json"
         details_file = self.storage_dir / "ablation_details.json"
 
+        # Load existing summary if exists
+        existing_summary = {}
+        if results_file.exists():
+            try:
+                with open(results_file, "r") as f:
+                    existing_summary = json.load(f)
+            except Exception:
+                pass
+
+        task_type = summary.get("task_type", "unknown")
+
+        # Handle legacy format where root was the summary
+        if "task_type" in existing_summary:
+            old_task = existing_summary["task_type"]
+            existing_summary = {old_task: existing_summary}
+
+        existing_summary[task_type] = summary
+
         # Save summary
         with open(results_file, "w") as f:
-            json.dump(summary, f, indent=2, default=str)
+            json.dump(existing_summary, f, indent=2, default=str)
         logger.info(f"Summary saved to {results_file}")
 
         # Save detailed results
@@ -282,7 +324,7 @@ class AblationExecutor:
         with open(results_file, "r") as f:
             return json.load(f)
 
-    def get_best_config(self, metric: str = "coverage") -> Dict[str, Any]:
+    def get_best_config(self, metric: str = "coverage", task_type: Optional[str] = None) -> Dict[str, Any]:
         """
         Get the best parameter configuration for a given metric.
 
@@ -290,6 +332,8 @@ class AblationExecutor:
         ----------
         metric : str
             Metric name to optimize for. Default "coverage".
+        task_type : str, optional
+            Filter results by task type. If None, considers all results.
 
         Returns
         -------
@@ -299,10 +343,14 @@ class AblationExecutor:
         if not self.results:
             return {}
 
-        # Filter results by metric availability
-        valid_results = [r for r in self.results if metric in r]
+        # Filter results by metric availability and task type
+        valid_results = [
+            r for r in self.results 
+            if metric in r and (task_type is None or r.get("task_type") == task_type)
+        ]
+        
         if not valid_results:
-            logger.warning(f"No results found for metric '{metric}'")
+            logger.warning(f"No results found for metric '{metric}'" + (f" and task '{task_type}'" if task_type else ""))
             return {}
 
         # Find best
@@ -312,5 +360,6 @@ class AblationExecutor:
             "alpha": best["alpha"],
             "distance": best["distance"],
             "n_clusters": best["n_clusters"],
+            "task_type": best.get("task_type"),
             f"{metric}": best[metric],
         }

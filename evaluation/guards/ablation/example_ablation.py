@@ -37,9 +37,9 @@ def main():
     )
     parser.add_argument(
         "--task",
-        choices=["binary_classification", "multiclass_classification", "regression", "probabilistic_regression"],
-        default="binary_classification",
-        help="Task type to evaluate",
+        nargs="+",
+        default=["binary_classification"],
+        help="Task type(s) to evaluate. One or more of: binary_classification, multiclass_classification, regression, probabilistic_regression",
     )
     parser.add_argument(
         "--n-trials",
@@ -117,16 +117,18 @@ def main():
         )
 
         try:
-            summary = executor.run(
+            summaries = executor.run(
                 task_type=args.task,
                 n_workers=args.n_workers,
                 timeout=args.timeout,
             )
 
             logger.info("Ablation study completed successfully")
-            logger.info(f"Best trial: #{summary['best_trial_number']}")
-            logger.info(f"Best params: {summary['best_params']}")
-            logger.info(f"Results saved to: {args.output_dir}")
+            for task, summary in summaries.items():
+                logger.info(f"\nTask: {task}")
+                logger.info(f"Best trial: #{summary['best_trial_number']}")
+                logger.info(f"Best params: {summary['best_params']}")
+            logger.info(f"\nResults saved to: {args.output_dir}")
 
         except KeyboardInterrupt:
             logger.info("Ablation study interrupted by user")

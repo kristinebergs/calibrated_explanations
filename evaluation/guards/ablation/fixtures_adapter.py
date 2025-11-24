@@ -258,7 +258,7 @@ class FixturesAdapter:
         Parameters
         ----------
         task_type : str
-            One of: "binary_classification", "multiclass_classification", "regression"
+            One of: "binary_classification", "multiclass_classification", "regression", "probabilistic_regression"
         guard_config : PerturbationGuardConfig
             Guard parameters (alpha, distance, n_clusters)
 

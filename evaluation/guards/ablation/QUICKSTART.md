@@ -26,9 +26,9 @@ python example_ablation.py \
     --n-trials 6 \
     --n-workers 1
 
-# Or try probabilistic regression
+# Or run multiple tasks in sequence (results are accumulated)
 python example_ablation.py \
-    --task probabilistic_regression \
+    --task binary_classification probabilistic_regression \
     --n-trials 6 \
     --n-workers 1
 
@@ -48,10 +48,14 @@ executor = AblationExecutor(
     n_trials=6,  # Quick test: 2 alphas × 1 distance × 3 clusters
     n_seeds=1,
 )
-summary = executor.run(task_type="binary_classification", n_workers=1)
+# Pass a list of tasks to run them sequentially
+summaries = executor.run(
+    task_type=["binary_classification", "regression"], 
+    n_workers=1
+)
 
 print("✓ Ablation complete!")
-print(f"Best configuration: {executor.get_best_config()}")
+# Results are saved to disk and appended to previous runs
 
 # Analyze results
 analyzer = ResultsAnalyzer()

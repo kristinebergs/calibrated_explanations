@@ -68,14 +68,21 @@ executor = AblationExecutor(
 )
 
 # Run ablation
-summary = executor.run(
-    task_type="binary_classification",
+# Note: You can pass a single task string or a list of tasks
+summaries = executor.run(
+    task_type=["binary_classification", "regression"],
     n_workers=1,  # Set to CPU count for parallelization
     timeout=None
 )
 
-print(f"Best configuration: {executor.get_best_config()}")
+print(f"Best configuration for binary_classification: {executor.get_best_config('coverage')}")
 ```
+
+## Key Features
+
+- **Result Persistence**: New runs append to existing results in `ablation_details.json` instead of overwriting them. This allows you to pause and resume studies or stack multiple task evaluations.
+- **Strict Evaluation**: The ablation executor automatically disables the legacy fallback mechanism (`CE_DISABLE_PLUGIN_FALLBACK=1`) to ensure that any guard failures are reported as errors rather than silently falling back to unguarded explanations.
+- **Multi-Task Stacking**: You can pass a list of tasks to `run()`, and the executor will process them sequentially, accumulating all results in the same storage directory.
 
 ### Analyze Results
 

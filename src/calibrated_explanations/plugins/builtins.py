@@ -409,6 +409,15 @@ class _ExecutionExplanationPluginBase(_LegacyExplanationBase):
             )
 
         except Exception as exc:
+            import os
+
+            if os.environ.get("CE_DISABLE_PLUGIN_FALLBACK", "").lower() in (
+                "1",
+                "true",
+                "yes",
+                "on",
+            ):
+                raise exc
             # Fallback to legacy implementation with warning
             _logger = logging.getLogger(__name__)
             _logger.warning(
