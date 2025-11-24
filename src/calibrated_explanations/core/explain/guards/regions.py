@@ -517,6 +517,10 @@ class ConformalRegionOracle:
                 self._width_max,
             )
         else:
+            # Check if interval widths are nearly uniform (limited NCR benefit)
+            width_range = self._width_max - self._width_min
+            width_relative_range = width_range / max(abs(self._width_max), 1e-10)
+            
             try:
                 has_quantiles = self._cluster_norm_quantiles is not None
                 if has_quantiles:
@@ -534,6 +538,14 @@ class ConformalRegionOracle:
                         self._width_min,
                         self._width_max,
                     )
+                    
+                    # Inform users if widths are nearly uniform (NCR won't be effective)
+                    if width_relative_range < 0.01:  # Less than 1% variation
+                        logger.info(
+                            "Prediction intervals are nearly uniform (variation < 1%%). "
+                            "NCR radius modulation will be minimal. "
+                            "Consider configuring a difficulty estimator for adaptive intervals."
+                        )
                 else:
                     logger.info(
                         "Normalized Conformal Regression (NCR) initialized. "
