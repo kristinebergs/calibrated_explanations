@@ -449,20 +449,11 @@ class ConformalRegionOracle:
         global_radius = np.sort(cal_scores)[quantile_idx]
         self._cluster_radii = np.full(n_clusters_actual, global_radius)
 
-        try:
-            # Report calibration diagnostics to help debugging (counts per cluster)
-            # Assign calibration points to nearest clusters
-            if len(x_cal) > 0 and self._cluster_centers is not None:
-                # distances shape: (n_cal, n_clusters)
-                dists = np.linalg.norm(
-                    x_cal[:, None, :] - self._cluster_centers[None, :, :], axis=2
-                )
-                nearest = np.argmin(dists, axis=1)
-                counts = np.bincount(nearest, minlength=n_clusters_actual)
-            else:
-                counts = np.zeros(n_clusters_actual, dtype=int)
-        except Exception:  # pylint: disable=broad-except
-            logger.debug("Could not compute per-cluster calibration counts")
+        # Report calibration diagnostics to help debugging (counts per cluster)
+        # Use cached nearest assignments (already computed in augmented space above)
+        if len(self._cal_nearest) > 0:
+            counts = np.bincount(self._cal_nearest, minlength=n_clusters_actual)
+        else:
             counts = np.zeros(n_clusters_actual, dtype=int)
 
         # Summary in two shorter log lines to respect line-length

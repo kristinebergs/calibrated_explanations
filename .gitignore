@@ -174,3 +174,4 @@ catboost_info/time_left.tsv
 catboost_info/learn_error.tsv
 catboost_info/learn/events.out.tfevents
 improvement_docs/ignore/*
+ablation_results/
