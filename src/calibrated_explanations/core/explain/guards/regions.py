@@ -542,7 +542,7 @@ class ConformalRegionOracle:
                     # Inform users if widths are nearly uniform (NCR won't be effective)
                     if width_relative_range < 0.01:  # Less than 1% variation
                         logger.info(
-                            "Prediction intervals are nearly uniform (variation < 1%%). "
+                            "Prediction intervals are nearly uniform (variation < 1%). "
                             "NCR radius modulation will be minimal. "
                             "Consider configuring a difficulty estimator for adaptive intervals."
                         )

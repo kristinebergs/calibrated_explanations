@@ -95,7 +95,7 @@ def test_cluster_assignment_uses_augmented_space():
     )
     
     # Verify the counts sum to the total calibration set size
-    # The calibration set is created with prop_size=0.75 by default,
+    # prop_size=0.75 means 75% goes to proper set, 25% to calibration set
     # so cal_size = n_samples * (1 - 0.75) = 500 * 0.25 = 125
     expected_cal_size = int(n_samples * 0.25)
     assert np.sum(cluster_counts) == expected_cal_size, (
