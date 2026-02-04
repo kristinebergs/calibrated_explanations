@@ -20,6 +20,13 @@ The `CalibratedExplanation` abstract base class defines the core interface and s
 
 #### Binned Data
 - **`binned`**: Dictionary mapping feature indices to binned values for this instance. Each entry contains discretized feature values used in rule generation.
+  - **`binned["rule_values"][feature]`**: Tuple containing sampled values, the observed value, and optional conformal guard metadata (fourth element). When conformal guard is enabled, the metadata dictionary may include:
+    - `"interval"`: A single conforming numeric interval `(low, high)` associated with the observed value.
+    - `"values"`: A set of conforming categorical values.
+    - `"candidate_points"`: Tree-based candidate points used for numerical perturbations.
+    - `"tree_used"`: Boolean indicating whether the tree-based guard produced candidates.
+    - `"fallback"`: Boolean indicating whether a fallback path was used.
+    - `"error"`: Optional error message when tree-based guard fails and a fallback path is used.
 
 #### Feature-Level Predictions and Weights
 - **`feature_weights`**: Dictionary containing feature weight predictions with keys:

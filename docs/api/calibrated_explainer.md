@@ -34,6 +34,26 @@ X_test = X_cal[:1]
 explanations = explainer.explain(X_test)
 ```
 
+**Optional Conformal Guarding:**
+
+Pass `conformal_guard=True` or a configuration dictionary to restrict perturbations and rule conditions to conforming calibration ranges. The conformal guard is initialized by the explanation plugin pipeline and adds conformal outer limits to rule metadata, optionally constraining perturbation generation to conforming values.
+
+To enable the tree-based guard with custom settings:
+
+```python
+explainer = CalibratedExplainer(
+    model,
+    X_cal,
+    y_cal,
+    mode="classification",
+    conformal_guard={"max_depth": 6, "candidate_grid": 32, "use_interaction_gate": True},
+)
+
+explanations = explainer.explain(X_test[:1])
+meta = explanations[0].binned["rule_values"][0][3]
+print(meta["candidate_points"], meta["tree_used"])
+```
+
 `{eval-rst}
 .. autoclass:: calibrated_explanations.core.calibrated_explainer.CalibratedExplainer
    :members:

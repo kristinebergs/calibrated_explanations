@@ -136,6 +136,7 @@ def feature_task(args: Tuple[Any, ...]) -> FeatureTaskResult:
         value_counts_cache,
         numeric_sorted_values,
         x_cal_column,
+        conformal_meta_feature,
     ) = args
 
     n_instances = int(len(x_column))
@@ -170,7 +171,12 @@ def feature_task(args: Tuple[Any, ...]) -> FeatureTaskResult:
 
     if feature_index in features_to_ignore_set:
         for i in range(n_instances):
-            rule_values_result[i] = (feature_values_list, x_column[i], x_column[i])
+            conformal_meta = (
+                conformal_meta_feature[i]
+                if isinstance(conformal_meta_feature, (list, tuple))
+                else None
+            )
+            rule_values_result[i] = (feature_values_list, x_column[i], x_column[i], conformal_meta)
             binned_result[i] = (
                 predict[i],
                 low[i],
@@ -195,7 +201,12 @@ def feature_task(args: Tuple[Any, ...]) -> FeatureTaskResult:
 
     if feature_indices is None or len(feature_indices) == 0:
         for i in range(n_instances):
-            rule_values_result[i] = (feature_values_list, x_column[i], x_column[i])
+            conformal_meta = (
+                conformal_meta_feature[i]
+                if isinstance(conformal_meta_feature, (list, tuple))
+                else None
+            )
+            rule_values_result[i] = (feature_values_list, x_column[i], x_column[i], conformal_meta)
             binned_result[i] = (
                 predict[i],
                 low[i],
@@ -241,7 +252,17 @@ def feature_task(args: Tuple[Any, ...]) -> FeatureTaskResult:
         if num_feature_values == 0:
             for inst in unique_instances:
                 i = int(inst)
-                rule_values_result[i] = (feature_values_list, x_column[i], x_column[i])
+                conformal_meta = (
+                    conformal_meta_feature[i]
+                    if isinstance(conformal_meta_feature, (list, tuple))
+                    else None
+                )
+                rule_values_result[i] = (
+                    feature_values_list,
+                    x_column[i],
+                    x_column[i],
+                    conformal_meta,
+                )
                 binned_result[i] = (
                     np.zeros((0,), dtype=float),
                     np.zeros((0,), dtype=float),
@@ -252,7 +273,17 @@ def feature_task(args: Tuple[Any, ...]) -> FeatureTaskResult:
                 )
             for idx in range(n_instances):
                 if rule_values_result[idx] is None:
-                    rule_values_result[idx] = (feature_values_list, x_column[idx], x_column[idx])
+                    conformal_meta = (
+                        conformal_meta_feature[idx]
+                        if isinstance(conformal_meta_feature, (list, tuple))
+                        else None
+                    )
+                    rule_values_result[idx] = (
+                        feature_values_list,
+                        x_column[idx],
+                        x_column[idx],
+                        conformal_meta,
+                    )
                 if binned_result[idx] is None:
                     binned_result[idx] = (
                         np.zeros((0,), dtype=float),
@@ -357,7 +388,12 @@ def feature_task(args: Tuple[Any, ...]) -> FeatureTaskResult:
                 else np.zeros(uncovered.size, dtype=float)
             )
 
-            rule_values_result[i] = (feature_values_list, x_column[i], x_column[i])
+            conformal_meta = (
+                conformal_meta_feature[i]
+                if isinstance(conformal_meta_feature, (list, tuple))
+                else None
+            )
+            rule_values_result[i] = (feature_values_list, x_column[i], x_column[i], conformal_meta)
             binned_result[i] = (
                 avg_row,
                 low_row,
@@ -582,7 +618,17 @@ def feature_task(args: Tuple[Any, ...]) -> FeatureTaskResult:
             current_bin[inst] = current_index
 
         for inst in range(n_instances):
-            rule_values_result[inst] = (rule_value_map[inst], x_column[inst], x_column[inst])
+            conformal_meta = (
+                conformal_meta_feature[inst]
+                if isinstance(conformal_meta_feature, (list, tuple))
+                else None
+            )
+            rule_values_result[inst] = (
+                rule_value_map[inst],
+                x_column[inst],
+                x_column[inst],
+                conformal_meta,
+            )
             mask = np.ones_like(avg_predict_map[inst], dtype=bool)
             if 0 <= current_bin[inst] < mask.size:
                 mask[current_bin[inst]] = False
@@ -616,7 +662,17 @@ def feature_task(args: Tuple[Any, ...]) -> FeatureTaskResult:
 
     for idx in range(n_instances):
         if rule_values_result[idx] is None:
-            rule_values_result[idx] = (feature_values_list, x_column[idx], x_column[idx])
+            conformal_meta = (
+                conformal_meta_feature[idx]
+                if isinstance(conformal_meta_feature, (list, tuple))
+                else None
+            )
+            rule_values_result[idx] = (
+                feature_values_list,
+                x_column[idx],
+                x_column[idx],
+                conformal_meta,
+            )
         if binned_result[idx] is None:
             binned_result[idx] = (
                 np.zeros((0,), dtype=float),

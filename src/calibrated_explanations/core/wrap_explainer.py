@@ -237,6 +237,7 @@ class WrapCalibratedExplainer:
         x_calibration: Any,
         y_calibration: Any,
         mc: Callable[[Any], Any] | MondrianCategorizer | None = None,
+        conformal_guard: Any | None = None,
         **kwargs: Any,
     ) -> WrapCalibratedExplainer:
         """Calibrate the explainer with calibration data.
@@ -249,6 +250,8 @@ class WrapCalibratedExplainer:
             The calibration target values.
         mc : callable or MondrianCategorizer, optional
             Optional Mondrian categories helper. Defaults to ``None``.
+        conformal_guard : bool or dict or ConformalGuardConfig, optional
+            Optional configuration enabling conformal guard ranges for explanations.
 
         **kwargs
             Keyword arguments to be passed to the :class:`.CalibratedExplainer`'s __init__ method
@@ -286,6 +289,8 @@ class WrapCalibratedExplainer:
 
         if mc is not None:
             self.mc = mc
+        if conformal_guard is not None:
+            kwargs["conformal_guard"] = conformal_guard
         # Normalize kwargs at the public boundary; warn and strip alias keys only
         kwargs = self._normalize_public_kwargs(kwargs)
         validate_param_combination(kwargs)

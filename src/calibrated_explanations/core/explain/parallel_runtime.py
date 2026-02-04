@@ -205,6 +205,7 @@ def build_explain_execution_plan(
         features_to_ignore=features_to_ignore_array,
         feature_filter_per_instance_ignore=feature_filter_per_instance_ignore,
         interval_summary=getattr(request, "interval_summary", None),
+        extras=getattr(request, "extras", None),
         use_plugin=False,
         skip_instance_parallel=False,
     )
@@ -310,6 +311,8 @@ def worker_init_from_explainer_spec(serialized_spec: dict) -> None:
                 feature_filter_per_instance_ignore=state.get("feature_filter_per_instance_ignore")
                 if isinstance(state, dict)
                 else None,
+                interval_summary=state.get("interval_summary") if isinstance(state, dict) else None,
+                extras=state.get("extras") if isinstance(state, dict) else None,
                 use_plugin=False,
                 skip_instance_parallel=True,
             )

@@ -309,6 +309,29 @@ class CalibratedExplanation(ABC):
             ignored.update(collect_ints(instance_mask))
         return ignored
 
+    def _conformal_suffix(self, feature_index: int) -> str:
+        rule_values = self.binned.get("rule_values", {})
+        entry = rule_values.get(feature_index)
+        if entry is None or len(entry) < 4:
+            return ""
+        meta = entry[3]
+        if not meta:
+            return ""
+        interval = meta.get("interval") if isinstance(meta, dict) else None
+        if interval:
+            lo, hi = interval
+            return f" AND conforms_to [{lo:.2f}, {hi:.2f}]"
+        values = meta.get("values") if isinstance(meta, dict) else None
+        if values:
+            # Do not assume values are orderable (can be mixed types).
+            items = sorted((str(v) for v in values))
+            max_show = 20
+            if len(items) > max_show:
+                items = items[:max_show] + ["..."]
+            display = ", ".join(items)
+            return f" AND conforming_values in {{{display}}}"
+        return ""
+
     def rank_features(self, feature_weights=None, width=None, num_to_show=None):
         """Rank the features based on their weights.
 
@@ -849,7 +872,8 @@ class CalibratedExplanation(ABC):
             if explainer.discretizer is None:
                 val = self.x_test[f]
                 rule = f"{self.get_explainer().feature_names[f]} = {val}"
-                self.conditions.append(rule)
+                suffix = self._conformal_suffix(f)
+                self.conditions.append(f"{rule}{suffix}" if suffix else rule)
                 continue
 
             if f in self.get_explainer().categorical_features:
@@ -863,7 +887,8 @@ class CalibratedExplanation(ABC):
                     rule = f"{self.get_explainer().feature_names[f]} = {x[f]}"
             else:
                 rule = self.get_explainer().discretizer.names[f][int(x[f])]
-            self.conditions.append(rule)
+            suffix = self._conformal_suffix(f)
+            self.conditions.append(f"{rule}{suffix}" if suffix else rule)
         return self.conditions
 
     def predict_conjunction_tuple(
@@ -881,13 +906,44 @@ class CalibratedExplanation(ABC):
 
         # Prepare value arrays
         value_iterables = []
-        for values in rule_value_set[: len(original_features)]:
+        explainer = self.get_explainer()
+        cfg = getattr(explainer, "conformal_guard_cfg", None)
+        use_conf = bool(cfg is not None and getattr(cfg, "use_for_perturbation", False))
+        rule_meta = self.binned.get("rule_values", {}) if isinstance(self.binned, dict) else {}
+
+        # Intersect conjunction candidate sets with per-feature conforming sets when requested.
+        for f_idx, values in zip(original_features, rule_value_set[: len(original_features)], strict=False):
             arr = np.asarray(values)
             if arr.ndim == 0:
                 arr = arr.reshape(1)
+            if use_conf:
+                entry = rule_meta.get(int(f_idx))
+                meta = entry[3] if (entry is not None and len(entry) >= 4) else None
+                if isinstance(meta, dict) and meta:
+                    if int(f_idx) in getattr(explainer, "categorical_features", ()):
+                        allowed = set(meta.get("values", []) or [])
+                        if allowed:
+                            arr = np.asarray([v for v in arr.tolist() if v in allowed], dtype=object)
+                        else:
+                            arr = np.asarray([], dtype=object)
+                    else:
+                        intervals = meta.get("intervals", []) or []
+                        if intervals:
+                            # Keep only values that lie in at least one accepted interval.
+                            kept = []
+                            for v in arr.astype(float, copy=False).tolist():
+                                if any((lo <= v <= hi) for (lo, hi) in intervals):
+                                    kept.append(v)
+                            arr = np.asarray(kept, dtype=float)
+                        else:
+                            arr = np.asarray([], dtype=float)
             value_iterables.append(arr)
 
         if not value_iterables:
+            return 0.0, 0.0, 0.0
+
+        # If intersection removed all candidates for any feature, abort early.
+        if any(np.asarray(v).size == 0 for v in value_iterables):
             return 0.0, 0.0, 0.0
 
         # Generate all combinations in a vectorized fashion
@@ -916,6 +972,23 @@ class CalibratedExplanation(ABC):
 
         # Apply perturbations in bulk
         batch[:, original_features] = combo_matrix
+
+        # Conjunction guard: filter candidate batch through the joint validity gate.
+        guard = getattr(explainer, "_conformal_guard", None)
+        if guard is not None and cfg is not None and getattr(cfg, "use_interaction_gate", False):
+            mask = np.array([bool(guard.is_instance_conforming(row)) for row in batch], dtype=bool)
+            if mask.size == len(batch):
+                batch = batch[mask]
+                if batch_bins is not None:
+                    batch_bins = np.asarray(batch_bins)[mask]
+                if (
+                    threshold is not None
+                    and isinstance(threshold, (list, np.ndarray))
+                    and len(threshold) == mask.size
+                ):
+                    threshold = np.asarray(threshold)[mask]
+        if batch.size == 0:
+            return 0.0, 0.0, 0.0
 
         # Predict
         p_value, low, high, _ = predict_fn(
@@ -2155,6 +2228,8 @@ class AlternativeExplanation(CalibratedExplanation):
                     else:
                         rule_text = f"{self.get_explainer().feature_names[f]} = {value}"
 
+                    suffix = self._conformal_suffix(f)
+                    rule_text = f"{rule_text}{suffix}" if suffix else rule_text
                     state_helper.add_rule(
                         predict=instance_predict[f][value_bin],
                         low=instance_low[f][value_bin],
@@ -2180,6 +2255,11 @@ class AlternativeExplanation(CalibratedExplanation):
                     ) and self.prediction["high"] == safe_mean(instance_high[f][value_bin]):
                         pass
                     else:
+                        suffix = self._conformal_suffix(f)
+                        rule_text = (
+                            f"{self.get_explainer().feature_names[f]} < {lesser:.2f}"
+                        )
+                        rule_text = f"{rule_text}{suffix}" if suffix else rule_text
                         state_helper.add_rule(
                             predict=safe_mean(instance_predict[f][value_bin]),
                             low=safe_mean(instance_low[f][value_bin]),
@@ -2189,7 +2269,7 @@ class AlternativeExplanation(CalibratedExplanation):
                             feature=f,
                             sampled_values=self.binned["rule_values"][f][0][0],
                             feature_value=self.x_test[f],
-                            rule_text=f"{self.get_explainer().feature_names[f]} < {lesser:.2f}",
+                            rule_text=rule_text,
                             is_conjunctive=False,
                         )
                     value_bin = 1
@@ -2201,6 +2281,11 @@ class AlternativeExplanation(CalibratedExplanation):
                     ) and self.prediction["high"] == safe_mean(instance_high[f][value_bin]):
                         pass
                     else:
+                        suffix = self._conformal_suffix(f)
+                        rule_text = (
+                            f"{self.get_explainer().feature_names[f]} > {greater:.2f}"
+                        )
+                        rule_text = f"{rule_text}{suffix}" if suffix else rule_text
                         state_helper.add_rule(
                             predict=safe_mean(instance_predict[f][value_bin]),
                             low=safe_mean(instance_low[f][value_bin]),
@@ -2212,7 +2297,7 @@ class AlternativeExplanation(CalibratedExplanation):
                                 1 if len(self.binned["rule_values"][f][0]) == 3 else 0
                             ],
                             feature_value=self.x_test[f],
-                            rule_text=f"{self.get_explainer().feature_names[f]} > {greater:.2f}",
+                            rule_text=rule_text,
                             is_conjunctive=False,
                         )
 
