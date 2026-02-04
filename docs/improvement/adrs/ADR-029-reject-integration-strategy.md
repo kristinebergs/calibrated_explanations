@@ -176,12 +176,13 @@ These members cover common integration patterns; additional policies may be adde
 
 - **Invocation:** Users will use an explanation policy enum to opt-in to reject integration. Default remains "no reject".
 - **Output:** When reject is enabled via policy, the return type will be a structured envelope (e.g., `RejectResult` or similar) containing explanation and status.
+	- **Envelope contract:** When a reject policy is active, the envelope's `prediction` field MUST mirror the invoked method's legacy payload (including tuple shapes used by regression UQ, e.g., `(proba, (low, high))`). The envelope's `metadata` will include stable per-instance keys to inspect breakdown without calling the orchestrator: `ambiguity_mask`, `novelty_mask`, `prediction_set_size`, and `epsilon`, in addition to the existing aggregate rates. The envelope's `explanation` field will contain the explanation object or `None` if no explanation was produced.
 - **Strategy:** Extensibility is handled via a lightweight registry within the `RejectOrchestrator`.
 - **Visualization:** No changes to visualization; users handle reject visualization manually if needed.
 
 ## Implementation plan (recommended)
 
-1. Publish the clarified ADR (this document) and cross-link it from `RELEASE_PLAN_v1.md` and v0.10.2 release documentation.
+1. Publish the clarified ADR (this document) and cross-link it from `RELEASE_PLAN_v1.md` and v0.10.3 release documentation.
 2. Define `RejectPolicy` enum in `src/calibrated_explanations/core/reject.py` (or a closely related module) with the initial members listed above and docstrings explaining semantics.
 3. Define a `RejectResult` envelope dataclass in `src/calibrated_explanations/explanations/reject.py` that contains at minimum: `prediction` (optional), `explanation` (optional), `rejected: bool`, `policy: RejectPolicy`, and `metadata`.
 4. Add a `RejectOrchestrator` component (new `core/prediction/reject_orchestrator.py`) that:

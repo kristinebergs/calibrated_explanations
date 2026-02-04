@@ -10,6 +10,8 @@ The core of the library is the `CalibratedExplainer`, which handles the calibrat
 
 The `CalibratedExplainer` is the core class of the library. It takes a machine learning model (classifier or regressor) and a calibration dataset. It fits Venn-Abers calibrators (for classification) or Conformal Predictive Systems (for regression) to the model's predictions. This process ensures that the explanations generated are calibrated, meaning the predicted probabilities or intervals reflect the true underlying uncertainty.
 
+For a task-oriented view of the same capabilities (classification, conformal interval regression via CPS, and probabilistic/thresholded regression), see {doc}`../tasks/index`.
+
 **Example Usage:**
 
 ```python
@@ -20,18 +22,38 @@ from sklearn.model_selection import train_test_split
 
 # Load data
 X, y = load_iris(return_X_y=True)
-X_train, X_cal, y_train, y_cal = train_test_split(X, y, test_size=0.2)
+x_train, x_cal, y_train, y_cal = train_test_split(X, y, test_size=0.2)
 
 # Train model
 model = RandomForestClassifier()
-model.fit(X_train, y_train)
+model.fit(x_train, y_train)
 
 # Initialize explainer
-explainer = CalibratedExplainer(model, X_cal, y_cal, mode='classification')
+explainer = CalibratedExplainer(model, x_cal, y_cal, mode='classification')
 
 # Explain a test instance
-X_test = X_cal[:1]
-explanations = explainer.explain(X_test)
+x_test = x_cal[:1]
+explanations = explainer.explain(x_test)
+```
+
+**Optional Conformal Guarding:**
+
+Pass `conformal_guard=True` or a configuration dictionary to restrict perturbations and rule conditions to conforming calibration ranges. The conformal guard is initialized by the explanation plugin pipeline and adds conformal outer limits to rule metadata, optionally constraining perturbation generation to conforming values.
+
+To enable the tree-based guard with custom settings:
+
+```python
+explainer = CalibratedExplainer(
+    model,
+    X_cal,
+    y_cal,
+    mode="classification",
+    conformal_guard={"max_depth": 6, "candidate_grid": 32, "use_interaction_gate": True},
+)
+
+explanations = explainer.explain(X_test[:1])
+meta = explanations[0].binned["rule_values"][0][3]
+print(meta["candidate_points"], meta["tree_used"])
 ```
 
 **Optional Conformal Guarding:**
@@ -84,8 +106,8 @@ wrapper = WrapCalibratedExplainer(model)
 wrapper.fit(X, y)
 
 # Explain
-X_test = X[:1]
-explanations = wrapper.explain(X_test)
+x_test = X[:1]
+explanations = wrapper.explain(x_test)
 ```
 
 `{eval-rst}

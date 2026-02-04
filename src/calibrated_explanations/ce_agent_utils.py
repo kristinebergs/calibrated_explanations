@@ -7,18 +7,23 @@ checks .fitted / .calibrated states, and defaults to calibrated outputs.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 import functools
 import importlib
 import inspect
 import json
 import logging
 import warnings
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 import numpy as np
 
-from .core.exceptions import ConfigurationError, ModelNotSupportedError, NotFittedError, ValidationError
+from .core.exceptions import (
+    ConfigurationError,
+    ModelNotSupportedError,
+    NotFittedError,
+    ValidationError,
+)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -88,24 +93,24 @@ _TELEMETRY_HOOK: Optional[Callable[[TelemetryEvent], None]] = None
 
 def set_telemetry_hook(hook: Optional[Callable[[TelemetryEvent], None]]) -> None:
     """Set a telemetry hook to receive helper events."""
-
     global _TELEMETRY_HOOK
     _TELEMETRY_HOOK = hook
 
 
 def _emit(event_name: str, **payload: Any) -> None:
     """Emit telemetry events if a hook is configured."""
-
     if _TELEMETRY_HOOK is None:
         return
     try:
         _TELEMETRY_HOOK(TelemetryEvent(name=event_name, payload=dict(payload)))
-    except Exception as exc:  # pragma: no cover - telemetry must not break runtime
+    except Exception as exc:  # pragma: no cover - telemetry must not break runtime  # adr002_allow
         LOGGER.debug("Telemetry hook failed: %s", exc)
 
 
-def optional_cache(enabled: bool = True, maxsize: int = 128) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
-    """Optional caching decorator for helper functions.
+def optional_cache(
+    enabled: bool = True, maxsize: int = 128
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Apply optional caching to helper functions.
 
     This uses functools.lru_cache when enabled; otherwise, returns a no-op wrapper.
     """
@@ -120,7 +125,6 @@ def optional_cache(enabled: bool = True, maxsize: int = 128) -> Callable[[Callab
 
 def _require_ce() -> type:
     """Return WrapCalibratedExplainer or raise a CE-first error."""
-
     try:
         module = importlib.import_module("calibrated_explanations")
     except ImportError as exc:
@@ -129,7 +133,7 @@ def _require_ce() -> type:
             details={"requirement": "install calibrated-explanations"},
         ) from exc
     try:
-        wrap_cls = getattr(module, "WrapCalibratedExplainer")
+        wrap_cls = module.WrapCalibratedExplainer
     except AttributeError as exc:
         raise ConfigurationError(
             CE_FIRST_POLICY["failure_messages"]["missing_library"],
@@ -144,13 +148,11 @@ def _is_wrapper(obj: Any, wrap_cls: type) -> bool:
 
 def policy_as_dict() -> Dict[str, Any]:
     """Return a JSON-serializable copy of the CE-first policy."""
-
     return dict(CE_FIRST_POLICY)
 
 
 def serialize_policy() -> str:
     """Serialize the CE-first policy to JSON for registries or docs."""
-
     return json.dumps(policy_as_dict(), indent=2, sort_keys=True)
 
 
@@ -198,7 +200,9 @@ def _ensure_required_attrs(wrapper: Any, required: Iterable[str]) -> None:
         )
 
 
-def _validate_wrapper_state(wrapper: Any, *, require_fitted: bool = True, require_calibrated: bool = True) -> None:
+def _validate_wrapper_state(
+    wrapper: Any, *, require_fitted: bool = True, require_calibrated: bool = True
+) -> None:
     if require_fitted and not getattr(wrapper, "fitted", False):
         raise NotFittedError(
             CE_FIRST_POLICY["failure_messages"]["not_fitted"],
@@ -224,7 +228,6 @@ def ensure_ce_first_wrapper(model_or_wrapper: Any) -> Any:
     WrapCalibratedExplainer
         The validated wrapper.
     """
-
     wrap_cls = _require_ce()
     if _is_wrapper(model_or_wrapper, wrap_cls):
         _ensure_required_attrs(model_or_wrapper, CE_FIRST_POLICY["required_attributes"])
@@ -238,9 +241,9 @@ def ensure_ce_first_wrapper(model_or_wrapper: Any) -> Any:
 
 def fit_and_calibrate(
     wrapper: Any,
-    X_train: Any,
+    x_train: Any,
     y_train: Any,
-    X_cal: Any,
+    x_cal: Any,
     y_cal: Any,
     *,
     learner_kwargs: Optional[Mapping[str, Any]] = None,
@@ -254,7 +257,6 @@ def fit_and_calibrate(
 
     Extra kwargs can contain "learner" or "explainer" dicts; they are merged.
     """
-
     _emit("ce.fit_and_calibrate.start")
     wrapper = ensure_ce_first_wrapper(wrapper)
     learner_kwargs = dict(learner_kwargs or {})
@@ -263,13 +265,13 @@ def fit_and_calibrate(
         learner_kwargs.update(kwargs.get("learner", {}))
     if "explainer" in kwargs:
         explainer_kwargs.update(kwargs.get("explainer", {}))
-    wrapper.fit(X_train, y_train, **learner_kwargs)
+    wrapper.fit(x_train, y_train, **learner_kwargs)
     if not wrapper.fitted:
         raise NotFittedError(
             CE_FIRST_POLICY["failure_messages"]["not_fitted"],
             details={"stage": "fit"},
         )
-    wrapper.calibrate(X_cal, y_cal, **explainer_kwargs)
+    wrapper.calibrate(x_cal, y_cal, **explainer_kwargs)
     if not wrapper.calibrated:
         raise ValidationError(
             CE_FIRST_POLICY["failure_messages"]["not_calibrated"],
@@ -291,14 +293,16 @@ def _extract_top_features(explanation: Any, top_k: int = 3) -> List[str]:
     if hasattr(explanation, "get_rules"):
         try:
             rules = explanation.get_rules()
-        except Exception:  # pragma: no cover - defensive
+        except Exception:  # pragma: no cover - defensive  # adr002_allow
             rules = None
     if isinstance(rules, Mapping) and "rule" in rules and "weight" in rules:
         rule_texts = rules.get("rule", [])
         weights = rules.get("weight", [])
         if rule_texts and weights:
             ranked = sorted(
-                zip(rule_texts, weights), key=lambda item: abs(float(item[1])), reverse=True
+                zip(rule_texts, weights, strict=False),
+                key=lambda item: abs(float(item[1])),
+                reverse=True,
             )
             return [text for text, _ in ranked[:top_k]]
     if hasattr(explanation, "rules") and isinstance(explanation.rules, Mapping):
@@ -317,7 +321,7 @@ def _format_probability(proba: Any) -> str:
             if arr.ndim == 2:
                 return np.array2string(arr[0], precision=3)
             return np.array2string(arr, precision=3)
-        except Exception:
+        except Exception:  # adr002_allow
             return str(proba)
     return str(proba)
 
@@ -358,7 +362,6 @@ def summarize_explanations(explanations: Any, *, top_k: int = 5) -> Mapping[str,
     Mapping[str, Any]
         JSON-safe summary dictionary.
     """
-
     first = explanations[0] if hasattr(explanations, "__getitem__") else None
     prediction = getattr(first, "prediction", None)
     pred_triplet = _extract_prediction_triplet(prediction)
@@ -370,15 +373,10 @@ def summarize_explanations(explanations: Any, *, top_k: int = 5) -> Mapping[str,
     if isinstance(conjunctive_rules, Mapping) and "rule" in conjunctive_rules:
         try:
             conjunctive_rule_texts = list(conjunctive_rules.get("rule", []))[:top_k]
-        except Exception:  # pragma: no cover - defensive
+        except Exception:  # pragma: no cover - defensive  # adr002_allow
             conjunctive_rule_texts = []
 
-    percentiles = None
-    if first is not None and hasattr(first, "get_percentiles"):
-        try:
-            percentiles = first.get_percentiles()
-        except Exception:  # pragma: no cover - defensive
-            percentiles = None
+    # percentiles are not currently used in the summary; skip retrieval
 
     y_threshold = getattr(explanations, "y_threshold", None)
     if first is not None and getattr(first, "y_threshold", None) is not None:
@@ -388,7 +386,7 @@ def summarize_explanations(explanations: Any, *, top_k: int = 5) -> Mapping[str,
     if hasattr(explanations, "get_confidence"):
         try:
             confidence = float(explanations.get_confidence())
-        except Exception:  # pragma: no cover - defensive
+        except Exception:  # pragma: no cover - defensive  # adr002_allow
             confidence = None
 
     return {
@@ -407,7 +405,9 @@ def summarize_explanations(explanations: Any, *, top_k: int = 5) -> Mapping[str,
 def _action_suggestion(weights: List[float], rules: List[str]) -> str:
     if not weights or not rules:
         return "Review the most influential features for potential adjustments."
-    paired = sorted(zip(weights, rules), key=lambda item: abs(float(item[0])), reverse=True)
+    paired = sorted(
+        zip(weights, rules, strict=False), key=lambda item: abs(float(item[0])), reverse=True
+    )
     weight, rule = paired[0]
     direction = "increase" if weight < 0 else "decrease"
     return f"Consider how to {direction} influence from: {rule}."
@@ -415,7 +415,7 @@ def _action_suggestion(weights: List[float], rules: List[str]) -> str:
 
 def explain_and_narrate(
     wrapper: Any,
-    X: Any,
+    x: Any,
     *,
     mode: str = "factual",
     narrative_format: str = "short",
@@ -425,12 +425,11 @@ def explain_and_narrate(
 
     Returns the explanations collection and narrative text.
     """
-
     _emit("ce.explain.start", mode=mode)
     return enforce_ce_first_and_execute(
         _explain_and_narrate_impl,
         wrapper,
-        X,
+        x,
         mode=mode,
         narrative_format=narrative_format,
         **kwargs,
@@ -439,7 +438,7 @@ def explain_and_narrate(
 
 def _explain_and_narrate_impl(
     wrapper: Any,
-    X: Any,
+    x: Any,
     *,
     mode: str,
     narrative_format: str,
@@ -448,8 +447,15 @@ def _explain_and_narrate_impl(
     explainer = wrapper
     mode_normalized = mode.lower().strip()
     if mode_normalized not in {"factual", "alternatives"}:
-        raise ValueError("mode must be 'factual' or 'alternatives'")
-    explain_func = explainer.explain_factual if mode_normalized == "factual" else explainer.explore_alternatives
+        raise ValidationError(
+            "mode must be 'factual' or 'alternatives'",
+            details={"mode": mode, "allowed": ["factual", "alternatives"]},
+        )
+    explain_func = (
+        explainer.explain_factual
+        if mode_normalized == "factual"
+        else explainer.explore_alternatives
+    )
     # NOTE: Explanation kwargs and prediction kwargs are intentionally separated.
     # Agents may request alternative-only knobs (e.g. ensure_coverage) that should
     # not be forwarded to predict/predict_proba.
@@ -459,9 +465,9 @@ def _explain_and_narrate_impl(
         if key in explain_kwargs:
             prediction_kwargs[key] = explain_kwargs[key]
 
-    explanations = _safe_call_with_kwargs(explain_func, X, **explain_kwargs)
+    explanations = _safe_call_with_kwargs(explain_func, x, **explain_kwargs)
     explanation = explanations[0] if hasattr(explanations, "__getitem__") else None
-    pred = _safe_call_with_kwargs(explainer.predict, X, **prediction_kwargs)
+    pred = _safe_call_with_kwargs(explainer.predict, x, **prediction_kwargs)
     proba = None
     if hasattr(explainer, "predict_proba"):
         # For regression, WrapCalibratedExplainer.predict_proba requires a
@@ -471,7 +477,7 @@ def _explain_and_narrate_impl(
         if learner_supports or threshold is not None:
             proba = _safe_call_with_kwargs(
                 explainer.predict_proba,
-                X,
+                x,
                 uq_interval=True,
                 **prediction_kwargs,
             )
@@ -479,11 +485,15 @@ def _explain_and_narrate_impl(
     if explanation is not None and hasattr(explanation, "to_narrative"):
         try:
             explanation_narrative = explanation.to_narrative(format="short")
-        except Exception:  # pragma: no cover - defensive
+        except Exception:  # pragma: no cover - defensive  # adr002_allow
             explanation_narrative = str(explanation)
     top_features = _extract_top_features(explanation, top_k=3)
     weights = []
-    if explanation is not None and hasattr(explanation, "rules") and isinstance(explanation.rules, Mapping):
+    if (
+        explanation is not None
+        and hasattr(explanation, "rules")
+        and isinstance(explanation.rules, Mapping)
+    ):
         weights = [float(w) for w in explanation.rules.get("weight", []) if w is not None]
     action = _action_suggestion(weights, top_features)
     template = NARRATIVE_TEMPLATES.get(narrative_format, NARRATIVE_TEMPLATES["short"])
@@ -501,7 +511,7 @@ def _explain_and_narrate_impl(
 
 def explain_and_summarize(
     wrapper: Any,
-    X: Any,
+    x: Any,
     *,
     mode: str = "factual",
     narrative_format: str = "short",
@@ -531,7 +541,6 @@ def explain_and_summarize(
         Payload containing ``explanations``, ``narrative``, and a JSON-safe
         ``summary``.
     """
-
     wrapper = ensure_ce_first_wrapper(wrapper)
     _validate_wrapper_state(wrapper, require_fitted=True, require_calibrated=True)
 
@@ -543,7 +552,7 @@ def explain_and_summarize(
 
     explanations, narrative = explain_and_narrate(
         wrapper,
-        X,
+        x,
         mode=mode,
         narrative_format=narrative_format,
         **explain_kwargs,
@@ -554,11 +563,13 @@ def explain_and_summarize(
 
     predictions = get_calibrated_predictions(
         wrapper,
-        X,
+        x,
         calibrated=True,
         uq_interval=uq_interval,
         threshold=threshold,
-        low_high_percentiles=tuple(low_high_percentiles) if low_high_percentiles is not None else None,
+        low_high_percentiles=tuple(low_high_percentiles)
+        if low_high_percentiles is not None
+        else None,
     )
 
     return {
@@ -572,7 +583,6 @@ def explain_and_summarize(
 
 def add_conjunctions(explanations: Any, **params: Any) -> Any:
     """Add conjunctions to a explanations collection."""
-
     if not hasattr(explanations, "add_conjunctions"):
         raise ModelNotSupportedError("Explanations object does not support add_conjunctions")
     _emit("ce.conjunctions.add", scope="collection")
@@ -581,7 +591,6 @@ def add_conjunctions(explanations: Any, **params: Any) -> Any:
 
 def add_conjunctions_to_one(explanations: Any, idx: int, **params: Any) -> Any:
     """Add conjunctions to a single explanation object at index idx."""
-
     explanation = explanations[idx]
     if not hasattr(explanation, "add_conjunctions"):
         raise ModelNotSupportedError("Explanation object does not support add_conjunctions")
@@ -591,7 +600,7 @@ def add_conjunctions_to_one(explanations: Any, idx: int, **params: Any) -> Any:
 
 def get_calibrated_predictions(
     wrapper: Any,
-    X: Any,
+    x: Any,
     *,
     calibrated: bool = True,
     uq_interval: bool = False,
@@ -599,7 +608,6 @@ def get_calibrated_predictions(
     **kwargs: Any,
 ) -> Mapping[str, Any]:
     """Return calibrated predictions/probabilities (CE-first by default)."""
-
     wrapper = ensure_ce_first_wrapper(wrapper)
     if calibrated:
         _validate_wrapper_state(wrapper, require_fitted=True, require_calibrated=True)
@@ -611,51 +619,49 @@ def get_calibrated_predictions(
     # For regression, low/high percentiles control conformal prediction intervals.
     if "low_high_percentiles" in kwargs and kwargs.get("low_high_percentiles") is None:
         predict_kwargs.pop("low_high_percentiles", None)
-    prediction = _safe_call_with_kwargs(wrapper.predict, X, **predict_kwargs)
+    prediction = _safe_call_with_kwargs(wrapper.predict, x, **predict_kwargs)
     proba = None
     if hasattr(wrapper, "predict_proba"):
         learner_supports = bool(getattr(getattr(wrapper, "learner", None), "predict_proba", None))
         if learner_supports or threshold is not None:
-            proba = _safe_call_with_kwargs(wrapper.predict_proba, X, **predict_kwargs)
+            proba = _safe_call_with_kwargs(wrapper.predict_proba, x, **predict_kwargs)
     return {"prediction": prediction, "probability": proba}
 
 
-def get_uncalibrated_predictions(wrapper: Any, X: Any, **kwargs: Any) -> Mapping[str, Any]:
+def get_uncalibrated_predictions(wrapper: Any, x: Any, **kwargs: Any) -> Mapping[str, Any]:
     """Return uncalibrated outputs directly from the learner."""
-
     wrapper = ensure_ce_first_wrapper(wrapper)
     learner = wrapper.learner
     prediction = None
     if hasattr(learner, "predict"):
-        prediction = _safe_call_with_kwargs(learner.predict, X, **kwargs)
+        prediction = _safe_call_with_kwargs(learner.predict, x, **kwargs)
     proba = None
     if hasattr(learner, "predict_proba"):
-        proba = _safe_call_with_kwargs(learner.predict_proba, X, **kwargs)
+        proba = _safe_call_with_kwargs(learner.predict_proba, x, **kwargs)
     return {"prediction": prediction, "probability": proba}
 
 
 def wrap_and_explain(
     model: Any,
-    X_train: Any,
+    x_train: Any,
     y_train: Any,
-    X_cal: Any,
+    x_cal: Any,
     y_cal: Any,
-    X_test: Any,
+    x_test: Any,
     *,
     mode: str = "factual",
     **kwargs: Any,
 ) -> Mapping[str, Any]:
     """Full CE-first workflow: wrap, fit, calibrate, explain, narrate."""
-
     wrapper = ensure_ce_first_wrapper(model)
-    wrapper = fit_and_calibrate(wrapper, X_train, y_train, X_cal, y_cal, **kwargs)
-    explanations, narrative = explain_and_narrate(wrapper, X_test, mode=mode, **kwargs)
+    wrapper = fit_and_calibrate(wrapper, x_train, y_train, x_cal, y_cal, **kwargs)
+    explanations, narrative = explain_and_narrate(wrapper, x_test, mode=mode, **kwargs)
     explanation = explanations[0] if hasattr(explanations, "__getitem__") else None
     plot = None
     if explanation is not None and hasattr(explanation, "plot"):
         try:
             plot = explanation.plot()
-        except Exception:  # pragma: no cover - plotting optional
+        except Exception:  # pragma: no cover - plotting optional  # adr002_allow
             plot = None
     return {
         "wrapper": wrapper,
@@ -665,9 +671,10 @@ def wrap_and_explain(
     }
 
 
-def enforce_ce_first_and_execute(action_callable: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
+def enforce_ce_first_and_execute(
+    action_callable: Callable[..., Any], *args: Any, **kwargs: Any
+) -> Any:
     """Validate CE-first requirements before executing an action."""
-
     wrap_cls = _require_ce()
     wrapper = None
     for candidate in args:
@@ -690,7 +697,6 @@ def probe_optional_features(
     find_spec: Optional[Callable[[str], Any]] = None,
 ) -> Mapping[str, Any]:
     """Probe optional CE features (conditional, difficulty, reject, plugins)."""
-
     report: Dict[str, Any] = {"available": {}, "warnings": []}
     optional_targets = {
         "crepes.extras.MondrianCategorizer": "conditional/Mondrian categorizer",
@@ -706,7 +712,7 @@ def probe_optional_features(
             module = import_module(module_name)
             _ = getattr(module, attr)
             report["available"][label] = True
-        except Exception as exc:  # pragma: no cover - defensive
+        except Exception as exc:  # pragma: no cover - defensive  # adr002_allow
             report["available"][label] = False
             report["warnings"].append(f"Optional feature missing: {label} ({exc})")
     if report["warnings"]:
