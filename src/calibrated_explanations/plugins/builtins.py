@@ -35,6 +35,7 @@ from ..core.explain._feature_filter import (  # type: ignore[attr-defined]
     compute_filtered_features_to_ignore,
     emit_feature_filter_governance_event,
 )
+from .conformal_guard import ConformalGuardPlugin
 from ..explanations.explanation import (
     AlternativeExplanation,
     FactualExplanation,
@@ -644,6 +645,92 @@ class _ExecutionExplanationPluginBase(_LegacyExplanationBase):
             # exception handlers above already set a safe fallback.
             with contextlib.suppress(AttributeError):
                 del self.explainer.feature_filter_per_instance_ignore
+
+            extras = dict(getattr(filtered_request, "extras", {}) or {})
+            extras_updated = False
+            conformal_cfg = getattr(self.explainer, "conformal_guard_cfg", None)
+            if conformal_cfg is not None:
+                try:
+                    guard_plugin = self.explainer.plugin_manager.get_helper_plugin(
+                        "core.conformal_guard", ConformalGuardPlugin
+                    )
+                    guard_plugin.initialize(self._context)
+                    conformal_metadata = guard_plugin.build_metadata(
+                        self.explainer, x, conformal_cfg, bins=request.bins
+                    )
+                    extras["conformal_metadata"] = conformal_metadata
+                    extras["conformal_cfg"] = conformal_cfg
+                    extras_updated = True
+                    if self._mode == "factual":
+                        conformal_ignore = []
+                        for instance, meta in zip(x, conformal_metadata, strict=False):
+                            ignored = []
+                            for f_idx in range(self.explainer.num_features):
+                                entry = meta.get(f_idx) if isinstance(meta, dict) else None
+                                if f_idx in self.explainer.categorical_features:
+                                    values = entry.get("values", set()) if entry else set()
+                                    if not values or instance[f_idx] not in values:
+                                        ignored.append(f_idx)
+                                else:
+                                    interval = entry.get("interval") if entry else None
+                                    intervals = entry.get("intervals", []) if entry else []
+                                    if interval is None or not intervals:
+                                        ignored.append(f_idx)
+                            conformal_ignore.append(np.asarray(ignored, dtype=int))
+                        existing_ignore = getattr(
+                            filtered_request, "feature_filter_per_instance_ignore", None
+                        )
+                        if existing_ignore is None:
+                            filtered_request = ExplanationRequest(
+                                threshold=filtered_request.threshold,
+                                low_high_percentiles=filtered_request.low_high_percentiles,
+                                bins=filtered_request.bins,
+                                features_to_ignore=filtered_request.features_to_ignore,
+                                feature_filter_per_instance_ignore=conformal_ignore,
+                                extras=filtered_request.extras,
+                            )
+                        else:
+                            merged = []
+                            for base, extra in zip(existing_ignore, conformal_ignore, strict=False):
+                                merged.append(np.union1d(base, extra))
+                            filtered_request = ExplanationRequest(
+                                threshold=filtered_request.threshold,
+                                low_high_percentiles=filtered_request.low_high_percentiles,
+                                bins=filtered_request.bins,
+                                features_to_ignore=filtered_request.features_to_ignore,
+                                feature_filter_per_instance_ignore=merged,
+                                extras=filtered_request.extras,
+                            )
+                except Exception as exc:  # adr002_allow
+                    suppress_guard = bool(
+                        getattr(self.explainer, "suppress_conformal_guard_errors", False)
+                    )
+                    suppress_crepes = bool(
+                        getattr(self.explainer, "suppress_crepes_errors", False)
+                    )
+                    if not (suppress_guard or suppress_crepes):
+                        raise
+                    if suppress_crepes and not suppress_guard:
+                        logging.getLogger(__name__).warning(
+                            "Using suppress_crepes_errors to silence conformal guard failures; "
+                            "prefer suppress_conformal_guard_errors for future compatibility."
+                        )
+                    logging.getLogger(__name__).warning(
+                        "Conformal guard failed to initialize; explanations will proceed unguarded: %s",
+                        exc,
+                    )
+
+            if extras_updated:
+                filtered_request = ExplanationRequest(
+                    threshold=filtered_request.threshold,
+                    low_high_percentiles=filtered_request.low_high_percentiles,
+                    bins=filtered_request.bins,
+                    features_to_ignore=filtered_request.features_to_ignore,
+                    feature_filter_per_instance_ignore=getattr(
+                        filtered_request, "feature_filter_per_instance_ignore", None
+                    ),
+                    extras=extras,
+                )
 
             explain_request, explain_config, runtime = build_explain_execution_plan(
                 self.explainer, x, filtered_request

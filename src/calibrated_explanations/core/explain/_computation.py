@@ -7,7 +7,8 @@ and weight calculation used by all explain executors.
 from __future__ import annotations
 
 from collections.abc import Iterable
-from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
+import contextlib
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set, Tuple
 
 import numpy as np
 
@@ -172,6 +173,7 @@ def get_greater_values(
     explainer: CalibratedExplainer,
     feature_index: int,
     threshold: float,
+    x_cal_override: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Get sampled values above threshold for a numeric feature.
 
@@ -193,19 +195,41 @@ def get_greater_values(
         Array of sampled percentile values above the threshold, or empty array
         if no calibration samples exceed the threshold.
     """
-    if not np.any(explainer.x_cal[:, feature_index] > threshold):
+    x_cal = explainer.x_cal if x_cal_override is None else x_cal_override
+    if not np.any(x_cal[:, feature_index] > threshold):
         return np.array([])
     candidates = np.percentile(
-        explainer.x_cal[explainer.x_cal[:, feature_index] > threshold, feature_index],
+        x_cal[x_cal[:, feature_index] > threshold, feature_index],
         explainer.sample_percentiles,
     )
     return candidates
+
+
+def _extract_candidate_points(meta: Any) -> np.ndarray:
+    if not isinstance(meta, dict):
+        return np.array([])
+    candidates = np.asarray(meta.get("candidate_points", []), dtype=float).reshape(-1)
+    return candidates
+
+
+def _filter_candidate_points(
+    candidates: np.ndarray, *, upper: float | None = None, lower: float | None = None
+) -> np.ndarray:
+    if candidates.size == 0:
+        return candidates
+    mask = np.ones_like(candidates, dtype=bool)
+    if lower is not None:
+        mask &= candidates >= lower
+    if upper is not None:
+        mask &= candidates <= upper
+    return candidates[mask]
 
 
 def get_lesser_values(
     explainer: CalibratedExplainer,
     feature_index: int,
     threshold: float,
+    x_cal_override: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Get sampled values below threshold for a numeric feature.
 
@@ -227,10 +251,11 @@ def get_lesser_values(
         Array of sampled percentile values below the threshold, or empty array
         if no calibration samples are below the threshold.
     """
-    if not np.any(explainer.x_cal[:, feature_index] < threshold):
+    x_cal = explainer.x_cal if x_cal_override is None else x_cal_override
+    if not np.any(x_cal[:, feature_index] < threshold):
         return np.array([])
     candidates = np.percentile(
-        explainer.x_cal[explainer.x_cal[:, feature_index] < threshold, feature_index],
+        x_cal[x_cal[:, feature_index] < threshold, feature_index],
         explainer.sample_percentiles,
     )
     return candidates
@@ -241,6 +266,7 @@ def get_covered_values(
     feature_index: int,
     lower_threshold: float,
     upper_threshold: float,
+    x_cal_override: Optional[np.ndarray] = None,
 ) -> np.ndarray:
     """Get sampled values within an interval for a numeric feature.
 
@@ -264,14 +290,15 @@ def get_covered_values(
         Array of sampled percentile values within the interval, or empty array
         if no calibration samples fall in the interval.
     """
+    x_cal = explainer.x_cal if x_cal_override is None else x_cal_override
     covered = np.where(
-        (explainer.x_cal[:, feature_index] >= lower_threshold)
-        & (explainer.x_cal[:, feature_index] <= upper_threshold)
+        (x_cal[:, feature_index] >= lower_threshold)
+        & (x_cal[:, feature_index] <= upper_threshold)
     )[0]
     if len(covered) == 0:
         return np.array([])
     candidates = np.percentile(
-        explainer.x_cal[covered, feature_index],
+        x_cal[covered, feature_index],
         explainer.sample_percentiles,
     )
     return candidates
@@ -327,6 +354,8 @@ def explain_predict_step(
     *,
     interval_summary: Any | None = None,
     feature_filter_per_instance_ignore: Any | None = None,
+    conformal_metadata: Any | None = None,
+    conformal_cfg: Any | None = None,
 ) -> ExplainPredictStepResult:
     """Execute the baseline prediction and perturbation planning step.
 
@@ -381,6 +410,32 @@ def explain_predict_step(
             inst_indices = as_int_array(inst_mask)
             if inst_indices.size:
                 ignore_mask[idx, inst_indices] = True
+    categorical_features = set(getattr(explainer, "categorical_features", ()))
+    conformal_ranges = conformal_metadata
+    if conformal_ranges is not None:
+        explanation_mode = None
+        with contextlib.suppress(Exception):
+            explanation_mode = explainer.infer_explanation_mode()
+        factual_mode = explanation_mode == "factual"
+        per_instance_ignore: List[Set[int]] = [set() for _ in range(n_instances)]
+        for idx, instance in enumerate(x):
+            info = conformal_ranges[idx]
+            for f in range(num_features):
+                meta = info.get(f) if isinstance(info, dict) else None
+                if f in categorical_features:
+                    values = meta.get("values") if meta else None
+                    values_set = set(values or [])
+                    if factual_mode and (not values_set or instance[f] not in values_set):
+                        per_instance_ignore[idx].add(f)
+                else:
+                    interval = meta.get("interval") if meta else None
+                    intervals = meta.get("intervals", []) if meta else []
+                    if factual_mode and (interval is None or not intervals):
+                        per_instance_ignore[idx].add(f)
+        if any(per_instance_ignore):
+            for idx, ignored in enumerate(per_instance_ignore):
+                if ignored:
+                    ignore_mask[idx, list(ignored)] = True
 
     # print(f"DEBUG: explainer type: {type(explainer)}")
     # print(f"DEBUG: explainer.is_multiclass type: {type(explainer.is_multiclass)}")
@@ -456,7 +511,11 @@ def explain_predict_step(
     greater_values: dict[int, Any] = {}
     covered_values: dict[int, Any] = {}
 
-    categorical_features = set(getattr(explainer, "categorical_features", ()))
+    use_conformal_perturb = bool(
+        conformal_ranges is not None
+        and conformal_cfg is not None
+        and getattr(conformal_cfg, "use_for_perturbation", False)
+    )
 
     for f in range(explainer.num_features):
         active_indices = np.where(~ignore_mask[:, f])[0]
@@ -466,26 +525,44 @@ def explain_predict_step(
             feature_values = explainer.feature_values[f]
             x_copy = np.array(x, copy=True)
             for value in feature_values:
-                x_local = x_copy[active_indices, :]
+                indices = active_indices
+                if use_conformal_perturb and conformal_ranges is not None:
+                    indices = np.array(
+                        [
+                            i
+                            for i in active_indices
+                            if value
+                            in (
+                                set(
+                                    conformal_ranges[int(i)]
+                                    .get(f, {})
+                                    .get("values", [])
+                                )
+                                if isinstance(conformal_ranges[int(i)], dict)
+                                else set()
+                            )
+                        ]
+                    )
+                    if indices.size == 0:
+                        continue
+                x_local = x_copy[indices, :]
                 x_local[:, f] = value
                 perturbed_x_list.append(x_local)
-                perturbed_feature_list.append([(f, int(i), value, None) for i in active_indices])
+                perturbed_feature_list.append([(f, int(i), value, None) for i in indices])
 
                 if bins is not None:
                     selected_bins = (
-                        bins[active_indices]
-                        if len(active_indices) > 1
-                        else [bins[active_indices[0]]]
+                        bins[indices] if len(indices) > 1 else [bins[indices[0]]]
                     )
                     perturbed_bins_list.append(selected_bins)
 
-                p_class = prediction.get("predict", np.zeros_like(active_indices))[active_indices]
+                p_class = prediction.get("predict", np.zeros_like(indices))[indices]
                 if not hasattr(p_class, "__len__"):
-                    p_class = np.full(len(active_indices), p_class)
+                    p_class = np.full(len(indices), p_class)
                 perturbed_class_list.append(p_class)
 
                 perturbed_threshold = concatenate_thresholds(
-                    perturbed_threshold, threshold, active_indices
+                    perturbed_threshold, threshold, indices
                 )
         else:
             x_copy = np.array(x, copy=True)
@@ -508,58 +585,158 @@ def explain_predict_step(
             active_upper = upper_boundary[active_indices]
 
             for j, val in enumerate(np.unique(active_lower)):
-                lesser_values[f][j] = (
-                    np.unique(get_lesser_values(explainer, f, val)),
-                    val,
-                )
+                candidate_sets = []
+                if use_conformal_perturb and conformal_ranges is not None:
+                    for idx in np.where(lower_boundary == val)[0]:
+                        meta = (
+                            conformal_ranges[int(idx)].get(f, {})
+                            if isinstance(conformal_ranges[int(idx)], dict)
+                            else {}
+                        )
+                        candidates = _filter_candidate_points(
+                            _extract_candidate_points(meta), upper=val
+                        )
+                        if candidates.size:
+                            candidate_sets.append(candidates)
+                if candidate_sets:
+                    candidates = np.unique(np.concatenate(candidate_sets))
+                else:
+                    candidates = np.unique(get_lesser_values(explainer, f, val))
+                lesser_values[f][j] = (candidates, val)
                 indices = np.where(lower_boundary == val)[0]
                 indices = np.intersect1d(indices, active_indices, assume_unique=False)
                 if len(indices) == 0:
                     continue
                 for value in lesser_values[f][j][0]:
-                    x_local = x_copy[indices, :]
+                    selected_indices = indices
+                    if use_conformal_perturb and conformal_ranges is not None:
+                        selected_indices = np.array(
+                            [
+                                i
+                                for i in indices
+                                if any(
+                                    lo <= value <= hi
+                                    for lo, hi in (
+                                        conformal_ranges[int(i)]
+                                        .get(f, {})
+                                        .get("intervals", [])
+                                        if isinstance(conformal_ranges[int(i)], dict)
+                                        else []
+                                    )
+                                )
+                            ]
+                        )
+                        if selected_indices.size == 0:
+                            continue
+                    x_local = x_copy[selected_indices, :]
                     x_local[:, f] = value
                     perturbed_x_list.append(x_local)
-                    perturbed_feature_list.append([(f, int(i), j, True) for i in indices])
+                    perturbed_feature_list.append([(f, int(i), j, True) for i in selected_indices])
 
                     if bins is not None:
-                        selected_bins = bins[indices] if len(indices) > 1 else [bins[indices[0]]]
+                        selected_bins = (
+                            bins[selected_indices]
+                            if len(selected_indices) > 1
+                            else [bins[selected_indices[0]]]
+                        )
                         perturbed_bins_list.append(selected_bins)
 
-                    perturbed_class_list.append(prediction["classes"][indices])
+                    perturbed_class_list.append(prediction["classes"][selected_indices])
 
                     perturbed_threshold = concatenate_thresholds(
-                        perturbed_threshold, threshold, indices
+                        perturbed_threshold, threshold, selected_indices
                     )
             for j, val in enumerate(np.unique(active_upper)):
-                greater_values[f][j] = (
-                    np.unique(get_greater_values(explainer, f, val)),
-                    val,
-                )
+                candidate_sets = []
+                if use_conformal_perturb and conformal_ranges is not None:
+                    for idx in np.where(upper_boundary == val)[0]:
+                        meta = (
+                            conformal_ranges[int(idx)].get(f, {})
+                            if isinstance(conformal_ranges[int(idx)], dict)
+                            else {}
+                        )
+                        candidates = _filter_candidate_points(
+                            _extract_candidate_points(meta), lower=val
+                        )
+                        if candidates.size:
+                            candidate_sets.append(candidates)
+                if candidate_sets:
+                    candidates = np.unique(np.concatenate(candidate_sets))
+                else:
+                    candidates = np.unique(get_greater_values(explainer, f, val))
+                greater_values[f][j] = (candidates, val)
                 indices = np.where(upper_boundary == val)[0]
                 indices = np.intersect1d(indices, active_indices, assume_unique=False)
                 if len(indices) == 0:
                     continue
                 for value in greater_values[f][j][0]:
-                    x_local = x_copy[indices, :]
+                    selected_indices = indices
+                    if use_conformal_perturb and conformal_ranges is not None:
+                        selected_indices = np.array(
+                            [
+                                i
+                                for i in indices
+                                if any(
+                                    lo <= value <= hi
+                                    for lo, hi in (
+                                        conformal_ranges[int(i)]
+                                        .get(f, {})
+                                        .get("intervals", [])
+                                        if isinstance(conformal_ranges[int(i)], dict)
+                                        else []
+                                    )
+                                )
+                            ]
+                        )
+                        if selected_indices.size == 0:
+                            continue
+                    x_local = x_copy[selected_indices, :]
                     x_local[:, f] = value
                     perturbed_x_list.append(x_local)
-                    perturbed_feature_list.append([(f, int(i), j, False) for i in indices])
+                    perturbed_feature_list.append([(f, int(i), j, False) for i in selected_indices])
 
                     if bins is not None:
-                        selected_bins = bins[indices] if len(indices) > 1 else [bins[indices[0]]]
+                        selected_bins = (
+                            bins[selected_indices]
+                            if len(selected_indices) > 1
+                            else [bins[selected_indices[0]]]
+                        )
                         perturbed_bins_list.append(selected_bins)
 
-                    perturbed_class_list.append(prediction["classes"][indices])
+                    perturbed_class_list.append(prediction["classes"][selected_indices])
 
                     perturbed_threshold = concatenate_thresholds(
-                        perturbed_threshold, threshold, indices
+                        perturbed_threshold, threshold, selected_indices
                     )
             for i in active_indices:
-                covered_values[f][int(i)] = (
-                    get_covered_values(explainer, f, lower_boundary[i], upper_boundary[i]),
-                    (lower_boundary[i], upper_boundary[i]),
-                )
+                values = get_covered_values(explainer, f, lower_boundary[i], upper_boundary[i])
+                if use_conformal_perturb and conformal_ranges is not None:
+                    meta = (
+                        conformal_ranges[int(i)].get(f, {})
+                        if isinstance(conformal_ranges[int(i)], dict)
+                        else {}
+                    )
+                    candidates = _filter_candidate_points(
+                        _extract_candidate_points(meta),
+                        lower=lower_boundary[i],
+                        upper=upper_boundary[i],
+                    )
+                    if candidates.size:
+                        values = candidates
+                    else:
+                        values = np.array(
+                            [
+                                value
+                                for value in values
+                                if any(
+                                    lo <= value <= hi
+                                    for lo, hi in (
+                                        meta.get("intervals", []) if isinstance(meta, dict) else []
+                                    )
+                                )
+                            ]
+                        )
+                covered_values[f][int(i)] = (values, (lower_boundary[i], upper_boundary[i]))
                 for value in covered_values[f][int(i)][0]:
                     x_local = x_copy[int(i), :]
                     x_local[f] = value
@@ -590,6 +767,27 @@ def explain_predict_step(
         perturbed_feature = np.empty((0, 4))
         perturbed_class = np.empty((0,), dtype=int)
         perturbed_bins = np.empty((0,)) if bins is not None else None
+
+    if (
+        use_conformal_perturb
+        and conformal_cfg is not None
+        and getattr(conformal_cfg, "use_interaction_gate", False)
+    ):
+        guard = getattr(explainer, "_conformal_guard", None)
+        if guard is not None and perturbed_x is not None and len(perturbed_x):
+            mask = np.array([bool(guard.is_instance_conforming(row)) for row in perturbed_x])
+            if mask.size == len(perturbed_x) and not np.all(mask):
+                perturbed_x = perturbed_x[mask]
+                perturbed_feature = perturbed_feature[mask]
+                perturbed_class = perturbed_class[mask]
+                if perturbed_bins is not None:
+                    perturbed_bins = perturbed_bins[mask]
+                if (
+                    perturbed_threshold is not None
+                    and isinstance(perturbed_threshold, (list, np.ndarray))
+                    and len(perturbed_threshold) == mask.size
+                ):
+                    perturbed_threshold = np.asarray(perturbed_threshold)[mask]
 
     if (
         threshold is not None

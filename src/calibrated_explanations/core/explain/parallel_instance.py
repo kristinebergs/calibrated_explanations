@@ -57,6 +57,8 @@ def _instance_parallel_task(task: Tuple[int, int, dict]) -> Tuple[int, Calibrate
     low_high_percentiles = serialized_state.get("low_high_percentiles")
     features_to_ignore_array = serialized_state.get("features_to_ignore_array")
     feature_filter_per_instance_ignore = serialized_state.get("feature_filter_per_instance_ignore")
+    extras = serialized_state.get("extras")
+    interval_summary = serialized_state.get("interval_summary")
     explainer = serialized_state.get("explainer")
     config_state = serialized_state.get("config_state")
 
@@ -70,6 +72,8 @@ def _instance_parallel_task(task: Tuple[int, int, dict]) -> Tuple[int, Calibrate
         bins=bins_slice,
         features_to_ignore=features_to_ignore_array,
         feature_filter_per_instance_ignore=feature_filter_per_instance_ignore,
+        interval_summary=interval_summary,
+        extras=extras,
         use_plugin=False,
         skip_instance_parallel=True,
     )
@@ -213,6 +217,8 @@ class InstanceParallelExplainExecutor(BaseExplainExecutor):
                 bins=bins_slice,
                 features_to_ignore=features_to_ignore_array,
                 feature_filter_per_instance_ignore=per_instance_chunk,
+                interval_summary=request.interval_summary,
+                extras=request.extras,
                 use_plugin=False,
                 skip_instance_parallel=True,  # Prevent recursive parallelism
             )
@@ -249,6 +255,8 @@ class InstanceParallelExplainExecutor(BaseExplainExecutor):
                     "low_high_percentiles": request.low_high_percentiles,
                     "features_to_ignore_array": features_to_ignore_array,
                     "feature_filter_per_instance_ignore": per_instance_chunk,
+                    "interval_summary": request.interval_summary,
+                    "extras": request.extras,
                     "config_state": config_state,
                 }
             else:
@@ -261,6 +269,8 @@ class InstanceParallelExplainExecutor(BaseExplainExecutor):
                     "low_high_percentiles": request.low_high_percentiles,
                     "features_to_ignore_array": features_to_ignore_array,
                     "feature_filter_per_instance_ignore": per_instance_chunk,
+                    "interval_summary": request.interval_summary,
+                    "extras": request.extras,
                     "explainer": explainer,
                     "config_state": config_state,
                 }

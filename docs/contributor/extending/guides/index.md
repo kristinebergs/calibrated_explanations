@@ -7,6 +7,7 @@ surfaces, or configuration toggles.
 
 - {doc}`../../plugin-contract` – Canonical contract before implementing
   additional guides.
+- {doc}`cds-engine-adapters` – Contract for tree-based conformal guard adapters.
 - {doc}`../../../foundations/how-to/integrate_with_pipelines` – Integration
   checkpoints for end-to-end validation.
 
@@ -27,4 +28,5 @@ surfaces, or configuration toggles.
 ../../../foundations/how-to/configure_telemetry
 ../../../foundations/governance/nav_crosswalk
 ../../../foundations/reference/api
+cds-engine-adapters
 ```

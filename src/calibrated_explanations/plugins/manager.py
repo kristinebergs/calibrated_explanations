@@ -100,6 +100,7 @@ class PluginManager:
         self._bridge_monitors: Dict[str, PredictBridgeMonitor] = {}
         self._explanation_plugin_instances: Dict[str, Any] = {}
         self._explanation_plugin_identifiers: Dict[str, str] = {}
+        self._helper_plugins: Dict[str, Any] = {}
 
         # Fallback chains for plugin resolution (populated by initialize_chains)
         self._explanation_plugin_fallbacks: Dict[str, Tuple[str, ...]] = {}
@@ -145,6 +146,14 @@ class PluginManager:
         self._explanation_orchestrator: Any = None
         self._prediction_orchestrator: Any = None
         self._reject_orchestrator: Any = None
+
+    def get_helper_plugin(self, name: str, factory: Any) -> Any:
+        """Return or create a cached helper plugin instance."""
+        if name in self._helper_plugins:
+            return self._helper_plugins[name]
+        plugin = factory()
+        self._helper_plugins[name] = plugin
+        return plugin
 
     @property
     def interval_plugin_hints(self) -> Dict[str, Tuple[str, ...]]:
