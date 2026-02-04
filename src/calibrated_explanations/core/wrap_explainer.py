@@ -505,6 +505,7 @@ class WrapCalibratedExplainer:
         x: Any,
         uq_interval: bool = False,
         calibrated: bool = True,
+        reject_policy: Any | None = None,
         **kwargs: Any,
     ) -> Any:
         """Generate predictions for the test data.
@@ -543,7 +544,11 @@ class WrapCalibratedExplainer:
             is not None
         )
         return self.explainer.predict(
-            x_local, uq_interval=uq_interval, calibrated=calibrated, **kwargs
+            x_local,
+            uq_interval=uq_interval,
+            calibrated=calibrated,
+            reject_policy=reject_policy,
+            **kwargs,
         )
 
     def predict_proba(
@@ -552,6 +557,7 @@ class WrapCalibratedExplainer:
         uq_interval: bool = False,
         calibrated: bool = True,
         threshold: float | None = None,
+        reject_policy: Any | None = None,
         **kwargs: Any,
     ) -> Any:
         """Generate probability predictions for the test data.
@@ -597,7 +603,12 @@ class WrapCalibratedExplainer:
             is not None
         )
         return self.explainer.predict_proba(
-            x_local, uq_interval=uq_interval, calibrated=calibrated, threshold=threshold, **kwargs
+            x_local,
+            uq_interval=uq_interval,
+            calibrated=calibrated,
+            threshold=threshold,
+            reject_policy=reject_policy,
+            **kwargs,
         )
 
     def calibrated_confusion_matrix(self) -> Any:
