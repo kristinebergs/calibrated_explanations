@@ -64,6 +64,9 @@ class BaseDiscretizer:
         self.mins = {}
         self.maxs = {}
         self.random_state = check_random_state(random_state)
+        self._data = np.asarray(data)
+        self._labels = labels
+        self.feature_names = feature_names
 
         # To override when implementing a custom binning
         bins = self.bins(data, labels)
@@ -123,6 +126,30 @@ class BaseDiscretizer:
             else:
                 ret[:, feature] = np.searchsorted(qts, ret[:, feature]).astype(int)
         return ret
+
+    def get_feature_bins(self, feature_idx, x_cal_override=None, labels_override=None):
+        """Return bin metadata for a feature using optional calibration override."""
+        if feature_idx not in self.to_discretize:
+            return None
+        data = self._data if x_cal_override is None else np.asarray(x_cal_override)
+        if data.ndim == 1:
+            data = data.reshape(-1, 1)
+        labels = self._labels if labels_override is None else labels_override
+        bins = self.bins(data, labels)
+        bins = [np.unique(x) for x in bins]
+        feature_to_bins = dict(zip(self.to_discretize, bins, strict=False))
+        qts = feature_to_bins.get(feature_idx)
+        if qts is None or qts.size == 0:
+            return None
+        boundaries = np.min(data[:, feature_idx]), np.max(data[:, feature_idx])
+        name = self.feature_names[feature_idx]
+        names = [f"{name} <= {qts[0]:.2f}"]
+        for i in range(qts.shape[0] - 1):
+            names.append(f"{qts[i]:.2f} < {name} <= {qts[i + 1]:.2f}")
+        names.append(f"{name} > {qts[qts.shape[0] - 1]:.2f}")
+        mins = [boundaries[0]] + qts.tolist()
+        maxs = qts.tolist() + [boundaries[1]]
+        return {"mins": mins, "maxs": maxs, "names": names}
 
 
 class EntropyDiscretizer(BaseDiscretizer):

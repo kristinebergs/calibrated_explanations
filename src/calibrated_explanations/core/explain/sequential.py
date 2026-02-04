@@ -119,6 +119,10 @@ class SequentialExplainExecutor(BaseExplainExecutor):
         call_kwargs: dict = {
             "feature_filter_per_instance_ignore": feature_filter_per_instance_ignore
         }
+        extras = getattr(request, "extras", None) or {}
+        if "conformal_metadata" in extras or "conformal_cfg" in extras:
+            call_kwargs["conformal_metadata"] = extras.get("conformal_metadata")
+            call_kwargs["conformal_cfg"] = extras.get("conformal_cfg")
         # Only include interval_summary if the target function supports it
         with contextlib.suppress(Exception):  # adr002_allow  # pragma: no cover - defensive
             sig = inspect.signature(predict_fn)
@@ -191,6 +195,7 @@ class SequentialExplainExecutor(BaseExplainExecutor):
             low,
             high,
             prediction.get("predict") if isinstance(prediction, dict) else None,
+            extras.get("conformal_metadata"),
         )
 
         # Step 4: Process features sequentially
@@ -225,6 +230,7 @@ class SequentialExplainExecutor(BaseExplainExecutor):
             instance_start_time,
             total_start_time,
             explainer,
+            per_instance_ignore=feature_filter_per_instance_ignore,
         )
 
 

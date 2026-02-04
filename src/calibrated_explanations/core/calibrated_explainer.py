@@ -83,6 +83,7 @@ class CalibratedExplainer:
         class_labels=None,
         bins=None,
         difficulty_estimator=None,
+        conformal_guard=None,
         **kwargs,
     ) -> None:
         """Initialize the explainer with calibration data and metadata.
@@ -110,6 +111,8 @@ class CalibratedExplainer:
             Pre-computed Mondrian categories for fast explanations.
         difficulty_estimator : Any or None, optional
             Optional crepes ``DifficultyEstimator`` instance for regression tasks.
+        conformal_guard : bool or dict or ConformalGuardConfig, optional
+            Optional configuration enabling conformal guard ranges for explanations.
         **kwargs : Any
             Advanced configuration flags preserved for backward compatibility.
             Includes `condition_source` ("observed" or "prediction", default="prediction").
@@ -142,6 +145,11 @@ class CalibratedExplainer:
         # Caller can pass suppress_crepes_errors=True via kwargs to avoid raising on
         # crepes broadcasting/shape errors (useful for synthetic tiny datasets).
         self.suppress_crepes_errors = bool(kwargs.get("suppress_crepes_errors", False))
+        # Caller can pass suppress_conformal_guard_errors=True to allow guarded explanations
+        # to fall back without raising.
+        self.suppress_conformal_guard_errors = bool(
+            kwargs.get("suppress_conformal_guard_errors", False)
+        )
         self.oob = kwargs.get("oob", False)
         self._categorical_value_counts_cache: Dict[int, Dict[Any, int]] | None = None
         self._numeric_sorted_cache: Dict[int, np.ndarray] | None = None
@@ -175,6 +183,16 @@ class CalibratedExplainer:
         seed = kwargs.get("seed", 42)
         self.seed = seed
         self.rng = set_rng_seed(seed)
+
+        self.conformal_guard_cfg = None
+        if conformal_guard:
+            from .conformal_guard import (  # pylint: disable=import-outside-toplevel
+                ConformalGuardConfig,
+            )
+
+            self.conformal_guard_cfg = ConformalGuardConfig.from_user(
+                conformal_guard, seed=self.seed
+            )
 
         self.sample_percentiles = kwargs.get("sample_percentiles", [25, 50, 75])
         self.verbose = kwargs.get("verbose", False)

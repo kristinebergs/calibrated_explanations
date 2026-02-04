@@ -35,6 +35,7 @@ def build_feature_tasks(
     low: Any,
     high: Any,
     baseline_predict: Any,
+    conformal_metadata: Optional[List[Dict[int, Any]]] = None,
 ) -> List[Tuple[Any, ...]]:  # pylint: disable=too-many-arguments,too-many-locals,too-many-branches
     """Build the per-feature task tuples used by the explain executors.
 
@@ -109,6 +110,12 @@ def build_feature_tasks(
             x_cal_column = np.empty((0,))
         x_column = np.asarray(x_input[:, feature_idx])
 
+        conformal_meta_feature = None
+        if conformal_metadata is not None:
+            conformal_meta_feature = [
+                meta.get(feature_idx) if meta is not None else None for meta in conformal_metadata
+            ]
+
         feature_tasks.append(
             (
                 feature_idx,
@@ -130,6 +137,7 @@ def build_feature_tasks(
                 value_counts_cache,
                 numeric_sorted_values,
                 x_cal_column,
+                conformal_meta_feature,
             )
         )
 
@@ -151,6 +159,7 @@ def finalize_explanation(
     instance_start_time: float,
     total_start_time: float,
     explainer,
+    per_instance_ignore: Any | None = None,
 ):  # pylint: disable=too-many-arguments,too-many-locals
     """Aggregate buffers into the final explanation and update explainer state.
 
@@ -208,7 +217,8 @@ def finalize_explanation(
     # Attach per-instance feature ignore information when provided by the
     # FAST-based feature filter. This is stored on the explainer by the
     # execution wrapper and propagated here to the explanation container.
-    per_instance_ignore = getattr(explainer, "feature_filter_per_instance_ignore", None)
+    if per_instance_ignore is None:
+        per_instance_ignore = getattr(explainer, "feature_filter_per_instance_ignore", None)
     if per_instance_ignore is not None:
         with contextlib.suppress(Exception):
             explanation.feature_filter_per_instance_ignore = per_instance_ignore
