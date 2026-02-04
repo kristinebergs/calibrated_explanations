@@ -311,6 +311,8 @@ class CalibratedExplanation(ABC):
 
     def _conformal_suffix(self, feature_index: int) -> str:
         rule_values = self.binned.get("rule_values", {})
+        if not isinstance(rule_values, dict):
+            return ""
         entry = rule_values.get(feature_index)
         if entry is None or len(entry) < 4:
             return ""

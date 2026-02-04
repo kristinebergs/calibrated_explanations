@@ -116,28 +116,52 @@ def assign_weight(
 
 def feature_task(args: Tuple[Any, ...]) -> FeatureTaskResult:
     """Execute the per-feature aggregation logic for ``CalibratedExplainer``."""
-    (
-        feature_index,
-        x_column,
-        predict,
-        low,
-        high,
-        baseline_predict,
-        features_to_ignore,
-        categorical_features,
-        feature_values,
-        feature_indices,
-        perturbed_feature,
-        lower_boundary,
-        upper_boundary,
-        lesser_feature,
-        greater_feature,
-        covered_feature,
-        value_counts_cache,
-        numeric_sorted_values,
-        x_cal_column,
-        conformal_meta_feature,
-    ) = args
+    conformal_meta_feature = None
+    if len(args) == 19:
+        (
+            feature_index,
+            x_column,
+            predict,
+            low,
+            high,
+            baseline_predict,
+            features_to_ignore,
+            categorical_features,
+            feature_values,
+            feature_indices,
+            perturbed_feature,
+            lower_boundary,
+            upper_boundary,
+            lesser_feature,
+            greater_feature,
+            covered_feature,
+            value_counts_cache,
+            numeric_sorted_values,
+            x_cal_column,
+        ) = args
+    else:
+        (
+            feature_index,
+            x_column,
+            predict,
+            low,
+            high,
+            baseline_predict,
+            features_to_ignore,
+            categorical_features,
+            feature_values,
+            feature_indices,
+            perturbed_feature,
+            lower_boundary,
+            upper_boundary,
+            lesser_feature,
+            greater_feature,
+            covered_feature,
+            value_counts_cache,
+            numeric_sorted_values,
+            x_cal_column,
+            conformal_meta_feature,
+        ) = args
 
     n_instances = int(len(x_column))
     weights_predict = np.zeros(n_instances, dtype=float)

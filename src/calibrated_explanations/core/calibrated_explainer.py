@@ -77,13 +77,13 @@ class CalibratedExplainer:
         x_cal,
         y_cal,
         mode="classification",
-        conformal_guard=None,
         feature_names=None,
         categorical_features=None,
         categorical_labels=None,
         class_labels=None,
         bins=None,
         difficulty_estimator=None,
+        conformal_guard=None,
         **kwargs,
     ) -> None:
         """Initialize the explainer with calibration data and metadata.
@@ -99,8 +99,6 @@ class CalibratedExplainer:
             Calibration targets paired with ``x_cal``.
         mode : {"classification", "regression"}, default="classification"
             Operating mode controlling which calibrators/plugins are used.
-        conformal_guard : bool or dict or ConformalGuardConfig, optional
-            Optional configuration enabling conformal guard ranges for explanations.
         feature_names : Sequence[str] or None, optional
             Optional list of human-readable feature names.
         categorical_features : Sequence[int] or None, optional
@@ -113,6 +111,8 @@ class CalibratedExplainer:
             Pre-computed Mondrian categories for fast explanations.
         difficulty_estimator : Any or None, optional
             Optional crepes ``DifficultyEstimator`` instance for regression tasks.
+        conformal_guard : bool or dict or ConformalGuardConfig, optional
+            Optional configuration enabling conformal guard ranges for explanations.
         **kwargs : Any
             Advanced configuration flags preserved for backward compatibility.
             Includes `condition_source` ("observed" or "prediction", default="prediction").
@@ -1843,6 +1843,10 @@ class CalibratedExplainer:
             interval_summary=interval_summary,
             **kwargs,
         )
+
+    def explain(self, x, **kwargs) -> CalibratedExplanations:
+        """Alias for ``explain_factual`` (legacy API compatibility)."""
+        return self.explain_factual(x, **kwargs)
 
     def explain_factual(
         self,
