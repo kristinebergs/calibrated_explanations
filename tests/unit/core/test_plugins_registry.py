@@ -43,26 +43,33 @@ def test_register_and_find_example_plugin(tmp_path, monkeypatch):
     # Start from a clean registry
     registry.clear()
 
-    # Register and find
-    registry.register(plugin)
+    # Register and find (deprecated APIs — expected to emit DeprecationWarning)
+    with warns_or_raises():
+        registry.register(plugin)
     all_plugins = registry.list_plugins()
     assert plugin in all_plugins
 
     # find_for should return plugin for supported models
-    found = registry.find_for("supported-model")
+    with warns_or_raises():
+        found = registry.find_for("supported-model")
     assert plugin in found
 
     # Not supported model should return empty
-    assert registry.find_for("unsupported") == ()
+    with warns_or_raises():
+        assert registry.find_for("unsupported") == ()
 
     # Mark as trusted and ensure trusted discovery returns it
-    registry.trust_plugin(plugin)
-    trusted = registry.find_for_trusted("supported-model")
+    with warns_or_raises():
+        registry.trust_plugin(plugin)
+    with warns_or_raises():
+        trusted = registry.find_for_trusted("supported-model")
     assert plugin in trusted
 
     # Untrust and ensure it's not returned by trusted finder
-    registry.untrust_plugin(plugin)
-    assert plugin not in registry.find_for_trusted("supported-model")
+    with warns_or_raises():
+        registry.untrust_plugin(plugin)
+    with warns_or_raises():
+        assert plugin not in registry.find_for_trusted("supported-model")
 
     # Unregister removes the plugin
     registry.unregister(plugin)
@@ -91,23 +98,33 @@ def test_register_and_trust_flow(tmp_path):
     p = DummyPlugin()
     # ensure clean start
     registry.clear()
-    registry.register(p)
+    with warns_or_raises():
+        registry.register(p)
     assert p in registry.list_plugins()
     assert p not in registry.list_plugins(include_untrusted=False)
 
-    # trusting unregistered plugin raises
-    with pytest.raises(ValidationError):
-        registry.trust_plugin(object())
+    # trusting unregistered plugin raises ValidationError (after emitting deprecation)
+    if deprecations_error_enabled():
+        with pytest.raises(DeprecationWarning):
+            registry.trust_plugin(object())
+    else:
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValidationError):
+                registry.trust_plugin(object())
 
     # trust and find
-    registry.trust_plugin(p)
+    with warns_or_raises():
+        registry.trust_plugin(p)
     assert p in registry.list_plugins(include_untrusted=False)
-    trusted = registry.find_for_trusted(types.SimpleNamespace(is_dummy=True))
+    with warns_or_raises():
+        trusted = registry.find_for_trusted(types.SimpleNamespace(is_dummy=True))
     assert p in trusted
 
     # untrust works
-    registry.untrust_plugin("dummy")
-    trusted2 = registry.find_for_trusted(types.SimpleNamespace(is_dummy=True))
+    with warns_or_raises():
+        registry.untrust_plugin("dummy")
+    with warns_or_raises():
+        trusted2 = registry.find_for_trusted(types.SimpleNamespace(is_dummy=True))
     assert p not in trusted2
     assert p not in registry.list_plugins(include_untrusted=False)
 
@@ -552,3 +569,157 @@ def test_load_entrypoint_plugins_error_branches(monkeypatch):
         clear_trust_warnings()
         clear_env_trust_cache()
         sys.modules.pop(attr_module_name, None)
+
+
+# ---------------------------------------------------------------------------
+# Legacy list-path deprecation policy tests (Task 5)
+# ---------------------------------------------------------------------------
+
+
+class _LegacyPlugin:
+    """Minimal plugin for deprecation policy tests (no modes — legacy path only)."""
+
+    plugin_meta = {
+        "schema_version": 1,
+        "capabilities": ["explain"],
+        "name": "tests.legacy_dep_policy",
+        "version": "0.0-test",
+        "provider": "tests",
+        "trusted": False,
+        "trust": False,
+    }
+
+    def supports(self, model: Any) -> bool:
+        return getattr(model, "is_legacy_dep_model", False)
+
+    def explain(self, model: Any, x: Any, **kwargs: Any) -> dict:  # pragma: no cover
+        return {}
+
+
+def test_should_emit_deprecation_warning_when_register_called():
+    """register() must emit DeprecationWarning on every call."""
+    p = _LegacyPlugin()
+    registry.clear()
+    try:
+        with warns_or_raises():
+            registry.register(p)
+        assert p in registry.list_plugins()
+    finally:
+        registry.clear()
+
+
+def test_should_emit_deprecation_warning_when_trust_plugin_called():
+    """trust_plugin() must emit DeprecationWarning."""
+    p = _LegacyPlugin()
+    registry.clear()
+    try:
+        with warns_or_raises():
+            registry.register(p)
+        with warns_or_raises():
+            registry.trust_plugin(p)
+        assert p in registry.list_plugins(include_untrusted=False)
+    finally:
+        registry.clear()
+
+
+def test_should_emit_deprecation_warning_when_untrust_plugin_called():
+    """untrust_plugin() must emit DeprecationWarning."""
+    p = _LegacyPlugin()
+    registry.clear()
+    try:
+        with warns_or_raises():
+            registry.register(p)
+        with warns_or_raises():
+            registry.trust_plugin(p)
+        with warns_or_raises():
+            registry.untrust_plugin(p)
+        assert p not in registry.list_plugins(include_untrusted=False)
+    finally:
+        registry.clear()
+
+
+def test_should_emit_deprecation_warning_when_find_for_called():
+    """find_for() must emit DeprecationWarning."""
+    p = _LegacyPlugin()
+    registry.clear()
+    try:
+        with warns_or_raises():
+            registry.register(p)
+        with warns_or_raises():
+            result = registry.find_for(types.SimpleNamespace(is_legacy_dep_model=True))
+        assert p in result
+    finally:
+        registry.clear()
+
+
+def test_should_emit_deprecation_warning_when_find_for_trusted_called():
+    """find_for_trusted() must emit DeprecationWarning."""
+    p = _LegacyPlugin()
+    registry.clear()
+    try:
+        with warns_or_raises():
+            registry.register(p)
+        with warns_or_raises():
+            registry.trust_plugin(p)
+        with warns_or_raises():
+            result = registry.find_for_trusted(types.SimpleNamespace(is_legacy_dep_model=True))
+        assert p in result
+    finally:
+        registry.clear()
+
+
+def test_should_not_emit_deprecation_warning_from_register_explanation_plugin():
+    """register_explanation_plugin() must not trigger legacy deprecation warnings."""
+    clear_explanation_plugins()
+
+    class ModernPlugin:
+        plugin_meta = {
+            "schema_version": 1,
+            "capabilities": ["explain", "task:classification"],
+            "name": "tests.modern_dep_check",
+            "version": "0.0-test",
+            "provider": "tests",
+            "modes": ["factual"],
+            "tasks": ["classification"],
+            "dependencies": [],
+            "trusted": False,
+            "trust": False,
+        }
+
+        def supports(self, model: Any) -> bool:  # pragma: no cover
+            return False
+
+        def explain(self, model: Any, x: Any, **kwargs: Any) -> dict:  # pragma: no cover
+            return {}
+
+    import warnings
+
+    with warnings.catch_warnings(record=True) as captured:
+        warnings.simplefilter("always")
+        descriptor = registry.register_explanation_plugin(
+            "tests.modern_dep_check", ModernPlugin()
+        )
+        registry.mark_explanation_trusted("tests.modern_dep_check")
+        registry.mark_explanation_untrusted("tests.modern_dep_check")
+
+    legacy_keys = {
+        "legacy_register",
+        "legacy_trust_plugin",
+        "legacy_untrust_plugin",
+        "legacy_find_for",
+        "legacy_find_for_trusted",
+    }
+    triggered = {
+        w.message.args[0]
+        for w in captured
+        if issubclass(w.category, DeprecationWarning)
+        and any(k in str(w.message) for k in ("legacy_register", "deprecated; use"))
+    }
+    # None of the five legacy deprecation keys should appear
+    assert not any(
+        any(k in str(w.message) for k in ("register() is deprecated", "trust_plugin() is deprecated"))
+        for w in captured
+        if issubclass(w.category, DeprecationWarning)
+    ), f"Unexpected legacy deprecation warnings: {[str(w.message) for w in captured]}"
+    assert descriptor is not None
+    clear_explanation_plugins()

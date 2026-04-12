@@ -59,6 +59,35 @@ Use `from calibrated_explanations.utils.deprecations import deprecate, deprecate
 
 - `calibrated_explanations.core` no longer emits the legacy module deprecation warning.
 
+- **v0.11.1 — Legacy plugin list-path APIs deprecated** (`registry.register`, `registry.trust_plugin`,
+  `registry.untrust_plugin`, `registry.find_for`, `registry.find_for_trusted`). Removal target:
+  **v0.13.0/v1.0.0**.
+
+  Migration:
+
+  | Old (deprecated) | New (keyed-descriptor) |
+  |---|---|
+  | `registry.register(plugin)` | `registry.register_explanation_plugin(identifier, plugin, metadata=...)` |
+  | `registry.trust_plugin(plugin)` | `registry.mark_explanation_trusted(identifier)` |
+  | `registry.untrust_plugin(plugin)` | `registry.mark_explanation_untrusted(identifier)` |
+  | `registry.find_for(model)` | `registry.find_explanation_plugin_for(task, mode)` or `registry.list_explanation_descriptors()` |
+  | `registry.find_for_trusted(model)` | `registry.list_explanation_descriptors(trusted_only=True)` |
+
+  Plugins registered via the legacy `register()` must add a `modes` key to their `plugin_meta`
+  to be eligible for the descriptor catalog:
+
+  ```py
+  # old
+  registry.register(my_plugin)
+  registry.trust_plugin(my_plugin)
+  found = registry.find_for_trusted(some_model)
+
+  # new
+  registry.register_explanation_plugin("my.plugin", my_plugin, metadata={...,"modes": ["factual"]})
+  registry.mark_explanation_trusted("my.plugin")
+  found = [d.plugin for d in registry.list_explanation_descriptors(trusted_only=True)]
+  ```
+
 - Parameter aliases `alpha` / `alphas` were removed in v0.11.0 → use `low_high_percentiles`.
 
 - `register_plot_plugin(...)` was removed → use `register_plot_builder(...)` and `register_plot_renderer(...)` separately.

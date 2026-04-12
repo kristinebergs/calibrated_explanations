@@ -38,6 +38,7 @@ from ._trust import (
     trust_debug_checks_enabled,
     update_trusted_identifier,
 )
+from ..utils.deprecations import deprecate
 from .base import ExplainerPlugin, _normalise_modality, validate_plugin_meta
 from .trust_policy import DefaultPluginTrustPolicy, PluginTrustPolicy
 
@@ -1147,9 +1148,8 @@ def register_explanation_plugin(
         )
 
         # Maintain backwards compatibility with the legacy list registry.
-        register(plugin, source=source, identifier=identifier)
-        if trusted:
-            trust_plugin(plugin)
+        # Use internal helper to avoid triggering the deprecated public API.
+        _sync_to_legacy_catalog(plugin, trusted=trusted, source=source, identifier=identifier)
 
         return descriptor
 
@@ -1947,11 +1947,13 @@ def load_entrypoint_plugins(*, include_untrusted: bool = False) -> Tuple[Explain
                     source="entrypoint",
                 )
             except (ValueError, ValidationError) as _exc:  # ADR002_ALLOW: fall back to legacy catalog
-                register(plugin, source="entrypoint", identifier=identifier)
+                _sync_to_legacy_catalog(
+                    plugin, trusted=trusted, source="entrypoint", identifier=identifier
+                )
         else:
-            register(plugin, source="entrypoint", identifier=identifier)
-        if trusted:
-            trust_plugin(plugin)
+            _sync_to_legacy_catalog(
+                plugin, trusted=trusted, source="entrypoint", identifier=identifier
+            )
         loaded.append(plugin)
         report.accepted.append(
             PluginDiscoveryRecord(
@@ -2034,14 +2036,18 @@ def _refresh_descriptor_trust(identifier: str, *, trusted: bool) -> ExplanationP
 def mark_explanation_trusted(identifier: str) -> ExplanationPluginDescriptor:
     """Mark the explanation plugin *identifier* as trusted."""
     descriptor = _refresh_descriptor_trust(identifier, trusted=True)
-    trust_plugin(descriptor.plugin)
+    # Sync the legacy list directly to avoid the deprecated trust_plugin() call.
+    if descriptor.plugin not in _TRUSTED:
+        _TRUSTED.append(descriptor.plugin)
     return descriptor
 
 
 def mark_explanation_untrusted(identifier: str) -> ExplanationPluginDescriptor:
     """Remove the explanation plugin *identifier* from the trusted set."""
     descriptor = _refresh_descriptor_trust(identifier, trusted=False)
-    untrust_plugin(descriptor.plugin)
+    # Sync the legacy list directly to avoid the deprecated untrust_plugin() call.
+    with contextlib.suppress(ValueError):
+        _TRUSTED.remove(descriptor.plugin)
     return descriptor
 
 
@@ -2241,6 +2247,68 @@ def _sync_descriptor_trust_for_plugin(plugin: ExplainerPlugin, *, trusted: bool)
         _propagate_trust_metadata(descriptor.renderer, updated_meta)
 
 
+def _sync_to_legacy_catalog(
+    plugin: ExplainerPlugin,
+    *,
+    trusted: bool,
+    source: str,
+    identifier: str,
+) -> None:
+    """Sync a plugin into the legacy ``_REGISTRY``/``_TRUSTED`` lists.
+
+    This internal helper is used by registration paths that have already
+    validated the plugin.  It must **not** be called by external code; use
+    :func:`register_explanation_plugin` instead.
+
+    Parameters
+    ----------
+    plugin:
+        The already-validated plugin instance to sync.
+    trusted:
+        Whether the plugin is trusted.
+    source:
+        Registration source label (e.g. ``"manual"``, ``"entrypoint"``).
+    identifier:
+        Canonical plugin identifier string.
+    """
+
+    def _mutation() -> None:
+        if plugin not in _REGISTRY:
+            _REGISTRY.append(plugin)
+        if trusted and plugin not in _TRUSTED:
+            _TRUSTED.append(plugin)
+        if not trusted and plugin in _TRUSTED:
+            with contextlib.suppress(ValueError):
+                _TRUSTED.remove(plugin)
+        _sync_descriptor_trust_for_plugin(plugin, trusted=trusted)
+
+    mutate_trust_atomic(
+        identifier=identifier,
+        trusted=trusted,
+        actor="_sync_to_legacy_catalog",
+        kind="legacy",
+        source=source,
+        mutation=_mutation,
+        verify=_verify_trust_invariants_if_enabled,
+    )
+
+    # Emit the same accepted_registration governance event that register() emits so
+    # downstream observability tests remain unaffected.
+    raw_meta = getattr(plugin, "plugin_meta", None)
+    provider = None
+    if raw_meta is not None:
+        getter = getattr(raw_meta, "get", None)
+        if getter is not None:
+            with contextlib.suppress(Exception):
+                provider = getter("provider")
+    _log_plugin_registration_event(
+        identifier=identifier,
+        provider=provider,
+        source=source,
+        trusted=trusted,
+    )
+
+
 def register(
     plugin: ExplainerPlugin,
     *,
@@ -2249,9 +2317,19 @@ def register(
 ) -> None:
     """Register a plugin after minimal metadata validation.
 
+    .. deprecated::
+        Use :func:`register_explanation_plugin` instead.
+        ``register`` will be removed in v0.13.0/v1.0.0.
+
     Notes: Registering a plugin executes third-party code at import-time.
     Only register trusted plugins.
     """
+    deprecate(
+        "registry.register() is deprecated; use register_explanation_plugin(identifier, plugin,"
+        " metadata=...) instead. Removal target: v0.13.0/v1.0.0.",
+        key="legacy_register",
+        stacklevel=2,
+    )
     raw_meta = getattr(plugin, "plugin_meta", None)
     if raw_meta is None:
         raise ValidationError(
@@ -2394,10 +2472,20 @@ def _resolve_plugin_from_name(name: str) -> ExplainerPlugin:
 def trust_plugin(plugin: ExplainerPlugin | str) -> None:
     """Mark an already-registered plugin as trusted.
 
+    .. deprecated::
+        Use :func:`mark_explanation_trusted` (identifier-based) instead.
+        ``trust_plugin`` will be removed in v0.13.0/v1.0.0.
+
     Trust is an explicit, opt-in operation. The function validates metadata
     before adding to the trusted list. Only trusted plugins will be returned
     by :func:`find_for` when `trusted_only=True` is passed.
     """
+    deprecate(
+        "registry.trust_plugin() is deprecated; use mark_explanation_trusted(identifier)"
+        " instead. Removal target: v0.13.0/v1.0.0.",
+        key="legacy_trust_plugin",
+        stacklevel=2,
+    )
     if isinstance(plugin, str):
         plugin = _resolve_plugin_from_name(plugin)
     if plugin not in _REGISTRY:
@@ -2436,7 +2524,18 @@ def trust_plugin(plugin: ExplainerPlugin | str) -> None:
 
 
 def untrust_plugin(plugin: ExplainerPlugin | str) -> None:
-    """Remove a plugin from the trusted set if present."""
+    """Remove a plugin from the trusted set if present.
+
+    .. deprecated::
+        Use :func:`mark_explanation_untrusted` (identifier-based) instead.
+        ``untrust_plugin`` will be removed in v0.13.0/v1.0.0.
+    """
+    deprecate(
+        "registry.untrust_plugin() is deprecated; use mark_explanation_untrusted(identifier)"
+        " instead. Removal target: v0.13.0/v1.0.0.",
+        key="legacy_untrust_plugin",
+        stacklevel=2,
+    )
     if isinstance(plugin, str):
         plugin = _resolve_plugin_from_name(plugin)
     raw_meta = getattr(plugin, "plugin_meta", None)
@@ -2469,12 +2568,35 @@ def untrust_plugin(plugin: ExplainerPlugin | str) -> None:
 
 
 def find_for(model: Any) -> Tuple[ExplainerPlugin, ...]:
-    """Find plugins that declare support for the given model."""
+    """Find plugins that declare support for the given model.
+
+    .. deprecated::
+        Use :func:`find_explanation_plugin_for` or :func:`list_explanation_descriptors`
+        instead.  ``find_for`` will be removed in v0.13.0/v1.0.0.
+    """
+    deprecate(
+        "registry.find_for() is deprecated; use find_explanation_plugin_for(task, mode)"
+        " or list_explanation_descriptors() instead. Removal target: v0.13.0/v1.0.0.",
+        key="legacy_find_for",
+        stacklevel=2,
+    )
     return tuple(p for p in _REGISTRY if _safe_supports(p, model))
 
 
 def find_for_trusted(model: Any) -> Tuple[ExplainerPlugin, ...]:
-    """Find trusted plugins that declare support for the given model."""
+    """Find trusted plugins that declare support for the given model.
+
+    .. deprecated::
+        Use :func:`list_explanation_descriptors` with ``trusted_only=True`` instead.
+        ``find_for_trusted`` will be removed in v0.13.0/v1.0.0.
+    """
+    deprecate(
+        "registry.find_for_trusted() is deprecated; use"
+        " list_explanation_descriptors(trusted_only=True) instead."
+        " Removal target: v0.13.0/v1.0.0.",
+        key="legacy_find_for_trusted",
+        stacklevel=2,
+    )
     return tuple(p for p in _TRUSTED if _safe_supports(p, model))
 
 

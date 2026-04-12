@@ -5,6 +5,7 @@ from types import MappingProxyType, ModuleType, SimpleNamespace
 import pytest
 
 from calibrated_explanations.plugins import registry
+from tests.helpers.deprecation import warns_or_raises, deprecations_error_enabled
 from tests.support.registry_helpers import (
     append_to_registry,
     clear_explanation_plugins,
@@ -749,13 +750,16 @@ class MutablePlugin:
 
 def test_register_existing_plugin_updates_trust_list():
     plugin = MutablePlugin(trusted=False)
-    registry.register(plugin)
+    with warns_or_raises():
+        registry.register(plugin)
     assert plugin not in registry.list_plugins(include_untrusted=False)
 
     plugin.plugin_meta["trust"] = True
     plugin.plugin_meta["trusted"] = True
-    registry.register(plugin)
-    registry.trust_plugin(plugin)
+    with warns_or_raises():
+        registry.register(plugin)
+    with warns_or_raises():
+        registry.trust_plugin(plugin)
     assert plugin in registry.list_plugins(include_untrusted=False)
 
 
@@ -777,7 +781,8 @@ def test_resolve_plugin_from_name_and_safe_supports():
     remove_from_registry(raising_plugin)
 
     plugin = SimpleExplanationPlugin()
-    registry.register(plugin)
+    with warns_or_raises():
+        registry.register(plugin)
     assert resolve_plugin_from_name("simple.explanation") is plugin
 
     class BrokenPlugin(SimpleExplanationPlugin):
@@ -785,7 +790,8 @@ def test_resolve_plugin_from_name_and_safe_supports():
             raise RuntimeError("boom")
 
     broken = BrokenPlugin()
-    registry.register(broken)
+    with warns_or_raises():
+        registry.register(broken)
     assert safe_supports(broken, object()) is False
 
 
@@ -806,8 +812,14 @@ def test_refresh_descriptor_and_register_errors():
     class NoMeta:
         plugin_meta = None
 
-    with pytest.raises(ValidationError):
-        registry.register(NoMeta())
+    # register() emits deprecation warning before raising ValidationError
+    if deprecations_error_enabled():
+        with pytest.raises(DeprecationWarning):
+            registry.register(NoMeta())
+    else:
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValidationError):
+                registry.register(NoMeta())
 
     class FailingMeta(MutableMapping):
         def __init__(self):
@@ -845,10 +857,14 @@ def test_refresh_descriptor_and_register_errors():
         def explain(self, model, x, **kwargs):  # pragma: no cover - unused
             return {}
 
-    registry.register(FailingPlugin())
+    with warns_or_raises():
+        registry.register(FailingPlugin())
 
     registry.clear()
     plugin2 = SimpleExplanationPlugin()
-    registry.register(plugin2)
-    registry.trust_plugin("simple.explanation")
-    registry.untrust_plugin("simple.explanation")
+    with warns_or_raises():
+        registry.register(plugin2)
+    with warns_or_raises():
+        registry.trust_plugin("simple.explanation")
+    with warns_or_raises():
+        registry.untrust_plugin("simple.explanation")

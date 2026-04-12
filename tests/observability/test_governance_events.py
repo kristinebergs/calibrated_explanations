@@ -14,6 +14,7 @@ from calibrated_explanations.governance.events import validate_governance_event
 from calibrated_explanations.logging import logging_context
 from calibrated_explanations.plugins import registry
 from calibrated_explanations.utils.exceptions import ValidationError
+from tests.helpers.deprecation import deprecations_error_enabled
 from tests.support.registry_helpers import (
     clear_env_trust_cache,
     clear_explanation_plugins,
@@ -63,6 +64,7 @@ def test_register_emits_schema_valid_accepted_registration_event(caplog):
     with (
         logging_context(request_id="req-accepted", tenant_id="tenant-a"),
         caplog.at_level("INFO", logger="calibrated_explanations.governance.plugins"),
+        pytest.warns(DeprecationWarning, match="register.*deprecated"),
     ):
         registry.register(Plugin(), source="manual")
 
@@ -218,17 +220,24 @@ def test_register_emits_schema_valid_denied_registration_event(
 
     monkeypatch.setenv("CE_DENY_PLUGIN", "tests.manual.denied")
 
-    with (
-        caplog.at_level("INFO", logger="calibrated_explanations.governance.plugins"),
-        pytest.raises(ValidationError),
-    ):
-        registry.register(Plugin(), source="register_call")
+    # In error mode CE_DEPRECATIONS=error, deprecate() raises DeprecationWarning before the
+    # denial check so the governance event is never emitted. In normal mode, wrap both.
+    if deprecations_error_enabled():
+        with pytest.raises(DeprecationWarning):
+            registry.register(Plugin(), source="register_call")
+    else:
+        with (
+            caplog.at_level("INFO", logger="calibrated_explanations.governance.plugins"),
+            pytest.warns(DeprecationWarning, match="register.*deprecated"),
+            pytest.raises(ValidationError),
+        ):
+            registry.register(Plugin(), source="register_call")
 
-    record = decision_records(caplog, "denied_registration")[-1]
-    payload = {key: getattr(record, key) for key in record.__dict__}
-    validate_governance_event(payload)
-    assert record.identifier == "tests.manual.denied"
-    assert record.source == "register_call"
+        record = decision_records(caplog, "denied_registration")[-1]
+        payload = {key: getattr(record, key) for key in record.__dict__}
+        validate_governance_event(payload)
+        assert record.identifier == "tests.manual.denied"
+        assert record.source == "register_call"
 
 
 def test_governance_events_are_side_effect_only_and_payload_safe(
@@ -238,7 +247,8 @@ def test_governance_events_are_side_effect_only_and_payload_safe(
         plugin_meta = base_meta(name="tests.side_effect.safe")
 
     # Baseline behavior without active caplog capture.
-    registry.register(Plugin(), source="manual")
+    with pytest.warns(DeprecationWarning, match="register.*deprecated"):
+        registry.register(Plugin(), source="manual")
     baseline_plugins = registry.list_plugins(include_untrusted=True)
     baseline_plugin_names = tuple(
         getattr(plugin, "plugin_meta", {}).get("name") for plugin in baseline_plugins
@@ -254,7 +264,10 @@ def test_governance_events_are_side_effect_only_and_payload_safe(
     clear_trust_warnings()
     monkeypatch.setattr(registry, "ensure_builtin_plugins", lambda: None, raising=False)
 
-    with caplog.at_level("INFO", logger="calibrated_explanations.governance.plugins"):
+    with (
+        caplog.at_level("INFO", logger="calibrated_explanations.governance.plugins"),
+        pytest.warns(DeprecationWarning, match="register.*deprecated"),
+    ):
         registry.register(Plugin(), source="manual")
 
     captured_plugins = registry.list_plugins(include_untrusted=True)
