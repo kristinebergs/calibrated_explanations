@@ -702,24 +702,20 @@ def test_should_not_emit_deprecation_warning_from_register_explanation_plugin():
         registry.mark_explanation_trusted("tests.modern_dep_check")
         registry.mark_explanation_untrusted("tests.modern_dep_check")
 
-    legacy_keys = {
-        "legacy_register",
-        "legacy_trust_plugin",
-        "legacy_untrust_plugin",
-        "legacy_find_for",
-        "legacy_find_for_trusted",
-    }
-    triggered = {
-        w.message.args[0]
+    # None of the five legacy API deprecation messages should appear
+    legacy_deprecation_fragments = (
+        "register() is deprecated",
+        "trust_plugin() is deprecated",
+        "untrust_plugin() is deprecated",
+        "find_for() is deprecated",
+        "find_for_trusted() is deprecated",
+    )
+    triggered = [
+        str(w.message)
         for w in captured
         if issubclass(w.category, DeprecationWarning)
-        and any(k in str(w.message) for k in ("legacy_register", "deprecated; use"))
-    }
-    # None of the five legacy deprecation keys should appear
-    assert not any(
-        any(k in str(w.message) for k in ("register() is deprecated", "trust_plugin() is deprecated"))
-        for w in captured
-        if issubclass(w.category, DeprecationWarning)
-    ), f"Unexpected legacy deprecation warnings: {[str(w.message) for w in captured]}"
+        and any(frag in str(w.message) for frag in legacy_deprecation_fragments)
+    ]
+    assert not triggered, f"Unexpected legacy deprecation warnings: {triggered}"
     assert descriptor is not None
     clear_explanation_plugins()
