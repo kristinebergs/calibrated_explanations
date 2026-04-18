@@ -648,8 +648,16 @@ class IntervalRegressor:
         }
 
     @classmethod
-    def from_primitive(cls, payload: Mapping[str, object]) -> "IntervalRegressor":
+    def from_primitive(
+        cls, payload: Mapping[str, object], *, allow_unsafe_pickle: bool = False
+    ) -> "IntervalRegressor":
         """Rehydrate a calibrator from a primitive payload."""
+        if not allow_unsafe_pickle:
+            raise ConfigurationError(
+                "Unsafe pickle deserialization is disabled by default. "
+                "Pass allow_unsafe_pickle=True only for trusted artifacts.",
+                details={"calibrator_type": "interval_regressor"},
+            )
         schema_version = payload.get("schema_version")
         if schema_version != 1:
             raise ConfigurationError(
@@ -688,7 +696,7 @@ class IntervalRegressor:
                 "IntervalRegressor primitive checksum validation failed.",
                 details={"expected_sha256": expected_sha, "actual_sha256": actual_sha},
             )
-        restored = pickle.loads(payload_bytes)  # noqa: S301  # nosec B301 - trusted, checksum-validated payload
+        restored = pickle.loads(payload_bytes)  # nosec B301
         if not isinstance(restored, cls):
             raise ConfigurationError(
                 "IntervalRegressor primitive payload restored unexpected object type.",

@@ -39,9 +39,7 @@ pytestmark = pytest.mark.integration
 @pytest.fixture(autouse=True)
 def setup_teardown():
     """Reset any global state before and after each test"""
-    # Setup
     yield
-    # Teardown (if needed)
 
 
 def verify_predictions(y_pred1, y_pred2, bounds=None):
@@ -506,7 +504,7 @@ def test_should_roundtrip_state_with_native_classification_primitive_when_saved(
     assert primitive["calibrator_type"] == "venn_abers"
     assert primitive["schema_version"] == 1
 
-    restored = WrapCalibratedExplainer.load_state(state_dir)
+    restored = WrapCalibratedExplainer.load_state(state_dir, allow_unsafe_pickle=True)
     reloaded = restored.predict_proba(x_test[:12], uq_interval=True)
     assert_payload_close(baseline, reloaded)
 
@@ -545,7 +543,7 @@ def test_should_roundtrip_state_with_fast_collection_primitive_when_interval_lea
     assert isinstance(primitive.get("calibrators"), list)
     assert len(primitive["calibrators"]) == 2
 
-    restored = WrapCalibratedExplainer.load_state(state_dir)
+    restored = WrapCalibratedExplainer.load_state(state_dir, allow_unsafe_pickle=True)
     reloaded = restored.predict_proba(x_test[:10], uq_interval=True)
     assert_payload_close(baseline, reloaded)
 

@@ -14,7 +14,7 @@ import hashlib
 import json
 import logging as _logging
 import os
-import pickle  # nosec B403 - deserialization is restricted to trusted, checksum-validated state
+import pickle  # nosec B403 - used for trusted local persistence with explicit unsafe opt-in
 import shutil
 import sys
 import tempfile
@@ -45,7 +45,6 @@ from .validation import validate_inputs_matrix, validate_model
 if TYPE_CHECKING:  # pragma: no cover - import only for type checking
     from calibrated_explanations.api.config import ExplainerConfig
 
-
 class WrapCalibratedExplainer:
     """Provide a high-level fit/calibrate/explain workflow for learners.
 
@@ -69,7 +68,6 @@ class WrapCalibratedExplainer:
     mc: Callable[[Any], Any] | MondrianCategorizer | None
     _logger: _logging.Logger
     _STATE_SCHEMA_VERSION: int = 1
-
     @staticmethod
     def _deprecate_lime_shap_surface(
         symbol: str,
@@ -1418,6 +1416,25 @@ class WrapCalibratedExplainer:
                 digest.update(chunk)
         return digest.hexdigest()
 
+    @classmethod
+    def _unsafe_pickle_enabled(
+        cls, *, allow_unsafe_pickle: bool, details: dict[str, Any] | None = None
+    ) -> None:
+        """Fail closed unless unsafe pickle restoration is explicitly enabled.
+
+        Notes
+        -----
+        Pickle payloads are code-executing by design. Integrity checks alone are
+        insufficient for authenticity and cannot safely protect against attacker-
+        supplied artifacts.
+        """
+        if not allow_unsafe_pickle:
+            raise IncompatibleStateError(
+                "Unsafe pickle deserialization is disabled by default. "
+                "Pass allow_unsafe_pickle=True only for trusted artifacts.",
+                details=details,
+            )
+
     def _calibrator_to_primitive(self, calibrator: Any) -> dict[str, Any]:
         """Serialize a single calibrator into the ADR-031 primitive contract."""
         to_primitive = getattr(calibrator, "to_primitive", None)
@@ -1462,7 +1479,9 @@ class WrapCalibratedExplainer:
         return self._calibrator_to_primitive(calibrator)
 
     @classmethod
-    def _restore_calibrator_from_primitive(cls, primitive: Mapping[str, Any]) -> Any:
+    def _restore_calibrator_from_primitive(
+        cls, primitive: Mapping[str, Any], *, allow_unsafe_pickle: bool = False
+    ) -> Any:
         """Rehydrate a calibrator object from a persisted primitive payload."""
         schema_version = primitive.get("schema_version")
         if schema_version != cls._STATE_SCHEMA_VERSION:
@@ -1477,11 +1496,13 @@ class WrapCalibratedExplainer:
         if calibrator_type == "venn_abers":
             from ..calibration.venn_abers import VennAbers
 
-            return VennAbers.from_primitive(primitive)
+            return VennAbers.from_primitive(primitive, allow_unsafe_pickle=allow_unsafe_pickle)
         if calibrator_type == "interval_regressor":
             from ..calibration.interval_regressor import IntervalRegressor
 
-            return IntervalRegressor.from_primitive(primitive)
+            return IntervalRegressor.from_primitive(
+                primitive, allow_unsafe_pickle=allow_unsafe_pickle
+            )
         if calibrator_type == "fast_collection":
             children = primitive.get("calibrators")
             if not isinstance(children, list):
@@ -1497,8 +1518,17 @@ class WrapCalibratedExplainer:
                     "Calibrator primitive checksum validation failed.",
                     details={"expected_sha256": expected_sha, "actual_sha256": actual_sha},
                 )
-            return [cls._restore_calibrator_from_primitive(item) for item in children]
+            return [
+                cls._restore_calibrator_from_primitive(
+                    item, allow_unsafe_pickle=allow_unsafe_pickle
+                )
+                for item in children
+            ]
         if calibrator_type == "python_pickle":
+            cls._unsafe_pickle_enabled(
+                allow_unsafe_pickle=allow_unsafe_pickle,
+                details={"calibrator_type": calibrator_type, "field": "payload.pickle_b64"}
+            )
             payload = primitive.get("payload")
             if not isinstance(payload, Mapping) or not isinstance(payload.get("pickle_b64"), str):
                 raise IncompatibleStateError(
@@ -1513,7 +1543,7 @@ class WrapCalibratedExplainer:
                     "Calibrator primitive checksum validation failed.",
                     details={"expected_sha256": expected_sha, "actual_sha256": actual_sha},
                 )
-            return pickle.loads(raw)  # noqa: S301  # nosec B301 - trusted, checksum-validated payload
+            return pickle.loads(raw)  # nosec B301
         raise IncompatibleStateError(
             "Unsupported calibrator_type in persisted state.",
             details={"calibrator_type": calibrator_type},
@@ -1624,8 +1654,13 @@ class WrapCalibratedExplainer:
             ) from exc
 
     @classmethod
-    def load_state(cls, path_or_fileobj: Any) -> WrapCalibratedExplainer:
+    def load_state(
+        cls, path_or_fileobj: Any, *, allow_unsafe_pickle: bool = False
+    ) -> WrapCalibratedExplainer:
         """Load wrapper state from an ADR-031 persisted artifact."""
+        cls._unsafe_pickle_enabled(
+            allow_unsafe_pickle=allow_unsafe_pickle, details={"file": "wrapper.pkl"}
+        )
         temp_instance = cls.__new__(cls)
         path = temp_instance._state_path(path_or_fileobj)
         manifest_path = path / "manifest.json"
@@ -1674,7 +1709,7 @@ class WrapCalibratedExplainer:
                 )
 
         wrapper_bytes = (path / "wrapper.pkl").read_bytes()
-        wrapper = pickle.loads(wrapper_bytes)  # noqa: S301  # nosec B301 - trusted, checksum-validated payload
+        wrapper = pickle.loads(wrapper_bytes)  # nosec B301
         if not isinstance(wrapper, cls):
             raise IncompatibleStateError(
                 "Persisted wrapper payload restored unexpected object type.",
@@ -1684,7 +1719,9 @@ class WrapCalibratedExplainer:
         primitive_path = path / "calibrator_primitive.json"
         if primitive_path.exists():
             primitive = json.loads(primitive_path.read_text(encoding="utf-8"))
-            restored = cls._restore_calibrator_from_primitive(primitive)
+            restored = cls._restore_calibrator_from_primitive(
+                primitive, allow_unsafe_pickle=allow_unsafe_pickle
+            )
             if getattr(wrapper, "explainer", None) is not None:
                 wrapper.explainer.interval_learner = restored
 

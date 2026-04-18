@@ -479,7 +479,7 @@ def test_should_roundtrip_state_with_native_regression_primitive_when_saved(
     assert primitive["calibrator_type"] == "interval_regressor"
     assert primitive["schema_version"] == 1
 
-    restored = WrapCalibratedExplainer.load_state(state_dir)
+    restored = WrapCalibratedExplainer.load_state(state_dir, allow_unsafe_pickle=True)
     reloaded = restored.predict_proba(x_test[:14], threshold=threshold, uq_interval=True)
     assert_payload_close(baseline, reloaded)
 
@@ -506,7 +506,7 @@ def test_should_roundtrip_state_with_pickle_fallback_when_fast_interval_calibrat
     assert primitive["schema_version"] == 1
     assert "payload" in primitive and "pickle_b64" in primitive["payload"]
 
-    restored = WrapCalibratedExplainer.load_state(state_dir)
+    restored = WrapCalibratedExplainer.load_state(state_dir, allow_unsafe_pickle=True)
     reloaded = restored.predict_proba(x_test[:12], threshold=threshold, uq_interval=True)
     assert_payload_close(baseline, reloaded)
 
@@ -540,4 +540,4 @@ def test_should_fail_load_when_pickle_fallback_payload_checksum_is_tampered(
     with pytest.raises(
         IncompatibleStateError, match="Calibrator primitive checksum validation failed"
     ):
-        WrapCalibratedExplainer.load_state(state_dir)
+        WrapCalibratedExplainer.load_state(state_dir, allow_unsafe_pickle=True)

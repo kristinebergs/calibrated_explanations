@@ -30,7 +30,9 @@ def write_manifest(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
 
 
-def test_save_and_load_state_roundtrip_classification(tmp_path: Path) -> None:
+def test_save_and_load_state_roundtrip_classification(
+    tmp_path: Path
+) -> None:
     """Round-trip persistence preserves calibrated classification predictions."""
     x, y = make_classification(
         n_samples=96,
@@ -50,13 +52,15 @@ def test_save_and_load_state_roundtrip_classification(tmp_path: Path) -> None:
 
     state_dir = tmp_path / "classification_state"
     wrapper.save_state(state_dir)
-    restored = WrapCalibratedExplainer.load_state(state_dir)
+    restored = WrapCalibratedExplainer.load_state(state_dir, allow_unsafe_pickle=True)
     reloaded = restored.predict_proba(x_test, uq_interval=True)
 
     assert_payload_close(baseline, reloaded)
 
 
-def test_save_and_load_state_roundtrip_regression(tmp_path: Path) -> None:
+def test_save_and_load_state_roundtrip_regression(
+    tmp_path: Path
+) -> None:
     """Round-trip persistence preserves calibrated probabilistic regression payloads."""
     x, y = make_regression(n_samples=120, n_features=5, noise=0.2, random_state=11)
     x_train, y_train = x[:60], y[:60]
@@ -71,13 +75,15 @@ def test_save_and_load_state_roundtrip_regression(tmp_path: Path) -> None:
 
     state_dir = tmp_path / "regression_state"
     wrapper.save_state(state_dir)
-    restored = WrapCalibratedExplainer.load_state(state_dir)
+    restored = WrapCalibratedExplainer.load_state(state_dir, allow_unsafe_pickle=True)
     reloaded = restored.predict_proba(x_test, threshold=threshold, uq_interval=True)
 
     assert_payload_close(baseline, reloaded)
 
 
-def test_load_state_rejects_checksum_mismatch(tmp_path: Path) -> None:
+def test_load_state_rejects_checksum_mismatch(
+    tmp_path: Path
+) -> None:
     """Tampering with persisted files fails checksum verification."""
     x, y = make_classification(
         n_samples=64,
@@ -96,10 +102,12 @@ def test_load_state_rejects_checksum_mismatch(tmp_path: Path) -> None:
         handle.write(b"tamper")
 
     with pytest.raises(IncompatibleStateError, match="checksum"):
-        WrapCalibratedExplainer.load_state(state_dir)
+        WrapCalibratedExplainer.load_state(state_dir, allow_unsafe_pickle=True)
 
 
-def test_load_state_rejects_unsupported_schema_version(tmp_path: Path) -> None:
+def test_load_state_rejects_unsupported_schema_version(
+    tmp_path: Path
+) -> None:
     """Unsupported manifest schema versions fail fast with actionable errors."""
     x, y = make_classification(
         n_samples=64,
@@ -120,4 +128,23 @@ def test_load_state_rejects_unsupported_schema_version(tmp_path: Path) -> None:
     write_manifest(manifest_path, manifest)
 
     with pytest.raises(IncompatibleStateError, match="schema_version"):
+        WrapCalibratedExplainer.load_state(state_dir, allow_unsafe_pickle=True)
+
+
+def test_load_state_rejects_unsafe_pickle_by_default(tmp_path: Path) -> None:
+    """Loading pickle-backed state requires explicit unsafe opt-in."""
+    x, y = make_classification(
+        n_samples=64,
+        n_features=4,
+        n_informative=3,
+        n_redundant=0,
+        random_state=31,
+    )
+    wrapper = WrapCalibratedExplainer(RandomForestClassifier(n_estimators=12, random_state=4))
+    wrapper.fit(x[:32], y[:32])
+    wrapper.calibrate(x[32:48], y[32:48], seed=9)
+    state_dir = tmp_path / "unsafe_pickle_state"
+    wrapper.save_state(state_dir)
+
+    with pytest.raises(IncompatibleStateError, match="Unsafe pickle deserialization"):
         WrapCalibratedExplainer.load_state(state_dir)
