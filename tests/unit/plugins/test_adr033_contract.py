@@ -120,9 +120,11 @@ def test_validate_plugin_meta_warns_on_newer_minor_patch_api_version(caplog):
         "plugin_api_version": "1.1",
     }
 
-    with caplog.at_level("INFO", logger="calibrated_explanations.governance.plugins"):
-        with pytest.warns(UserWarning, match="forward-compatibility risk"):
-            validate_plugin_meta(meta)
+    with (
+        caplog.at_level("INFO", logger="calibrated_explanations.governance.plugins"),
+        pytest.warns(UserWarning, match="forward-compatibility risk"),
+    ):
+        validate_plugin_meta(meta)
 
     assert meta["plugin_api_version"] == "1.1"
     matching = [
@@ -131,9 +133,9 @@ def test_validate_plugin_meta_warns_on_newer_minor_patch_api_version(caplog):
         if "Accepted plugin with newer plugin_api_version minor/patch" in record.message
     ]
     assert matching, "governance log record not emitted"
-    assert matching[0].__dict__.get("plugin_name") == "tests.forward.compat", (
-        "governance log must include plugin_name for attributability"
-    )
+    assert (
+        matching[0].__dict__.get("plugin_name") == "tests.forward.compat"
+    ), "governance log must include plugin_name for attributability"
 
 
 def test_validate_plugin_meta_normalizes_modality_aliases():
@@ -202,6 +204,24 @@ def test_missing_extension_error_audio():
     with pytest.raises(MissingExtensionError) as exc_info:
         importlib.import_module("calibrated_explanations.audio")
     assert isinstance(exc_info.value, ImportError)
+
+
+def test_audio_shim_imports_extension_symbols_when_dependency_present(monkeypatch):
+    fake_audio = SimpleNamespace(__all__=["sentinel"], sentinel="audio-ok")
+    monkeypatch.setitem(sys.modules, "ce_audio", fake_audio)
+    sys.modules.pop("calibrated_explanations.audio", None)
+
+    module = importlib.import_module("calibrated_explanations.audio")
+    assert module.sentinel == "audio-ok"
+
+
+def test_vision_shim_imports_extension_symbols_when_dependency_present(monkeypatch):
+    fake_vision = SimpleNamespace(__all__=["sentinel"], sentinel="vision-ok")
+    monkeypatch.setitem(sys.modules, "ce_vision", fake_vision)
+    sys.modules.pop("calibrated_explanations.vision", None)
+
+    module = importlib.import_module("calibrated_explanations.vision")
+    assert module.sentinel == "vision-ok"
 
 
 def test_cli_list_modality_filter(capsys):

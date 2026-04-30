@@ -3,7 +3,25 @@
 
 ## [Unreleased]
 
-[Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v0.11.0...main)
+[Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v0.11.1...main)
+
+### Documentation / Governance
+
+- **ADR-035 conformance gap remediation (v0.11.2 Task 8):** Closed GAP 1/2/4. Added `_REUSABLE_FIRST_ALLOWLIST` in `scripts/quality/validate_ci_policy.py` for pre-reusable inline workflows (`ci-main.yml`, `ci-nightly.yml`, `deprecation-check.yml`, `maintenance.yml`, `update_baseline.yml`) while preserving strict local-repro parity checks (`scripts/local_checks.py` + `Makefile`). Added CODEOWNERS coverage for `/scripts/local_checks.py` with placeholder-team caveat notes. Updated ADR-035 §2 with an explicit rollout status note clarifying advisory-to-required enforcement transition. Added validation tests in `tests/scripts/test_validate_ci_policy.py` for allow-list behavior, strict-change non-suppression, review-by rationale tagging, and CODEOWNERS path coverage.
+
+- **Memory retention hardening (v0.11.2 Task 6):** Added explicit lifecycle cleanup semantics in `CalibratedExplainer` with a new `reset()` method and `close()` now calling `reset()` before parallel teardown. `reset()` clears `latest_explanation`, SHAP/LIME helper caches, plugin explanation cache/identifiers/contexts, and bridge monitors. Bounded `PluginManager` explanation-instance cache to 16 entries with LRU eviction and aligned orchestrator cache access. Added regression coverage in `tests/unit/core/test_memory_retention.py`, `tests/unit/plugins/test_manager.py`, and `tests/unit/core/explain/test_parallel_lifecycle.py`, plus RSS stabilization policy gate in `tests/test_reject_memory.py`. Published numeric evidence artifact `reports/memory/v0.11.2_retention_report.md`.
+
+- **Task 21 v0.11.2 removal phase (v0.11.2 Task 5A):** Removed eight deprecated core/wrapper LIME/SHAP entry points: `CalibratedExplainer.preload_lime`, `preload_shap`, `explain_lime`, `explain_shap`, `is_lime_enabled`, `is_shap_enabled`, and `WrapCalibratedExplainer.explain_lime`/`explain_shap`. Updated fail-closed tests to assert `AttributeError` and moved these rows from **Active deprecations** to **Removed deprecations (history)** in `docs/migration/deprecations.md`. Kept `CalibratedExplanations.as_lime`/`as_shap` active with v0.11.3 ETA per timeline.
+
+- **CI hygiene post-5A removal (v0.11.2 Task 5):** Post-5A CI hygiene audit confirmed zero references to removed LIME/SHAP symbols in `.github/workflows/`. Verified `deprecation-check.yml` behavioral correctness after symbol removals (removed-method tests assert `AttributeError`; active v0.11.3 deprecations still elevate correctly under `CE_DEPRECATIONS=error`). Added v0.11.2 removal notes to `docs/improvement/remediation_api_changes.md` for `preload_lime`, `preload_shap`, `is_lime_enabled`, `is_shap_enabled`. Recorded binding interpretation of RELEASE_PLAN_v1.md "complete migration by v0.11.2" for list-path APIs.
+
+- **Governance status artifact (v0.11.2 Task 4):** Added `scripts/quality/build_governance_status_artifact.py` — a CI-derived artifact producer that aggregates four quality report `ok` fields into a single `reports/governance/governance_status.json` payload. Added `docs/improvement/schemas/governance_status_schema_v1.json` (ADR-028 aligned, `additionalProperties: false`). Wired into `local_checks.py` (PR and main steps). Added 15-test suite `tests/scripts/test_build_governance_status_artifact.py`. CI wiring guide documented in `docs/improvement/governance_status_artifact.md`.
+
+- **ADR-034 post-acceptance conformance closure (v0.11.2 Task 2):** Synchronized ADR-034, `RELEASE_PLAN_v1.md`, and `RELEASE_PLAN_status_appendix.md` to accepted-state wording, added ADR-034 implementation summary for v0.11.1-v0.11.2, removed stale "Proposed→Accepted path" status text, and preserved only deferred v1.0 open items (redaction + export schema versioning).
+
+## [v0.11.1](https://github.com/Moffran/calibrated_explanations/releases/tag/v0.11.1) - 2026-04-18
+
+[Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v0.11.0...v0.11.1)
 
 ### ADR-033 Additive UX/Migration Gates
 
@@ -21,7 +39,19 @@
 
 #### Deprecated
 
-- ADR-033: Deprecated entry-point plugins that omit explicit `data_modalities` metadata. Discovery now emits `DeprecationWarning`; explicit declaration becomes required in `v0.12.0/v1.0.0-rc`.
+- ADR-033: Deprecated entry-point plugins that omit explicit `data_modalities` metadata. Discovery now emits `DeprecationWarning`; explicit declaration becomes required in `v0.11.3`.
+
+### v0.11.1 Closure Sync (Docs + Follow-up Fixes)
+
+#### Added
+
+- **v0.11.1 docs closure evidence:** Synced migration/release docs to reflect active deprecation ownership (v0.11.2/v0.11.3), modality migration timeline, reject strategy expansion status, ConfigManager precedence/snapshot guidance, and PlotSpec ADR supersession routing (ADR-036/ADR-037 authoritative).
+- **Multiclass CE-first experiment coverage:** Added CE-first multiclass experiment implementation and associated tests to harden multiclass explanation workflows.
+
+#### Fixed
+
+- **VennAbers multiclass normalization:** Corrected normalization behavior for multiclass outputs to keep calibrated probabilities stable and contract-compliant.
+- **Experiment import hardening:** Removed hard matplotlib import in multiclass experiment module to preserve optional dependency behavior in headless/core-first environments.
 
 ### ADR-012 Notebook Execution Driver (v0.11.1 Task 6)
 
