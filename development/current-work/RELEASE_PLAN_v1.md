@@ -35,7 +35,7 @@ Detailed ADR/Standard status tables, gap inventories, and historical compliance 
 
 - **Current released version:** v0.11.4
 - **Active detailed milestone:** v1.0.0-rc
-- **Next milestone:** v1.0.0-rc
+- **Next milestone:** v1.0.0
 - **Status appendix:** `development/current-work/RELEASE_PLAN_status_appendix.md`
 
 ### Release-blocking conditions
@@ -73,11 +73,11 @@ A milestone cannot close while any of the following remains open:
 ### Active control items
 
 - **Milestone execution control**
-  - **Status:** Active milestone is v0.11.4; `development/current-work/v0.11.4_plan.md` is the maintained detailed control surface.
-  - **Next action:** Finish v0.11.4 closure validation, then promote v1.0.0-rc at the next milestone boundary.
+  - **Status:** Active milestone is v1.0.0-rc (v0.11.4 shipped 2026-06-19); `development/current-work/v1.0.0-rc_plan.md` is the maintained detailed control surface.
+  - **Next action:** Execute v1.0.0-rc validation and freeze tasks. No implementation work is permitted in this milestone; any release-blocking fix is an emergency patch, not a planned task.
 - **Future milestone discipline**
-  - **Status:** v1.0.0-rc planning remains bounded to validation/freeze work; v0.11.4 carries the remaining pre-RC implementation closures.
-  - **Next action:** Re-baseline RC status only after v0.11.4 implementation closure is verified.
+  - **Status:** v1.0.0-rc is validation-and-freeze only; all pre-RC implementation work closed in v0.11.4. Next planned GA is v1.0.0.
+  - **Next action:** After all v1.0.0-rc gates pass, promote to v1.0.0 GA and close the release series.
 - **Boundary-update policy**
   - **Status:** Governance/planning docs are updated at milestone boundaries, not on every PR.
   - **Next action:** Apply batched plan-grooming updates at milestone close/open checkpoints to keep process overhead low.
@@ -615,6 +615,7 @@ Release gate: Plugin registries enforce trust and protocol policies, extras inst
 | Unfrozen nested context fields / rule-level semantics | ADR-026 gap 1/3 | 6/9 | **Closed v0.11.4:** nested freezing verified; rule-level validation and trusted built-in exemption documented |
 | Docs HTML/linkcheck CI job wired (nightly advisory) | ADR-012 Gap 1 | - | **Closed v0.11.4:** `docs-build` job added to `ci-nightly.yml`; release-branch strict docs workflow added in Task 16 |
 
+**Milestone closure — 2026-06-19:** v0.11.4 is complete. All 19 tasks implemented and verified (7 items explicitly deferred to post-v1.0 or v1.0.0-rc assessment). Key closures: ADR-004 `strategy="auto"` deprecation and v1.0.0 removal ledger row; ADR-006 checksum trust-elevation bypass closed and keyed trust controls retained; ADR-008 domain-authoritative serialization boundary, typed `CalibrationDescriptor`/`ModelDescriptor` descriptors, and multiclass `class_index` preservation; ADR-012 docs HTML/linkcheck CI job wired via `docs-build` in `ci-nightly.yml` and release-branch strict docs workflow; ADR-013 runtime output validation, frozen-context replacement, and pre-plugin migration guidance; ADR-015 `ExplainerHandle.learner` deprecation and broad delegation documented; ADR-021 calibrated interval semantics verified; ADR-026 rule-level batch validation and trusted built-in monitor exemption; ADR-027 non-strict feature-filter events reclassified to `DEBUG`; ADR-028/STD-005 `configure_logging()` and operational logger domain compliance closed; ADR-031 calibrator primitives migrated to JSON-safe schema v2 with v1 migration warnings and round-trip tests; ADR-033 `data_modalities` fail-closed enforcement (ValidationError on missing key); ADR-037 plugin metadata migrated to six semantic plot kinds with `triangular` documented as internal routing; ADR-038 plugin taxonomy policy and warning allowlist drift closed; documentation migration to canonical `development/` map; capability test scaffold; and nightly parity-reference determinism (scoped scikit-learn version overlay). Remaining-scope table records 7 explicitly deferred items (ADR-008 core-pipeline authority, ADR-038 `**kwargs` graduation, ADR-029 lifecycle hooks, ADR-034 sensitive-value redaction and `export_effective()` schema contract, ADR-035 branch-protection flip). Gates: `make local-checks-pr` ✅, `make deprecation-closure` ✅ (11 active v1.0.0 permitted, 0 blocking), `python scripts/quality/check_warning_policy.py` ✅ (0 UNCLASSIFIED), `2155 passed, 2 skipped`, coverage `90.02%`. Version tagged: `0.11.4`. Next: v1.0.0-rc.
 
 ### v1.0.0-rc (release candidate readiness)
 
