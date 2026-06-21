@@ -45,6 +45,7 @@ A PR that modifies CI-governed files MUST NOT merge unless all are satisfied:
 - **Heavy workload gating:** heavy jobs (`parity`, `perf`, `notebook-audit`, `docs`) MUST be path-gated and/or manual/scheduled (`workflow_dispatch` / `schedule`).
 - **Local reproducibility parity:** CI changes that affect contributor-runnable checks MUST update `scripts/local_checks.py` and `Makefile` targets.
 - **Cleanup process:** legacy workflow deletions should be grouped in a `ci:cleanup` PR and reference `development/finished-work/CI-upgrade.md`.
+- **Requirements-as-code evidence:** CI-governed requirement metadata MUST preserve the executable-evidence contract from ADR-030. Behavioral requirements must cite executable pytest evidence; human verification is allowed only for unimplemented requirements recorded as ADR gaps.
 
 ### 4. Exceptions and emergency path
 
@@ -72,6 +73,7 @@ Changes to `.github/actions/ci-policy/**` are high-integrity and require two cor
 ## Governed claims
 
 - `CE-CAP-CI-001` — CI workflow changes comply with reusable workflow, least-privilege, pinning, constraints, and local reproducibility policy.
+- `CE-CAP-REQ-AS-CODE-001` — ADR-governed behavioral requirements terminate in executable pytest evidence, and human verification is allowed only when the unimplemented requirement is registered as an ADR gap.
 
 ## Consequences
 
