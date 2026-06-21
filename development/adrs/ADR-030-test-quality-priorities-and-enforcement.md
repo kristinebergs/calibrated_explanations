@@ -128,6 +128,14 @@ static audits. Specifically:
   - See the formal marker hygiene section below for the binding taxonomy and
     enforcement posture.
 
+- **Requirements-as-code evidence gate**:
+  - ADR-governed behavioral requirements must name executable pytest evidence.
+  - Metadata/linkage checks may verify the ADR → claim → requirement graph, but they
+    are not acceptable proof of runtime, serialization, static-policy, visualization,
+    plugin, quality-gate, or API-contract behavior.
+  - Manual or human verification is allowed only when the requirement is not yet
+    implemented and is registered as an ADR gap.
+
 ### Marker hygiene
 
 ADR-030 adopts a hybrid pytest marker taxonomy that balances explicit review
@@ -189,6 +197,7 @@ evidence is informational only and must not introduce a duration threshold.
 ## Governed claims
 
 - `CE-CAP-TEST-001` — Tests follow the repository quality policy for naming, coverage gates, and justified coverage exemptions.
+- `CE-CAP-REQ-AS-CODE-001` — ADR-governed behavioral requirements terminate in executable pytest evidence, and human verification is allowed only when the unimplemented requirement is registered as an ADR gap.
 
 ## Alternatives Considered
 
@@ -218,32 +227,3 @@ Negative/Risks:
   violations” in CI.
 - Phase 1A (immediate hard blocker): enforce zero tolerance for production
   test-helper wrapper exports via `check_no_test_helper_exports.py`.
-- Phase 2: extend the detector to cover assertion presence, determinism, and
-  mocking heuristics; add allowlists only with justification.
-- Phase 3: enforce marker hygiene and slow-test budgets once tagging is complete.
-- Phase 4: introduce the over-testing density gate in advisory mode, then ratchet
-  the threshold once baselines are stable.
-
-## Implementation status
-
-- 2026-01-11 – Drafted ADR with priorities and enforcement plan; resolved open questions on marker taxonomy and mutation testing modules; no code changes yet.
-- 2026-02-09 – Added over-testing density analysis scripts and proposed a ratcheting
-  gate based on per-test coverage contexts (pending CI rollout).
-- 2026-02-09 – Completed coverage improvement iteration: added integration tests for plotting style overrides/legacy fallbacks, cache fallback testing, and YAML template loading to increase coverage in low-coverage modules (plotting.py, cache.py, narrative_generator.py).
-- 2026-02-15 – Phase 3 (marker hygiene): added `scripts/quality/check_marker_hygiene.py`
-  with `--check` / `--rebaseline` modes and committed baseline
-  (`.github/marker-hygiene-baseline.json`, 72 existing-debt entries). Wired into
-  `ci-pr.yml` and `ci-main.yml` anti-pattern-audit jobs.
-- 2026-02-15 – Phase 4 (over-testing density): wired `over_testing_report.py` and
-  `detect_redundant_tests.py` into `ci-main.yml` as an advisory
-  (`continue-on-error: true`) job with `--cov-context=test` coverage collection.
-  Reports published as CI artifacts.
-- 2026-02-15 – Anti-pattern audit added to `ci-pr.yml` so PR checks survive
-  `test.yml` compat-wrapper decommission (release task 12).
-- 2026-02-23 – Added `scripts/quality/check_no_test_helper_exports.py` and
-  wired it into PR/main/compat CI plus local checks as a hard blocker to prevent
-  production test-helper wrapper exports.
-- 2026-05-12 - Ratified ADR-030 for v0.11.3: promoted marker hygiene and mutation
-  testing policy into formal sections, confirmed PR/main anti-pattern audit gates
-  are blocking, and added focused local ratification with observational timing
-  evidence via `python scripts/local_checks.py --adr030-ratification`.
