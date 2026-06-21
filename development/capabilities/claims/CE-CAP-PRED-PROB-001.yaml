@@ -3,6 +3,9 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-021
+
 claim_text: >
   calibrated_explanations supports probabilistic regression queries: given a scalar
   threshold, WrapCalibratedExplainer.predict_proba(X, threshold=y_threshold) returns

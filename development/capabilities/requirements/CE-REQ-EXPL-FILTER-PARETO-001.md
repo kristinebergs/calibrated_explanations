@@ -7,6 +7,7 @@
 | requirement_id | CE-REQ-EXPL-FILTER-PARETO-001 |
 | obligation_type | api_contract |
 | claim_refs | CE-CAP-EXPL-FILTER-001 |
+| adr_refs | ADR-027 |
 | status | active |
 | applicable_on | collection (AlternativeExplanations) and individual (AlternativeExplanation) |
 

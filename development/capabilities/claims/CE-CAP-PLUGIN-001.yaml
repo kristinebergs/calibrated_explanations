@@ -3,6 +3,13 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-006
+  - ADR-013
+  - ADR-015
+  - ADR-026
+  - ADR-033
+
 claim_text: >
   calibrated_explanations exposes an extensible plugin system through the
   calibrated_explanations.plugins module: ExplainerPlugin defines the protocol for

@@ -1,0 +1,34 @@
+claim_id: CE-CAP-PLOTSPEC-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-036
+  - ADR-037
+
+claim_text: >
+  PlotSpec-enabled visualization paths preserve backend-independent semantic plot intent through canonical PlotSpec objects and validated renderer boundaries.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-PLOTSPEC-GOV-001
+
+verification:
+  proves:
+    - documentation_boundary
+    - governance_linkage
+  verification_type: automated_metadata_check
+
+assumptions:
+  - This governance capability is verified by ADR, claim, requirement, and test-link consistency checks.
+  - Behavioral enforcement remains scoped to the implementation and tests named by the linked requirement.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

@@ -7,6 +7,7 @@
 | requirement_id | CE-REQ-EXPL-API-001 |
 | obligation_type | api_contract |
 | claim_refs | CE-CAP-EXPL-001 |
+| adr_refs | ADR-008, ADR-015, ADR-026 |
 | status | active |
 
 ## Scope

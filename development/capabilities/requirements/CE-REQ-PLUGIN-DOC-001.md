@@ -7,6 +7,7 @@
 | requirement_id | CE-REQ-PLUGIN-DOC-001 |
 | obligation_type | documentation_boundary |
 | claim_refs | CE-CAP-PLUGIN-001 |
+| adr_refs | ADR-006, ADR-013, ADR-015, ADR-026, ADR-033 |
 | status | active |
 
 ## Scope

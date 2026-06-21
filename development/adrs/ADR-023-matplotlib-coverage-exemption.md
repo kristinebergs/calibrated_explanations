@@ -96,6 +96,12 @@ omit =
 - **Maintenance**: Document split test workflow in contributor guide and CI configuration
 - **Testing**: Run `pytest --no-cov -m viz` to validate viz tests; run `pytest` for coverage on remaining modules
 
+
+## Governed claims
+
+- `CE-CAP-VIZ-001` — calibrated_explanations provides visualization output for explanations via   WrapCalibratedExplainer.plot and CalibratedExplanations.plot, supporting   multiple output styles ('regular', 'triangular') and optional file saving,   without raising exceptions for standard single-instance and batch inputs   when a non-interactive rendering backend is available.
+- `CE-CAP-TEST-001` — Tests follow the repository quality policy for naming, coverage gates, and justified coverage exemptions.
+
 ## Alternatives Considered
 
 1. **Further matplotlib downgrade (3.8.4 → 3.7.x)**: Risk of breaking API compatibility; 3.7.x EOL status

@@ -74,6 +74,15 @@ explanations.
 - Positive: simpler iteration/filtering, safer invariants, clearer ownership of fields, smoother future schema migration.
 - Negative: adds an adapter layer; requires adapter parity tests and slight maintenance.
 
+
+## Governed claims
+
+- `CE-CAP-EXPL-001` — calibrated_explanations produces calibrated factual explanations for individual   instances via WrapCalibratedExplainer.explain_factual, returning feature   contributions with calibrated probability uncertainty for the predicted class.
+- `CE-CAP-EXPL-002` — calibrated_explanations produces calibrated alternative (counterfactual-style)   explanations for individual instances via WrapCalibratedExplainer.explore_alternatives,   identifying feature changes that would shift the prediction toward an alternative outcome.
+- `CE-CAP-EXPL-CONJ-001` — calibrated_explanations supports conjunctive multi-feature explanation rules via   add_conjunctions(), which extends any explanation collection or individual explanation   to include rules combining up to max_rule_size features, returning an updated   object of the same type. The method is available on CalibratedExplanations,   AlternativeExplanations, FactualExplanation, and AlternativeExplanation.
+- `CE-CAP-NARR-001` — calibrated_explanations generates human-readable natural language narratives for   factual and alternative explanations via CalibratedExplanations.to_narrative(),   returning non-None output (string, DataFrame, HTML, or dict) suitable for consumption   by downstream text pipelines.
+- `CE-CAP-SCHEMA-001` — Explanation payloads use a versioned CE-first schema contract with explicit metadata and governed extension surfaces.
+
 ## Alternatives
 
 - Keep dict-only approach (status quo): continues complexity and duplication in consumers.

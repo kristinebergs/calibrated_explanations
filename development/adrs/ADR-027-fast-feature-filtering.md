@@ -81,6 +81,11 @@ for configuration, failure behavior, and observability.
 - When telemetry is configured, the resolved feature-filter configuration is
   emitted as a single “effective config” event to support traceability.
 
+
+## Governed claims
+
+- `CE-CAP-EXPL-FILTER-001` — calibrated_explanations supports rule-type filtering on alternative explanations via five   filter operations: super_explanations (rules with higher probability supporting the   predicted class), semi_explanations (rules with lower probability supporting the   predicted class), counter_explanations (rules not supporting the predicted class),   ensured_explanations (rules with narrow uncertainty intervals), and pareto_explanations   (Pareto-optimal rules by probability shift and uncertainty width). Each operation is   available on both AlternativeExplanations (collection) and AlternativeExplanation   (individual), with short-form aliases (.super(), .semi(), .counter(), .ensured(),   .pareto()) that delegate to the canonical long-form methods.
+
 ## Consequences
 
 ### Positive

@@ -138,6 +138,13 @@ Each alternative scenario is evaluated with the same interval calibrator:
   distribution changes are required.【F:src/calibrated_explanations/plugins/intervals.py†L1-L80】【F:src/calibrated_explanations/plugins/builtins.py†L120-L183】
 - **2026-06-02 (v0.11.3 Task 9 Workstream D):** ADR-013 §4 Lifecycle previously cited `src/calibrated_explanations/plugins/interval_wrappers.py` as the FAST wrapper location. That file does not exist. The wrapper is at `src/calibrated_explanations/calibration/interval_wrappers.py`. §4 text has been corrected. This is a documentation-only fix; no code change required.
 
+
+## Governed claims
+
+- `CE-CAP-PLUGIN-001` — calibrated_explanations exposes an extensible plugin system through the   calibrated_explanations.plugins module: ExplainerPlugin defines the protocol for   custom explanation backends, and IntervalCalibratorPlugin defines the protocol for   custom interval calibrators, enabling replacement of default internal implementations.
+- `CE-CAP-PRED-001` — calibrated_explanations returns calibrated uncertainty intervals for predictions   via WrapCalibratedExplainer.predict with uq_interval=True (or predict_proba with   uq_interval=True for classification). The returned low and high bounds represent   calibrated uncertainty around the point prediction.
+- `CE-CAP-MOND-001` — calibrated_explanations supports Mondrian (class-conditional) calibration: passing   a MondrianCategorizer callable to WrapCalibratedExplainer.calibrate produces separate   internal calibrators per category, enabling conditional validity guarantees within   each Mondrian group.
+
 ## Consequences
 
 Positive:

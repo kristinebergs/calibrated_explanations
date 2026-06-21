@@ -1,0 +1,34 @@
+claim_id: CE-CAP-CONFIG-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-034
+  - ADR-038
+
+claim_text: >
+  Runtime and call-time configuration use governed tiers, centralized reads, and suffix conventions for Config, Spec, and Options objects.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-CONFIG-GOV-001
+
+verification:
+  proves:
+    - documentation_boundary
+    - governance_linkage
+  verification_type: automated_metadata_check
+
+assumptions:
+  - This governance capability is verified by ADR, claim, requirement, and test-link consistency checks.
+  - Behavioral enforcement remains scoped to the implementation and tests named by the linked requirement.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

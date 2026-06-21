@@ -40,6 +40,11 @@ Rules:
 - Utilities layer must not depend on higher-level packages.
 - Schema validation lives separately to avoid heavy imports where not needed.
 
+
+## Governed claims
+
+- `CE-CAP-CORE-001` — Core package boundaries preserve stable separation between core, calibration, explanations, schema, plugins, cache, and parallel services.
+
 ## Alternatives Considered
 
 1. Flat module namespace (simpler, but scaling pain and import cycles risk).

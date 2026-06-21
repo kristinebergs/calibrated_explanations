@@ -40,6 +40,11 @@ Implement a conservative, opt-in plugin registry with explicit trust policy hook
 - Isolation: no sandboxing initially (document risk); future ADR may explore subprocess / WASM.
 - **Delegation & Ownership:** The `PluginManager` serves as the single source of truth for plugin resolution and defaults. `CalibratedExplainer` delegates all explanation requests to this manager, ensuring that trust and opt-in rules are consistently enforced regardless of the entry point.
 
+
+## Governed claims
+
+- `CE-CAP-PLUGIN-001` — calibrated_explanations exposes an extensible plugin system through the   calibrated_explanations.plugins module: ExplainerPlugin defines the protocol for   custom explanation backends, and IntervalCalibratorPlugin defines the protocol for   custom interval calibrators, enabling replacement of default internal implementations.
+
 ## Alternatives Considered
 
 1. Auto-load all entry points (simpler, higher risk).

@@ -216,6 +216,13 @@ ADR constrains *how* those plugins behave when implementing the protocols.
   tests showing the same payload fields (`low_high_percentiles` or
   `y_threshold`) are populated with the expected meaning.
 
+
+## Governed claims
+
+- `CE-CAP-PRED-001` — calibrated_explanations returns calibrated uncertainty intervals for predictions   via WrapCalibratedExplainer.predict with uq_interval=True (or predict_proba with   uq_interval=True for classification). The returned low and high bounds represent   calibrated uncertainty around the point prediction.
+- `CE-CAP-PRED-CLASS-001` — calibrated_explanations produces Venn-Abers calibrated class probabilities for   binary and multiclass classification tasks via WrapCalibratedExplainer.predict_proba,   returning a probability array bounded in [0, 1] with shape matching the input, and   class label arrays via WrapCalibratedExplainer.predict.
+- `CE-CAP-PRED-PROB-001` — calibrated_explanations supports probabilistic regression queries: given a scalar   threshold, WrapCalibratedExplainer.predict_proba(X, threshold=y_threshold) returns   the empirical probability that the regression target exceeds the threshold,   P(Y > threshold | X), as an array bounded in [0, 1] with shape matching the input.
+
 ## Consequences
 
 Positive:
