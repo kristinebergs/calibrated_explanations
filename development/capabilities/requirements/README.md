@@ -10,7 +10,7 @@ defined in `development/README.md`:
 ```text
 Capability claim
     -> requirement
-    -> verification case
+    -> executable verification case
     -> evidence record
 ```
 
@@ -42,25 +42,33 @@ Each requirement file must state:
 - **scope**: public API surface, task type, and workflow applicable
 - **observable_behavior**: what must be true when the requirement is satisfied
 - **acceptance_criterion**: the measurable or checkable condition
-- **verification_method**: how the criterion is checked (automated test, structural
-  check, analytical review, etc.)
-- **test_refs**: which tests in `tests/capabilities/` (or linked nearby tests) verify
-  this requirement
+- **verification_method**: how the criterion is checked
+- **test_refs**: which executable tests verify this requirement
 - **evidence_required**: metadata that a passing evidence record must include
 
 ## Verification assurance metadata
 
-Semantic ADR requirements that are not fully automated should name concrete
-verification targets in the requirement body. Use `verification_status` in the
-Metadata table when needed:
+Semantic ADR requirements must terminate in executable verification. Metadata/linkage
+tests are allowed as drift guards, but they do not prove runtime, serialization,
+static-policy, visualization, plugin, quality-gate, or API-contract obligations by
+themselves.
 
-- `verified`: named automated or quality-gate evidence directly checks the behavior.
-- `partial`: evidence covers only part of the obligation.
-- `manual_review_required`: the requirement is explicit but still needs human review
-  or additional automated tests before it can be treated as runtime-proven.
+Use `verification_status` in the Metadata table when needed:
 
-Metadata/linkage tests are allowed as drift guards, but they do not prove runtime,
-serialization, static-policy, or quality-gate obligations by themselves.
+- `verified`: named automated pytest or quality-gate evidence directly checks the behavior.
+- `partial`: named automated evidence covers only part of the obligation; the uncovered
+  portion must be represented as a separate requirement or ADR gap before the claim is
+  treated as fully verified.
+- `adr_gap_open`: the requirement or part of the requirement is not yet implemented. The
+  requirement must include `gap_ref` or `adr_gap_ref`, and the referenced gap must appear
+  in `development/current-work/RELEASE_PLAN_status_appendix.md`.
+- `not_implemented`: equivalent to `adr_gap_open` for pre-implementation requirements;
+  it must also include `gap_ref` or `adr_gap_ref` and an ADR status appendix entry.
+
+`manual_review_required` is not an acceptable verification status for an active
+behavioral requirement. Human or manual review can inform the gap analysis, but it is
+not evidence for requirements-as-code compatibility. If an implementation is missing,
+register it as an ADR gap instead of treating human verification as a test method.
 
 ## Rules
 
@@ -69,6 +77,13 @@ serialization, static-policy, or quality-gate obligations by themselves.
 3. Every requirement must have a stated `verification_method` and `acceptance_criterion`.
 4. Acceptance criteria must be visible here, not hidden inside test code only.
 5. Statistical obligations must state their assumptions explicitly.
+6. Every active behavioral requirement must name at least one executable pytest target.
+7. Documentation-boundary requirements may use metadata/linkage tests, but behavioral
+   requirements must name non-metadata pytest evidence.
+8. Human or manual verification is allowed only when the requirement is not implemented
+   and the requirement cites a registered ADR gap.
+9. A source file, documentation page, schema file, or standard is supporting context, not
+   proof of behavioral satisfaction unless an executable test or quality script checks it.
 
 ---
 
@@ -122,7 +137,7 @@ The acceptance criterion must contain separate sub-entries for collection and
 individual to ensure each is independently verifiable. Tests can be separate
 functions within the same test file — one per object level.
 
-Do NOT create separate requirements just because the same operation is callable
+Do NOT create separate requirements just because the operation is callable
 on both a collection and an individual.
 
 ```
@@ -155,9 +170,10 @@ controlling how many features are considered) does not require a separate requir
 
 ### Rule R-6 — Each requirement must have at least one test
 
-Every requirement file must reference at least one named test in `tests/capabilities/`.
-Tests for a family of related requirements can live in one test file, but each
-requirement must have its own named test function.
+Every requirement file must reference at least one named test in `tests/capabilities/`
+or another concrete test module. Tests for a family of related requirements can live
+in one test file, but each requirement must have its own named test function unless it
+is a documentation-boundary requirement verified solely by metadata/linkage tests.
 
 ## Related locations
 
