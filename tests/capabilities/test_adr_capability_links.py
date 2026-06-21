@@ -1,26 +1,127 @@
-"""Capability metadata checks for ADR evidence-bearing links."""
+"""Capability metadata and requirements-as-code checks for ADR evidence links."""
 
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 
 
 _REQUIRED_SEMANTIC_CLAIMS = {
-    "ADR-027": ['CE-CAP-EXPL-FAST-FILTER-001'],
-    "ADR-032": ['CE-CAP-GUARD-MEDIAN-PROBE-001', 'CE-CAP-GUARD-AUDIT-001', 'CE-CAP-GUARD-CALIBRATION-ALIGNMENT-001', 'CE-CAP-GUARD-CONJUNCTION-001', 'CE-CAP-GUARD-PLUGIN-SUPPORT-001', 'CE-CAP-GUARD-NO-FAST-001', 'CE-CAP-ALT-TARGET-CONFIDENCE-001'],
-    "ADR-029": ['CE-CAP-REJECT-DEFAULT-OFF-001', 'CE-CAP-REJECT-POLICY-ENUM-001', 'CE-CAP-REJECT-RESULT-ENVELOPE-001', 'CE-CAP-REJECT-STRATEGY-REGISTRY-001', 'CE-CAP-REJECT-NO-VIZ-001'],
-    "ADR-013": ['CE-CAP-INTERVAL-PLUGIN-PROTOCOL-001', 'CE-CAP-INTERVAL-CONTEXT-IMMUTABILITY-001', 'CE-CAP-INTERVAL-PLUGIN-FALLBACK-001', 'CE-CAP-FAST-INTERVAL-PLUGIN-001', 'CE-CAP-INTERVAL-PLUGIN-VALIDATION-001'],
-    "ADR-036": ['CE-CAP-PLOTSPEC-CANONICAL-DATACLASS-001', 'CE-CAP-PLOTSPEC-BOUNDARY-SERIALIZATION-001', 'CE-CAP-PLOTSPEC-BUILDER-VALIDATION-001', 'CE-CAP-PLOTSPEC-BACKEND-NEUTRALITY-001'],
-    "ADR-037": ['CE-CAP-VIZ-EXTENSION-METADATA-001', 'CE-CAP-VIZ-PLOT-KIND-GOVERNANCE-001', 'CE-CAP-VIZ-DEFAULT-PLOTSPEC-PATH-001'],
-    "ADR-034": ['CE-CAP-CONFIG-AUTHORITY-001', 'CE-CAP-CONFIG-PRECEDENCE-SNAPSHOT-001', 'CE-CAP-CONFIG-STRICT-VALIDATION-001', 'CE-CAP-CONFIG-DIAGNOSTIC-EXPORT-001', 'CE-CAP-CONFIG-CI-ENFORCEMENT-001'],
-    "ADR-028": ['CE-CAP-LOG-DOMAIN-TAXONOMY-001', 'CE-CAP-GOVERNANCE-LOG-SEPARATION-001', 'CE-CAP-LOG-CONTEXT-PROPAGATION-001', 'CE-CAP-LOG-STRUCTURED-COMPATIBILITY-001', 'CE-CAP-LOG-NO-GLOBAL-HANDLERS-001', 'CE-CAP-LOG-DATA-MINIMISATION-001'],
-    "ADR-031": ['CE-CAP-CALIBRATOR-PRIMITIVE-SCHEMA-001', 'CE-CAP-EXPLAINER-STATE-PERSISTENCE-001', 'CE-CAP-SERIAL-FAIL-FAST-VERSIONING-001', 'CE-CAP-SERIAL-ROUNDTRIP-INVARIANTS-001'],
-    "ADR-005": ['CE-CAP-SCHEMA-PAYLOAD-V1-001', 'CE-CAP-SCHEMA-VALIDATION-001', 'CE-CAP-SCHEMA-EXTENSION-SURFACE-001'],
-    "ADR-008": ['CE-CAP-DOMAIN-MODEL-001', 'CE-CAP-DOMAIN-LEGACY-ADAPTER-001', 'CE-CAP-EXPL-PAPER-SEMANTICS-001'],
-    "ADR-006": ['CE-CAP-PLUGIN-TRUST-POLICY-001', 'CE-CAP-PLUGIN-DISCOVERY-REPORT-001', 'CE-CAP-PLUGIN-AUDIT-EVENTS-001'],
-    "ADR-033": ['CE-CAP-MODALITY-METADATA-001', 'CE-CAP-MODALITY-RESOLUTION-001', 'CE-CAP-MODALITY-SHIMS-001', 'CE-CAP-MODALITY-TABULAR-INVARIANT-001'],
+    "ADR-027": ["CE-CAP-EXPL-FAST-FILTER-001"],
+    "ADR-032": [
+        "CE-CAP-GUARD-MEDIAN-PROBE-001",
+        "CE-CAP-GUARD-AUDIT-001",
+        "CE-CAP-GUARD-CALIBRATION-ALIGNMENT-001",
+        "CE-CAP-GUARD-CONJUNCTION-001",
+        "CE-CAP-GUARD-PLUGIN-SUPPORT-001",
+        "CE-CAP-GUARD-NO-FAST-001",
+        "CE-CAP-ALT-TARGET-CONFIDENCE-001",
+    ],
+    "ADR-029": [
+        "CE-CAP-REJECT-DEFAULT-OFF-001",
+        "CE-CAP-REJECT-POLICY-ENUM-001",
+        "CE-CAP-REJECT-RESULT-ENVELOPE-001",
+        "CE-CAP-REJECT-STRATEGY-REGISTRY-001",
+        "CE-CAP-REJECT-NO-VIZ-001",
+    ],
+    "ADR-013": [
+        "CE-CAP-INTERVAL-PLUGIN-PROTOCOL-001",
+        "CE-CAP-INTERVAL-CONTEXT-IMMUTABILITY-001",
+        "CE-CAP-INTERVAL-PLUGIN-FALLBACK-001",
+        "CE-CAP-FAST-INTERVAL-PLUGIN-001",
+        "CE-CAP-INTERVAL-PLUGIN-VALIDATION-001",
+    ],
+    "ADR-036": [
+        "CE-CAP-PLOTSPEC-CANONICAL-DATACLASS-001",
+        "CE-CAP-PLOTSPEC-BOUNDARY-SERIALIZATION-001",
+        "CE-CAP-PLOTSPEC-BUILDER-VALIDATION-001",
+        "CE-CAP-PLOTSPEC-BACKEND-NEUTRALITY-001",
+    ],
+    "ADR-037": [
+        "CE-CAP-VIZ-EXTENSION-METADATA-001",
+        "CE-CAP-VIZ-PLOT-KIND-GOVERNANCE-001",
+        "CE-CAP-VIZ-DEFAULT-PLOTSPEC-PATH-001",
+    ],
+    "ADR-034": [
+        "CE-CAP-CONFIG-AUTHORITY-001",
+        "CE-CAP-CONFIG-PRECEDENCE-SNAPSHOT-001",
+        "CE-CAP-CONFIG-STRICT-VALIDATION-001",
+        "CE-CAP-CONFIG-DIAGNOSTIC-EXPORT-001",
+        "CE-CAP-CONFIG-CI-ENFORCEMENT-001",
+    ],
+    "ADR-028": [
+        "CE-CAP-LOG-DOMAIN-TAXONOMY-001",
+        "CE-CAP-GOVERNANCE-LOG-SEPARATION-001",
+        "CE-CAP-LOG-CONTEXT-PROPAGATION-001",
+        "CE-CAP-LOG-STRUCTURED-COMPATIBILITY-001",
+        "CE-CAP-LOG-NO-GLOBAL-HANDLERS-001",
+        "CE-CAP-LOG-DATA-MINIMISATION-001",
+    ],
+    "ADR-031": [
+        "CE-CAP-CALIBRATOR-PRIMITIVE-SCHEMA-001",
+        "CE-CAP-EXPLAINER-STATE-PERSISTENCE-001",
+        "CE-CAP-SERIAL-FAIL-FAST-VERSIONING-001",
+        "CE-CAP-SERIAL-ROUNDTRIP-INVARIANTS-001",
+    ],
+    "ADR-005": [
+        "CE-CAP-SCHEMA-PAYLOAD-V1-001",
+        "CE-CAP-SCHEMA-VALIDATION-001",
+        "CE-CAP-SCHEMA-EXTENSION-SURFACE-001",
+    ],
+    "ADR-008": [
+        "CE-CAP-DOMAIN-MODEL-001",
+        "CE-CAP-DOMAIN-LEGACY-ADAPTER-001",
+        "CE-CAP-EXPL-PAPER-SEMANTICS-001",
+    ],
+    "ADR-006": [
+        "CE-CAP-PLUGIN-TRUST-POLICY-001",
+        "CE-CAP-PLUGIN-DISCOVERY-REPORT-001",
+        "CE-CAP-PLUGIN-AUDIT-EVENTS-001",
+    ],
+    "ADR-033": [
+        "CE-CAP-MODALITY-METADATA-001",
+        "CE-CAP-MODALITY-RESOLUTION-001",
+        "CE-CAP-MODALITY-SHIMS-001",
+        "CE-CAP-MODALITY-TABULAR-INVARIANT-001",
+    ],
+    "ADR-030": ["CE-CAP-REQ-AS-CODE-001"],
+    "ADR-035": ["CE-CAP-REQ-AS-CODE-001"],
 }
+
+
+_BEHAVIORAL_TYPES = {
+    "api_contract",
+    "empirical_smoke",
+    "numerical_behavior",
+    "payload_schema",
+    "plugin_behavior",
+    "quality_gate",
+    "runtime_behavior",
+    "serialization_contract",
+    "static_policy",
+    "statistical_method_alignment",
+    "visualization_behavior",
+}
+
+_METADATA_ONLY_TESTS = {
+    "test_should_validate_adr_claim_requirement_link_metadata",
+    "test_should_validate_curated_semantic_claim_presence",
+}
+
+_GAP_STATUSES = {"adr_gap_open", "not_implemented"}
+_HUMAN_VERIFICATION_TERMS = (
+    "manual_review",
+    "manual review",
+    "manual_review_required",
+    "human verification",
+    "human review",
+    "analytical review",
+)
+_TEST_TARGET_PATTERN = re.compile(
+    r"tests/[A-Za-z0-9_./-]+\.py(?:::[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]+\])?)?"
+)
+_TEST_FUNCTION_PATTERN = re.compile(r"test_[A-Za-z_][A-Za-z0-9_]*(?:\[[^\]]+\])?")
 
 
 def test_should_validate_curated_semantic_claim_presence() -> None:
@@ -50,85 +151,71 @@ def test_should_validate_curated_semantic_claim_presence() -> None:
     assert not errors, "\n".join(errors)
 
 
-def _repo_root() -> Path:
-    return Path(__file__).resolve().parents[2]
-
-
-def _yaml_list(text: str, key: str) -> list[str]:
-    match = re.search(rf"^{key}:\n((?:  - .+\n)+)", text, re.MULTILINE)
-    if not match:
-        return []
-    return [line.split("-", 1)[1].strip() for line in match.group(1).splitlines()]
-
-
-def _metadata_value(text: str, field: str) -> str:
-    match = re.search(rf"^\| {re.escape(field)} \| ([^|]+) \|", text, re.MULTILINE)
-    return match.group(1).strip() if match else ""
-
-
-
-
-_BEHAVIORAL_TYPES = {
-    "api_contract",
-    "runtime_behavior",
-    "serialization_contract",
-    "payload_schema",
-    "static_policy",
-    "quality_gate",
-}
-
-_METADATA_ONLY_TESTS = {
-    "test_should_validate_adr_claim_requirement_link_metadata",
-    "test_should_validate_curated_semantic_claim_presence",
-}
-
-
-def _requirement_files() -> list[Path]:
-    return sorted((_repo_root() / "development" / "capabilities" / "requirements").glob("CE-REQ-*.md"))
-
-
-def _requirement_id(path: Path) -> str:
-    return path.stem
-
-
 def test_should_require_behavioral_requirements_to_name_concrete_evidence() -> None:
-    """Verifies behavioral requirements do not rely only on metadata tests."""
+    """Verifies behavioral requirements terminate in executable pytest evidence."""
+    indexed_tests = _indexed_test_functions()
     errors: list[str] = []
 
     for path in _requirement_files():
         text = path.read_text(encoding="utf-8")
+        requirement_id = _requirement_id(path)
         obligation_type = _metadata_value(text, "obligation_type")
         if obligation_type not in _BEHAVIORAL_TYPES:
             continue
-        if "## Verification targets" in text:
-            target_block = text.split("## Verification targets", 1)[1].split("\n## ", 1)[0]
-        elif "Automated pytest" in text and "tests/capabilities/" in text:
-            # Existing capability requirements predate the explicit Verification targets
-            # section and name concrete pytest files/functions in their Verification method.
-            target_block = text
-        else:
-            errors.append(f"{_requirement_id(path)} has no concrete verification targets")
+        if _has_registered_adr_gap(requirement_id, text):
             continue
-        has_non_metadata_target = any(
-            marker in target_block
-            for marker in (
-                "- source:",
-                "- quality_script:",
-                "- docs:",
-                "- schema:",
-                "- standard:",
-                "- manual_review:",
-                "- pytest:",
-                "tests/capabilities/",
-                "Test ID:",
-                "Test IDs:",
+
+        targets = _pytest_targets(text)
+        if not targets:
+            errors.append(
+                f"{requirement_id} is {obligation_type} but has no named pytest target"
             )
-        )
-        if not has_non_metadata_target:
-            errors.append(f"{_requirement_id(path)} only names metadata tests as evidence")
-        for metadata_test in _METADATA_ONLY_TESTS:
-            if metadata_test in target_block and not has_non_metadata_target:
-                errors.append(f"{_requirement_id(path)} treats {metadata_test} as sole evidence")
+            continue
+
+        concrete_targets = [
+            target
+            for target in targets
+            if _target_exists(target, indexed_tests) and not _is_metadata_only_target(target)
+        ]
+        if not concrete_targets:
+            errors.append(
+                f"{requirement_id} is {obligation_type} but only names missing or "
+                "metadata-only pytest targets"
+            )
+
+    assert not errors, "\n".join(errors)
+
+
+def test_should_reject_human_verification_without_registered_adr_gap() -> None:
+    """Verifies manual verification is used only for explicitly registered ADR gaps."""
+    errors: list[str] = []
+
+    for path in _requirement_files():
+        text = path.read_text(encoding="utf-8")
+        requirement_id = _requirement_id(path)
+        if not _uses_human_verification(text):
+            continue
+        if not _has_registered_adr_gap(requirement_id, text):
+            errors.append(
+                f"{requirement_id} uses human/manual verification without "
+                "verification_status=adr_gap_open (or not_implemented), a gap_ref, "
+                "and an ADR status appendix entry"
+            )
+
+    assert not errors, "\n".join(errors)
+
+
+def test_should_require_claimed_pytest_targets_to_be_real_tests() -> None:
+    """Verifies requirement files do not cite non-existent pytest evidence."""
+    indexed_tests = _indexed_test_functions()
+    errors: list[str] = []
+
+    for path in _requirement_files():
+        text = path.read_text(encoding="utf-8")
+        requirement_id = _requirement_id(path)
+        for target in _pytest_targets(text):
+            if not _target_exists(target, indexed_tests):
+                errors.append(f"{requirement_id} references missing pytest target {target}")
 
     assert not errors, "\n".join(errors)
 
@@ -155,7 +242,7 @@ def test_should_prevent_runtime_obligations_from_using_documentation_boundary_ty
         obligation_type = _metadata_value(text, "obligation_type")
         if obligation_type != "documentation_boundary":
             continue
-        observable = text.split("## Observable behavior", 1)[1].split("\n## ", 1)[0]
+        observable = _section(text, "Observable behavior")
         if any(term in observable for term in runtime_terms):
             errors.append(f"{_requirement_id(path)} has runtime MUST language but documentation_boundary type")
 
@@ -245,3 +332,113 @@ def test_should_validate_adr_claim_requirement_link_metadata() -> None:
                 errors.append(f"{req_id} does not link back to {claim_id}")
 
     assert not errors, "\n".join(errors)
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parents[2]
+
+
+def _yaml_list(text: str, key: str) -> list[str]:
+    match = re.search(rf"^{key}:\n((?:  - .+\n)+)", text, re.MULTILINE)
+    if not match:
+        return []
+    return [line.split("-", 1)[1].strip() for line in match.group(1).splitlines()]
+
+
+def _metadata_value(text: str, field: str) -> str:
+    match = re.search(rf"^\| {re.escape(field)} \| ([^|]+) \|", text, re.MULTILINE)
+    return match.group(1).strip() if match else ""
+
+
+def _section(text: str, heading: str) -> str:
+    marker = f"## {heading}"
+    if marker not in text:
+        return ""
+    return text.split(marker, 1)[1].split("\n## ", 1)[0]
+
+
+def _requirement_files() -> list[Path]:
+    return sorted((_repo_root() / "development" / "capabilities" / "requirements").glob("CE-REQ-*.md"))
+
+
+def _requirement_id(path: Path) -> str:
+    return path.stem
+
+
+def _uses_human_verification(text: str) -> bool:
+    lowered = text.lower()
+    return any(term in lowered for term in _HUMAN_VERIFICATION_TERMS)
+
+
+def _has_registered_adr_gap(requirement_id: str, requirement_text: str) -> bool:
+    status = _metadata_value(requirement_text, "verification_status")
+    gap_ref = _metadata_value(requirement_text, "gap_ref") or _metadata_value(
+        requirement_text, "adr_gap_ref"
+    )
+    if status not in _GAP_STATUSES or not gap_ref:
+        return False
+
+    appendix = _repo_root() / "development" / "current-work" / "RELEASE_PLAN_status_appendix.md"
+    if not appendix.exists():
+        return False
+    appendix_text = appendix.read_text(encoding="utf-8")
+    return requirement_id in appendix_text or gap_ref in appendix_text
+
+
+def _pytest_targets(text: str) -> set[str]:
+    targets: set[str] = set()
+    for raw_target in _TEST_TARGET_PATTERN.findall(text):
+        targets.add(raw_target.rstrip(".,);"))
+
+    test_ids = {
+        item.split("[", 1)[0]
+        for item in _TEST_FUNCTION_PATTERN.findall(text)
+        if item.startswith("test_")
+    }
+    path_targets = {target.split("::", 1)[0] for target in targets}
+    if len(path_targets) == 1:
+        test_path = next(iter(path_targets))
+        for test_id in test_ids:
+            targets.add(f"{test_path}::{test_id}")
+    else:
+        targets.update(test_ids)
+    return targets
+
+
+def _indexed_test_functions() -> dict[str, set[str]]:
+    root = _repo_root()
+    index: dict[str, set[str]] = {}
+    for path in sorted((root / "tests").rglob("test_*.py")):
+        rel_path = path.relative_to(root).as_posix()
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+        except SyntaxError as exc:  # pragma: no cover - syntax error fails repository tests anyway.
+            raise AssertionError(f"could not parse {rel_path}: {exc}") from exc
+        functions = {
+            node.name
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name.startswith("test_")
+        }
+        index[rel_path] = functions
+    return index
+
+
+def _target_exists(target: str, indexed_tests: dict[str, set[str]]) -> bool:
+    if "::" in target:
+        path, function = target.split("::", 1)
+        function = function.split("[", 1)[0]
+        return function in indexed_tests.get(path, set())
+    if target.endswith(".py"):
+        return target in indexed_tests
+    function = target.split("[", 1)[0]
+    return any(function in functions for functions in indexed_tests.values())
+
+
+def _is_metadata_only_target(target: str) -> bool:
+    if "::" in target:
+        path, function = target.split("::", 1)
+        function = function.split("[", 1)[0]
+        return path.endswith("tests/capabilities/test_adr_capability_links.py") and function in _METADATA_ONLY_TESTS
+    function = target.split("[", 1)[0]
+    return function in _METADATA_ONLY_TESTS
