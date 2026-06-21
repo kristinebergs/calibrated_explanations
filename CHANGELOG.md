@@ -3,6 +3,8 @@
 
 ## [Unreleased]
 
+- **ADR-038 RC graduation planning:** v1.0.0-rc remains validation/freeze by default, but now explicitly allows only one planned implementation item: closing the ADR-038 `**kwargs` graduation gate for `explain_factual` / `explore_alternatives` and aligned `WrapCalibratedExplainer` delegators. The RC deprecation gate is strict: `make deprecation-closure` must prove zero active deprecations, not merely zero blocking deprecations, before tagging RC.
+
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v0.11.4...main)
 
 ## [v0.11.4](https://github.com/Moffran/calibrated_explanations/releases/tag/v0.11.4) - 2026-06-19
