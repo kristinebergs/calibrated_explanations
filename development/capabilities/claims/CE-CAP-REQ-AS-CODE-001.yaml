@@ -1,0 +1,39 @@
+claim_id: CE-CAP-REQ-AS-CODE-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-030
+  - ADR-035
+
+claim_text: >
+  ADR-governed behavioral requirements terminate in executable pytest evidence,
+  and human verification is allowed only when the unimplemented requirement is
+  registered as an ADR gap.
+
+public_api: []
+
+task_types:
+  - governance
+  - quality_gate
+
+requirements:
+  - CE-REQ-REQ-AS-CODE-EVIDENCE-001
+
+verification:
+  proves:
+    - requirements_as_code_evidence
+    - executable_test_target_integrity
+    - manual_verification_gap_boundary
+  verification_type: automated_governance_integration_test
+
+assumptions:
+  - Metadata/linkage tests are drift guards, not proof of runtime behavior.
+  - Behavioral proof requires an executable pytest or quality-gate target that checks the requirement's observable behavior.
+  - Human review is permitted only to classify a missing implementation as an ADR gap; it is not test evidence.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result
