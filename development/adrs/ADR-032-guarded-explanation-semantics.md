@@ -117,6 +117,11 @@ This ADR therefore defines guarded mode as a CE-compatible extension with a sing
    - Calling any guarded entrypoint (`explain_factual(..., guarded_options=GuardedOptions())`, `explore_alternatives(..., guarded_options=GuardedOptions())`) on a fast explainer must hard-fail with `ConfigurationError` before any calibration-alignment check proceeds.
    - This prohibition is enforced in `_require_guarded_calibration_alignment` and is not subject to configuration or opt-out.
 
+
+## Governed claims
+
+- `CE-CAP-GUARD-001` — calibrated_explanations supports guarded explanations: passing a GuardedOptions   instance to WrapCalibratedExplainer.explain_factual or explore_alternatives restricts   explanation output to instances that lie within the support of the calibration data,   returning a CalibratedExplanations collection.
+
 ## Consequences
 
 Positive:

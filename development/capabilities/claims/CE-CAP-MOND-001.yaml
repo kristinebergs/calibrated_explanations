@@ -3,6 +3,9 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-013
+
 claim_text: >
   calibrated_explanations supports Mondrian (class-conditional) calibration: passing
   a MondrianCategorizer callable to WrapCalibratedExplainer.calibrate produces separate

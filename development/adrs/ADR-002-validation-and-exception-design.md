@@ -53,6 +53,11 @@ Logging & surfacing:
 - Optionally attach last validation errors summary to a debug report generation utility.
 - Provide `explain_exception(e)` helper to produce human-oriented multi-line message.
 
+
+## Governed claims
+
+- `CE-CAP-VALID-001` — Public validation failures use the CE exception taxonomy rather than ad-hoc generic exceptions where ADR-002 scope applies.
+
 ## Alternatives Considered
 
 1. Keep ad-hoc exceptions (low effort, inconsistent quality).

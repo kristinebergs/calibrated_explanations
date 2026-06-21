@@ -3,6 +3,11 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-023
+  - ADR-036
+  - ADR-037
+
 claim_text: >
   calibrated_explanations provides visualization output for explanations via
   WrapCalibratedExplainer.plot and CalibratedExplanations.plot, supporting

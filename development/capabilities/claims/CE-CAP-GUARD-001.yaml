@@ -3,6 +3,10 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-032
+  - ADR-038
+
 claim_text: >
   calibrated_explanations supports guarded explanations: passing a GuardedOptions
   instance to WrapCalibratedExplainer.explain_factual or explore_alternatives restricts

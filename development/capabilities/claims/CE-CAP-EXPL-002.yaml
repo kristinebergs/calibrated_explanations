@@ -3,6 +3,11 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-008
+  - ADR-015
+  - ADR-026
+
 claim_text: >
   calibrated_explanations produces calibrated alternative (counterfactual-style)
   explanations for individual instances via WrapCalibratedExplainer.explore_alternatives,

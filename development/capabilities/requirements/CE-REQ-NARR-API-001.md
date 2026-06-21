@@ -7,6 +7,7 @@
 | requirement_id | CE-REQ-NARR-API-001 |
 | obligation_type | api_contract |
 | claim_refs | CE-CAP-NARR-001 |
+| adr_refs | ADR-008 |
 | status | active |
 
 ## Scope

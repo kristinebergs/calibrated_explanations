@@ -121,6 +121,11 @@ CI enforcement must fail new direct runtime reads outside sanctioned boundaries.
 Temporary exceptions must be explicitly allowlisted with justification and
 target-release ownership.
 
+
+## Governed claims
+
+- `CE-CAP-CONFIG-001` — Runtime and call-time configuration use governed tiers, centralized reads, and suffix conventions for Config, Spec, and Options objects.
+
 ## Alternatives Considered
 
 1. **Keep distributed readers.** Rejected: preserves precedence drift and scattered

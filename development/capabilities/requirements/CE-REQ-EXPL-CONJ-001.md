@@ -7,6 +7,7 @@
 | requirement_id | CE-REQ-EXPL-CONJ-001 |
 | obligation_type | api_contract |
 | claim_refs | CE-CAP-EXPL-CONJ-001 |
+| adr_refs | ADR-008 |
 | status | active |
 | applicable_on | collection (CalibratedExplanations, AlternativeExplanations) and individual (FactualExplanation, AlternativeExplanation) |
 | supersedes | CE-REQ-EXPL-CONJ-COL-001, CE-REQ-EXPL-CONJ-IND-001, CE-REQ-EXPL-CONJ-API-001 |

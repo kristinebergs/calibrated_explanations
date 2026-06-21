@@ -37,6 +37,11 @@ usability and reproducibility.
 - Positive: greatly improved ergonomics; deterministic mappings in predict/online; clearer provenance.
 - Negative: additional complexity in wrapper; need to document behavior and storage.
 
+
+## Governed claims
+
+- `CE-CAP-PREPROC-001` — Wrapper preprocessing learns and reuses deterministic feature mappings while keeping the core numeric and preserving provenance boundaries.
+
 ## Alternatives
 
 - Enforce user-supplied preprocessing only (status quo), which is less friendly and harder to reproduce.

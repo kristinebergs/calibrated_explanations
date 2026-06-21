@@ -94,6 +94,12 @@ Release split:
 6. Aligns release content with a breaking-first / additive-follow-up cadence to reduce release risk.
 7. **Timeseries is excluded from this ADR's scope.** Time-ordered data requires ordered-input semantics, temporal feature indexing, and perturbation strategies that are fundamentally incompatible with the tabular/non-tabular extension contract modelled here. A separate ADR will govern timeseries modality support if and when it is needed.
 
+
+## Governed claims
+
+- `CE-CAP-PLUGIN-001` — calibrated_explanations exposes an extensible plugin system through the   calibrated_explanations.plugins module: ExplainerPlugin defines the protocol for   custom explanation backends, and IntervalCalibratorPlugin defines the protocol for   custom interval calibrators, enabling replacement of default internal implementations.
+- `CE-CAP-MODALITY-001` — Non-tabular modality extensions use plugin metadata and external packages rather than entering the core tabular implementation.
+
 ## Alternatives Considered
 
 1. No metadata extension; use existing `capabilities` only.

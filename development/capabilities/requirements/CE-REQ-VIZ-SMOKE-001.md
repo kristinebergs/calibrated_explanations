@@ -7,6 +7,7 @@
 | requirement_id | CE-REQ-VIZ-SMOKE-001 |
 | obligation_type | empirical_smoke |
 | claim_refs | CE-CAP-VIZ-001 |
+| adr_refs | ADR-023, ADR-036, ADR-037 |
 | status | active |
 
 ## Scope

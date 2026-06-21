@@ -105,6 +105,12 @@ Additional optional fields **MAY** be defined, but required semantics **MUST** r
 - This ADR does not define release sequencing or implementation journaling.
 - This ADR does not authorize runtime plot-kind extension.
 
+
+## Governed claims
+
+- `CE-CAP-PLOTSPEC-001` — PlotSpec-enabled visualization paths preserve backend-independent semantic plot intent through canonical PlotSpec objects and validated renderer boundaries.
+- `CE-CAP-VIZ-001` — calibrated_explanations provides visualization output for explanations via   WrapCalibratedExplainer.plot and CalibratedExplanations.plot, supporting   multiple output styles ('regular', 'triangular') and optional file saving,   without raising exceptions for standard single-instance and batch inputs   when a non-interactive rendering backend is available.
+
 ## Consequences
 
 ### Positive

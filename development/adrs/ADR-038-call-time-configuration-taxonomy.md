@@ -184,6 +184,13 @@ coverage sense, consistent with the established `reject_confidence` convention.
 Both express the same conformity threshold; the coverage convention makes the
 relationship with `reject_confidence` immediately readable.
 
+
+## Governed claims
+
+- `CE-CAP-CONFIG-001` — Runtime and call-time configuration use governed tiers, centralized reads, and suffix conventions for Config, Spec, and Options objects.
+- `CE-CAP-REJECT-001` — calibrated_explanations supports reject/defer policies: passing a RejectPolicySpec   to WrapCalibratedExplainer.explain_factual or explore_alternatives tags each   instance's explanation envelope with a rejection status (FLAG, ONLY_REJECTED,   ONLY_ACCEPTED) based on the calibrated uncertainty score.
+- `CE-CAP-GUARD-001` — calibrated_explanations supports guarded explanations: passing a GuardedOptions   instance to WrapCalibratedExplainer.explain_factual or explore_alternatives restricts   explanation output to instances that lie within the support of the calibration data,   returning a CalibratedExplanations collection.
+
 ## Alternatives Considered
 
 1. **Use `*Config` for all grouped parameter bundles (session and per-call alike).**

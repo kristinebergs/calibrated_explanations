@@ -68,6 +68,11 @@ Changes to `.github/actions/ci-policy/**` are high-integrity and require two cor
 2. Tune false positives and document accepted equivalent patterns.
 3. Flip `ci-policy/validate-workflows` to required status check in branch protection.
 
+
+## Governed claims
+
+- `CE-CAP-CI-001` — CI workflow changes comply with reusable workflow, least-privilege, pinning, constraints, and local reproducibility policy.
+
 ## Consequences
 
 **Positive**
