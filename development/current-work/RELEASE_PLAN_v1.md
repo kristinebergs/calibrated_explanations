@@ -46,7 +46,7 @@ A milestone cannot close while any of the following remains open:
 - Failing CI gates.
 - Stale or broken docs/examples.
 - Unresolved ADR or standards contradictions.
-- Any active deprecation scheduled to survive into v1.0.0.
+- Any active deprecation in the RC ledger; no active deprecation may survive into v1.0.0.
 - Open high-severity runtime bug.
 - Incomplete milestone scope.
 
@@ -63,7 +63,7 @@ A milestone cannot close while any of the following remains open:
   - public API contract frozen;
   - CI gates green;
   - docs/examples current and passing;
-  - zero active deprecations scheduled to survive into v1.0.0;
+  - zero active deprecations in the RC ledger;
   - no unresolved ADR or standards contradiction;
   - no open high-severity runtime bug;
   - release artifacts built and installation-smoke-tested.
@@ -74,7 +74,7 @@ A milestone cannot close while any of the following remains open:
 
 - **Milestone execution control**
   - **Status:** Active milestone is v1.0.0-rc (v0.11.4 shipped 2026-06-19); `development/current-work/v1.0.0-rc_plan.md` is the maintained detailed control surface.
-  - **Next action:** Execute v1.0.0-rc validation and freeze tasks. No implementation work is permitted in this milestone; any release-blocking fix is an emergency patch, not a planned task.
+  - **Next action:** Execute v1.0.0-rc validation and freeze tasks. Planned implementation is prohibited except for explicitly listed RC-blocking API-finalization/governance-closure items already targeted at RC; ADR-038 `**kwargs` graduation for `explain_factual` / `explore_alternatives` is the only currently allowed planned implementation item. Any other code change is an emergency release-blocking patch, not a planned RC task.
 - **Future milestone discipline**
   - **Status:** v1.0.0-rc is validation-and-freeze only; all pre-RC implementation work closed in v0.11.4. Next planned GA is v1.0.0.
   - **Next action:** After all v1.0.0-rc gates pass, promote to v1.0.0 GA and close the release series.
@@ -125,7 +125,7 @@ Gap-by-gap severity tables now live only in `development/current-work/RELEASE_PL
 
 **ADR-010 - Optional Dependency Split:** Completed; core-only vs extras parity checks are in place. No open appendix gaps.
 
-**ADR-011 - Deprecation and Migration Policy:** Completed (2026-06-15). The two-minor default remains normal policy; all active deprecations are filed with v1.0.0 removal ETAs under the binding finalization exception. All three 2026-06-11 reopened gaps closed: (1) guarded wrappers removed in v0.11.3 via finalization exception; (2) active-deprecations ledger rebuilt with 9 correctly filed rows, `make deprecation-closure` passes (0 blocking); (3) raw `DeprecationWarning` sites in `normalization_strategy.py`, `core/reject.py`, `core/explain/__init__.py`, and `core/calibrated_explainer.py` all use `deprecate()` helper. No open appendix gaps.
+**ADR-011 - Deprecation and Migration Policy:** Completed (2026-06-15). The two-minor default remains normal policy; the v1.0.0 RC/GA gate is stricter: `make deprecation-closure` must prove the Active deprecations ledger is empty and no active deprecation may survive into v1.0.0. All three 2026-06-11 reopened gaps closed: (1) guarded wrappers removed in v0.11.3 via finalization exception; (2) active-deprecations ledger rebuilt for pre-RC cleanup evidence; RC must re-run `make deprecation-closure` and obtain zero active rows; (3) raw `DeprecationWarning` sites in `normalization_strategy.py`, `core/reject.py`, `core/explain/__init__.py`, and `core/calibrated_explainer.py` all use `deprecate()` helper. No open appendix gaps.
 
 **ADR-012 - Documentation & Gallery Build Policy:** Accepted; gallery-tooling decision closed (nbconvert, 2026-06-02). Re-evidenced 2026-06-11: notebook execution exists (nightly advisory driver with timeouts; `nbsphinx_execute="always"` on non-RTD builds). Gap 1 closed (v0.11.4): docs HTML/linkcheck CI job wired via `docs-build` job in `ci-nightly.yml` calling `reusable-build-docs.yml`. Gap 2 (per-example runtime ceiling enforcement) remains advisory-only; blocking enforcement is a release-branch obligation. Target: v1.0.0-rc.
 
@@ -155,7 +155,7 @@ Gap-by-gap severity tables now live only in `development/current-work/RELEASE_PL
 
 **ADR-028 - Logging and Governance Observability:** Completed (2026-06-18); warning-policy closure holds, operational loggers are in accepted domains, and `configure_logging()` is implemented. No open appendix gaps.
 
-**ADR-029 - Reject Integration Strategy:** Accepted (2026-01-06); policy enum, strategy registry, and reject envelope direction documented in ADR-029. `RejectResult` → `RejectResultV2` public-API migration: an active `deprecate()` call is present in `explanations/reject.py`; under ADR-011 finalization exception all active deprecations must be closed in v0.11.x. Migration or deprecation reset (removing the active warning and deferring to post-v1.0) must be resolved in v0.11.3 Task 5 (Group L). RC does not implement this; RC only verifies the deprecation ledger is empty.
+**ADR-029 - Reject Integration Strategy:** Accepted (2026-01-06); policy enum, strategy registry, and reject envelope direction documented in ADR-029. `RejectResult` → `RejectResultV2` public-API migration: the active warning path was reset in v0.11.3 Group L, keeping `RejectResult` stable for v1.0.0 and deferring any future migration to a fresh post-v1 ADR-011 cycle. RC must verify the deprecation ledger is empty; it must not carry a v1.0.0-targeted active deprecation or perform planned GA-time removals.
 
 **ADR-030 - Test Quality Priorities and Enforcement:** Accepted; v0.11.0 delivered full detector extension and CI check-mode enforcement (assertion + determinism checks). Zero-tolerance ratification (marker hygiene, mutation testing policy) targets v0.11.3.
 
@@ -637,7 +637,7 @@ Release gate: Plugin registries enforce trust and protocol policies, extras inst
   ADR-034 deferred items → resolved without RC work: sensitive-value redaction declared out of scope for v1.0.0; export schema versioning already implemented (ResolvedConfigSnapshot.schema_version).
 -->
 
-> **RC posture:** v1.0.0-rc is a validation and freeze milestone only. No implementation work is permitted here. If a release-blocking defect requires a code fix, the fix is considered an emergency patch, not a planned RC task.
+> **RC posture:** v1.0.0-rc is validation/freeze by default. Planned implementation is prohibited except for explicitly listed RC-blocking API-finalization/governance-closure items already targeted at RC. The only currently allowed planned implementation item is ADR-038 `**kwargs` graduation for `explain_factual` / `explore_alternatives` (including `WrapCalibratedExplainer` delegator alignment, focused tests, docs, and status synchronization). No unrelated feature work, performance work, broad refactoring, or post-v1 scope may be pulled into RC. Any other code change during RC is an emergency release-blocking patch, not a planned task.
 
 1. Confirm Explanation Schema v1 is content-complete and frozen (any schema gaps
    must be resolved in v0.11.3 before RC); publish the compatibility statement
@@ -659,7 +659,7 @@ Release gate: Plugin registries enforce trust and protocol policies, extras inst
    `Development Status :: 4 - Beta` and publish RC release notes stating the
    public API is frozen except for release-blocking defects.
 
-Release gate: Explanation Schema v1 frozen and compatibility statement published; wrap interface and exception taxonomy compatibility confirmed against v0.6.x; caching/parallel staging validation signed off and telemetry verified against v0.11.3 documentation; Standard-002 ≥90% verified; upgrade checklist present, accurate, and reviewed; deprecation ledger is empty (zero active deprecations; verified as closed by v0.11.3); RC package metadata is `Development Status :: 4 - Beta`; RC release notes state the public API freeze posture.
+Release gate: Explanation Schema v1 frozen and compatibility statement published; wrap interface and exception taxonomy compatibility confirmed against v0.6.x; caching/parallel staging validation signed off and telemetry verified against v0.11.3 documentation; Standard-002 ≥90% verified; upgrade checklist present, accurate, and reviewed; deprecation ledger is empty (zero active deprecations, proven by `make deprecation-closure` during RC); RC package metadata is `Development Status :: 4 - Beta`; RC release notes state the public API freeze posture.
 ### v1.0.0 (stability declaration)
 
 <!-- Removed item #6 (Ratify ADR-030): moved to v0.11.3 so ratification informs RC readiness. -->
@@ -673,8 +673,7 @@ Release gate: Explanation Schema v1 frozen and compatibility statement published
    caching and parallelisation guidance.
 4. Confirm that staging validation signed off at v1.0.0-rc remains valid — no new
    staging runs are performed at GA unless a release-blocking defect was patched
-   after RC cut. Confirm zero active deprecations (verified by v0.11.3 Task 5
-   Group L resolution and the empty deprecation ledger gate at RC).
+   after RC cut. Confirm zero active deprecations (verified by the empty deprecation ledger gate at RC; GA must not perform planned deprecation removals).
 5. Confirm Standard-001/Standard-002 guardrails remain enforced post-tag, monitor the
    caching/parallel telemetry dashboards, and schedule maintenance cadences
    (coverage/docstring audits, performance regression sweeps) for the first
