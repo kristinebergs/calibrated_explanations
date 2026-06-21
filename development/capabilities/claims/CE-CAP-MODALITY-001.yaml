@@ -1,0 +1,33 @@
+claim_id: CE-CAP-MODALITY-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-033
+
+claim_text: >
+  Non-tabular modality extensions use plugin metadata and external packages rather than entering the core tabular implementation.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-MODALITY-GOV-001
+
+verification:
+  proves:
+    - documentation_boundary
+    - governance_linkage
+  verification_type: automated_metadata_check
+
+assumptions:
+  - This governance capability is verified by ADR, claim, requirement, and test-link consistency checks.
+  - Behavioral enforcement remains scoped to the implementation and tests named by the linked requirement.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

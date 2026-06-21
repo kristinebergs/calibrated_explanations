@@ -117,6 +117,18 @@ This ADR therefore defines guarded mode as a CE-compatible extension with a sing
    - Calling any guarded entrypoint (`explain_factual(..., guarded_options=GuardedOptions())`, `explore_alternatives(..., guarded_options=GuardedOptions())`) on a fast explainer must hard-fail with `ConfigurationError` before any calibration-alignment check proceeds.
    - This prohibition is enforced in `_require_guarded_calibration_alignment` and is not subject to configuration or opt-out.
 
+
+## Governed claims
+
+- `CE-CAP-ALT-TARGET-CONFIDENCE-001` — filter_by_target_confidence() applies conformal singleton-set filtering, returns a new collection, and validates confidence/probabilistic preconditions.
+- `CE-CAP-GUARD-NO-FAST-001` — Guarded explanations are unsupported for fast explainers and fail with ConfigurationError.
+- `CE-CAP-GUARD-PLUGIN-SUPPORT-001` — Plugin guarded support is expressed only through supports_guarded; missing metadata defaults to false and unguarded plugins must not be silently selected.
+- `CE-CAP-GUARD-CONJUNCTION-001` — Guarded conjunctions use joint representative perturbations and append conjunction audit records.
+- `CE-CAP-GUARD-CALIBRATION-ALIGNMENT-001` — Guarded execution requires calibration-feature alignment and fails hard on unavailable or mismatched calibration features.
+- `CE-CAP-GUARD-AUDIT-001` — Guarded outputs expose get_guarded_audit() with interval-level and summary records.
+- `CE-CAP-GUARD-MEDIAN-PROBE-001` — Guardedness is defined by the single median-probe rule; emitted intervals do not certify every point inside the interval.
+- `CE-CAP-GUARD-001` — calibrated_explanations supports guarded explanations: passing a GuardedOptions   instance to WrapCalibratedExplainer.explain_factual or explore_alternatives restricts   explanation output to instances that lie within the support of the calibration data,   returning a CalibratedExplanations collection.
+
 ## Consequences
 
 Positive:

@@ -3,6 +3,9 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-021
+
 claim_text: >
   calibrated_explanations produces Venn-Abers calibrated class probabilities for
   binary and multiclass classification tasks via WrapCalibratedExplainer.predict_proba,

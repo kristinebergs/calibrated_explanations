@@ -81,6 +81,11 @@ for configuration, failure behavior, and observability.
 - When telemetry is configured, the resolved feature-filter configuration is
   emitted as a single “effective config” event to support traceability.
 
+
+## Governed claims
+
+- `CE-CAP-EXPL-FAST-FILTER-001` — Internal FAST-based feature filtering is opt-in, fail-open, telemetry-visible, and preserves factual and alternative explanation semantics.
+
 ## Consequences
 
 ### Positive

@@ -112,6 +112,17 @@ Standard-005, *Logging and Observability*, captures the contributor-facing rules
 that implement this decision (logger naming, level usage, data minimisation,
 testing expectations).
 
+
+## Governed claims
+
+- `CE-CAP-LOG-DATA-MINIMISATION-001` — Logging and governance events minimize sensitive data and avoid raw payload leakage.
+- `CE-CAP-LOG-NO-GLOBAL-HANDLERS-001` — The library does not install global logging handlers on import.
+- `CE-CAP-LOG-STRUCTURED-COMPATIBILITY-001` — Logging remains compatible with structured logging consumers while preserving standard library logging behavior.
+- `CE-CAP-LOG-CONTEXT-PROPAGATION-001` — Logging context propagation preserves request or governance context without global mutable leakage.
+- `CE-CAP-GOVERNANCE-LOG-SEPARATION-001` — Governance events and operational logs remain separated by domain and purpose.
+- `CE-CAP-LOG-DOMAIN-TAXONOMY-001` — Logging uses the ADR-028 logger domain taxonomy for core, plugins, telemetry, and governance events.
+- `CE-CAP-OBS-001` — Governance and operational observability use visible warnings and structured logging where ADR-governed fallbacks or events occur.
+
 ## Alternatives Considered
 
 1. **Ad-hoc, module-local logging without domains or context helpers.**
@@ -222,5 +233,5 @@ Migration guidelines:
 - `docs/foundations/governance/optional_telemetry.md` — Existing telemetry
   guidance; should be updated to reference the new logging hierarchy and
   context helper where appropriate.
-- `docs/improvement/ignore/Logging_Analysis.md` — Detailed analysis of current
-  logging usage and recommendations that informed this ADR.
+- `development/standards/STD-005-logging-and-observability-standard.md` — Current
+  logging usage policy and checks that implement this ADR.

@@ -1,0 +1,35 @@
+claim_id: CE-CAP-GUARD-NO-FAST-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-032
+
+claim_text: >
+  Guarded explanations are unsupported for fast explainers and fail with ConfigurationError.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-GUARD-NO-FAST-001
+
+verification:
+  proves:
+    - documentation_boundary
+    - adr_semantic_coverage
+  verification_type: concrete_evidence_refs_or_manual_review
+  verification_status: manual_review_required
+
+assumptions:
+  - This semantic governance claim records an ADR obligation at claim granularity.
+  - Runtime verification is provided by the linked requirement's named tests, quality scripts, or manual review scope.
+  - This claim does not broaden public API guarantees beyond the owning ADR and linked requirement.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

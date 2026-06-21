@@ -3,6 +3,9 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-008
+
 claim_text: >
   calibrated_explanations supports conjunctive multi-feature explanation rules via
   add_conjunctions(), which extends any explanation collection or individual explanation

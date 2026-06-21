@@ -3,6 +3,9 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-021
+
 claim_text: >
   calibrated_explanations supports probabilistic regression queries: given a scalar
   threshold, WrapCalibratedExplainer.predict_proba(X, threshold=y_threshold) returns
@@ -35,6 +38,7 @@ assumptions:
   - This claim does not assert frequency-calibration of P(Y > threshold | X); it
     asserts only that the returned array is in [0, 1] and has the correct shape.
   - The API test verifies shape and bounds only; it does not verify conformal coverage.
+  - ADR-021 threshold-event alignment note: the public `threshold=` helper reports the library convention documented here, while ADR-021 also describes conformal threshold events using `y <= t` / interval events. Maintainers must keep API documentation and ADR terminology synchronized when threshold semantics change.
 
 evidence_required:
   - commit_sha

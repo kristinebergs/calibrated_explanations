@@ -3,6 +3,9 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-008
+
 claim_text: >
   calibrated_explanations supports rule-type filtering on alternative explanations via five
   filter operations: super_explanations (rules with higher probability supporting the

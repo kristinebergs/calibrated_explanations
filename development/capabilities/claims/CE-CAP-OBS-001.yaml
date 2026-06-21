@@ -1,0 +1,33 @@
+claim_id: CE-CAP-OBS-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-028
+
+claim_text: >
+  Governance and operational observability use visible warnings and structured logging where ADR-governed fallbacks or events occur.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-OBS-GOV-001
+
+verification:
+  proves:
+    - documentation_boundary
+    - governance_linkage
+  verification_type: automated_metadata_check
+
+assumptions:
+  - This governance capability is verified by ADR, claim, requirement, and test-link consistency checks.
+  - Behavioral enforcement remains scoped to the implementation and tests named by the linked requirement.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

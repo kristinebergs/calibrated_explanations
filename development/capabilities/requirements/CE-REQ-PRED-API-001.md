@@ -7,6 +7,7 @@
 | requirement_id | CE-REQ-PRED-API-001 |
 | obligation_type | api_contract |
 | claim_refs | CE-CAP-PRED-001 |
+| adr_refs | ADR-013, ADR-021 |
 | status | active |
 
 ## Scope

@@ -1,0 +1,35 @@
+claim_id: CE-CAP-CONFIG-DIAGNOSTIC-EXPORT-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-034
+
+claim_text: >
+  Effective config export includes schema markers, source attribution, profile ID, and diagnostic boundaries.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-CONFIG-DIAGNOSTIC-EXPORT-001
+
+verification:
+  proves:
+    - documentation_boundary
+    - adr_semantic_coverage
+  verification_type: concrete_evidence_refs_or_manual_review
+  verification_status: manual_review_required
+
+assumptions:
+  - This semantic governance claim records an ADR obligation at claim granularity.
+  - Runtime verification is provided by the linked requirement's named tests, quality scripts, or manual review scope.
+  - This claim does not broaden public API guarantees beyond the owning ADR and linked requirement.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

@@ -38,6 +38,11 @@ readiness:
   datasets (<30s per example on CI hardware).
 - Publishing: artifacts uploaded as workflow artifacts; optional GitHub Pages later.
 
+
+## Governed claims
+
+- `CE-CAP-DOCS-001` — Documentation and gallery builds use maintained source pages and documented build policy rather than obsolete improvement paths.
+
 ## Alternatives Considered
 
 1. Keep docs informal in README only (insufficient for scale and stability goals).

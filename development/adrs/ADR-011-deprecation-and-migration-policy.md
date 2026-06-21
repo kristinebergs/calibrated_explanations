@@ -44,6 +44,11 @@ No deprecation-removal work may be deferred to `v1.0.0`, `v1.0.0-rc`, or any pos
 
 When default-policy timing conflicts with the v1.0 finalization exception, **the v1.0 finalization exception wins**.
 
+
+## Governed claims
+
+- `CE-CAP-DEPREC-001` — Deprecations follow the accepted migration lifecycle, including visible warnings and documented removal windows.
+
 ## Alternatives Considered
 
 1. Immediate breaking changes with major version bumps for every cleanup (too disruptive for existing users).

@@ -3,6 +3,10 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-013
+  - ADR-021
+
 claim_text: >
   calibrated_explanations returns calibrated uncertainty intervals for predictions
   via WrapCalibratedExplainer.predict with uq_interval=True (or predict_proba with

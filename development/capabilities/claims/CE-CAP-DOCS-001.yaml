@@ -1,0 +1,33 @@
+claim_id: CE-CAP-DOCS-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-012
+
+claim_text: >
+  Documentation and gallery builds use maintained source pages and documented build policy rather than obsolete improvement paths.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-DOCS-GOV-001
+
+verification:
+  proves:
+    - documentation_boundary
+    - governance_linkage
+  verification_type: automated_metadata_check
+
+assumptions:
+  - This governance capability is verified by ADR, claim, requirement, and test-link consistency checks.
+  - Behavioral enforcement remains scoped to the implementation and tests named by the linked requirement.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

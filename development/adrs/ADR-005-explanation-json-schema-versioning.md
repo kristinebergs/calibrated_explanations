@@ -122,6 +122,14 @@ must come with:
   elementwise for vector predictions as well as scalars.
 - Envelope validation is **out of scope** for v1.0.0.
 
+
+## Governed claims
+
+- `CE-CAP-SCHEMA-EXTENSION-SURFACE-001` — Provenance and metadata are the governed optional extension surfaces; top-level envelope validation remains deferred.
+- `CE-CAP-SCHEMA-VALIDATION-001` — Schema validation enforces semver schema versions and interval invariants where payload validation is invoked.
+- `CE-CAP-SCHEMA-PAYLOAD-V1-001` — Explanation payload schema v1 defines the required CE-first fields for serialized instance-level explanations.
+- `CE-CAP-SCHEMA-001` — Explanation payloads use a versioned CE-first schema contract with explicit metadata and governed extension surfaces.
+
 ## Alternatives Considered
 
 1. **Full envelope now** — Rejected for v1.0.0 because it is not implemented in the

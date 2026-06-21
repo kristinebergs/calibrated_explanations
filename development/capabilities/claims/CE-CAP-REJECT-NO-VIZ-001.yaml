@@ -1,0 +1,35 @@
+claim_id: CE-CAP-REJECT-NO-VIZ-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-029
+
+claim_text: >
+  Reject visualization is intentionally not integrated unless a future ADR changes that decision.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-REJECT-NO-VIZ-001
+
+verification:
+  proves:
+    - documentation_boundary
+    - adr_semantic_coverage
+  verification_type: concrete_evidence_refs_or_manual_review
+  verification_status: manual_review_required
+
+assumptions:
+  - This semantic governance claim records an ADR obligation at claim granularity.
+  - Runtime verification is provided by the linked requirement's named tests, quality scripts, or manual review scope.
+  - This claim does not broaden public API guarantees beyond the owning ADR and linked requirement.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

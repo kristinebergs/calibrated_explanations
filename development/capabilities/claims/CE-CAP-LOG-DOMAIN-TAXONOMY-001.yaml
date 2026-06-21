@@ -1,0 +1,35 @@
+claim_id: CE-CAP-LOG-DOMAIN-TAXONOMY-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-028
+
+claim_text: >
+  Logging uses the ADR-028 logger domain taxonomy for core, plugins, telemetry, and governance events.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-LOG-DOMAIN-TAXONOMY-001
+
+verification:
+  proves:
+    - documentation_boundary
+    - adr_semantic_coverage
+  verification_type: concrete_evidence_refs_or_manual_review
+  verification_status: manual_review_required
+
+assumptions:
+  - This semantic governance claim records an ADR obligation at claim granularity.
+  - Runtime verification is provided by the linked requirement's named tests, quality scripts, or manual review scope.
+  - This claim does not broaden public API guarantees beyond the owning ADR and linked requirement.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

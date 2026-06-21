@@ -36,7 +36,8 @@ Each requirement file must state:
 - **requirement_id**: unique CE-REQ-... identifier
 - **obligation_type**: one of `api_contract`, `payload_schema`, `numerical_behavior`,
   `statistical_method_alignment`, `documentation_boundary`, `visualization_behavior`,
-  `plugin_behavior`, `empirical_smoke`
+  `plugin_behavior`, `empirical_smoke`, `runtime_behavior`, `serialization_contract`,
+  `static_policy`, `quality_gate`, `manual_review_boundary`
 - **claim_refs**: which CE-CAP-... claims this requirement serves
 - **scope**: public API surface, task type, and workflow applicable
 - **observable_behavior**: what must be true when the requirement is satisfied
@@ -46,6 +47,20 @@ Each requirement file must state:
 - **test_refs**: which tests in `tests/capabilities/` (or linked nearby tests) verify
   this requirement
 - **evidence_required**: metadata that a passing evidence record must include
+
+## Verification assurance metadata
+
+Semantic ADR requirements that are not fully automated should name concrete
+verification targets in the requirement body. Use `verification_status` in the
+Metadata table when needed:
+
+- `verified`: named automated or quality-gate evidence directly checks the behavior.
+- `partial`: evidence covers only part of the obligation.
+- `manual_review_required`: the requirement is explicit but still needs human review
+  or additional automated tests before it can be treated as runtime-proven.
+
+Metadata/linkage tests are allowed as drift guards, but they do not prove runtime,
+serialization, static-policy, or quality-gate obligations by themselves.
 
 ## Rules
 

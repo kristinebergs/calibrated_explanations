@@ -55,6 +55,15 @@ semantics while allowing future migrations.
      (probability bounds, interval ordering, and monotonicity expectations).
    - Mapping primitives must remain JSON-safe and deterministic per ADR-009.
 
+
+## Governed claims
+
+- `CE-CAP-SERIAL-ROUNDTRIP-INVARIANTS-001` — Serialization round trips preserve ADR-021 interval semantics and ADR-009 preprocessing semantics.
+- `CE-CAP-SERIAL-FAIL-FAST-VERSIONING-001` — Serialization rejects unsupported or incompatible schema versions with explicit errors.
+- `CE-CAP-EXPLAINER-STATE-PERSISTENCE-001` — Explainer state persistence captures calibration state, preprocessing mappings, plugin identifiers, RNG/determinism state, manifest metadata, timestamps, and checksums.
+- `CE-CAP-CALIBRATOR-PRIMITIVE-SCHEMA-001` — Built-in calibrators implement JSON-safe to_primitive() and from_primitive() schema contracts.
+- `CE-CAP-SERIAL-001` — Calibrator and explainer persistence use versioned primitive state and fail fast on incompatible schema versions.
+
 ## Consequences
 
 Positive:

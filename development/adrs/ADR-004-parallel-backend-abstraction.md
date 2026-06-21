@@ -50,6 +50,11 @@ The following clarifications capture the guardrails for explicit, opt-in paralle
 - Extend configuration docs and release notes with the explicit opt-in model, environment variable controls, and troubleshooting tips for common platforms (macOS spawn, Windows spawn).
 - Ship an upgrade guide snippet covering interaction with plugin-provided executors and guidance for opting out when running within user-managed pools.
 
+
+## Governed claims
+
+- `CE-CAP-PARALLEL-001` — Parallel execution remains explicit and opt-in, with deterministic result ordering and serial-by-default behavior.
+
 ## Alternatives Considered
 
 1. Hard-code joblib everywhere (adds dependency, hides heuristics, less explicit control).

@@ -1,0 +1,33 @@
+claim_id: CE-CAP-SERIAL-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-031
+
+claim_text: >
+  Calibrator and explainer persistence use versioned primitive state and fail fast on incompatible schema versions.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-SERIAL-GOV-001
+
+verification:
+  proves:
+    - documentation_boundary
+    - governance_linkage
+  verification_type: automated_metadata_check
+
+assumptions:
+  - This governance capability is verified by ADR, claim, requirement, and test-link consistency checks.
+  - Behavioral enforcement remains scoped to the implementation and tests named by the linked requirement.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

@@ -94,6 +94,15 @@ at v1.0.0. New plugins must use the semantic names.
 - This ADR does not prescribe pixel-level parity requirements.
 - This ADR does not serve as a release plan.
 
+
+## Governed claims
+
+- `CE-CAP-VIZ-DEFAULT-PLOTSPEC-PATH-001` — PlotSpec is the default user-facing plotting path after accepted promotion, with legacy rendering only as explicit opt-out or visible fallback.
+- `CE-CAP-VIZ-PLOT-KIND-GOVERNANCE-001` — Visualization plot kinds use a governed semantic vocabulary and runtime plot-kind extension remains disallowed.
+- `CE-CAP-VIZ-EXTENSION-METADATA-001` — Visualization extensions provide deterministic builder/renderer governance metadata.
+- `CE-CAP-VIZ-001` — calibrated_explanations provides visualization output for explanations via   WrapCalibratedExplainer.plot and CalibratedExplanations.plot, supporting   multiple output styles ('regular', 'triangular') and optional file saving,   without raising exceptions for standard single-instance and batch inputs   when a non-interactive rendering backend is available.
+- `CE-CAP-PLOTSPEC-001` — PlotSpec-enabled visualization paths preserve backend-independent semantic plot intent through canonical PlotSpec objects and validated renderer boundaries.
+
 ## Consequences
 
 ### Positive
