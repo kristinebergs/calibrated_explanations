@@ -24,9 +24,10 @@ requirement catalogs, and curated closure evidence summaries.
 | CI/tooling JSON schemas (non-runtime) | `development/schemas/` |
 | Capability claims | `development/capabilities/claims/` |
 | Requirements derived from capability claims | `development/capabilities/requirements/` |
+| TIF verification interfaces | `development/capabilities/verification/tif/` |
 | Verification scenarios and helpers | `development/capabilities/verification/` |
 | Pytest capability verification | `tests/capabilities/` |
-| Generated verification run outputs | `reports/verification/` |
+| Generated (raw) verification run outputs | `reports/verification/` |
 | Curated capability evidence summaries | `development/capabilities/evidence/` |
 
 These locations are authoritative even when a directory has not yet been
@@ -39,22 +40,34 @@ created. Do not create additional locations for the same material.
 Capability verification follows this chain:
 
 ```text
-Capability claim
-    -> requirement
-    -> verification case
-    -> evidence record
+ADR / Standard
+    -> constrains
+Capability claim         -> development/capabilities/claims/
+    -> decomposes into
+Requirement              -> development/capabilities/requirements/
+    -> is exercised through
+TIF verification interface -> development/capabilities/verification/tif/
+    -> is executed by
+Test / verification gate -> tests/capabilities/
+    -> produces
+Evidence record          -> reports/verification/ (raw)
+                         -> development/capabilities/evidence/ (curated)
 ```
+
+ADRs and Standards constrain claims, requirements, TIF interfaces, and
+verification behavior. They are not themselves capability claims.
 
 Use the location map above for each layer:
 
 - Claims belong in `development/capabilities/claims/`.
 - Requirements belong in `development/capabilities/requirements/`.
+- TIF verification interfaces belong in `development/capabilities/verification/tif/`.
 - Executable verification scenarios and helpers belong in
   `development/capabilities/verification/`.
 - Pytest checks belong in `tests/capabilities/` for new capability-contract
   tests. Existing nearby unit or integration tests may be linked from
   requirements when they already verify the required public behavior.
-- Generated run outputs belong in `reports/verification/`.
+- Raw generated run outputs belong in `reports/verification/`.
 - Human-curated release or closure evidence summaries belong in
   `development/capabilities/evidence/`.
 

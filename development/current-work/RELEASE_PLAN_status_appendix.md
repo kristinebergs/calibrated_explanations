@@ -58,6 +58,14 @@ This appendix isolates detailed status material from `development/current-work/R
 | STD-004 | Completed | Monitor for regressions |
 | STD-005 | Completed (2026-06-18) | Shares ADR-028 closure: warning policy has 0 unclassified `warnings.warn` sites, logger-domain check passes, and `configure_logging()` is implemented and documented. |
 
+## TIF architecture gap inventory
+
+Open requirement gaps introduced by TIF architecture hardening (2026-06-22):
+
+| Requirement | ADR | Gap | Intended closure |
+|---|---|---|---|
+| CE-REQ-EXPL-CONJ-DOC-001 | ADR-008 | Documentation boundary for conjunction capability not formally reviewed; not_implemented | Manual review during v0.12.x documentation audit |
+
 ## Detailed gap inventory and historical notes
 
 - The authoritative detailed execution/gap notes remain in milestone execution plans:

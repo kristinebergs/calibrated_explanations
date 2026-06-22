@@ -8,10 +8,18 @@ testable obligations on the CE public API, following the verification chain
 defined in `development/README.md`:
 
 ```text
-Capability claim
-    -> requirement
-    -> verification case
-    -> evidence record
+ADR / Standard
+    -> constrains
+Capability claim         -> development/capabilities/claims/
+    -> decomposes into
+Requirement              (this directory)
+    -> is exercised through
+TIF verification interface -> development/capabilities/verification/tif/
+    -> is executed by
+Test / verification gate -> tests/capabilities/
+    -> produces
+Evidence record          -> reports/verification/ (raw)
+                         -> development/capabilities/evidence/ (curated)
 ```
 
 ## Location authority
@@ -39,18 +47,48 @@ Each requirement file must state:
   `plugin_behavior`, `runtime_behavior`, `serialization_contract`, `static_policy`,
   `quality_gate`, `empirical_smoke`
 - **claim_refs**: which CE-CAP-... claims this requirement serves
-- **adr_refs**: which active ADRs govern the obligation
+- **adr_refs** or **standard_refs**: which active ADRs / Standards govern the obligation
 - **status**: whether the requirement is active, superseded, or retired
 - **verification_status**: `verified` only when executable evidence exists, or
   `adr_gap_open` / `not_implemented` when implementation or executable evidence is missing
 - **scope**: public API surface, task type, and workflow applicable
 - **observable_behavior**: what must be true when the requirement is satisfied
 - **acceptance_criterion**: the measurable or checkable condition
+- **tif_refs** or **tif_exemption**: which CE-TIF-... interface exercises this requirement,
+  or an explicit justification for why no TIF interface is needed
 - **verification_method**: how the criterion is checked
-- **verification_targets**: executable pytest targets or real quality gates, written as
-  `pytest: tests/.../test_*.py::test_should_...` or a concrete quality/CI gate
+- **verification_targets**: executable pytest targets or real quality gates
 - **evidence_required**: metadata that a passing evidence record must include
 - **assumption_boundary**: what the requirement and its evidence do not prove
+
+## TIF requirement
+
+Every implemented behavioral requirement must reference at least one TIF interface
+in `tif_refs` unless it includes a `tif_exemption`.
+
+### Valid TIF exemptions
+
+TIF exemptions are rare. They are permitted only for:
+
+- Static documentation-boundary checks (documentation structure, not behavior)
+- Schema-only validation (YAML/JSON file structure, not runtime behavior)
+- Repository policy checks (file existence, naming conventions)
+- Pure metadata/linkage checks (ADR/requirement cross-reference integrity)
+
+A TIF exemption must not be used for behavioral CE public-API requirements.
+If a requirement specifies observable API behavior, it must have a TIF reference.
+
+To declare a TIF exemption:
+
+```markdown
+## TIF exemption
+
+tif_exemption: <one of: documentation_boundary | schema_validation | repository_policy | metadata_linkage>
+tif_exemption_rationale: >
+  <Specific reason why no TIF interface is needed. Cite why the behavior is not
+  observable through WrapCalibratedExplainer. Must not be used for behavioral
+  requirements.>
+```
 
 ## Requirements-as-code evidence policy
 
@@ -80,6 +118,34 @@ ID, missing behavior or evidence, why it is not verified, and intended closure
 path. Every behavioral requirement must therefore have exactly one of these
 outcomes: executable evidence that exists and runs, or an explicit ADR gap.
 
+## Verification strength model
+
+Avoid generic `verified: true` without specifying what was proven. Use
+`verification_strength` to distinguish what dimension was tested:
+
+| Strength | Meaning |
+|---|---|
+| `api_contract` | The method exists and is callable from the public workflow |
+| `behavioral_contract` | The method produces the documented observable behavior |
+| `numerical_behavior` | Numeric output values satisfy documented invariants |
+| `statistical_method_alignment` | Statistical properties satisfy documented assumptions |
+| `empirical_smoke` | Basic end-to-end execution without detailed output validation |
+| `documentation_boundary` | Documentation states what is and is not proven |
+| `visualization_structure` | Visualization output matches expected structural contract |
+| `policy_check` | Repository or CI policy compliance |
+
+A requirement can be verified as `api_contract` while not verified as
+`statistical_method_alignment` or semantic explanation quality.
+
+Use `evidence_level` to record what form of evidence exists:
+
+| Level | Meaning |
+|---|---|
+| `raw_evidence` | Machine-readable output in `reports/verification/` |
+| `curated_summary` | Human-reviewed summary in `development/capabilities/evidence/` |
+| `ci_gate` | CI pass/fail recorded in pipeline artifacts |
+| `metadata_only` | Traceability links only — cannot prove behavioral requirements |
+
 ## Rules
 
 1. Requirements are not tests. Do not embed test code in requirement files.
@@ -90,6 +156,8 @@ outcomes: executable evidence that exists and runs, or an explicit ADR gap.
 6. Implemented behavioral requirements must cite executable pytest targets or real quality gates.
 7. Metadata-only tests cannot be the sole evidence for implemented behavioral requirements.
 8. Unimplemented or unverified ADR obligations must be registered as ADR gaps, not treated as verified.
+9. Every implemented behavioral requirement must have `tif_refs` pointing to a CE-TIF-... interface,
+   or a `tif_exemption` with a valid exemption type and rationale.
 
 ---
 
@@ -150,7 +218,7 @@ on both a collection and an individual.
 WRONG: CE-REQ-EXPL-CONJ-COL-001  (add_conjunctions on collection only)
        CE-REQ-EXPL-CONJ-IND-001  (add_conjunctions on individual only)
 
-RIGHT: CE-REQ-EXPL-CONJ-001      (add_conjunctions; applicable_on: collection and individual)
+RIGHT: CE-REQ-EXPL-CONJ-API-001  (add_conjunctions; applicable_on: collection and individual)
 ```
 
 Exception: if the operation has **materially different contracts** on different
@@ -188,7 +256,8 @@ sole evidence for behavioral requirements.
 | Material | Location |
 |---|---|
 | Capability claims that generate requirements | `development/capabilities/claims/` |
+| TIF verification interfaces | `development/capabilities/verification/tif/` |
 | Verification scenarios and helpers | `development/capabilities/verification/` |
 | Pytest capability tests | `tests/capabilities/` |
-| Generated verification run outputs | `reports/verification/` |
+| Generated (raw) verification run outputs | `reports/verification/` |
 | Curated capability evidence summaries | `development/capabilities/evidence/` |

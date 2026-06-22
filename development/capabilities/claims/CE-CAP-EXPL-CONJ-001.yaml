@@ -7,11 +7,9 @@ adr_links:
   - ADR-008
 
 claim_text: >
-  calibrated_explanations supports conjunctive multi-feature explanation rules via
-  add_conjunctions(), which extends any explanation collection or individual explanation
-  to include rules combining up to max_rule_size features, returning an updated
-  object of the same type. The method is available on CalibratedExplanations,
-  AlternativeExplanations, FactualExplanation, and AlternativeExplanation.
+  calibrated_explanations supports conjunctive multi-feature explanation rules
+  via add_conjunctions(), extending explanation objects produced through a
+  WrapCalibratedExplainer workflow to include rules combining multiple features.
 
 public_api:
   - calibrated_explanations.explanations.explanations.CalibratedExplanations.add_conjunctions
@@ -26,25 +24,24 @@ task_types:
   - probabilistic_regression
 
 requirements:
-  - CE-REQ-EXPL-CONJ-001
+  - CE-REQ-EXPL-CONJ-API-001
+  - CE-REQ-EXPL-CONJ-RETURN-001
+  - CE-REQ-EXPL-CONJ-RULE-001
+  - CE-REQ-EXPL-CONJ-PARAM-001
+  - CE-REQ-EXPL-CONJ-DOC-001
 
 verification:
   proves:
     - api_contract
-    - output_type
-  verification_type: automated
+    - behavioral_contract
+  does_not_prove:
+    - conjunction rules produce strictly better explanations than single-feature rules
+    - runtime performance under large n_top_features or max_rule_size values
 
 assumptions:
-  - The explainer must be fitted and calibrated, and explain_factual or
-    explore_alternatives must have been called before add_conjunctions.
+  - The explainer must be fitted and calibrated before add_conjunctions is called.
   - Conjunctions are computed over the top n_top_features features by feature weight.
-    If fewer features are available than n_top_features, the available count is used.
-  - max_rule_size=1 produces no new conjunctions (single-feature rules only);
-    max_rule_size=2 adds pairwise conjunctions; larger values add higher-order rules.
-  - This claim does not assert that conjunctions produce strictly better explanations;
-    it asserts the API is callable and returns an object of the correct type.
-  - Runtime cost scales with n_top_features and max_rule_size; large values may
-    significantly increase explanation latency.
+  - Runtime cost scales with n_top_features and max_rule_size.
 
 evidence_required:
   - commit_sha

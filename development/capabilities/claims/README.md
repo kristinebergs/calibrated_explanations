@@ -6,10 +6,18 @@ Each claim file documents a user-visible statement about what CE provides, follo
 the verification chain defined in `development/README.md`:
 
 ```text
-Capability claim
-    -> requirement
-    -> verification case
-    -> evidence record
+ADR / Standard
+    -> constrains
+Capability claim         (this directory)
+    -> decomposes into
+Requirement              -> development/capabilities/requirements/
+    -> is exercised through
+TIF verification interface -> development/capabilities/verification/tif/
+    -> is executed by
+Test / verification gate -> tests/capabilities/
+    -> produces
+Evidence record          -> reports/verification/ (raw)
+                         -> development/capabilities/evidence/ (curated)
 ```
 
 ## Location authority
@@ -35,11 +43,13 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 claim_text: >
-  One-sentence statement of the user-visible behavior.
+  One-sentence statement of the user-visible capability.
 public_api:
   - WrapCalibratedExplainer.explain_factual
 requirements:
   - CE-REQ-EXPL-API-001
+  - CE-REQ-EXPL-RETURN-001
+  - CE-REQ-EXPL-DOC-001
 verification:
   proves:
     - api_contract
@@ -52,13 +62,49 @@ evidence_required:
 
 ## Rules
 
-1. Claims are not requirements. Do not write acceptance criteria in a claim.
+1. **Claims describe what CE provides.** Requirements describe how the claim is proven.
 2. Every claim must have an `owner` and at least one requirement ID.
 3. Do not duplicate definitions that already exist in another claim.
 4. Statistical claims must state their assumptions (calibration data,
    exchangeability, task-type scope, empirical vs theoretical boundary).
 5. Do not mark roadmap or unsupported behavior as `status: current`.
 6. Claims describe existing CE behavior only — they do not introduce new functionality.
+
+### What makes a claim too detailed
+
+A claim is too detailed if it contains:
+- acceptance criteria
+- exact test scenarios
+- parameter-specific behavior
+- return-type obligations
+- implementation mechanics
+- fixture details
+- evidence fields
+
+If a claim contains any of these, move that content to a requirement.
+
+### Claim decomposition
+
+A claim should normally fan out into multiple requirements.
+
+A claim with exactly one requirement must include an explicit `atomic_rationale`
+field explaining why the capability cannot usefully be decomposed — specifically
+why no separate API, schema, semantic, error, documentation, or evidence
+requirement is needed.
+
+```yaml
+atomic_rationale: >
+  This claim maps to one requirement because <specific reason>. No separate
+  API, schema, semantic, error, documentation, or evidence requirement is
+  warranted because <specific reason>.
+```
+
+### Claim stability
+
+Claims should remain stable under public API refactoring. Method names may
+appear in the `public_api` list, but the `claim_text` itself should remain
+at capability level — describing what CE provides to users, not which specific
+method implements it.
 
 ---
 
@@ -88,11 +134,6 @@ The `requirements` list in a claim must reference every requirement that
 derives from it. Requirements are separated by **operation** (see R-2), not by
 object level (collection vs individual) — a single requirement covers all
 applicable object levels and declares them in its `applicable_on` field.
-
-```yaml
-requirements:
-  - CE-REQ-EXPL-CONJ-001   # collection and individual (see applicable_on in requirement)
-```
 
 ### Rule C-4 — operation families share one claim
 
@@ -125,7 +166,8 @@ for capabilities that are specific to non-threshold regression (e.g., UQ interva
 | Material | Location |
 |---|---|
 | Requirements derived from claims | `development/capabilities/requirements/` |
+| TIF verification interfaces | `development/capabilities/verification/tif/` |
 | Verification scenarios and helpers | `development/capabilities/verification/` |
 | Pytest capability tests | `tests/capabilities/` |
-| Generated verification run outputs | `reports/verification/` |
+| Generated (raw) verification run outputs | `reports/verification/` |
 | Curated capability evidence summaries | `development/capabilities/evidence/` |

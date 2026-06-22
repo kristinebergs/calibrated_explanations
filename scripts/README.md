@@ -1,5 +1,20 @@
 # Scripts
 
+## Capability evidence
+
+- `generate_capability_evidence.py`: runs TIF verification scenarios for CE capability chains
+  and writes conforming JSON evidence records to `reports/verification/`. Use at release
+  milestones or after significant changes to a capability area.
+
+  ```bash
+  python scripts/generate_capability_evidence.py            # run and write evidence files
+  python scripts/generate_capability_evidence.py --dry-run  # print records without writing
+  python scripts/generate_capability_evidence.py --out-dir reports/verification/custom/
+  ```
+
+  After a successful run, review the JSON files and write a curated summary to
+  `development/capabilities/evidence/evidence_<area>_v<version>.md`.
+
 ## Over-testing
 
 - `over_testing/over_testing_report.py`: summarizes per-test coverage counts (via coverage.py contexts) to flag lines or blocks with unusually high test coverage density.

@@ -107,22 +107,46 @@ contracts, not as verified facts merely because they appear in documentation.
 Use this chain for release confidence:
 
 ```text
+ADR / Standard
+    -> constrains
 Capability claim
-    -> requirement
-    -> verification case
-    -> evidence record
+    -> decomposes into
+Requirement
+    -> is exercised through
+TIF verification interface
+    -> is executed by
+Test / verification gate / review
+    -> produces
+Evidence record
 ```
+
+ADRs and Standards constrain claims, requirements, TIF interfaces, and
+verification behavior. They are not themselves capability claims.
 
 Definitions:
 
-- **Capability claim**: a user-visible or release-visible statement about what
-  CE provides.
-- **Requirement**: a scoped, testable obligation derived from one or more
-  capability claims.
-- **Verification case**: an automated, manual, analytical, or review-based
-  check mapped to a requirement.
-- **Evidence**: a durable record of the verification result, including enough
-  metadata to reconstruct the context.
+- **Capability claim**: a broad, user-visible statement about what CE provides.
+  A claim describes a capability at the product/library level. It must not
+  contain acceptance criteria, exact test scenarios, parameter-specific
+  behavior, return-type obligations, or implementation mechanics. A claim
+  should normally decompose into multiple requirements. A one-to-one
+  claim-to-requirement mapping is allowed only when the capability is genuinely
+  atomic and the requirement includes an explicit atomic rationale.
+- **Requirement**: a concrete, scoped, testable obligation derived from one or
+  more capability claims. A requirement explains one way in which a claim is
+  proven and must contain observable behavior, acceptance criteria, verification
+  method, TIF reference or TIF exemption, and evidence expectations.
+- **TIF verification interface**: a reusable test interface that stimulates CE
+  through `WrapCalibratedExplainer`, captures structured observations, and
+  returns those observations to tests or verification gates. TIF is not the
+  same as pytest. TIF defines the interface between requirements and executable
+  verification.
+- **Test / verification execution**: the actual pytest test, quality gate,
+  script, or review process that invokes a TIF interface and evaluates the
+  acceptance criteria.
+- **Evidence**: a durable record of a verification execution, including enough
+  metadata to reconstruct what was checked, against which version, with which
+  fixture/configuration, and with what result.
 
 Rules:
 
@@ -176,6 +200,13 @@ Anti-patterns:
 - Adding claims with no owner.
 - Duplicating capability definitions in multiple places.
 - Using vague claims as release evidence.
+- Writing a TIF scenario that constructs explanation objects directly instead of
+  going through `WrapCalibratedExplainer`.
+- Using private/internal CE APIs in TIF scenarios.
+- Writing a one-to-one claim-to-requirement mapping without an explicit atomic
+  rationale.
+- Treating `verified: true` as meaningful without stating what was proven and
+  what was not (see verification_strength and assumption_boundary).
 
 Future claim IDs and requirement IDs should use CE-native prefixes, for example
 `CE-CAP-...` and `CE-REQ-...`.
@@ -186,10 +217,11 @@ Canonical CE locations for capability verification material:
 |---|---|
 | Capability claims | `development/capabilities/claims/` |
 | Requirements | `development/capabilities/requirements/` |
-| Verification scenarios and helpers | `verification/capabilities/` |
+| TIF verification interfaces | `development/capabilities/verification/tif/` |
+| Verification scenarios and helpers | `development/capabilities/verification/` |
 | Pytest verification | `tests/capabilities/` for new capability-contract tests; existing nearby unit or integration tests may be linked from requirements when appropriate |
-| Evidence run outputs | `reports/verification/` |
-| Curated release or closure evidence summaries | `development/finished-work/` |
+| Raw evidence run outputs | `reports/verification/` |
+| Curated release or closure evidence summaries | `development/capabilities/evidence/` |
 
 These paths define the CE verification layout even if the directories do not yet
 exist. Do not create additional locations for the same material. This instruction
@@ -250,9 +282,10 @@ Every fallback must be visible to users. No silent fallbacks.
 | `development/finished-work/` | Closed plans and curated closure evidence summaries |
 | `development/adrs/` | Architectural Decision Records after migration |
 | `development/standards/` | Engineering Standards after migration |
-| `development/capabilities/claims/` | Capability claim catalog when introduced |
-| `development/capabilities/requirements/` | Requirement catalog when introduced |
-| `verification/capabilities/` | Capability verification scenarios and helpers when introduced |
+| `development/capabilities/claims/` | Capability claim catalog |
+| `development/capabilities/requirements/` | Requirement catalog |
+| `development/capabilities/verification/tif/` | TIF verification interface specifications and executable scenarios |
+| `development/capabilities/verification/` | Capability verification scenarios and helpers |
 | `docs/get-started/ce_first_agent_guide.md` | Runnable CE-first guide |
 | `docs/foundations/how-to/configure_runtime.md` | How-to guide: ConfigManager, env vars, pyproject.toml sections, export diagnostics |
 | `development/standards/test-quality-method/` | ADR-030 quality method tooling — canonical location |
