@@ -1,43 +1,43 @@
-# CE-REQ-DOCS-GOV-001 — ADR Governance Linkage Contract
+# CE-REQ-DOCS-GOV-001 - Documentation Build Policy Contract
 
 ## Metadata
 
 | Field | Value |
 |---|---|
 | requirement_id | CE-REQ-DOCS-GOV-001 |
-| obligation_type | documentation_boundary |
+| obligation_type | quality_gate |
 | claim_refs | CE-CAP-DOCS-001 |
 | adr_refs | ADR-012 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
-Development governance artifacts under `development/adrs/` and
-`development/capabilities/` for ADR-012.
+ADR-012 documentation and gallery policy for maintained navigation, upgrade docs, agent guide correctness, and notebook execution driver behavior.
 
 ## Observable behavior
 
-The governed ADR claim chain MUST remain navigable in-place:
-
-1. Each owning ADR MUST list `CE-CAP-DOCS-001` in its `## Governed claims` section.
-2. `CE-CAP-DOCS-001` MUST list its owning ADRs in `adr_links`.
-3. `CE-CAP-DOCS-001` MUST list `CE-REQ-DOCS-GOV-001` in `requirements`.
-4. This requirement MUST list `CE-CAP-DOCS-001` in `claim_refs`.
-5. Linked test references MUST point to existing tests or explicit metadata checks.
+- Top-level documentation toctree targets exist.
+- Upgrade and maintenance documentation pages referenced by navigation exist.
+- Agent-facing documentation does not recommend `ce_agent_utils` as the canonical path.
+- Notebook execution policy emits deterministic reports and fails in blocking mode for execution errors.
 
 ## Acceptance criterion
 
-The capability traceability validation test passes for this ADR/claim/requirement
-chain without relying on a standalone traceability table or generated matrix.
+- Documentation navigation tests pass for top-level, maintenance, and upgrade pages.
+- The CE-first agent guide contains no forbidden `ce_agent_utils` recommendation or import pattern.
+- Notebook driver tests pass for successful execution, blocking-mode failures, deterministic reporting, and timeout/error reporting.
 
 ## Verification method
 
-Automated pytest test in `tests/capabilities/`.
+Automated pytest tests for documentation navigation, CE-first guide policy, and notebook execution policy.
 
-Test ID:
-- `test_should_validate_adr_capability_links_when_metadata_changes`
+## Verification targets
 
-(in `tests/capabilities/test_adr_capability_links.py`)
+- pytest: tests/docs/test_navigation.py::test_top_level_toctree_targets_exist
+- pytest: tests/docs/test_navigation.py::test_upgrade_docs_exist
+- pytest: tests/docs/get_started/test_no_ce_agent_utils_recommendation.py::test_no_forbidden_recommendation_patterns_in_agent_docs
+- pytest: tests/docs/test_notebook_driver.py::TestRunNotebooksReport::test_should_emit_report_with_all_required_fields
 
 ## Evidence required
 
@@ -50,6 +50,4 @@ Test ID:
 
 ## Assumption boundary
 
-This requirement verifies governance linkage and metadata consistency. It does not
-prove every runtime behavior implied by the owning ADR; runtime behavior remains
-covered by the specific implementation tests referenced by feature requirements.
+This requirement verifies executable docs policy checks. It does not prove prose quality or every rendered ReadTheDocs page outside the checked navigation and notebook-policy surfaces.

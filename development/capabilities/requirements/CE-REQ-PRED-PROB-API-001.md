@@ -1,4 +1,4 @@
-# CE-REQ-PRED-PROB-API-001 — Probabilistic Regression Threshold Query API Contract
+# CE-REQ-PRED-PROB-API-001 - Probabilistic Regression Threshold Query API Contract
 
 ## Metadata
 
@@ -9,6 +9,7 @@
 | claim_refs | CE-CAP-PRED-PROB-001 |
 | adr_refs | ADR-021 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
@@ -45,6 +46,11 @@ Test IDs:
 - `test_should_return_correct_length_when_regression_threshold_query`
 
 (in `tests/capabilities/test_probabilistic_regression_contracts.py`)
+
+## Verification targets
+
+- `pytest: tests/capabilities/test_probabilistic_regression_contracts.py::test_should_return_bounded_probabilities_when_regression_threshold_query`
+- `pytest: tests/capabilities/test_probabilistic_regression_contracts.py::test_should_return_correct_length_when_regression_threshold_query`
 
 ## Evidence required
 

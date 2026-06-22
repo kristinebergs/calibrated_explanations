@@ -32,20 +32,13 @@ requirements:
 verification:
   proves:
     - api_contract
-    - protocol_importable
-  verification_type: automated
-
+  verification_type: automated_executable_evidence
 assumptions:
-  - Plugin registration requires access to internal PluginManager state and is subject
-    to API stability constraints documented in CONTRIBUTOR_INSTRUCTIONS.md. Registration
-    patterns are not part of the stable public API surface for end-users.
-  - Protocol conformance is checked at runtime; passing an object that does not
-    implement required methods raises AttributeError at invocation time.
-  - This claim asserts that the plugin protocols are importable and inspectable;
-    it does not assert that custom implementations will behave identically to
-    built-in implementations across all scenarios.
+  - This capability is verified by the executable evidence targets named by its requirement.
+  - Metadata linkage checks are drift guards only and do not prove this capability behavior.
 
 evidence_required:
   - commit_sha
   - package_version
   - test_id
+  - result

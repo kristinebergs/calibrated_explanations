@@ -1,43 +1,44 @@
-# CE-REQ-CI-GOV-001 — ADR Governance Linkage Contract
+# CE-REQ-CI-GOV-001 - CI Workflow Policy Contract
 
 ## Metadata
 
 | Field | Value |
 |---|---|
 | requirement_id | CE-REQ-CI-GOV-001 |
-| obligation_type | documentation_boundary |
+| obligation_type | quality_gate |
 | claim_refs | CE-CAP-CI-001 |
 | adr_refs | ADR-035 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
-Development governance artifacts under `development/adrs/` and
-`development/capabilities/` for ADR-035.
+CI workflow policy checks governed by ADR-035, including constrained installs, pinned external actions, reusable workflow policy, local reproduction updates, and CODEOWNERS coverage.
 
 ## Observable behavior
 
-The governed ADR claim chain MUST remain navigable in-place:
-
-1. Each owning ADR MUST list `CE-CAP-CI-001` in its `## Governed claims` section.
-2. `CE-CAP-CI-001` MUST list its owning ADRs in `adr_links`.
-3. `CE-CAP-CI-001` MUST list `CE-REQ-CI-GOV-001` in `requirements`.
-4. This requirement MUST list `CE-CAP-CI-001` in `claim_refs`.
-5. Linked test references MUST point to existing tests or explicit metadata checks.
+- Workflow validation rejects unconstrained pip installs where constraints are required.
+- Workflow validation rejects externally hosted actions that are not pinned to full SHAs.
+- New or strict workflow changes are checked against reusable-workflow policy unless explicitly allowlisted with dated rationale.
+- Local reproduction and ownership paths stay covered for CI policy changes.
 
 ## Acceptance criterion
 
-The capability traceability validation test passes for this ADR/claim/requirement
-chain without relying on a standalone traceability table or generated matrix.
+- Synthetic workflow changes without required constraints fail the CI policy validator.
+- Synthetic workflow changes with major-tag external actions fail the CI policy validator.
+- Non-allowlisted new workflows are flagged by the reusable-workflow gate.
+- The validator test suite confirms `scripts/local_checks.py` policy ownership coverage.
 
 ## Verification method
 
-Automated pytest test in `tests/capabilities/`.
+Automated pytest tests for the CI workflow policy validator.
 
-Test ID:
-- `test_should_validate_adr_capability_links_when_metadata_changes`
+## Verification targets
 
-(in `tests/capabilities/test_adr_capability_links.py`)
+- pytest: tests/scripts/test_validate_ci_policy.py::test_should_fail_when_pip_install_missing_constraints
+- pytest: tests/scripts/test_validate_ci_policy.py::test_should_fail_when_external_action_is_major_tag
+- pytest: tests/scripts/test_validate_ci_policy.py::test_should_flag_reusable_check_for_non_allowlisted_new_workflow
+- pytest: tests/scripts/test_validate_ci_policy.py::test_should_cover_scripts_local_checks_path_in_codeowners
 
 ## Evidence required
 
@@ -50,6 +51,4 @@ Test ID:
 
 ## Assumption boundary
 
-This requirement verifies governance linkage and metadata consistency. It does not
-prove every runtime behavior implied by the owning ADR; runtime behavior remains
-covered by the specific implementation tests referenced by feature requirements.
+This requirement verifies in-repository CI policy enforcement. GitHub branch-protection settings remain platform-governed operational constraints tracked by ADR-035, not requirements proven by this test.

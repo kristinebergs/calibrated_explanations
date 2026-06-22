@@ -19,13 +19,11 @@ requirements:
 
 verification:
   proves:
-    - documentation_boundary
-    - governance_linkage
-  verification_type: automated_metadata_check
-
+    - static_policy
+  verification_type: automated_executable_evidence
 assumptions:
-  - This governance capability is verified by ADR, claim, requirement, and test-link consistency checks.
-  - Behavioral enforcement remains scoped to the implementation and tests named by the linked requirement.
+  - This capability is verified by the executable evidence targets named by its requirement.
+  - Metadata linkage checks are drift guards only and do not prove this capability behavior.
 
 evidence_required:
   - commit_sha

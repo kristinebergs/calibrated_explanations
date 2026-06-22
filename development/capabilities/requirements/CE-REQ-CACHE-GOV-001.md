@@ -1,43 +1,44 @@
-# CE-REQ-CACHE-GOV-001 — ADR Governance Linkage Contract
+# CE-REQ-CACHE-GOV-001 - Caching Runtime Contract
 
 ## Metadata
 
 | Field | Value |
 |---|---|
 | requirement_id | CE-REQ-CACHE-GOV-001 |
-| obligation_type | documentation_boundary |
+| obligation_type | runtime_behavior |
 | claim_refs | CE-CAP-CACHE-001 |
 | adr_refs | ADR-003 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
-Development governance artifacts under `development/adrs/` and
-`development/capabilities/` for ADR-003.
+Public cache behavior and runtime caching helpers governed by ADR-003: deterministic cache keys, opt-in disabled state, LRU eviction, and visible fallback behavior.
 
 ## Observable behavior
 
-The governed ADR claim chain MUST remain navigable in-place:
-
-1. Each owning ADR MUST list `CE-CAP-CACHE-001` in its `## Governed claims` section.
-2. `CE-CAP-CACHE-001` MUST list its owning ADRs in `adr_links`.
-3. `CE-CAP-CACHE-001` MUST list `CE-REQ-CACHE-GOV-001` in `requirements`.
-4. This requirement MUST list `CE-CAP-CACHE-001` in `claim_refs`.
-5. Linked test references MUST point to existing tests or explicit metadata checks.
+- Cache keys include namespace, version, and all key parts so different cache domains cannot collide silently.
+- Calibrator cache operations preserve the disabled/default-off state.
+- LRU cache behavior evicts entries when size limits are exceeded.
+- Cache fallback behavior remains explicit and covered by cache fallback tests.
 
 ## Acceptance criterion
 
-The capability traceability validation test passes for this ADR/claim/requirement
-chain without relying on a standalone traceability table or generated matrix.
+- `make_key(namespace, version, parts)` produces keys that encode namespace/version/parts distinctions.
+- The calibrator cache disabled state avoids storing values while preserving observable metrics.
+- LRU cache implementations evict the least-recently-used value when the configured memory budget is exceeded.
+- Fallback cache logic is exercised by automated tests, not prose review.
 
 ## Verification method
 
-Automated pytest test in `tests/capabilities/`.
+Automated pytest tests for cache key construction, disabled-state behavior, LRU eviction, and fallback logic.
 
-Test ID:
-- `test_should_validate_adr_capability_links_when_metadata_changes`
+## Verification targets
 
-(in `tests/capabilities/test_adr_capability_links.py`)
+- pytest: tests/unit/cache/test_cache_fallback.py::test_make_key_should_include_namespace_version_and_parts
+- pytest: tests/unit/perf/test_cache.py::test_calibrator_cache_handles_disabled_state
+- pytest: tests/unit/cache/test_cache_fallback.py::test_lru_cache_should_evict_when_exceeding_memory_budget
+- pytest: tests/unit/cache/test_cache_fallback.py::test_cache_fallback_logic
 
 ## Evidence required
 
@@ -50,6 +51,4 @@ Test ID:
 
 ## Assumption boundary
 
-This requirement verifies governance linkage and metadata consistency. It does not
-prove every runtime behavior implied by the owning ADR; runtime behavior remains
-covered by the specific implementation tests referenced by feature requirements.
+This requirement verifies runtime cache contracts named in `CE-CAP-CACHE-001`. It does not prove cache performance under production workloads or every possible cache backend implementation.

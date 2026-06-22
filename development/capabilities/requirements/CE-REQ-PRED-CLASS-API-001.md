@@ -1,4 +1,4 @@
-# CE-REQ-PRED-CLASS-API-001 — Classification Prediction API Contract
+# CE-REQ-PRED-CLASS-API-001 - Classification Prediction API Contract
 
 ## Metadata
 
@@ -9,6 +9,7 @@
 | claim_refs | CE-CAP-PRED-CLASS-001 |
 | adr_refs | ADR-021 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
@@ -49,6 +50,11 @@ Test IDs:
 
 (in `tests/capabilities/test_classification_contracts.py`)
 
+## Verification targets
+
+- `pytest: tests/capabilities/test_classification_contracts.py::test_should_return_bounded_probabilities_when_classification_fitted_and_calibrated`
+- `pytest: tests/capabilities/test_classification_contracts.py::test_should_return_class_labels_when_classification_fitted_and_calibrated`
+
 ## Evidence required
 
 | Field | Required |
@@ -66,7 +72,7 @@ This requirement verifies the API contract and output bounds only. It does not v
 
 - Venn-Abers calibration validity in a finite-sample sense.
 - Coverage guarantees at any specific confidence level.
-- Posterior probability accuracy (predict_proba values ≠ true posteriors).
+- Posterior probability accuracy (predict_proba values Ã¢â€°Â  true posteriors).
 - Distribution shift robustness.
 
 See `CE-CAP-PRED-CLASS-001` for the full assumption statement.

@@ -1,43 +1,43 @@
-# CE-REQ-CORE-BOUNDARY-001 — ADR Governance Linkage Contract
+# CE-REQ-CORE-BOUNDARY-001 - Core Boundary Import Contract
 
 ## Metadata
 
 | Field | Value |
 |---|---|
 | requirement_id | CE-REQ-CORE-BOUNDARY-001 |
-| obligation_type | documentation_boundary |
+| obligation_type | static_policy |
 | claim_refs | CE-CAP-CORE-001 |
 | adr_refs | ADR-001 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
-Development governance artifacts under `development/adrs/` and
-`development/capabilities/` for ADR-001.
+Package import boundaries governed by ADR-001 across core, calibration, explanations, schema, plugins, cache, and parallel services.
 
 ## Observable behavior
 
-The governed ADR claim chain MUST remain navigable in-place:
-
-1. Each owning ADR MUST list `CE-CAP-CORE-001` in its `## Governed claims` section.
-2. `CE-CAP-CORE-001` MUST list its owning ADRs in `adr_links`.
-3. `CE-CAP-CORE-001` MUST list `CE-REQ-CORE-BOUNDARY-001` in `requirements`.
-4. This requirement MUST list `CE-CAP-CORE-001` in `claim_refs`.
-5. Linked test references MUST point to existing tests or explicit metadata checks.
+- The import graph does not contain prohibited cross-sibling imports.
+- Core packages import independently without forcing optional implementation packages at module load.
+- ADR-001 package classifications and boundary rules remain documented and executable in CI.
 
 ## Acceptance criterion
 
-The capability traceability validation test passes for this ADR/claim/requirement
-chain without relying on a standalone traceability table or generated matrix.
+- Import-graph tests find no cross-sibling import violations in `calibrated_explainer`.
+- Top-level package circular-import checks pass.
+- The ADR-001 CI enforcement test passes against the current package graph.
+- Core package import tests preserve the sanctioned root export and lazy import behavior.
 
 ## Verification method
 
-Automated pytest test in `tests/capabilities/`.
+Automated pytest tests for import-graph and ADR-001 boundary enforcement.
 
-Test ID:
-- `test_should_validate_adr_capability_links_when_metadata_changes`
+## Verification targets
 
-(in `tests/capabilities/test_adr_capability_links.py`)
+- pytest: tests/unit/test_import_graph_enforcement.py::TestImportGraphStaticAnalysis::test_should_not_have_cross_sibling_imports_in_calibrated_explainer
+- pytest: tests/unit/test_import_graph_enforcement.py::TestImportGraphStaticAnalysis::test_should_find_no_circular_imports_in_top_level_packages
+- pytest: tests/unit/test_import_graph_enforcement.py::TestImportGraphIntegration::test_should_enforce_adr001_boundaries_in_ci
+- pytest: tests/unit/test_import_graph_enforcement.py::TestImportGraphRuntime::test_should_import_core_packages_independently
 
 ## Evidence required
 
@@ -50,6 +50,4 @@ Test ID:
 
 ## Assumption boundary
 
-This requirement verifies governance linkage and metadata consistency. It does not
-prove every runtime behavior implied by the owning ADR; runtime behavior remains
-covered by the specific implementation tests referenced by feature requirements.
+This requirement verifies import and package-boundary policy. It does not validate every runtime behavior implemented inside each package.

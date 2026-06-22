@@ -1,43 +1,45 @@
-# CE-REQ-PARALLEL-GOV-001 — ADR Governance Linkage Contract
+# CE-REQ-PARALLEL-GOV-001 - Parallel Execution Runtime Contract
 
 ## Metadata
 
 | Field | Value |
 |---|---|
 | requirement_id | CE-REQ-PARALLEL-GOV-001 |
-| obligation_type | documentation_boundary |
+| obligation_type | runtime_behavior |
 | claim_refs | CE-CAP-PARALLEL-001 |
 | adr_refs | ADR-004 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
-Development governance artifacts under `development/adrs/` and
-`development/capabilities/` for ADR-004.
+ADR-004 parallel execution behavior: explicit opt-in configuration, serial-by-default behavior, deterministic end-to-end parity, and deprecated auto-strategy visibility.
 
 ## Observable behavior
 
-The governed ADR claim chain MUST remain navigable in-place:
-
-1. Each owning ADR MUST list `CE-CAP-PARALLEL-001` in its `## Governed claims` section.
-2. `CE-CAP-PARALLEL-001` MUST list its owning ADRs in `adr_links`.
-3. `CE-CAP-PARALLEL-001` MUST list `CE-REQ-PARALLEL-GOV-001` in `requirements`.
-4. This requirement MUST list `CE-CAP-PARALLEL-001` in `claim_refs`.
-5. Linked test references MUST point to existing tests or explicit metadata checks.
+- Parallel execution is enabled only through explicit configuration.
+- Absent parallel configuration defaults to disabled.
+- Initializer parallel and sequential end-to-end paths produce matching results.
+- Deprecated `strategy="auto"` emits a visible deprecation warning when enabled, while explicit strategies do not.
 
 ## Acceptance criterion
 
-The capability traceability validation test passes for this ADR/claim/requirement
-chain without relying on a standalone traceability table or generated matrix.
+- Environment configuration tests pass for explicit opt-in and post-snapshot isolation.
+- End-to-end initializer parallel tests pass against sequential output.
+- Parallel strategy tests pass for explicit strategy resolution and deprecation warning behavior.
+- Disabled parallel configuration does not emit the auto-strategy deprecation warning.
 
 ## Verification method
 
-Automated pytest test in `tests/capabilities/`.
+Automated pytest tests for parallel configuration, strategy resolution, and end-to-end parity.
 
-Test ID:
-- `test_should_validate_adr_capability_links_when_metadata_changes`
+## Verification targets
 
-(in `tests/capabilities/test_adr_capability_links.py`)
+- pytest: tests/unit/core/test_calibrated_explainer_parallel_env.py::TestCalibratedExplainerParallelEnv::test_should_enable_parallel_executor_when_env_var_is_set
+- pytest: tests/unit/core/test_calibrated_explainer_parallel_env.py::TestCalibratedExplainerParallelEnv::test_should_isolate_ce_parallel_from_env_changes_after_snapshot
+- pytest: tests/integration/test_initializer_parallel_end_to_end.py::test_sequential_vs_initializer_parallel_end_to_end
+- pytest: tests/unit/perf/test_parallel.py::test_should_emit_deprecation_when_strategy_auto_and_enabled
+- pytest: tests/unit/perf/test_parallel.py::test_should_not_emit_deprecation_when_explicit_strategy_and_enabled
 
 ## Evidence required
 
@@ -50,6 +52,4 @@ Test ID:
 
 ## Assumption boundary
 
-This requirement verifies governance linkage and metadata consistency. It does not
-prove every runtime behavior implied by the owning ADR; runtime behavior remains
-covered by the specific implementation tests referenced by feature requirements.
+This requirement verifies explicit parallel configuration and parity behavior. It does not prove speedup or performance characteristics on every platform.

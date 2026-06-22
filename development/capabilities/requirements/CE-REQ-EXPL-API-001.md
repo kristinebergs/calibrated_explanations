@@ -1,4 +1,4 @@
-# CE-REQ-EXPL-API-001 — Factual Explanation API Contract
+# CE-REQ-EXPL-API-001 - Factual Explanation API Contract
 
 ## Metadata
 
@@ -9,6 +9,7 @@
 | claim_refs | CE-CAP-EXPL-001 |
 | adr_refs | ADR-008, ADR-015, ADR-026 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
@@ -45,6 +46,11 @@ Automated pytest test in `tests/capabilities/`.
 
 Test ID: `test_should_produce_factual_explanations_when_fitted_and_calibrated`
 (in `tests/capabilities/test_explanation_contracts.py`)
+
+## Verification targets
+
+- `pytest: tests/capabilities/test_explanation_contracts.py::test_should_produce_factual_explanations_when_fitted_and_calibrated`
+- `pytest: tests/capabilities/test_explanation_contracts.py::test_should_produce_factual_explanations_for_each_instance`
 
 ## Evidence required
 

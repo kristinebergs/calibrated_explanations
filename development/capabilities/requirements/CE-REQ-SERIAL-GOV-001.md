@@ -1,43 +1,46 @@
-# CE-REQ-SERIAL-GOV-001 — ADR Governance Linkage Contract
+# CE-REQ-SERIAL-GOV-001 - Serialization Persistence Contract
 
 ## Metadata
 
 | Field | Value |
 |---|---|
 | requirement_id | CE-REQ-SERIAL-GOV-001 |
-| obligation_type | documentation_boundary |
+| obligation_type | serialization_contract |
 | claim_refs | CE-CAP-SERIAL-001 |
 | adr_refs | ADR-031 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
-Development governance artifacts under `development/adrs/` and
-`development/capabilities/` for ADR-031.
+ADR-031 calibrator and wrapper persistence behavior: schema-versioned state, JSON-safe primitive serialization, round-trip prediction preservation, and fail-fast unsupported-version/checksum handling.
 
 ## Observable behavior
 
-The governed ADR claim chain MUST remain navigable in-place:
-
-1. Each owning ADR MUST list `CE-CAP-SERIAL-001` in its `## Governed claims` section.
-2. `CE-CAP-SERIAL-001` MUST list its owning ADRs in `adr_links`.
-3. `CE-CAP-SERIAL-001` MUST list `CE-REQ-SERIAL-GOV-001` in `requirements`.
-4. This requirement MUST list `CE-CAP-SERIAL-001` in `claim_refs`.
-5. Linked test references MUST point to existing tests or explicit metadata checks.
+- Wrapper save/load round-trips preserve classification and regression behavior.
+- Saved wrapper state writes schema version 2 manifests.
+- Unsupported schema versions and checksum mismatches are rejected.
+- VennAbers and IntervalRegressor primitives serialize to JSON-safe v2 state and round-trip predictions.
 
 ## Acceptance criterion
 
-The capability traceability validation test passes for this ADR/claim/requirement
-chain without relying on a standalone traceability table or generated matrix.
+- Wrapper persistence tests pass for classification and regression round-trips.
+- Manifest schema-version tests pass for v2 writes and v1 migration acceptance.
+- Checksum and unsupported-version rejection tests pass.
+- Primitive serialization tests pass for Venn-Abers and IntervalRegressor JSON-safe v2 round-trips.
 
 ## Verification method
 
-Automated pytest test in `tests/capabilities/`.
+Automated pytest tests for wrapper persistence and calibrator primitive serialization.
 
-Test ID:
-- `test_should_validate_adr_capability_links_when_metadata_changes`
+## Verification targets
 
-(in `tests/capabilities/test_adr_capability_links.py`)
+- pytest: tests/unit/core/test_wrap_explainer_persistence.py::test_save_and_load_state_roundtrip_classification
+- pytest: tests/unit/core/test_wrap_explainer_persistence.py::test_save_state_writes_schema_version_2_manifest
+- pytest: tests/unit/core/test_wrap_explainer_persistence.py::test_load_state_rejects_checksum_mismatch
+- pytest: tests/unit/core/test_wrap_explainer_persistence.py::test_load_state_rejects_unsupported_schema_version
+- pytest: tests/unit/calibration/test_calibrator_primitive_roundtrip.py::test_venn_abers_to_primitive_v2_is_json_serializable
+- pytest: tests/unit/calibration/test_calibrator_primitive_roundtrip.py::test_interval_regressor_to_primitive_v2_is_json_serializable
 
 ## Evidence required
 
@@ -50,6 +53,4 @@ Test ID:
 
 ## Assumption boundary
 
-This requirement verifies governance linkage and metadata consistency. It does not
-prove every runtime behavior implied by the owning ADR; runtime behavior remains
-covered by the specific implementation tests referenced by feature requirements.
+This requirement verifies supported persistence contracts. It does not promise compatibility with arbitrary pre-schema artifacts beyond explicitly tested migration paths.

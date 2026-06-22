@@ -1,4 +1,4 @@
-# CE-REQ-EXPL-CONJ-001 — Conjunction API Contract
+# CE-REQ-EXPL-CONJ-001 - Conjunction API Contract
 
 ## Metadata
 
@@ -9,16 +9,17 @@
 | claim_refs | CE-CAP-EXPL-CONJ-001 |
 | adr_refs | ADR-008 |
 | status | active |
+| verification_status | verified |
 | applicable_on | collection (CalibratedExplanations, AlternativeExplanations) and individual (FactualExplanation, AlternativeExplanation) |
 | supersedes | CE-REQ-EXPL-CONJ-COL-001, CE-REQ-EXPL-CONJ-IND-001, CE-REQ-EXPL-CONJ-API-001 |
 
 ## Scope
 
 Public API:
-- `CalibratedExplanations.add_conjunctions(n_top_features, max_rule_size)` — factual collection
-- `AlternativeExplanations.add_conjunctions(n_top_features, max_rule_size)` — alternative collection (inherits from CalibratedExplanations)
-- `FactualExplanation.add_conjunctions(n_top_features, max_rule_size)` — individual factual explanation
-- `AlternativeExplanation.add_conjunctions(n_top_features, max_rule_size)` — individual alternative explanation
+- `CalibratedExplanations.add_conjunctions(n_top_features, max_rule_size)` - factual collection
+- `AlternativeExplanations.add_conjunctions(n_top_features, max_rule_size)` - alternative collection (inherits from CalibratedExplanations)
+- `FactualExplanation.add_conjunctions(n_top_features, max_rule_size)` - individual factual explanation
+- `AlternativeExplanation.add_conjunctions(n_top_features, max_rule_size)` - individual alternative explanation
 
 Applicable task types: binary classification, multiclass classification, regression, probabilistic_regression.
 
@@ -42,7 +43,7 @@ it must:
 
 ## Acceptance criterion
 
-**Collection — default parameters (n_top_features=5, max_rule_size=2):**
+**Collection - default parameters (n_top_features=5, max_rule_size=2):**
 
 For `factual = explainer.explain_factual(X_test)`:
 - `factual.add_conjunctions()` completes without error.
@@ -52,19 +53,19 @@ For `alternatives = explainer.explore_alternatives(X_test)`:
 - `alternatives.add_conjunctions()` completes without error.
 - Result is not `None` and `len(result) == len(X_test)`.
 
-**Collection — parameter variant (max_rule_size=1):**
+**Collection - parameter variant (max_rule_size=1):**
 - `alternatives.add_conjunctions(max_rule_size=1)` completes without error.
 - Result is not `None` (max_rule_size=1 disables conjunction generation; single-feature rules remain).
 
-**Individual — FactualExplanation:**
+**Individual - FactualExplanation:**
 - `factual[0].add_conjunctions()` completes without error.
 - Result is not `None`.
 
-**Individual — AlternativeExplanation:**
+**Individual - AlternativeExplanation:**
 - `alternatives[0].add_conjunctions()` completes without error.
 - Result is not `None`.
 
-**Individual — parameter variant (n_top_features=2, max_rule_size=2):**
+**Individual - parameter variant (n_top_features=2, max_rule_size=2):**
 - `alternatives[0].add_conjunctions(n_top_features=2, max_rule_size=2)` completes without error.
 - Result is not `None`.
 
@@ -79,6 +80,15 @@ Test IDs (in `tests/capabilities/test_conjunction_contracts.py`):
 - `test_should_return_conjunctions_when_individual_factual_explanation`
 - `test_should_return_conjunctions_when_individual_alternative_explanation`
 - `test_should_return_conjunctions_when_individual_with_non_default_n_top_features`
+
+## Verification targets
+
+- `pytest: tests/capabilities/test_conjunction_contracts.py::test_should_return_conjunctions_when_factual_collection_default_params`
+- `pytest: tests/capabilities/test_conjunction_contracts.py::test_should_return_conjunctions_when_alternative_collection_default_params`
+- `pytest: tests/capabilities/test_conjunction_contracts.py::test_should_return_conjunctions_when_alternative_collection_max_rule_size_one`
+- `pytest: tests/capabilities/test_conjunction_contracts.py::test_should_return_conjunctions_when_individual_factual_explanation`
+- `pytest: tests/capabilities/test_conjunction_contracts.py::test_should_return_conjunctions_when_individual_alternative_explanation`
+- `pytest: tests/capabilities/test_conjunction_contracts.py::test_should_return_conjunctions_when_individual_with_non_default_n_top_features`
 
 ## Evidence required
 

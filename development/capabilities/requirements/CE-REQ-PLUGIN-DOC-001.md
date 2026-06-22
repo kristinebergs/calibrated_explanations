@@ -1,14 +1,15 @@
-# CE-REQ-PLUGIN-DOC-001 — Plugin Protocol Importability Contract
+# CE-REQ-PLUGIN-DOC-001 - Plugin Protocol Importability Contract
 
 ## Metadata
 
 | Field | Value |
 |---|---|
 | requirement_id | CE-REQ-PLUGIN-DOC-001 |
-| obligation_type | documentation_boundary |
+| obligation_type | api_contract |
 | claim_refs | CE-CAP-PLUGIN-001 |
 | adr_refs | ADR-006, ADR-013, ADR-015, ADR-026, ADR-033 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
@@ -43,6 +44,11 @@ Test ID:
 - `test_should_import_interval_calibrator_plugin_protocol_when_plugins_module_available`
 
 (in `tests/capabilities/test_plugin_contracts.py`)
+
+## Verification targets
+
+- pytest: tests/capabilities/test_plugin_contracts.py::test_should_import_explainer_plugin_protocol_when_plugins_module_available
+- pytest: tests/capabilities/test_plugin_contracts.py::test_should_import_interval_calibrator_plugin_protocol_when_plugins_module_available
 
 ## Evidence required
 

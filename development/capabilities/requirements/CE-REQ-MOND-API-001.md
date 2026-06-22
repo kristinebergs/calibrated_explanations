@@ -1,4 +1,4 @@
-# CE-REQ-MOND-API-001 — Mondrian Calibration API Contract
+# CE-REQ-MOND-API-001 - Mondrian Calibration API Contract
 
 ## Metadata
 
@@ -9,6 +9,7 @@
 | claim_refs | CE-CAP-MOND-001 |
 | adr_refs | ADR-013 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
@@ -42,6 +43,10 @@ Test ID:
 - `test_should_calibrate_when_mondrian_categorizer_provided`
 
 (in `tests/capabilities/test_mondrian_contracts.py`)
+
+## Verification targets
+
+- `pytest: tests/capabilities/test_mondrian_contracts.py::test_should_calibrate_when_mondrian_categorizer_provided`
 
 ## Evidence required
 

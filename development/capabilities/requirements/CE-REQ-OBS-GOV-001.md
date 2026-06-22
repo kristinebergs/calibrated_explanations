@@ -1,43 +1,45 @@
-# CE-REQ-OBS-GOV-001 — ADR Governance Linkage Contract
+# CE-REQ-OBS-GOV-001 - Governance Observability Contract
 
 ## Metadata
 
 | Field | Value |
 |---|---|
 | requirement_id | CE-REQ-OBS-GOV-001 |
-| obligation_type | documentation_boundary |
+| obligation_type | runtime_behavior |
 | claim_refs | CE-CAP-OBS-001 |
 | adr_refs | ADR-028 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
-Development governance artifacts under `development/adrs/` and
-`development/capabilities/` for ADR-028.
+ADR-028 and STD-005 observability behavior for governance events, logging domains, config governance event schema, and warning-policy classification.
 
 ## Observable behavior
 
-The governed ADR claim chain MUST remain navigable in-place:
-
-1. Each owning ADR MUST list `CE-CAP-OBS-001` in its `## Governed claims` section.
-2. `CE-CAP-OBS-001` MUST list its owning ADRs in `adr_links`.
-3. `CE-CAP-OBS-001` MUST list `CE-REQ-OBS-GOV-001` in `requirements`.
-4. This requirement MUST list `CE-CAP-OBS-001` in `claim_refs`.
-5. Linked test references MUST point to existing tests or explicit metadata checks.
+- Plugin registration and discovery emit schema-valid governance events.
+- Governance event payloads are side-effect-only and safe.
+- Feature-filter strict paths emit both operational and governance records.
+- Logging-domain and warning-policy quality gates classify governed observability surfaces.
 
 ## Acceptance criterion
 
-The capability traceability validation test passes for this ADR/claim/requirement
-chain without relying on a standalone traceability table or generated matrix.
+- Governance event tests pass for accepted, denied, skipped, and checksum-failure plugin decisions.
+- Feature-filter observability tests pass for strict paths.
+- Logging-domain and warning-policy quality gates pass with zero violations.
+- Config governance event schema tests reject unsupported or malformed event payloads.
 
 ## Verification method
 
-Automated pytest test in `tests/capabilities/`.
+Automated pytest tests and executable observability quality gates.
 
-Test ID:
-- `test_should_validate_adr_capability_links_when_metadata_changes`
+## Verification targets
 
-(in `tests/capabilities/test_adr_capability_links.py`)
+- pytest: tests/observability/test_governance_events.py::test_register_emits_schema_valid_accepted_registration_event
+- pytest: tests/observability/test_governance_events.py::test_governance_events_are_side_effect_only_and_payload_safe
+- pytest: tests/observability/test_governance_events.py::test_should_emit_operational_and_governance_feature_filter_records_when_strict_path_triggers
+- quality-gate: python scripts/quality/check_logging_domains.py
+- quality-gate: python scripts/quality/check_warning_policy.py
 
 ## Evidence required
 
@@ -50,6 +52,4 @@ Test ID:
 
 ## Assumption boundary
 
-This requirement verifies governance linkage and metadata consistency. It does not
-prove every runtime behavior implied by the owning ADR; runtime behavior remains
-covered by the specific implementation tests referenced by feature requirements.
+This requirement verifies governed observability contracts. It does not assert a complete telemetry product or external log aggregation behavior.

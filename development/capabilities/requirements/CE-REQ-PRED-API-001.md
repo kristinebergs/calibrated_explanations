@@ -1,4 +1,4 @@
-# CE-REQ-PRED-API-001 — Uncertainty Interval API Contract
+# CE-REQ-PRED-API-001 - Uncertainty Interval API Contract
 
 ## Metadata
 
@@ -9,6 +9,7 @@
 | claim_refs | CE-CAP-PRED-001 |
 | adr_refs | ADR-013, ADR-021 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
@@ -51,6 +52,12 @@ Automated pytest test in `tests/capabilities/`.
 
 Test ID: `test_should_return_uncertainty_interval_when_uq_interval_true`
 (in `tests/capabilities/test_prediction_contracts.py`)
+
+## Verification targets
+
+- `pytest: tests/capabilities/test_prediction_contracts.py::test_should_return_uncertainty_interval_when_uq_interval_true_classification`
+- `pytest: tests/capabilities/test_prediction_contracts.py::test_should_return_uncertainty_interval_when_uq_interval_true_regression`
+- `pytest: tests/capabilities/test_prediction_contracts.py::test_should_return_predict_proba_interval_when_uq_interval_true_classification`
 
 ## Evidence required
 

@@ -1,43 +1,44 @@
-# CE-REQ-CONFIG-GOV-001 — ADR Governance Linkage Contract
+# CE-REQ-CONFIG-GOV-001 - Configuration Governance Contract
 
 ## Metadata
 
 | Field | Value |
 |---|---|
 | requirement_id | CE-REQ-CONFIG-GOV-001 |
-| obligation_type | documentation_boundary |
+| obligation_type | static_policy |
 | claim_refs | CE-CAP-CONFIG-001 |
 | adr_refs | ADR-034, ADR-038 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
-Development governance artifacts under `development/adrs/` and
-`development/capabilities/` for ADR-034, ADR-038.
+Runtime and call-time configuration governance under ADR-034 and ADR-038: centralized config reads, lifecycle allowlist control, config governance events, and naming-policy guardrails.
 
 ## Observable behavior
 
-The governed ADR claim chain MUST remain navigable in-place:
-
-1. Each owning ADR MUST list `CE-CAP-CONFIG-001` in its `## Governed claims` section.
-2. `CE-CAP-CONFIG-001` MUST list its owning ADRs in `adr_links`.
-3. `CE-CAP-CONFIG-001` MUST list `CE-REQ-CONFIG-GOV-001` in `requirements`.
-4. This requirement MUST list `CE-CAP-CONFIG-001` in `claim_refs`.
-5. Linked test references MUST point to existing tests or explicit metadata checks.
+- Migrated runtime modules do not read environment variables or pyproject configuration directly outside the ConfigManager boundary.
+- The lifecycle allowlist for direct configuration reads remains empty.
+- Configuration governance events are schema-valid and reject unsupported shapes.
+- Public call-time parameter naming is checked by the naming guardrail tests.
 
 ## Acceptance criterion
 
-The capability traceability validation test passes for this ADR/claim/requirement
-chain without relying on a standalone traceability table or generated matrix.
+- The real package scan reports zero targeted ConfigManager usage violations.
+- The lifecycle allowlist test reports no remaining direct-read exceptions.
+- Config governance event tests validate supported event types and reject invalid details.
+- Parameter naming tests reject banned public signature names and confirm required references exist.
 
 ## Verification method
 
-Automated pytest test in `tests/capabilities/`.
+Automated pytest tests for config-manager usage, config governance events, and naming guardrails.
 
-Test ID:
-- `test_should_validate_adr_capability_links_when_metadata_changes`
+## Verification targets
 
-(in `tests/capabilities/test_adr_capability_links.py`)
+- pytest: tests/scripts/test_check_config_manager_usage.py::test_should_report_zero_targeted_violations_against_real_package
+- pytest: tests/scripts/test_check_config_manager_usage.py::test_should_have_empty_lifecycle_allowlist
+- pytest: tests/observability/test_config_governance_events.py::test_should_validate_all_config_event_types_and_reject_plugin_validator_path
+- pytest: tests/scripts/test_check_parameter_naming.py::test_no_banned_names_in_public_signatures
 
 ## Evidence required
 
@@ -50,6 +51,4 @@ Test ID:
 
 ## Assumption boundary
 
-This requirement verifies governance linkage and metadata consistency. It does not
-prove every runtime behavior implied by the owning ADR; runtime behavior remains
-covered by the specific implementation tests referenced by feature requirements.
+This requirement verifies enforced configuration governance checks. ADR-034 post-v1.0 open items, such as wider redaction guarantees, remain outside this verified scope.

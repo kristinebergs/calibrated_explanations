@@ -1,4 +1,4 @@
-# CE-REQ-EXPL-FILTER-SUPER-001 — Super-Explanations Filter API Contract
+# CE-REQ-EXPL-FILTER-SUPER-001 - Super-Explanations Filter API Contract
 
 ## Metadata
 
@@ -9,6 +9,7 @@
 | claim_refs | CE-CAP-EXPL-FILTER-001 |
 | adr_refs | ADR-027 |
 | status | active |
+| verification_status | verified |
 | applicable_on | collection (AlternativeExplanations) and individual (AlternativeExplanation) |
 | supersedes | CE-REQ-EXPL-ENSURED-API-001 (partial) |
 
@@ -16,9 +17,9 @@
 
 Public API:
 - `AlternativeExplanations.super_explanations(only_ensured, include_potential, copy)` (collection)
-- `AlternativeExplanations.super(...)` (alias — delegator, same contract)
+- `AlternativeExplanations.super(...)` (alias - delegator, same contract)
 - `AlternativeExplanation.super_explanations(only_ensured, include_potential, copy)` (individual)
-- `AlternativeExplanation.super(...)` (alias — delegator, same contract)
+- `AlternativeExplanation.super(...)` (alias - delegator, same contract)
 
 Super-explanations are rules with **higher probability** supporting the predicted class.
 
@@ -43,13 +44,13 @@ Applicable workflow: fit-calibrate-explore_alternatives-super_explanations.
 
 **Default parameters (only_ensured=False, include_potential=True):**
 
-Collection: `alternatives.super_explanations()` → non-None, `len == len(X_test)`.
+Collection: `alternatives.super_explanations()` Ã¢â€ â€™ non-None, `len == len(X_test)`.
 
-Individual: `alternatives[0].super_explanations()` → non-None.
+Individual: `alternatives[0].super_explanations()` Ã¢â€ â€™ non-None.
 
 **With only_ensured=True (applies ensured filter within super set):**
 
-Collection: `alternatives.super_explanations(only_ensured=True)` → non-None, `len == len(X_test)`.
+Collection: `alternatives.super_explanations(only_ensured=True)` Ã¢â€ â€™ non-None, `len == len(X_test)`.
 
 **Alias check:**
 
@@ -66,6 +67,13 @@ Test IDs:
 - `test_should_return_super_explanations_when_alias_super_used`
 
 (in `tests/capabilities/test_filter_contracts.py`)
+
+## Verification targets
+
+- `pytest: tests/capabilities/test_filter_contracts.py::test_should_return_super_explanations_when_default_params_collection`
+- `pytest: tests/capabilities/test_filter_contracts.py::test_should_return_super_explanations_when_only_ensured_true_collection`
+- `pytest: tests/capabilities/test_filter_contracts.py::test_should_return_super_explanations_when_individual_explanation`
+- `pytest: tests/capabilities/test_filter_contracts.py::test_should_return_super_explanations_when_alias_super_used`
 
 ## Evidence required
 

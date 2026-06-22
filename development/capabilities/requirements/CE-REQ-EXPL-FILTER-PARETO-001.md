@@ -1,4 +1,4 @@
-# CE-REQ-EXPL-FILTER-PARETO-001 — Pareto-Explanations Filter API Contract
+# CE-REQ-EXPL-FILTER-PARETO-001 - Pareto-Explanations Filter API Contract
 
 ## Metadata
 
@@ -9,15 +9,16 @@
 | claim_refs | CE-CAP-EXPL-FILTER-001 |
 | adr_refs | ADR-027 |
 | status | active |
+| verification_status | verified |
 | applicable_on | collection (AlternativeExplanations) and individual (AlternativeExplanation) |
 
 ## Scope
 
 Public API:
 - `AlternativeExplanations.pareto_explanations(include_potential, copy, *, pareto_cost)` (collection)
-- `AlternativeExplanations.pareto(...)` (alias — delegator, same contract)
+- `AlternativeExplanations.pareto(...)` (alias - delegator, same contract)
 - `AlternativeExplanation.pareto_explanations(include_potential, copy, *, pareto_cost)` (individual)
-- `AlternativeExplanation.pareto(...)` (alias — delegator, same contract)
+- `AlternativeExplanation.pareto(...)` (alias - delegator, same contract)
 
 Pareto-explanations are rules on the **Pareto-optimal frontier** of the cost dimension
 specified by `pareto_cost` (default: `"uncertainty_width"`).
@@ -43,13 +44,13 @@ Applicable workflow: fit-calibrate-explore_alternatives-pareto_explanations.
 
 **Default parameters (include_potential=True, pareto_cost="uncertainty_width"):**
 
-Collection: `alternatives.pareto_explanations()` → non-None, `len == len(X_test)`.
+Collection: `alternatives.pareto_explanations()` Ã¢â€ â€™ non-None, `len == len(X_test)`.
 
-Individual: `alternatives[0].pareto_explanations()` → non-None.
+Individual: `alternatives[0].pareto_explanations()` Ã¢â€ â€™ non-None.
 
 **With include_potential=False:**
 
-Collection: `alternatives.pareto_explanations(include_potential=False)` → non-None,
+Collection: `alternatives.pareto_explanations(include_potential=False)` Ã¢â€ â€™ non-None,
 `len == len(X_test)`.
 
 **Alias check:** `alternatives.pareto()` produces a result equal in structure to `alternatives.pareto_explanations()`.
@@ -65,6 +66,13 @@ Test IDs:
 - `test_should_return_pareto_explanations_when_alias_pareto_used`
 
 (in `tests/capabilities/test_filter_contracts.py`)
+
+## Verification targets
+
+- `pytest: tests/capabilities/test_filter_contracts.py::test_should_return_pareto_explanations_when_default_params_collection`
+- `pytest: tests/capabilities/test_filter_contracts.py::test_should_return_pareto_explanations_when_include_potential_false_collection`
+- `pytest: tests/capabilities/test_filter_contracts.py::test_should_return_pareto_explanations_when_individual_explanation`
+- `pytest: tests/capabilities/test_filter_contracts.py::test_should_return_pareto_explanations_when_alias_pareto_used`
 
 ## Evidence required
 

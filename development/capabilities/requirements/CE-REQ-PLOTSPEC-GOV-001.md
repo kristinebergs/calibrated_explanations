@@ -1,43 +1,44 @@
-# CE-REQ-PLOTSPEC-GOV-001 — ADR Governance Linkage Contract
+# CE-REQ-PLOTSPEC-GOV-001 - PlotSpec Validation Boundary Contract
 
 ## Metadata
 
 | Field | Value |
 |---|---|
 | requirement_id | CE-REQ-PLOTSPEC-GOV-001 |
-| obligation_type | documentation_boundary |
+| obligation_type | visualization_behavior |
 | claim_refs | CE-CAP-PLOTSPEC-001 |
 | adr_refs | ADR-036, ADR-037 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
-Development governance artifacts under `development/adrs/` and
-`development/capabilities/` for ADR-036, ADR-037.
+ADR-036 and ADR-037 PlotSpec governance: canonical PlotSpec round-trip behavior, schema/primitives validation, and renderer-boundary validation before rendering.
 
 ## Observable behavior
 
-The governed ADR claim chain MUST remain navigable in-place:
-
-1. Each owning ADR MUST list `CE-CAP-PLOTSPEC-001` in its `## Governed claims` section.
-2. `CE-CAP-PLOTSPEC-001` MUST list its owning ADRs in `adr_links`.
-3. `CE-CAP-PLOTSPEC-001` MUST list `CE-REQ-PLOTSPEC-GOV-001` in `requirements`.
-4. This requirement MUST list `CE-CAP-PLOTSPEC-001` in `claim_refs`.
-5. Linked test references MUST point to existing tests or explicit metadata checks.
+- PlotSpec artifacts serialize and round-trip through the canonical model.
+- PlotSpec schema and primitive tests validate supported artifact shapes.
+- Invalid PlotSpec-shaped artifacts raise before renderer invocation.
+- Non-PlotSpec artifacts pass through the validation boundary unchanged.
 
 ## Acceptance criterion
 
-The capability traceability validation test passes for this ADR/claim/requirement
-chain without relying on a standalone traceability table or generated matrix.
+- PlotSpec round-trip and headless tests pass.
+- PlotSpec schema/primitives tests pass.
+- Validation-boundary tests raise before render for invalid PlotSpec-shaped artifacts.
+- Non-PlotSpec boundary tests preserve pass-through behavior.
 
 ## Verification method
 
-Automated pytest test in `tests/capabilities/`.
+Automated pytest tests for PlotSpec schema, round-trip, and renderer-boundary validation.
 
-Test ID:
-- `test_should_validate_adr_capability_links_when_metadata_changes`
+## Verification targets
 
-(in `tests/capabilities/test_adr_capability_links.py`)
+- pytest: tests/unit/viz/test_plotspec_roundtrip_and_headless.py::test_global_roundtrip_preserves_entries
+- pytest: tests/unit/viz/test_plotspec_schema_and_primitives.py::test_example_plotspec_validates
+- pytest: tests/unit/viz/test_plot_plugin_validation_boundary.py::test_plotspec_shaped_invalid_artifact_raises_before_render
+- pytest: tests/unit/viz/test_plot_plugin_validation_boundary.py::test_non_plotspec_artifact_passes_through
 
 ## Evidence required
 
@@ -50,6 +51,4 @@ Test ID:
 
 ## Assumption boundary
 
-This requirement verifies governance linkage and metadata consistency. It does not
-prove every runtime behavior implied by the owning ADR; runtime behavior remains
-covered by the specific implementation tests referenced by feature requirements.
+This requirement verifies PlotSpec validation and boundary behavior. It does not judge visual design quality or pixel-level rendering fidelity.

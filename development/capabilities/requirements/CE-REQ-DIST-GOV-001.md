@@ -1,43 +1,42 @@
-# CE-REQ-DIST-GOV-001 — ADR Governance Linkage Contract
+# CE-REQ-DIST-GOV-001 - Core Extras Separation Contract
 
 ## Metadata
 
 | Field | Value |
 |---|---|
 | requirement_id | CE-REQ-DIST-GOV-001 |
-| obligation_type | documentation_boundary |
+| obligation_type | quality_gate |
 | claim_refs | CE-CAP-DIST-001 |
 | adr_refs | ADR-010 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
-Development governance artifacts under `development/adrs/` and
-`development/capabilities/` for ADR-010.
+ADR-010 distribution boundary between core package behavior and optional evaluation/extra dependency tooling.
 
 ## Observable behavior
 
-The governed ADR claim chain MUST remain navigable in-place:
-
-1. Each owning ADR MUST list `CE-CAP-DIST-001` in its `## Governed claims` section.
-2. `CE-CAP-DIST-001` MUST list its owning ADRs in `adr_links`.
-3. `CE-CAP-DIST-001` MUST list `CE-REQ-DIST-GOV-001` in `requirements`.
-4. This requirement MUST list `CE-CAP-DIST-001` in `claim_refs`.
-5. Linked test references MUST point to existing tests or explicit metadata checks.
+- The core-extras parity quality gate can be run as a standalone policy check.
+- Core import smoke tests do not require optional visualization or evaluation extras.
+- Mass import tests keep optional dependency exposure explicit.
 
 ## Acceptance criterion
 
-The capability traceability validation test passes for this ADR/claim/requirement
-chain without relying on a standalone traceability table or generated matrix.
+- The core-extras parity quality gate reports no parity violations.
+- Core import smoke tests pass without importing optional plotting backends at package-root import time.
+- Mass import tests preserve the optional dependency split across supported modules.
 
 ## Verification method
 
-Automated pytest test in `tests/capabilities/`.
+Executable quality gate and automated pytest import-smoke tests.
 
-Test ID:
-- `test_should_validate_adr_capability_links_when_metadata_changes`
+## Verification targets
 
-(in `tests/capabilities/test_adr_capability_links.py`)
+- quality-gate: python scripts/quality/check_core_extras_parity.py
+- pytest: tests/test_core_import_no_matplotlib.py::test_import_package_does_not_eagerly_import_matplotlib
+- pytest: tests/integration/test_import_smoke.py::test_import_smoke_modules
+- pytest: tests/integration/test_mass_imports.py::test_mass_imports
 
 ## Evidence required
 
@@ -50,6 +49,4 @@ Test ID:
 
 ## Assumption boundary
 
-This requirement verifies governance linkage and metadata consistency. It does not
-prove every runtime behavior implied by the owning ADR; runtime behavior remains
-covered by the specific implementation tests referenced by feature requirements.
+This requirement verifies import-time and parity boundaries. It does not certify packaging metadata for every downstream installer environment.

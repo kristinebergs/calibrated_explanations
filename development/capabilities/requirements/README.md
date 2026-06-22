@@ -36,24 +36,60 @@ Each requirement file must state:
 - **requirement_id**: unique CE-REQ-... identifier
 - **obligation_type**: one of `api_contract`, `payload_schema`, `numerical_behavior`,
   `statistical_method_alignment`, `documentation_boundary`, `visualization_behavior`,
-  `plugin_behavior`, `empirical_smoke`
+  `plugin_behavior`, `runtime_behavior`, `serialization_contract`, `static_policy`,
+  `quality_gate`, `empirical_smoke`
 - **claim_refs**: which CE-CAP-... claims this requirement serves
+- **adr_refs**: which active ADRs govern the obligation
+- **status**: whether the requirement is active, superseded, or retired
+- **verification_status**: `verified` only when executable evidence exists, or
+  `adr_gap_open` / `not_implemented` when implementation or executable evidence is missing
 - **scope**: public API surface, task type, and workflow applicable
 - **observable_behavior**: what must be true when the requirement is satisfied
 - **acceptance_criterion**: the measurable or checkable condition
-- **verification_method**: how the criterion is checked (automated test, structural
-  check, analytical review, etc.)
-- **test_refs**: which tests in `tests/capabilities/` (or linked nearby tests) verify
-  this requirement
+- **verification_method**: how the criterion is checked
+- **verification_targets**: executable pytest targets or real quality gates, written as
+  `pytest: tests/.../test_*.py::test_should_...` or a concrete quality/CI gate
 - **evidence_required**: metadata that a passing evidence record must include
+- **assumption_boundary**: what the requirement and its evidence do not prove
+
+## Requirements-as-code evidence policy
+
+Requirements-as-code means executable evidence, not traceability prose. For every
+implemented behavioral requirement, the verification chain must terminate in at
+least one executable target that directly verifies observable behavior. Prefer
+`pytest: tests/.../test_*.py::test_should_...` references; quality scripts or CI
+gates are acceptable only when they execute a concrete check for the stated
+behavior.
+
+Metadata/linkage tests are drift guards only. They can prove that ADR, claim, and
+requirement references remain navigable, but they do not prove API behavior,
+runtime behavior, serialization behavior, payload schema behavior, plugin
+behavior, visualization behavior, numerical behavior, statistical method
+alignment, static policy compliance, or empirical smoke behavior.
+
+Human/manual review is not valid evidence for implemented behavioral
+requirements. Terms such as `manual_review`, `manual_review_required`, or
+`human verification` may appear only for requirements whose `verification_status`
+is `adr_gap_open` or `not_implemented`, and those requirements must include a
+`gap_ref` or `adr_gap_ref` that is present in
+`development/current-work/RELEASE_PLAN_status_appendix.md`.
+
+If an ADR-governed requirement is not implemented or lacks executable evidence,
+do not mark it verified. Register it as an ADR gap with the requirement ID, ADR
+ID, missing behavior or evidence, why it is not verified, and intended closure
+path. Every behavioral requirement must therefore have exactly one of these
+outcomes: executable evidence that exists and runs, or an explicit ADR gap.
 
 ## Rules
 
 1. Requirements are not tests. Do not embed test code in requirement files.
 2. Every requirement must have at least one `claim_ref`.
-3. Every requirement must have a stated `verification_method` and `acceptance_criterion`.
+3. Every requirement must have a stated `verification_method`, `verification_targets`, and `acceptance_criterion`.
 4. Acceptance criteria must be visible here, not hidden inside test code only.
 5. Statistical obligations must state their assumptions explicitly.
+6. Implemented behavioral requirements must cite executable pytest targets or real quality gates.
+7. Metadata-only tests cannot be the sole evidence for implemented behavioral requirements.
+8. Unimplemented or unverified ADR obligations must be registered as ADR gaps, not treated as verified.
 
 ---
 
@@ -138,11 +174,14 @@ requirement just because a test uses a different parameter value.
 A parameter that only changes the **count or size of output** (e.g., `n_top_features`
 controlling how many features are considered) does not require a separate requirement.
 
-### Rule R-6 — Each requirement must have at least one test
+### Rule R-6 — Each behavioral requirement must have executable evidence
 
-Every requirement file must reference at least one named test in `tests/capabilities/`.
-Tests for a family of related requirements can live in one test file, but each
-requirement must have its own named test function.
+Every implemented behavioral requirement file must reference at least one named
+pytest test or real quality gate in its `Verification targets` section. Tests for
+a family of related requirements can live in one test file, but each behavioral
+requirement must have its own executable target. Governance-only requirements may
+use metadata/linkage drift guards, but those drift guards must not be reused as
+sole evidence for behavioral requirements.
 
 ## Related locations
 

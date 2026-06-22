@@ -1,4 +1,4 @@
-# CE-REQ-EXPL-API-002 — Alternative Explanation API Contract
+# CE-REQ-EXPL-API-002 - Alternative Explanation API Contract
 
 ## Metadata
 
@@ -9,6 +9,7 @@
 | claim_refs | CE-CAP-EXPL-002 |
 | adr_refs | ADR-008, ADR-015, ADR-026 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
@@ -27,7 +28,7 @@ When `WrapCalibratedExplainer` has been fitted and calibrated, calling
 2. Return an object that supports indexing to retrieve per-instance alternative
    explanations (`explanations[i]`).
 3. The returned collection must have the same length as the number of rows in `X`.
-4. Each per-instance explanation must be distinct from a factual explanation — it
+4. Each per-instance explanation must be distinct from a factual explanation - it
    represents shifts toward alternative predicted outcomes.
 
 ## Acceptance criterion
@@ -45,6 +46,11 @@ Automated pytest test in `tests/capabilities/`.
 
 Test ID: `test_should_produce_alternative_explanations_when_fitted_and_calibrated`
 (in `tests/capabilities/test_explanation_contracts.py`)
+
+## Verification targets
+
+- `pytest: tests/capabilities/test_explanation_contracts.py::test_should_produce_alternative_explanations_when_fitted_and_calibrated`
+- `pytest: tests/capabilities/test_explanation_contracts.py::test_should_produce_alternative_explanations_for_each_instance`
 
 ## Evidence required
 

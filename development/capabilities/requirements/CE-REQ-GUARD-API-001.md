@@ -1,4 +1,4 @@
-# CE-REQ-GUARD-API-001 — Guarded Explanation API Contract
+# CE-REQ-GUARD-API-001 - Guarded Explanation API Contract
 
 ## Metadata
 
@@ -9,6 +9,7 @@
 | claim_refs | CE-CAP-GUARD-001 |
 | adr_refs | ADR-032, ADR-038 |
 | status | active |
+| verification_status | verified |
 
 ## Scope
 
@@ -44,6 +45,10 @@ Test ID:
 - `test_should_return_explanations_when_guarded_options_provided`
 
 (in `tests/capabilities/test_guard_contracts.py`)
+
+## Verification targets
+
+- `pytest: tests/capabilities/test_guard_contracts.py::test_should_return_explanations_when_guarded_options_provided`
 
 ## Evidence required
 
