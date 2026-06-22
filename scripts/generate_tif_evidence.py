@@ -8,12 +8,13 @@ Usage:
     python scripts/generate_tif_evidence.py
 
 Output:
-    reports/verification/CE-EVID-<AREA>-<NNN>-20260622.json  (one per TIF group)
+    reports/verification/CE-EVID-<AREA>-<NNN>-<YYYYMMDD>.json  (one per TIF group)
 """
 
 from __future__ import annotations
 
 import json
+import subprocess
 import sys
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -28,10 +29,24 @@ if str(_TIF_DIR) not in sys.path:
 
 import calibrated_explanations
 
-_COMMIT_SHA = "ba0f95e1"
+
+def _git_sha() -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],  # noqa: S603, S607
+            cwd=_REPO_ROOT,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except Exception:
+        return "unknown"
+
+
+_now = datetime.now(timezone.utc)
+_COMMIT_SHA = _git_sha()
 _PACKAGE_VERSION = calibrated_explanations.__version__
-_TIMESTAMP = datetime.now(timezone.utc).isoformat()
-_DATE_SUFFIX = "20260622"
+_TIMESTAMP = _now.isoformat()
+_DATE_SUFFIX = _now.strftime("%Y%m%d")
 _DATASET_CLF = (
     "sklearn make_classification n_samples=120 n_features=4 "
     "n_informative=3 n_redundant=1 random_seed=42"
