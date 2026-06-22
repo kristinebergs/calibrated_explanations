@@ -8,6 +8,12 @@ adr_links:
 claim_text: >
   Parallel execution remains explicit and opt-in, with deterministic result ordering and serial-by-default behavior.
 
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-004 parallel backend compliance
+  is a single runtime behavior policy: opt-in parallel execution with deterministic ordering.
+  Decomposing into serial-default and ordering requirements would test the same policy check
+  under two labels without adding independent testable obligations.
+
 public_api: []
 
 task_types:

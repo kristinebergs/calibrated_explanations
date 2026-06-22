@@ -7,10 +7,9 @@ adr_links:
   - ADR-021
 
 claim_text: >
-  calibrated_explanations supports probabilistic regression queries: given a scalar
-  threshold, WrapCalibratedExplainer.predict_proba(X, threshold=y_threshold) returns
-  the empirical probability that the regression target exceeds the threshold,
-  P(Y > threshold | X), as an array bounded in [0, 1] with shape matching the input.
+  calibrated_explanations supports probabilistic regression queries through
+  WrapCalibratedExplainer, returning empirical exceedance probabilities for a
+  scalar threshold as calibrated probability values.
 
 public_api:
   - calibrated_explanations.core.wrap_explainer.WrapCalibratedExplainer.predict_proba
@@ -20,6 +19,7 @@ task_types:
 
 requirements:
   - CE-REQ-PRED-PROB-API-001
+  - CE-REQ-PRED-PROB-BOUNDS-001
 
 verification:
   proves:

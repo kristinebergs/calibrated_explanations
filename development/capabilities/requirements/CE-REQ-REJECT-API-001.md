@@ -10,6 +10,7 @@
 | adr_refs | ADR-029, ADR-038 |
 | status | active |
 | verification_status | verified |
+| tif_refs | CE-TIF-REJECT-001 |
 
 ## Scope
 

@@ -9,6 +9,12 @@ adr_links:
 claim_text: >
   Tests follow the repository quality policy for naming, coverage gates, and justified coverage exemptions.
 
+atomic_rationale: >
+  This governance claim maps to one requirement because test quality compliance under
+  ADR-023 and ADR-030 is a single quality gate: naming convention, coverage threshold,
+  and exemption documentation. These are verifiable as a unified static policy check
+  rather than decomposable independent behavioral requirements.
+
 public_api: []
 
 task_types:

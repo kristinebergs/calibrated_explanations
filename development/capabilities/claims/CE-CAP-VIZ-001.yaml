@@ -9,11 +9,17 @@ adr_links:
   - ADR-037
 
 claim_text: >
-  calibrated_explanations provides visualization output for explanations via
-  WrapCalibratedExplainer.plot and CalibratedExplanations.plot, supporting
-  multiple output styles ('regular', 'triangular') and optional file saving,
-  without raising exceptions for standard single-instance and batch inputs
+  calibrated_explanations provides visualization output for explanations through
+  WrapCalibratedExplainer and CalibratedExplanations without raising exceptions
   when a non-interactive rendering backend is available.
+
+atomic_rationale: >
+  This claim maps to one requirement because visual correctness (plot content,
+  layout, color fidelity, style accuracy) cannot be verified through automated
+  WrapCalibratedExplainer-based TIF testing. The only automated obligation is
+  no-raise under a headless backend, which CE-REQ-VIZ-SMOKE-001 covers as an
+  empirical_smoke requirement. Visual correctness is a documented gap requiring
+  manual review, outside the scope of TIF-based capability verification.
 
 public_api:
   - calibrated_explanations.core.wrap_explainer.WrapCalibratedExplainer.plot

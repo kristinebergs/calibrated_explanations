@@ -8,6 +8,13 @@ adr_links:
 claim_text: >
   Legacy user APIs remain stable within the documented major-version compatibility boundary.
 
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-020 legacy API stability covers
+  a documented compatibility surface (lifecycle methods, prediction signatures, collection APIs)
+  as a single stability contract. Each individual method is part of the same compatibility
+  guarantee; creating separate requirements per method would fragment the ADR-020 boundary
+  rather than add testable obligations.
+
 public_api: []
 
 task_types:

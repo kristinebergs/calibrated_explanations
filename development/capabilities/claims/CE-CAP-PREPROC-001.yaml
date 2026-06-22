@@ -8,6 +8,13 @@ adr_links:
 claim_text: >
   Wrapper preprocessing learns and reuses deterministic feature mappings while keeping the core numeric and preserving provenance boundaries.
 
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-009 preprocessor compliance
+  covers a single integration point: the calibration-to-inference mapping pipeline. The
+  preprocessing contract is verified by integration tests through the wrapper public
+  workflow. No separate API contract, schema, or error behavior requirement is warranted
+  without a new ADR extension specifically scoping those dimensions.
+
 public_api: []
 
 task_types:

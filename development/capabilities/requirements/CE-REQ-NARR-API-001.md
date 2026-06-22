@@ -10,6 +10,7 @@
 | adr_refs | ADR-008 |
 | status | active |
 | verification_status | verified |
+| tif_refs | CE-TIF-NARR-001 |
 
 ## Scope
 

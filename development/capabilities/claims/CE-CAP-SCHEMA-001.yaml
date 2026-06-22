@@ -9,6 +9,12 @@ adr_links:
 claim_text: >
   Explanation payloads use a versioned CE-first schema contract with explicit metadata and governed extension surfaces.
 
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-005 payload schema compliance
+  is a single schema governance check: version field presence, metadata completeness, and
+  extension surface documentation. Schema validation is a single obligation that does not
+  decompose into independent behavioral requirements without additional ADR scope.
+
 public_api: []
 
 task_types:

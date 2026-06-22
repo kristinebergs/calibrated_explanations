@@ -8,6 +8,12 @@ adr_links:
 claim_text: >
   Governance and operational observability use visible warnings and structured logging where ADR-governed fallbacks or events occur.
 
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-028 observability compliance
+  is a single cross-cutting policy: every fallback emits UserWarning and an INFO log.
+  Decomposing into per-fallback requirements would create a catalog that duplicates
+  the policy rather than adding distinct testable obligations.
+
 public_api: []
 
 task_types:

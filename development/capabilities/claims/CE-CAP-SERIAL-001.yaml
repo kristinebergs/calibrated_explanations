@@ -8,6 +8,13 @@ adr_links:
 claim_text: >
   Calibrator and explainer persistence use versioned primitive state and fail fast on incompatible schema versions.
 
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-031 serialization compliance
+  is a single contract: versioned state with incompatibility rejection. The save/load
+  symmetry and version validation are two aspects of the same serialization contract
+  and cannot be independently proven without the full round-trip test that CE-REQ-SERIAL-GOV-001
+  already defines.
+
 public_api: []
 
 task_types:

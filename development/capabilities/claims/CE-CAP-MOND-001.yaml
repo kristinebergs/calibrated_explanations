@@ -7,10 +7,17 @@ adr_links:
   - ADR-013
 
 claim_text: >
-  calibrated_explanations supports Mondrian (class-conditional) calibration: passing
-  a MondrianCategorizer callable to WrapCalibratedExplainer.calibrate produces separate
-  internal calibrators per category, enabling conditional validity guarantees within
-  each Mondrian group.
+  calibrated_explanations supports Mondrian conditional calibration through
+  WrapCalibratedExplainer, enabling conditional validity within user-defined
+  categories by accepting a callable categorizer at calibration time.
+
+atomic_rationale: >
+  This claim maps to one requirement because the only observable public-API outcome
+  of Mondrian calibration is successful completion and a calibrated explainer state.
+  Per-category conditional validity requires a statistical evaluation study (multiple
+  held-out sets per category) that exceeds the scope of an api_contract requirement.
+  No separate output schema, error behavior, or parameter behavior requirements are
+  warranted beyond what CE-REQ-MOND-API-001 already covers.
 
 public_api:
   - calibrated_explanations.core.wrap_explainer.WrapCalibratedExplainer.calibrate

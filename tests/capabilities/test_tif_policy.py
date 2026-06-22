@@ -180,3 +180,49 @@ def test_tif_python_file_should_have_corresponding_spec(tif_file: Path):
         "Each TIF executable must have a corresponding specification file in the "
         "same directory."
     )
+
+
+# ---------------------------------------------------------------------------
+# Rule 7: Requirements citing tests/capabilities/ must have tif_refs or tif_exemption
+# ---------------------------------------------------------------------------
+
+_CAPABILITY_TEST_RE = re.compile(r"pytest:\s+tests/capabilities/")
+_TIF_REFS_RE = re.compile(r"^\| tif_refs \|", re.MULTILINE)
+_TIF_EXEMPTION_RE = re.compile(r"tif_exemption")
+
+
+def test_capability_requirements_should_declare_tif_refs_or_exemption():
+    """Requirements that cite tests/capabilities/ must declare tif_refs or tif_exemption.
+
+    Any requirement whose verification targets include a test in tests/capabilities/
+    is a CE capability-facing requirement and must either:
+    - Declare tif_refs pointing to one or more CE-TIF-*.md interfaces, OR
+    - Declare tif_exemption with a rationale (for non-WrapCalibratedExplainer checks).
+
+    Governance requirements verified through tests/unit/ are excluded from this rule.
+    """
+    repo_root = _REPO_ROOT
+    req_dir = repo_root / "development" / "capabilities" / "requirements"
+    errors: list[str] = []
+
+    for req_path in sorted(req_dir.glob("CE-REQ-*.md")):
+        text = req_path.read_text(encoding="utf-8")
+
+        if not _CAPABILITY_TEST_RE.search(text):
+            continue
+
+        has_tif_refs = bool(_TIF_REFS_RE.search(text))
+        has_tif_exemption = bool(_TIF_EXEMPTION_RE.search(text))
+
+        if not has_tif_refs and not has_tif_exemption:
+            req_id = re.search(r"^\| requirement_id \| (\S+)", text, re.MULTILINE)
+            errors.append(
+                f"{req_id.group(1) if req_id else req_path.stem}: cites tests/capabilities/ "
+                "but has neither tif_refs nor tif_exemption — add one or the other"
+            )
+
+    assert not errors, (
+        "TIF architecture policy: every requirement that cites a test in tests/capabilities/ "
+        "must declare tif_refs (pointing to a CE-TIF-*.md interface) or tif_exemption "
+        "(with rationale). Missing:\n" + "\n".join(f"  {e}" for e in errors)
+    )

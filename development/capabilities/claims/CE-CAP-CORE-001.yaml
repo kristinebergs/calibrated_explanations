@@ -8,6 +8,12 @@ adr_links:
 claim_text: >
   Core package boundaries preserve stable separation between core, calibration, explanations, schema, plugins, cache, and parallel services.
 
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-001 boundary compliance is a
+  single static policy: no cross-sibling imports in core. The boundary check is verifiable
+  as a unified import-graph test. Decomposing per-sibling would create redundant checks
+  for the same policy applied to different package pairs.
+
 public_api: []
 
 task_types:

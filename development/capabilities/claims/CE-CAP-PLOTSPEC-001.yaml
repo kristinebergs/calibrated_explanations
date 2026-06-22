@@ -9,6 +9,13 @@ adr_links:
 claim_text: >
   PlotSpec-enabled visualization paths preserve backend-independent semantic plot intent through canonical PlotSpec objects and validated renderer boundaries.
 
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-036/ADR-037 PlotSpec compliance
+  is a single visualization governance check: PlotSpec canonical model validation and
+  renderer boundary enforcement. Decomposing into canonical model vs renderer boundary
+  requirements would test sub-components of the same PlotSpec contract rather than
+  independent capabilities.
+
 public_api: []
 
 task_types:

@@ -12,9 +12,16 @@ adr_links:
 
 claim_text: >
   calibrated_explanations exposes an extensible plugin system through the
-  calibrated_explanations.plugins module: ExplainerPlugin defines the protocol for
-  custom explanation backends, and IntervalCalibratorPlugin defines the protocol for
-  custom interval calibrators, enabling replacement of default internal implementations.
+  calibrated_explanations.plugins module, defining protocols for custom explanation
+  backends and interval calibrators.
+
+atomic_rationale: >
+  This claim maps to one requirement because the verifiable scope at this time is
+  protocol importability (CE-REQ-PLUGIN-DOC-001, documentation_boundary). Full plugin
+  lifecycle verification (registration, dispatch, fallback) requires internal API access
+  not stable for public verification and is deferred as a gap. No separate API contract
+  requirement beyond protocol importability is warranted without a public plugin
+  registration surface.
 
 public_api:
   - calibrated_explanations.plugins.base.ExplainerPlugin

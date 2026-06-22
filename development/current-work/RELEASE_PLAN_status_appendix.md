@@ -65,6 +65,8 @@ Open requirement gaps introduced by TIF architecture hardening (2026-06-22):
 | Requirement | ADR | Gap | Intended closure |
 |---|---|---|---|
 | CE-REQ-EXPL-CONJ-DOC-001 | ADR-008 | Documentation boundary for conjunction capability not formally reviewed; not_implemented | Manual review during v0.12.x documentation audit |
+| CE-REQ-EXPL-DOC-001 | ADR-008, ADR-026 | Documentation boundary for factual explanation capability not formally reviewed; not_implemented | Manual review during v0.12.x documentation audit |
+| CE-REQ-EXPL-ALT-DOC-001 | ADR-008, ADR-026 | Documentation boundary for alternative explanation capability not formally reviewed; not_implemented | Manual review during v0.12.x documentation audit |
 
 ## Detailed gap inventory and historical notes
 

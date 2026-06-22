@@ -8,6 +8,13 @@ adr_links:
 claim_text: >
   Non-tabular modality extensions use plugin metadata and external packages rather than entering the core tabular implementation.
 
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-033 modality extension
+  compliance is a single plugin boundary policy: non-tabular extensions must not modify
+  core. No public API for modality extension registration is available for behavioral
+  TIF testing. The governance check is whether the extension boundary rule is documented
+  and enforced.
+
 public_api: []
 
 task_types:

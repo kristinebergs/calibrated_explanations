@@ -10,6 +10,7 @@
 | adr_refs | ADR-027 |
 | status | active |
 | verification_status | verified |
+| tif_refs | CE-TIF-FILTER-001 |
 | applicable_on | collection (AlternativeExplanations) and individual (AlternativeExplanation) |
 | supersedes | CE-REQ-EXPL-ENSURED-API-001 (partial) |
 

@@ -8,6 +8,12 @@ adr_links:
 claim_text: >
   Deprecations follow the accepted migration lifecycle, including visible warnings and documented removal windows.
 
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-011 deprecation compliance
+  is a single lifecycle policy: emitting DeprecationWarning and documenting the removal
+  window. Decomposing into per-API or per-version requirements would create obligations
+  that duplicate the single canonical ADR-011 enforcement check already defined.
+
 public_api: []
 
 task_types:

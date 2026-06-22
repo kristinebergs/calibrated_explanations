@@ -10,6 +10,7 @@
 | adr_refs | ADR-021 |
 | status | active |
 | verification_status | verified |
+| tif_refs | CE-TIF-PRED-CLASS-001 |
 
 ## Scope
 

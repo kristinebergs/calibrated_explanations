@@ -8,6 +8,12 @@ adr_links:
 claim_text: >
   Documentation and gallery builds use maintained source pages and documented build policy rather than obsolete improvement paths.
 
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-012 documentation build policy
+  is a single quality gate: source pages exist and build policy is documented. No separate
+  behavioral, schema, or runtime requirements are warranted for a documentation governance
+  obligation.
+
 public_api: []
 
 task_types:

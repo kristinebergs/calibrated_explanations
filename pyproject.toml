@@ -231,6 +231,13 @@ ignore = [
     "I001",
     "N806",
 ]
+"development/capabilities/verification/tif/*.py" = [
+    "N806",
+]
+"scripts/*.py" = [
+    "E402",
+    "I001",
+]
 "src/calibrated_explanations/core/calibrated_explainer.py" = [
     "I001",
     "UP006",

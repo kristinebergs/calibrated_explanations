@@ -7,10 +7,8 @@ adr_links:
   - ADR-021
 
 claim_text: >
-  calibrated_explanations produces Venn-Abers calibrated class probabilities for
-  binary and multiclass classification tasks via WrapCalibratedExplainer.predict_proba,
-  returning a probability array bounded in [0, 1] with shape matching the input, and
-  class label arrays via WrapCalibratedExplainer.predict.
+  calibrated_explanations produces calibrated class probabilities and class label
+  predictions for binary and multiclass classification through WrapCalibratedExplainer.
 
 public_api:
   - calibrated_explanations.core.wrap_explainer.WrapCalibratedExplainer.predict_proba
@@ -22,6 +20,7 @@ task_types:
 
 requirements:
   - CE-REQ-PRED-CLASS-API-001
+  - CE-REQ-PRED-CLASS-BOUNDS-001
 
 verification:
   proves:

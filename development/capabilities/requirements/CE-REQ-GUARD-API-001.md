@@ -10,6 +10,7 @@
 | adr_refs | ADR-032, ADR-038 |
 | status | active |
 | verification_status | verified |
+| tif_refs | CE-TIF-GUARD-001 |
 
 ## Scope
 

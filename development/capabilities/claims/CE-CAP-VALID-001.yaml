@@ -8,6 +8,12 @@ adr_links:
 claim_text: >
   Public validation failures use the CE exception taxonomy rather than ad-hoc generic exceptions where ADR-002 scope applies.
 
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-002 exception taxonomy
+  compliance is a single static policy check: no bare ValueError/Exception at the
+  public boundary. Decomposing per-exception type would produce a catalog of the same
+  static policy applied to different error paths.
+
 public_api: []
 
 task_types:

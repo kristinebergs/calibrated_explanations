@@ -10,6 +10,7 @@
 | adr_refs | ADR-008, ADR-015, ADR-026 |
 | status | active |
 | verification_status | verified |
+| tif_refs | CE-TIF-EXPL-001 |
 
 ## Scope
 

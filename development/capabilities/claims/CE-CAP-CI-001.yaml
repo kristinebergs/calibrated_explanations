@@ -8,6 +8,12 @@ adr_links:
 claim_text: >
   CI workflow changes comply with reusable workflow, least-privilege, pinning, constraints, and local reproducibility policy.
 
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-035 CI governance is a single
+  quality gate: .github/workflows compliance policy. Individual CI rules (least-privilege,
+  pinning, constraints) are sub-checks of the same policy, not independent capability
+  requirements with separate observable behaviors.
+
 public_api: []
 
 task_types:

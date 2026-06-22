@@ -7,15 +7,9 @@ adr_links:
   - ADR-027
 
 claim_text: >
-  calibrated_explanations supports rule-type filtering on alternative explanations via five
-  filter operations: super_explanations (rules with higher probability supporting the
-  predicted class), semi_explanations (rules with lower probability supporting the
-  predicted class), counter_explanations (rules not supporting the predicted class),
-  ensured_explanations (rules with narrow uncertainty intervals), and pareto_explanations
-  (Pareto-optimal rules by probability shift and uncertainty width). Each operation is
-  available on both AlternativeExplanations (collection) and AlternativeExplanation
-  (individual), with short-form aliases (.super(), .semi(), .counter(), .ensured(),
-  .pareto()) that delegate to the canonical long-form methods.
+  calibrated_explanations supports rule-type filtering on alternative explanations through
+  five filter operations on AlternativeExplanations and AlternativeExplanation objects,
+  with short-form aliases delegating to canonical long-form methods.
 
 public_api:
   - calibrated_explanations.explanations.explanations.AlternativeExplanations.super_explanations

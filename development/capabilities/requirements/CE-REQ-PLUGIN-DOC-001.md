@@ -10,6 +10,18 @@
 | adr_refs | ADR-006, ADR-013, ADR-015, ADR-026, ADR-033 |
 | status | active |
 | verification_status | verified |
+| tif_exemption | static_importability_check |
+
+## TIF exemption
+
+```
+tif_exemption: static_importability_check
+tif_exemption_rationale: >
+  This requirement verifies that plugin protocol classes are importable as static
+  module members. It does not exercise the WrapCalibratedExplainer workflow and
+  cannot be stimulated through that entry point. Behavioral verification of plugins
+  requires custom plugin implementations and is covered separately.
+```
 
 ## Scope
 

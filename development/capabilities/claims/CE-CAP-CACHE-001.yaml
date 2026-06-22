@@ -8,6 +8,12 @@ adr_links:
 claim_text: >
   Caching is opt-in, transparent to public APIs, and governed by deterministic key and fallback visibility constraints.
 
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-003 cache compliance is a
+  single governance policy: opt-in caching with deterministic keys and visible fallbacks.
+  The transparency constraint (invisible to public APIs) cannot be decomposed into
+  independent requirements without modifying the public API surface to expose cache state.
+
 public_api: []
 
 task_types:
