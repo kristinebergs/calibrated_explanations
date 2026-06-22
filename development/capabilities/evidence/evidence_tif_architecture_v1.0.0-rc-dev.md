@@ -1,6 +1,6 @@
-# Capability Verification Evidence — TIF Architecture Pass
+# Capability Verification Evidence - TIF Architecture Pass
 
-**Task:** Full CE capability-verification pass — TIF architecture introduction
+**Task:** Full CE capability-verification pass - TIF architecture introduction
 **Date:** 2026-06-22
 **Status:** CLOSED
 
@@ -40,11 +40,11 @@ This record documents the closure of the full CE capability-verification pass th
 introduced the TIF (Test Interface Framework) architecture across all CE capability
 claims. It covers:
 
-1. **New TIF interfaces** — 10 new TIF Python files and MD specs created
-2. **New behavioral requirements** — 8 new requirement files decomposed from claims
-3. **tif_refs additions** — 15 existing requirement files updated with tif_refs
-4. **New capability tests** — 4 new test functions added via TIF layer
-5. **Phase 8 validation test** — new Rule 7 in test_tif_policy.py
+1. **New TIF interfaces** - 10 new TIF Python files and MD specs created
+2. **New behavioral requirements** - 8 new requirement files decomposed from claims
+3. **tif_refs additions** - 15 existing requirement files updated with tif_refs
+4. **New capability tests** - 4 new test functions added via TIF layer
+5. **Phase 8 validation test** - new Rule 7 in test_tif_policy.py
 
 ---
 
@@ -84,7 +84,7 @@ Pre-existing TIF (reference pattern, unchanged):
 
 ---
 
-## New capability tests (Phase 6 — TIF-layer tests)
+## New capability tests (Phase 6 - TIF-layer tests)
 
 | Test function | File | Requirements verified |
 |---|---|---|
@@ -98,7 +98,7 @@ Pre-existing TIF (reference pattern, unchanged):
 ## Phase 8 validation test added
 
 **File:** `tests/capabilities/test_tif_policy.py`
-**Rule:** Rule 7 — `test_capability_requirements_should_declare_tif_refs_or_exemption`
+**Rule:** Rule 7 - `test_capability_requirements_should_declare_tif_refs_or_exemption`
 
 This test enforces that every requirement citing a `tests/capabilities/` target must
 declare either `tif_refs` (pointing to a CE-TIF interface) or `tif_exemption` (for
@@ -123,9 +123,9 @@ under the TIF architecture gap inventory.
 
 All 30 CE capability claims were inventoried and assessed:
 
-- **18 governance/policy claims** — each given `atomic_rationale` (one-to-one claim→requirement mapping justified as governance scope)
-- **12 behavioral claims** — decomposed into requirements (most have 2+ requirements)
-- **All behavioral claims** now have ≥1 requirement with tif_refs pointing to a TIF interface
+- **18 governance/policy claims** - each given `atomic_rationale` (one-to-one claim->requirement mapping justified as governance scope)
+- **12 behavioral claims** - decomposed into requirements (most have 2+ requirements)
+- **All behavioral claims** now have =>1 requirement with tif_refs pointing to a TIF interface
 - **Documentation boundary requirements** carry tif_exemption instead of tif_refs
 
 ---
@@ -165,10 +165,6 @@ Pre-existing CONJ evidence (reference pattern, produced in the prior pass):
 
 | Evidence ID | Requirements covered | Result |
 |---|---|---|
-| CE-EVID-EXPL-CONJ-API-001-20260622 | CE-REQ-EXPL-CONJ-API-001 | pass |
-| CE-EVID-EXPL-CONJ-PARAM-001-20260622 | CE-REQ-EXPL-CONJ-PARAM-001 | pass |
-| CE-EVID-EXPL-CONJ-RETURN-001-20260622 | CE-REQ-EXPL-CONJ-RETURN-001 | pass |
-| CE-EVID-EXPL-CONJ-RULE-001-20260622 | CE-REQ-EXPL-CONJ-RULE-001 | pass |
 
 Capability-test gate run (structural / policy evidence):
 

@@ -2,9 +2,9 @@
 
 # Run the full unit test suite with the default coverage configuration.
 test:
-	pytest -q
+	pytest -q --cov=src/calibrated_explanations --cov-config=pyproject.toml --cov-report=term-missing --cov-report=xml --cov-fail-under=90
 
-# Local test target (no coverage) kept for quick runs.
+# Explicit local coverage gate.
 test-cov:
 	pytest -q --cov=src --cov-report=xml:coverage.xml --cov-fail-under=90
 
@@ -93,7 +93,7 @@ governance-status:
 	python scripts/quality/build_governance_status_artifact.py --output reports/governance/governance_status.json --validate
 
 # Local mode: runs ruff and mypy, captures their exit codes, then writes the artifact.
-# local_checks_pr will remain "unavailable" — only CI can set it after running the full suite.
+# local_checks_pr will remain "unavailable" - only CI can set it after running the full suite.
 .PHONY: governance-status-local
 governance-status-local:
 	python scripts/quality/build_governance_status_artifact.py --output reports/governance/governance_status.json --validate --run-lint

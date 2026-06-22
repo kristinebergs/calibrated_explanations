@@ -1,4 +1,4 @@
-# Capability Evidence — Curated Summaries
+# Capability Evidence - Curated Summaries
 
 This directory contains human-curated evidence summaries for CE capability
 verification runs. Curated evidence records here are produced after a
@@ -20,7 +20,7 @@ reports/verification/
 
 Raw evidence should be JSON or JSONL where feasible. It is produced automatically
 by verification scripts or CI pipelines. Do **not** place raw evidence in this
-directory — use `reports/verification/`.
+directory - use `reports/verification/`.
 
 #### Minimum raw evidence fields
 
@@ -85,8 +85,8 @@ TIF verification interface -> development/capabilities/verification/tif/
     -> is executed by
 Test / verification gate -> tests/capabilities/
     -> produces
-Evidence record          -> reports/verification/      (raw — machine-readable)
-                         -> development/capabilities/evidence/ (this directory — curated)
+Evidence record          -> reports/verification/      (raw - machine-readable)
+                         -> development/capabilities/evidence/ (this directory - curated)
 ```
 
 ## Verification strength model
@@ -116,7 +116,7 @@ Use `evidence_level` to record what form of evidence exists:
 | `raw_evidence` | Machine-readable output in `reports/verification/` |
 | `curated_summary` | Human-reviewed summary in this directory |
 | `ci_gate` | CI pass/fail recorded in pipeline artifacts |
-| `metadata_only` | Traceability links only — cannot prove behavioral requirements |
+| `metadata_only` | Traceability links only - cannot prove behavioral requirements |
 
 ## Do not overclaim
 
@@ -174,3 +174,19 @@ Each file must state:
 | Verification scenarios and helpers | `development/capabilities/verification/` |
 | Pytest capability tests | `tests/capabilities/` |
 | Generated (raw) run outputs | `reports/verification/` |
+
+## Evidence freshness policy
+
+Committed raw evidence may be historical. A historical raw evidence record is acceptable when its `commit_sha` is a full git SHA, its `timestamp` is parseable ISO 8601, its references resolve, and its scenario and top-level results are internally consistent.
+
+Release closure should regenerate raw evidence at the release commit and then review any curated summaries against those raw records. Current-commit enforcement is opt-in through the explicit command:
+
+```bash
+python scripts/generate_tif_evidence.py --check-current
+```
+
+The evidence-reference pytest suite remains historical-safe by default. To require committed evidence to match the current checkout, run:
+
+```bash
+CE_REQUIRE_CURRENT_EVIDENCE=1 pytest tests/capabilities/test_evidence_refs.py -q
+```

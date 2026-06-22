@@ -1,6 +1,6 @@
-# Curated Evidence — EXPL-CONJ Chain
+# Curated Evidence - EXPL-CONJ Chain
 
-**Capability:** CE-CAP-EXPL-CONJ-001 — Conjunctive multi-feature explanation rules
+**Capability:** CE-CAP-EXPL-CONJ-001 - Conjunctive multi-feature explanation rules
 **Milestone:** v1.0.0-rc-dev
 **Date:** 2026-06-22
 **Status:** PASS (4 of 5 requirements verified; 1 TIF-exempt, documented gap)
@@ -15,7 +15,7 @@
 | CE-REQ-EXPL-CONJ-RETURN-001 | api_contract | api_contract | PASS |
 | CE-REQ-EXPL-CONJ-RULE-001 | behavioral_contract | behavioral_contract | PASS |
 | CE-REQ-EXPL-CONJ-PARAM-001 | behavioral_contract | behavioral_contract | PASS |
-| CE-REQ-EXPL-CONJ-DOC-001 | documentation_boundary | — | not_implemented (TIF-exempt, gap: ADR-008) |
+| CE-REQ-EXPL-CONJ-DOC-001 | documentation_boundary | - | not_implemented (TIF-exempt, gap: ADR-008) |
 
 ## TIF interfaces exercised
 
@@ -23,15 +23,7 @@
 |---|---|
 | CE-TIF-EXPL-CONJ-001 | `development/capabilities/verification/tif/tif_conjunction.py` |
 
-## Raw evidence records
-
-| Evidence ID | Requirement | Result | File |
-|---|---|---|---|
-| CE-EVID-EXPL-CONJ-API-001-20260622 | CE-REQ-EXPL-CONJ-API-001 | pass | `reports/verification/CE-EVID-EXPL-CONJ-API-001-20260622.json` |
-| CE-EVID-EXPL-CONJ-RETURN-001-20260622 | CE-REQ-EXPL-CONJ-RETURN-001 | pass | `reports/verification/CE-EVID-EXPL-CONJ-RETURN-001-20260622.json` |
-| CE-EVID-EXPL-CONJ-RULE-001-20260622 | CE-REQ-EXPL-CONJ-RULE-001 | pass | `reports/verification/CE-EVID-EXPL-CONJ-RULE-001-20260622.json` |
-| CE-EVID-EXPL-CONJ-PARAM-001-20260622 | CE-REQ-EXPL-CONJ-PARAM-001 | pass | `reports/verification/CE-EVID-EXPL-CONJ-PARAM-001-20260622.json` |
-
+## Raw evidence records`r`n`r`n| Evidence ID | Requirements | Result | File |`r`n|---|---|---|---|`r`n| CE-EVID-EXPL-CONJ-001-20260622 | CE-REQ-EXPL-CONJ-API-001, CE-REQ-EXPL-CONJ-RETURN-001, CE-REQ-EXPL-CONJ-RULE-001, CE-REQ-EXPL-CONJ-PARAM-001 | pass | `reports/verification/CE-EVID-EXPL-CONJ-001-20260622.json` |`r`n
 ## Test IDs that passed
 
 ### Contract tests (`tests/capabilities/test_conjunction_contracts.py`)
@@ -65,7 +57,7 @@
 
 ## Scenario detail
 
-### CE-REQ-EXPL-CONJ-API-001 — callability (4 scenarios, all pass)
+### CE-REQ-EXPL-CONJ-API-001 - callability (4 scenarios, all pass)
 
 `add_conjunctions()` was called without raising an exception across all
 `(explanation_mode, object_level)` combinations:
@@ -77,13 +69,13 @@
 | `api_factual_individual` | factual / individual / max_rule_size=2 | pass |
 | `api_alternative_individual` | alternative / individual / max_rule_size=2 | pass |
 
-### CE-REQ-EXPL-CONJ-RETURN-001 — cardinality contract (2 scenarios, all pass)
+### CE-REQ-EXPL-CONJ-RETURN-001 - cardinality contract (2 scenarios, all pass)
 
 At `object_level=collection`, `add_conjunctions()` returns a non-None result
 whose length equals `n_instances` (observed: `result_len=3`, `n_instances=3`
 for both factual and alternative modes).
 
-### CE-REQ-EXPL-CONJ-RULE-001 — behavioral contract: conjunction rules produced (2 scenarios, all pass)
+### CE-REQ-EXPL-CONJ-RULE-001 - behavioral contract: conjunction rules produced (2 scenarios, all pass)
 
 With a dataset where `n_informative=3`, at least one explanation in the collection
 had `has_conjunctive_rules=True` after `add_conjunctions()` for both covered values:
@@ -95,7 +87,7 @@ had `has_conjunctive_rules=True` after `add_conjunctions()` for both covered val
 
 This confirms the requirement holds for `max_rule_size >= 2`, not only the minimum value.
 
-### CE-REQ-EXPL-CONJ-PARAM-001 — behavioral contract: max_rule_size=1 suppresses conjunctions (1 scenario, pass)
+### CE-REQ-EXPL-CONJ-PARAM-001 - behavioral contract: max_rule_size=1 suppresses conjunctions (1 scenario, pass)
 
 With `max_rule_size=1`, no explanation had `has_conjunctive_rules=True`.
 Observed: `any_has_conjunctive_rules == False`, `exception_raised == False`.
@@ -134,7 +126,7 @@ This evidence explicitly does NOT prove:
 | platform | Windows-11-10.0.26200-SP0 |
 | dataset | sklearn make_classification n_samples=120 n_features=4 n_informative=3 n_redundant=1 random_seed=42 |
 | random_seed | 42 |
-| generator | `python scripts/generate_capability_evidence.py` |
+| generator | `python scripts/generate_tif_evidence.py` |
 | tests_run | 19 (13 contract + 6 TIF policy) |
 | tests_passed | 19 |
 | tests_failed | 0 |

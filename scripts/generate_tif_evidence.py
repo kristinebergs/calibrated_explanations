@@ -1,52 +1,37 @@
-"""Generate raw evidence records by executing TIF scenarios.
-
-Writes one JSON file per TIF interface into reports/verification/.
-Each file records the structured observations from the TIF run against
-the acceptance criteria defined in the corresponding requirement files.
-
-Usage:
-    python scripts/generate_tif_evidence.py
-
-Output:
-    reports/verification/CE-EVID-<AREA>-<NNN>-<YYYYMMDD>.json  (one per TIF group)
-"""
+"""Generate raw evidence records by executing active TIF scenarios."""
 
 from __future__ import annotations
 
+import argparse
 import json
+import re
 import subprocess
 import sys
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 _REPO_ROOT = Path(__file__).parents[1]
 _TIF_DIR = _REPO_ROOT / "development" / "capabilities" / "verification" / "tif"
 _OUT_DIR = _REPO_ROOT / "reports" / "verification"
-
 if str(_TIF_DIR) not in sys.path:
     sys.path.insert(0, str(_TIF_DIR))
 
 import calibrated_explanations
 
-
-def _git_sha() -> str:
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "HEAD"],  # noqa: S603, S607
-            cwd=_REPO_ROOT,
-            stderr=subprocess.DEVNULL,
-            text=True,
-        ).strip()
-    except Exception:
-        return "unknown"
-
-
-_now = datetime.now(timezone.utc)
-_COMMIT_SHA = _git_sha()
-_PACKAGE_VERSION = calibrated_explanations.__version__
-_TIMESTAMP = _now.isoformat()
-_DATE_SUFFIX = _now.strftime("%Y%m%d")
+_BEHAVIORAL_TYPES = {
+    "api_contract",
+    "behavioral_contract",
+    "numerical_behavior",
+    "statistical_method_alignment",
+    "empirical_smoke",
+    "visualization_structure",
+}
+_SHA_RE = re.compile(r"^[0-9a-f]{40}$")
+_NOW = datetime.now(timezone.utc)
+_DATE_SUFFIX = _NOW.strftime("%Y%m%d")
+_TIMESTAMP = _NOW.isoformat()
 _DATASET_CLF = (
     "sklearn make_classification n_samples=120 n_features=4 "
     "n_informative=3 n_redundant=1 random_seed=42"
@@ -57,770 +42,301 @@ _DATASET_REG = (
 )
 
 
-def _obs(o) -> dict:
-    return asdict(o) if hasattr(o, "__dataclass_fields__") else dict(o)
+def _git_sha() -> str:
+    try:
+        return subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            cwd=_REPO_ROOT,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except Exception:
+        return "unknown"
 
 
-def _write(evidence_id: str, payload: dict) -> Path:
-    out = _OUT_DIR / f"{evidence_id}.json"
+_COMMIT_SHA = _git_sha()
+_PACKAGE_VERSION = calibrated_explanations.__version__
+
+
+def _obs(value: Any) -> dict[str, Any]:
+    return asdict(value) if hasattr(value, "__dataclass_fields__") else dict(value)
+
+
+def _acceptance(criterion_ref: str, field: str, expected: Any, observed: Any) -> dict[str, Any]:
+    return {
+        "criterion_ref": criterion_ref,
+        "field": field,
+        "expected": expected,
+        "observed": observed,
+        "result": "pass" if observed == expected else "fail",
+    }
+
+
+def _scenario(
+    scenario_id: str,
+    observations: dict[str, Any],
+    acceptance: list[dict[str, Any]],
+    parameters: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "scenario_id": scenario_id,
+        "observations": observations,
+        "result": "pass" if all(a["result"] == "pass" for a in acceptance) else "fail",
+        "acceptance": acceptance,
+    }
+    if parameters:
+        payload["parameters"] = parameters
+    return payload
+
+
+def _overall_result(scenarios: list[dict[str, Any]]) -> str:
+    return "pass" if all(s["result"] == "pass" for s in scenarios) else "fail"
+
+
+def _payload(
+    evidence_key: str,
+    *,
+    claim_ids: list[str],
+    requirement_ids: list[str],
+    adr_refs: list[str],
+    tif_ids: list[str],
+    verification_type: str,
+    dataset_id: str,
+    scenarios: list[dict[str, Any]],
+    configuration: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    evidence_id = f"CE-EVID-{evidence_key}-{_DATE_SUFFIX}"
+    return {
+        "evidence_id": evidence_id,
+        "claim_ids": claim_ids,
+        "requirement_ids": requirement_ids,
+        "adr_refs": adr_refs,
+        "standard_refs": [],
+        "tif_ids": tif_ids,
+        "verification_type": verification_type,
+        "result": _overall_result(scenarios),
+        "timestamp": _TIMESTAMP,
+        "commit_sha": _COMMIT_SHA,
+        "package_version": _PACKAGE_VERSION,
+        "python_version": sys.version.split()[0],
+        "platform": sys.platform,
+        "dataset_id": dataset_id,
+        "random_seed": 42,
+        "configuration": configuration or {},
+        "scenarios": scenarios,
+        "artifacts": {"logs": None, "raw_output": None},
+    }
+
+
+def _validate_payload(payload: dict[str, Any], output_stem: str) -> None:
+    if payload["evidence_id"] != output_stem:
+        raise ValueError(f"{output_stem}: evidence_id does not match filename stem")
+    if not payload["claim_ids"]:
+        raise ValueError(f"{output_stem}: claim_ids must be non-empty")
+    if not payload["requirement_ids"]:
+        raise ValueError(f"{output_stem}: requirement_ids must be non-empty")
+    if payload["verification_type"] in _BEHAVIORAL_TYPES and not payload["tif_ids"]:
+        raise ValueError(f"{output_stem}: behavioral evidence must include tif_ids")
+    if not payload["scenarios"]:
+        raise ValueError(f"{output_stem}: scenarios must be non-empty")
+    if payload["result"] != _overall_result(payload["scenarios"]):
+        raise ValueError(f"{output_stem}: top-level result disagrees with scenarios")
+    if not _SHA_RE.fullmatch(payload["commit_sha"]):
+        raise ValueError(f"{output_stem}: commit_sha must be a full 40-character git SHA")
+    requirement_ids = set(payload["requirement_ids"])
+    for scenario in payload["scenarios"]:
+        for acceptance in scenario["acceptance"]:
+            if acceptance["criterion_ref"] not in requirement_ids:
+                raise ValueError(
+                    f"{output_stem}: criterion_ref {acceptance['criterion_ref']} is not listed"
+                )
+
+
+def _write(payload: dict[str, Any]) -> None:
+    out = _OUT_DIR / f"{payload['evidence_id']}.json"
+    _validate_payload(payload, out.stem)
     out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     print(f"  wrote {out.name}")
-    return out
 
 
-# ---------------------------------------------------------------------------
-# CE-TIF-EXPL-001 — factual + alternative explanation
-# ---------------------------------------------------------------------------
-def run_expl():
-    from tif_explanation import run_factual_tif_scenario, run_alternative_tif_scenario
+def run_expl() -> dict[str, Any]:
+    from tif_explanation import run_alternative_tif_scenario, run_factual_tif_scenario
 
     factual = run_factual_tif_scenario()
     alt = run_alternative_tif_scenario()
-
-    # acceptance checks
-    def _check(label, field, expected, observed):
-        status = "pass" if observed == expected else "fail"
-        return {
-            "scenario_id": label,
-            "result": status,
-            "acceptance": {
-                "criterion_ref": label.split("_")[0],
-                "expected": f"{field} == {expected!r}",
-                "observed": f"{field} == {observed!r}",
-            },
-        }
-
     scenarios = [
-        {
-            "scenario_id": "factual_api_contract",
-            "observations": _obs(factual),
-            "result": "pass" if not factual.exception_raised else "fail",
-            "acceptance": [
-                {
-                    "criterion_ref": "CE-REQ-EXPL-API-001",
-                    "field": "exception_raised",
-                    "expected": False,
-                    "observed": factual.exception_raised,
-                    "result": "pass" if not factual.exception_raised else "fail",
-                },
-            ],
-        },
-        {
-            "scenario_id": "factual_return_contract",
-            "observations": _obs(factual),
-            "result": "pass"
-            if (
-                not factual.result_is_none
-                and factual.result_len == factual.n_instances
-                and not factual.first_item_is_none
-                and factual.feature_weights_accessible
-            )
-            else "fail",
-            "acceptance": [
-                {
-                    "criterion_ref": "CE-REQ-EXPL-RETURN-001",
-                    "field": "result_is_none",
-                    "expected": False,
-                    "observed": factual.result_is_none,
-                    "result": "pass" if not factual.result_is_none else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-EXPL-RETURN-001",
-                    "field": "result_len == n_instances",
-                    "expected": True,
-                    "observed": factual.result_len == factual.n_instances,
-                    "result": "pass" if factual.result_len == factual.n_instances else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-EXPL-RETURN-001",
-                    "field": "feature_weights_accessible",
-                    "expected": True,
-                    "observed": factual.feature_weights_accessible,
-                    "result": "pass" if factual.feature_weights_accessible else "fail",
-                },
-            ],
-        },
-        {
-            "scenario_id": "alternative_api_contract",
-            "observations": _obs(alt),
-            "result": "pass" if not alt.exception_raised else "fail",
-            "acceptance": [
-                {
-                    "criterion_ref": "CE-REQ-EXPL-API-002",
-                    "field": "exception_raised",
-                    "expected": False,
-                    "observed": alt.exception_raised,
-                    "result": "pass" if not alt.exception_raised else "fail",
-                },
-            ],
-        },
-        {
-            "scenario_id": "alternative_return_contract",
-            "observations": _obs(alt),
-            "result": "pass"
-            if (
-                not alt.result_is_none
-                and alt.result_len == alt.n_instances
-                and alt.result_type_name == "AlternativeExplanations"
-            )
-            else "fail",
-            "acceptance": [
-                {
-                    "criterion_ref": "CE-REQ-EXPL-ALT-RETURN-001",
-                    "field": "result_type_name",
-                    "expected": "AlternativeExplanations",
-                    "observed": alt.result_type_name,
-                    "result": "pass" if alt.result_type_name == "AlternativeExplanations" else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-EXPL-ALT-RETURN-001",
-                    "field": "result_len == n_instances",
-                    "expected": True,
-                    "observed": alt.result_len == alt.n_instances,
-                    "result": "pass" if alt.result_len == alt.n_instances else "fail",
-                },
-            ],
-        },
+        _scenario("factual_api_contract", _obs(factual), [
+            _acceptance("CE-REQ-EXPL-API-001", "exception_raised", False, factual.exception_raised)
+        ]),
+        _scenario("factual_return_contract", _obs(factual), [
+            _acceptance("CE-REQ-EXPL-RETURN-001", "result_is_none", False, factual.result_is_none),
+            _acceptance("CE-REQ-EXPL-RETURN-001", "result_len == n_instances", True, factual.result_len == factual.n_instances),
+            _acceptance("CE-REQ-EXPL-RETURN-001", "feature_weights_accessible", True, factual.feature_weights_accessible),
+        ]),
+        _scenario("alternative_api_contract", _obs(alt), [
+            _acceptance("CE-REQ-EXPL-API-002", "exception_raised", False, alt.exception_raised)
+        ]),
+        _scenario("alternative_return_contract", _obs(alt), [
+            _acceptance("CE-REQ-EXPL-ALT-RETURN-001", "result_type_name", "AlternativeExplanations", alt.result_type_name),
+            _acceptance("CE-REQ-EXPL-ALT-RETURN-001", "result_len == n_instances", True, alt.result_len == alt.n_instances),
+        ]),
     ]
-
-    overall = "pass" if all(s["result"] == "pass" for s in scenarios) else "fail"
-
-    _write(
-        f"CE-EVID-EXPL-001-{_DATE_SUFFIX}",
-        {
-            "evidence_id": f"CE-EVID-EXPL-001-{_DATE_SUFFIX}",
-            "claim_ids": ["CE-CAP-EXPL-001", "CE-CAP-EXPL-002"],
-            "requirement_ids": [
-                "CE-REQ-EXPL-API-001",
-                "CE-REQ-EXPL-RETURN-001",
-                "CE-REQ-EXPL-API-002",
-                "CE-REQ-EXPL-ALT-RETURN-001",
-            ],
-            "adr_refs": ["ADR-008", "ADR-015", "ADR-026"],
-            "tif_ids": ["CE-TIF-EXPL-001"],
-            "verification_type": "behavioral_contract",
-            "result": overall,
-            "timestamp": _TIMESTAMP,
-            "commit_sha": _COMMIT_SHA,
-            "package_version": _PACKAGE_VERSION,
-            "python_version": sys.version.split()[0],
-            "platform": sys.platform,
-            "dataset_id": _DATASET_CLF,
-            "random_seed": 42,
-            "configuration": {},
-            "scenarios": scenarios,
-        },
+    return _payload(
+        "EXPL-001",
+        claim_ids=["CE-CAP-EXPL-001", "CE-CAP-EXPL-002"],
+        requirement_ids=["CE-REQ-EXPL-API-001", "CE-REQ-EXPL-RETURN-001", "CE-REQ-EXPL-API-002", "CE-REQ-EXPL-ALT-RETURN-001"],
+        adr_refs=["ADR-008", "ADR-015", "ADR-026"],
+        tif_ids=["CE-TIF-EXPL-001"],
+        verification_type="behavioral_contract",
+        dataset_id=_DATASET_CLF,
+        scenarios=scenarios,
     )
 
 
-# ---------------------------------------------------------------------------
-# CE-TIF-PRED-001 — uncertainty prediction intervals
-# ---------------------------------------------------------------------------
-def run_pred():
+def run_conj() -> dict[str, Any]:
+    from tif_conjunction import run_conjunction_tif_scenario
+
+    scenarios: list[dict[str, Any]] = []
+    for mode in ("factual", "alternative"):
+        for level in ("collection", "individual"):
+            obs = run_conjunction_tif_scenario(explanation_mode=mode, object_level=level, max_rule_size=2, n_top_features=5)
+            scenarios.append(_scenario(
+                f"api_{mode}_{level}",
+                _obs(obs),
+                [_acceptance("CE-REQ-EXPL-CONJ-API-001", "exception_raised", False, obs.exception_raised)],
+                {"explanation_mode": mode, "object_level": level, "max_rule_size": 2, "n_top_features": 5},
+            ))
+    for mode in ("factual", "alternative"):
+        obs = run_conjunction_tif_scenario(explanation_mode=mode, object_level="collection", max_rule_size=2, n_top_features=5)
+        scenarios.append(_scenario(
+            f"return_{mode}_collection",
+            _obs(obs),
+            [
+                _acceptance("CE-REQ-EXPL-CONJ-RETURN-001", "result_is_none", False, obs.result_is_none),
+                _acceptance("CE-REQ-EXPL-CONJ-RETURN-001", "result_len == n_instances", True, obs.result_len == obs.n_instances),
+            ],
+            {"explanation_mode": mode, "object_level": "collection", "max_rule_size": 2, "n_top_features": 5},
+        ))
+    for max_rule_size in (2, 3):
+        obs = run_conjunction_tif_scenario(explanation_mode="factual", object_level="collection", max_rule_size=max_rule_size, n_top_features=5)
+        scenarios.append(_scenario(
+            f"rule_factual_collection_max_rule_size_{max_rule_size}",
+            _obs(obs),
+            [_acceptance("CE-REQ-EXPL-CONJ-RULE-001", "any_has_conjunctive_rules", True, obs.any_has_conjunctive_rules)],
+            {"explanation_mode": "factual", "object_level": "collection", "max_rule_size": max_rule_size, "n_top_features": 5},
+        ))
+    obs = run_conjunction_tif_scenario(explanation_mode="factual", object_level="collection", max_rule_size=1, n_top_features=5)
+    scenarios.append(_scenario(
+        "param_factual_collection_max_rule_size_1",
+        _obs(obs),
+        [
+            _acceptance("CE-REQ-EXPL-CONJ-PARAM-001", "any_has_conjunctive_rules", False, obs.any_has_conjunctive_rules),
+            _acceptance("CE-REQ-EXPL-CONJ-PARAM-001", "exception_raised", False, obs.exception_raised),
+        ],
+        {"explanation_mode": "factual", "object_level": "collection", "max_rule_size": 1, "n_top_features": 5},
+    ))
+    return _payload(
+        "EXPL-CONJ-001",
+        claim_ids=["CE-CAP-EXPL-CONJ-001"],
+        requirement_ids=["CE-REQ-EXPL-CONJ-API-001", "CE-REQ-EXPL-CONJ-RETURN-001", "CE-REQ-EXPL-CONJ-RULE-001", "CE-REQ-EXPL-CONJ-PARAM-001"],
+        adr_refs=["ADR-008"],
+        tif_ids=["CE-TIF-EXPL-CONJ-001"],
+        verification_type="behavioral_contract",
+        dataset_id=_DATASET_CLF,
+        scenarios=scenarios,
+    )
+
+
+def run_pred() -> dict[str, Any]:
     from tif_prediction import run_prediction_tif_scenario
 
     default = run_prediction_tif_scenario()
     custom = run_prediction_tif_scenario(low_high_percentiles=(10, 90))
-
     scenarios = [
-        {
-            "scenario_id": "predict_uq_interval_default",
-            "observations": _obs(default),
-            "result": "pass"
-            if (
-                not default.exception_raised
-                and default.y_hat_len == default.n_instances
-                and not default.low_is_none
-                and not default.high_is_none
-                and default.bounds_ordered
-            )
-            else "fail",
-            "acceptance": [
-                {
-                    "criterion_ref": "CE-REQ-PRED-API-001",
-                    "field": "exception_raised",
-                    "expected": False,
-                    "observed": default.exception_raised,
-                    "result": "pass" if not default.exception_raised else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-PRED-API-001",
-                    "field": "y_hat_len == n_instances",
-                    "expected": True,
-                    "observed": default.y_hat_len == default.n_instances,
-                    "result": "pass" if default.y_hat_len == default.n_instances else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-PRED-API-001",
-                    "field": "low_is_none",
-                    "expected": False,
-                    "observed": default.low_is_none,
-                    "result": "pass" if not default.low_is_none else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-PRED-API-001",
-                    "field": "high_is_none",
-                    "expected": False,
-                    "observed": default.high_is_none,
-                    "result": "pass" if not default.high_is_none else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-PRED-INTERVAL-BOUNDS-001",
-                    "field": "bounds_ordered (low <= high for all i)",
-                    "expected": True,
-                    "observed": default.bounds_ordered,
-                    "result": "pass" if default.bounds_ordered else "fail",
-                },
-            ],
-        },
-        {
-            "scenario_id": "predict_uq_interval_percentiles_10_90",
-            "observations": _obs(custom),
-            "result": "pass"
-            if (
-                not custom.exception_raised
-                and custom.bounds_ordered
-            )
-            else "fail",
-            "acceptance": [
-                {
-                    "criterion_ref": "CE-REQ-PRED-INTERVAL-BOUNDS-001",
-                    "field": "accepts low_high_percentiles without exception",
-                    "expected": False,
-                    "observed": custom.exception_raised,
-                    "result": "pass" if not custom.exception_raised else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-PRED-INTERVAL-BOUNDS-001",
-                    "field": "bounds_ordered with custom percentiles",
-                    "expected": True,
-                    "observed": custom.bounds_ordered,
-                    "result": "pass" if custom.bounds_ordered else "fail",
-                },
-            ],
-        },
+        _scenario("predict_uq_interval_default", _obs(default), [
+            _acceptance("CE-REQ-PRED-API-001", "exception_raised", False, default.exception_raised),
+            _acceptance("CE-REQ-PRED-API-001", "y_hat_len == n_instances", True, default.y_hat_len == default.n_instances),
+            _acceptance("CE-REQ-PRED-API-001", "low_is_none", False, default.low_is_none),
+            _acceptance("CE-REQ-PRED-API-001", "high_is_none", False, default.high_is_none),
+            _acceptance("CE-REQ-PRED-INTERVAL-BOUNDS-001", "bounds_ordered", True, default.bounds_ordered),
+        ]),
+        _scenario("predict_uq_interval_percentiles_10_90", _obs(custom), [
+            _acceptance("CE-REQ-PRED-INTERVAL-BOUNDS-001", "exception_raised", False, custom.exception_raised),
+            _acceptance("CE-REQ-PRED-INTERVAL-BOUNDS-001", "bounds_ordered", True, custom.bounds_ordered),
+        ]),
     ]
-
-    overall = "pass" if all(s["result"] == "pass" for s in scenarios) else "fail"
-
-    _write(
-        f"CE-EVID-PRED-001-{_DATE_SUFFIX}",
-        {
-            "evidence_id": f"CE-EVID-PRED-001-{_DATE_SUFFIX}",
-            "claim_ids": ["CE-CAP-PRED-001"],
-            "requirement_ids": ["CE-REQ-PRED-API-001", "CE-REQ-PRED-INTERVAL-BOUNDS-001"],
-            "adr_refs": ["ADR-013", "ADR-021"],
-            "tif_ids": ["CE-TIF-PRED-001"],
-            "verification_type": "behavioral_contract",
-            "result": overall,
-            "timestamp": _TIMESTAMP,
-            "commit_sha": _COMMIT_SHA,
-            "package_version": _PACKAGE_VERSION,
-            "python_version": sys.version.split()[0],
-            "platform": sys.platform,
-            "dataset_id": _DATASET_REG,
-            "random_seed": 42,
-            "configuration": {},
-            "scenarios": scenarios,
-        },
-    )
+    return _payload("PRED-001", claim_ids=["CE-CAP-PRED-001"], requirement_ids=["CE-REQ-PRED-API-001", "CE-REQ-PRED-INTERVAL-BOUNDS-001"], adr_refs=["ADR-013", "ADR-021"], tif_ids=["CE-TIF-PRED-001"], verification_type="behavioral_contract", dataset_id=_DATASET_REG, scenarios=scenarios)
 
 
-# ---------------------------------------------------------------------------
-# CE-TIF-PRED-CLASS-001 — classification predict_proba / predict
-# ---------------------------------------------------------------------------
-def run_pred_class():
+def run_pred_class() -> dict[str, Any]:
     from tif_classification import run_classification_tif_scenario
 
     obs = run_classification_tif_scenario()
-
-    scenarios = [
-        {
-            "scenario_id": "classification_api_and_bounds",
-            "observations": _obs(obs),
-            "result": "pass"
-            if (
-                not obs.exception_raised
-                and not obs.proba_is_none
-                and obs.proba_len == obs.n_instances
-                and obs.proba_min is not None and obs.proba_min >= 0.0
-                and obs.proba_max is not None and obs.proba_max <= 1.0
-                and not obs.labels_is_none
-                and obs.labels_len == obs.n_instances
-            )
-            else "fail",
-            "acceptance": [
-                {
-                    "criterion_ref": "CE-REQ-PRED-CLASS-API-001",
-                    "field": "exception_raised",
-                    "expected": False,
-                    "observed": obs.exception_raised,
-                    "result": "pass" if not obs.exception_raised else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-PRED-CLASS-API-001",
-                    "field": "proba_len == n_instances",
-                    "expected": True,
-                    "observed": obs.proba_len == obs.n_instances,
-                    "result": "pass" if obs.proba_len == obs.n_instances else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-PRED-CLASS-API-001",
-                    "field": "labels_len == n_instances",
-                    "expected": True,
-                    "observed": obs.labels_len == obs.n_instances,
-                    "result": "pass" if obs.labels_len == obs.n_instances else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-PRED-CLASS-BOUNDS-001",
-                    "field": "proba_min >= 0.0",
-                    "expected": True,
-                    "observed": obs.proba_min >= 0.0 if obs.proba_min is not None else False,
-                    "result": "pass" if (obs.proba_min is not None and obs.proba_min >= 0.0) else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-PRED-CLASS-BOUNDS-001",
-                    "field": "proba_max <= 1.0",
-                    "expected": True,
-                    "observed": obs.proba_max <= 1.0 if obs.proba_max is not None else False,
-                    "result": "pass" if (obs.proba_max is not None and obs.proba_max <= 1.0) else "fail",
-                },
-            ],
-        }
-    ]
-
-    overall = "pass" if all(s["result"] == "pass" for s in scenarios) else "fail"
-
-    _write(
-        f"CE-EVID-PRED-CLASS-001-{_DATE_SUFFIX}",
-        {
-            "evidence_id": f"CE-EVID-PRED-CLASS-001-{_DATE_SUFFIX}",
-            "claim_ids": ["CE-CAP-PRED-CLASS-001"],
-            "requirement_ids": ["CE-REQ-PRED-CLASS-API-001", "CE-REQ-PRED-CLASS-BOUNDS-001"],
-            "adr_refs": ["ADR-021"],
-            "tif_ids": ["CE-TIF-PRED-CLASS-001"],
-            "verification_type": "numerical_behavior",
-            "result": overall,
-            "timestamp": _TIMESTAMP,
-            "commit_sha": _COMMIT_SHA,
-            "package_version": _PACKAGE_VERSION,
-            "python_version": sys.version.split()[0],
-            "platform": sys.platform,
-            "dataset_id": _DATASET_CLF,
-            "random_seed": 42,
-            "configuration": {},
-            "scenarios": scenarios,
-        },
-    )
+    scenarios = [_scenario("classification_api_and_bounds", _obs(obs), [
+        _acceptance("CE-REQ-PRED-CLASS-API-001", "exception_raised", False, obs.exception_raised),
+        _acceptance("CE-REQ-PRED-CLASS-API-001", "proba_len == n_instances", True, obs.proba_len == obs.n_instances),
+        _acceptance("CE-REQ-PRED-CLASS-API-001", "labels_len == n_instances", True, obs.labels_len == obs.n_instances),
+        _acceptance("CE-REQ-PRED-CLASS-BOUNDS-001", "proba_min >= 0.0", True, obs.proba_min is not None and obs.proba_min >= 0.0),
+        _acceptance("CE-REQ-PRED-CLASS-BOUNDS-001", "proba_max <= 1.0", True, obs.proba_max is not None and obs.proba_max <= 1.0),
+    ])]
+    return _payload("PRED-CLASS-001", claim_ids=["CE-CAP-PRED-CLASS-001"], requirement_ids=["CE-REQ-PRED-CLASS-API-001", "CE-REQ-PRED-CLASS-BOUNDS-001"], adr_refs=["ADR-021"], tif_ids=["CE-TIF-PRED-CLASS-001"], verification_type="numerical_behavior", dataset_id=_DATASET_CLF, scenarios=scenarios)
 
 
-# ---------------------------------------------------------------------------
-# CE-TIF-PRED-PROB-001 — probabilistic regression threshold query
-# ---------------------------------------------------------------------------
-def run_pred_prob():
+def run_pred_prob() -> dict[str, Any]:
     from tif_prob_regression import run_prob_regression_tif_scenario
 
     obs = run_prob_regression_tif_scenario(threshold=0.0)
+    scenarios = [_scenario("prob_regression_threshold_0", _obs(obs), [
+        _acceptance("CE-REQ-PRED-PROB-API-001", "exception_raised", False, obs.exception_raised),
+        _acceptance("CE-REQ-PRED-PROB-API-001", "proba_len == n_instances", True, obs.proba_len == obs.n_instances),
+        _acceptance("CE-REQ-PRED-PROB-BOUNDS-001", "proba_min >= 0.0", True, obs.proba_min is not None and obs.proba_min >= 0.0),
+        _acceptance("CE-REQ-PRED-PROB-BOUNDS-001", "proba_max <= 1.0", True, obs.proba_max is not None and obs.proba_max <= 1.0),
+    ])]
+    return _payload("PRED-PROB-001", claim_ids=["CE-CAP-PRED-PROB-001"], requirement_ids=["CE-REQ-PRED-PROB-API-001", "CE-REQ-PRED-PROB-BOUNDS-001"], adr_refs=["ADR-021"], tif_ids=["CE-TIF-PRED-PROB-001"], verification_type="numerical_behavior", dataset_id=_DATASET_REG, scenarios=scenarios, configuration={"threshold": 0.0})
 
-    scenarios = [
-        {
-            "scenario_id": "prob_regression_threshold_0",
-            "observations": _obs(obs),
-            "result": "pass"
-            if (
-                not obs.exception_raised
-                and not obs.result_is_none
-                and obs.proba_len == obs.n_instances
-                and obs.proba_min is not None and obs.proba_min >= 0.0
-                and obs.proba_max is not None and obs.proba_max <= 1.0
-            )
-            else "fail",
-            "acceptance": [
-                {
-                    "criterion_ref": "CE-REQ-PRED-PROB-API-001",
-                    "field": "exception_raised",
-                    "expected": False,
-                    "observed": obs.exception_raised,
-                    "result": "pass" if not obs.exception_raised else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-PRED-PROB-API-001",
-                    "field": "proba_len == n_instances",
-                    "expected": True,
-                    "observed": obs.proba_len == obs.n_instances,
-                    "result": "pass" if obs.proba_len == obs.n_instances else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-PRED-PROB-BOUNDS-001",
-                    "field": "proba_min >= 0.0",
-                    "expected": True,
-                    "observed": obs.proba_min >= 0.0 if obs.proba_min is not None else False,
-                    "result": "pass" if (obs.proba_min is not None and obs.proba_min >= 0.0) else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-PRED-PROB-BOUNDS-001",
-                    "field": "proba_max <= 1.0",
-                    "expected": True,
-                    "observed": obs.proba_max <= 1.0 if obs.proba_max is not None else False,
-                    "result": "pass" if (obs.proba_max is not None and obs.proba_max <= 1.0) else "fail",
-                },
-            ],
-        }
+
+def _single_api_payload(key: str, tif_id: str, claim_id: str, req_id: str, adr_refs: list[str], runner_name: str, scenario_id: str, extra_config: dict[str, Any] | None = None) -> dict[str, Any]:
+    module = __import__(runner_name[0], fromlist=[runner_name[1]])
+    obs = getattr(module, runner_name[1])()
+    acceptance = [
+        _acceptance(req_id, "exception_raised", False, obs.exception_raised),
     ]
-
-    overall = "pass" if all(s["result"] == "pass" for s in scenarios) else "fail"
-
-    _write(
-        f"CE-EVID-PRED-PROB-001-{_DATE_SUFFIX}",
-        {
-            "evidence_id": f"CE-EVID-PRED-PROB-001-{_DATE_SUFFIX}",
-            "claim_ids": ["CE-CAP-PRED-PROB-001"],
-            "requirement_ids": ["CE-REQ-PRED-PROB-API-001", "CE-REQ-PRED-PROB-BOUNDS-001"],
-            "adr_refs": ["ADR-021"],
-            "tif_ids": ["CE-TIF-PRED-PROB-001"],
-            "verification_type": "numerical_behavior",
-            "result": overall,
-            "timestamp": _TIMESTAMP,
-            "commit_sha": _COMMIT_SHA,
-            "package_version": _PACKAGE_VERSION,
-            "python_version": sys.version.split()[0],
-            "platform": sys.platform,
-            "dataset_id": _DATASET_REG,
-            "random_seed": 42,
-            "configuration": {"threshold": 0.0},
-            "scenarios": scenarios,
-        },
-    )
+    if hasattr(obs, "result_is_none"):
+        acceptance.append(_acceptance(req_id, "result_is_none", False, obs.result_is_none))
+    if hasattr(obs, "result_len") and hasattr(obs, "n_instances") and not hasattr(obs, "result_is_str"):
+        acceptance.append(_acceptance(req_id, "result_len == n_instances", True, obs.result_len == obs.n_instances))
+    if hasattr(obs, "calibrated"):
+        acceptance.append(_acceptance(req_id, "calibrated", True, obs.calibrated))
+    if hasattr(obs, "result_is_str"):
+        acceptance.append(_acceptance(req_id, "result_is_str", True, obs.result_is_str))
+    if hasattr(obs, "result_len") and not hasattr(obs, "n_instances"):
+        acceptance.append(_acceptance(req_id, "result_len > 0", True, obs.result_len is not None and obs.result_len > 0))
+    return _payload(key, claim_ids=[claim_id], requirement_ids=[req_id], adr_refs=adr_refs, tif_ids=[tif_id], verification_type="empirical_smoke" if key == "VIZ-001" else "api_contract", dataset_id=_DATASET_CLF, scenarios=[_scenario(scenario_id, _obs(obs), acceptance)], configuration=extra_config)
 
 
-# ---------------------------------------------------------------------------
-# CE-TIF-GUARD-001 — guarded explanation
-# ---------------------------------------------------------------------------
-def run_guard():
-    from tif_guard import run_guard_tif_scenario
-
-    obs = run_guard_tif_scenario()
-
-    scenarios = [
-        {
-            "scenario_id": "explain_factual_with_guarded_options",
-            "observations": _obs(obs),
-            "result": "pass"
-            if (
-                not obs.exception_raised
-                and not obs.result_is_none
-                and obs.result_len == obs.n_instances
-            )
-            else "fail",
-            "acceptance": [
-                {
-                    "criterion_ref": "CE-REQ-GUARD-API-001",
-                    "field": "exception_raised",
-                    "expected": False,
-                    "observed": obs.exception_raised,
-                    "result": "pass" if not obs.exception_raised else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-GUARD-API-001",
-                    "field": "result_is_none",
-                    "expected": False,
-                    "observed": obs.result_is_none,
-                    "result": "pass" if not obs.result_is_none else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-GUARD-API-001",
-                    "field": "result_len == n_instances",
-                    "expected": True,
-                    "observed": obs.result_len == obs.n_instances,
-                    "result": "pass" if obs.result_len == obs.n_instances else "fail",
-                },
-            ],
-        }
-    ]
-
-    overall = "pass" if all(s["result"] == "pass" for s in scenarios) else "fail"
-
-    _write(
-        f"CE-EVID-GUARD-001-{_DATE_SUFFIX}",
-        {
-            "evidence_id": f"CE-EVID-GUARD-001-{_DATE_SUFFIX}",
-            "claim_ids": ["CE-CAP-GUARD-001"],
-            "requirement_ids": ["CE-REQ-GUARD-API-001"],
-            "adr_refs": ["ADR-032", "ADR-038"],
-            "tif_ids": ["CE-TIF-GUARD-001"],
-            "verification_type": "api_contract",
-            "result": overall,
-            "timestamp": _TIMESTAMP,
-            "commit_sha": _COMMIT_SHA,
-            "package_version": _PACKAGE_VERSION,
-            "python_version": sys.version.split()[0],
-            "platform": sys.platform,
-            "dataset_id": _DATASET_CLF,
-            "random_seed": 42,
-            "configuration": {},
-            "scenarios": scenarios,
-        },
-    )
+def run_guard() -> dict[str, Any]:
+    return _single_api_payload("GUARD-001", "CE-TIF-GUARD-001", "CE-CAP-GUARD-001", "CE-REQ-GUARD-API-001", ["ADR-032", "ADR-038"], ("tif_guard", "run_guard_tif_scenario"), "explain_factual_with_guarded_options")
 
 
-# ---------------------------------------------------------------------------
-# CE-TIF-REJECT-001 — reject policy
-# ---------------------------------------------------------------------------
-def run_reject():
-    from tif_reject import run_reject_tif_scenario
-
-    obs = run_reject_tif_scenario()
-
-    scenarios = [
-        {
-            "scenario_id": "explain_factual_with_reject_policy_flag",
-            "observations": _obs(obs),
-            "result": "pass"
-            if (
-                not obs.exception_raised
-                and not obs.result_is_none
-                and obs.result_len == obs.n_instances
-            )
-            else "fail",
-            "acceptance": [
-                {
-                    "criterion_ref": "CE-REQ-REJECT-API-001",
-                    "field": "exception_raised",
-                    "expected": False,
-                    "observed": obs.exception_raised,
-                    "result": "pass" if not obs.exception_raised else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-REJECT-API-001",
-                    "field": "result_is_none",
-                    "expected": False,
-                    "observed": obs.result_is_none,
-                    "result": "pass" if not obs.result_is_none else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-REJECT-API-001",
-                    "field": "result_len == n_instances",
-                    "expected": True,
-                    "observed": obs.result_len == obs.n_instances,
-                    "result": "pass" if obs.result_len == obs.n_instances else "fail",
-                },
-            ],
-        }
-    ]
-
-    overall = "pass" if all(s["result"] == "pass" for s in scenarios) else "fail"
-
-    _write(
-        f"CE-EVID-REJECT-001-{_DATE_SUFFIX}",
-        {
-            "evidence_id": f"CE-EVID-REJECT-001-{_DATE_SUFFIX}",
-            "claim_ids": ["CE-CAP-REJECT-001"],
-            "requirement_ids": ["CE-REQ-REJECT-API-001"],
-            "adr_refs": ["ADR-029", "ADR-038"],
-            "tif_ids": ["CE-TIF-REJECT-001"],
-            "verification_type": "api_contract",
-            "result": overall,
-            "timestamp": _TIMESTAMP,
-            "commit_sha": _COMMIT_SHA,
-            "package_version": _PACKAGE_VERSION,
-            "python_version": sys.version.split()[0],
-            "platform": sys.platform,
-            "dataset_id": _DATASET_CLF,
-            "random_seed": 42,
-            "configuration": {},
-            "scenarios": scenarios,
-        },
-    )
+def run_reject() -> dict[str, Any]:
+    return _single_api_payload("REJECT-001", "CE-TIF-REJECT-001", "CE-CAP-REJECT-001", "CE-REQ-REJECT-API-001", ["ADR-029", "ADR-038"], ("tif_reject", "run_reject_tif_scenario"), "explain_factual_with_reject_policy_flag")
 
 
-# ---------------------------------------------------------------------------
-# CE-TIF-MOND-001 — Mondrian calibration
-# ---------------------------------------------------------------------------
-def run_mond():
-    from tif_mondrian import run_mondrian_tif_scenario
-
-    obs = run_mondrian_tif_scenario()
-
-    scenarios = [
-        {
-            "scenario_id": "calibrate_with_mondrian_categorizer",
-            "observations": _obs(obs),
-            "result": "pass"
-            if not obs.exception_raised and obs.calibrated
-            else "fail",
-            "acceptance": [
-                {
-                    "criterion_ref": "CE-REQ-MOND-API-001",
-                    "field": "exception_raised",
-                    "expected": False,
-                    "observed": obs.exception_raised,
-                    "result": "pass" if not obs.exception_raised else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-MOND-API-001",
-                    "field": "calibrated",
-                    "expected": True,
-                    "observed": obs.calibrated,
-                    "result": "pass" if obs.calibrated else "fail",
-                },
-            ],
-        }
-    ]
-
-    overall = "pass" if all(s["result"] == "pass" for s in scenarios) else "fail"
-
-    _write(
-        f"CE-EVID-MOND-001-{_DATE_SUFFIX}",
-        {
-            "evidence_id": f"CE-EVID-MOND-001-{_DATE_SUFFIX}",
-            "claim_ids": ["CE-CAP-MOND-001"],
-            "requirement_ids": ["CE-REQ-MOND-API-001"],
-            "adr_refs": ["ADR-013"],
-            "tif_ids": ["CE-TIF-MOND-001"],
-            "verification_type": "api_contract",
-            "result": overall,
-            "timestamp": _TIMESTAMP,
-            "commit_sha": _COMMIT_SHA,
-            "package_version": _PACKAGE_VERSION,
-            "python_version": sys.version.split()[0],
-            "platform": sys.platform,
-            "dataset_id": _DATASET_CLF,
-            "random_seed": 42,
-            "configuration": {"mondrian_fn": "sign of feature 0 (2 categories)"},
-            "scenarios": scenarios,
-        },
-    )
+def run_mond() -> dict[str, Any]:
+    return _single_api_payload("MOND-001", "CE-TIF-MOND-001", "CE-CAP-MOND-001", "CE-REQ-MOND-API-001", ["ADR-013"], ("tif_mondrian", "run_mondrian_tif_scenario"), "calibrate_with_mondrian_categorizer", {"mondrian_fn": "sign of feature 0 (2 categories)"})
 
 
-# ---------------------------------------------------------------------------
-# CE-TIF-NARR-001 — narrative output
-# ---------------------------------------------------------------------------
-def run_narr():
-    from tif_narrative import run_narrative_tif_scenario
-
-    obs = run_narrative_tif_scenario()
-
-    scenarios = [
-        {
-            "scenario_id": "to_narrative_text_format",
-            "observations": _obs(obs),
-            "result": "pass"
-            if (
-                not obs.exception_raised
-                and not obs.result_is_none
-                and obs.result_is_str
-                and obs.result_len is not None
-                and obs.result_len > 0
-            )
-            else "fail",
-            "acceptance": [
-                {
-                    "criterion_ref": "CE-REQ-NARR-API-001",
-                    "field": "exception_raised",
-                    "expected": False,
-                    "observed": obs.exception_raised,
-                    "result": "pass" if not obs.exception_raised else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-NARR-API-001",
-                    "field": "result_is_str",
-                    "expected": True,
-                    "observed": obs.result_is_str,
-                    "result": "pass" if obs.result_is_str else "fail",
-                },
-                {
-                    "criterion_ref": "CE-REQ-NARR-API-001",
-                    "field": "result_len > 0",
-                    "expected": True,
-                    "observed": obs.result_len > 0 if obs.result_len is not None else False,
-                    "result": "pass" if (obs.result_len is not None and obs.result_len > 0) else "fail",
-                },
-            ],
-        }
-    ]
-
-    overall = "pass" if all(s["result"] == "pass" for s in scenarios) else "fail"
-
-    _write(
-        f"CE-EVID-NARR-001-{_DATE_SUFFIX}",
-        {
-            "evidence_id": f"CE-EVID-NARR-001-{_DATE_SUFFIX}",
-            "claim_ids": ["CE-CAP-NARR-001"],
-            "requirement_ids": ["CE-REQ-NARR-API-001"],
-            "adr_refs": ["ADR-008"],
-            "tif_ids": ["CE-TIF-NARR-001"],
-            "verification_type": "api_contract",
-            "result": overall,
-            "timestamp": _TIMESTAMP,
-            "commit_sha": _COMMIT_SHA,
-            "package_version": _PACKAGE_VERSION,
-            "python_version": sys.version.split()[0],
-            "platform": sys.platform,
-            "dataset_id": _DATASET_CLF,
-            "random_seed": 42,
-            "configuration": {"output_format": "text"},
-            "scenarios": scenarios,
-        },
-    )
+def run_narr() -> dict[str, Any]:
+    return _single_api_payload("NARR-001", "CE-TIF-NARR-001", "CE-CAP-NARR-001", "CE-REQ-NARR-API-001", ["ADR-008"], ("tif_narrative", "run_narrative_tif_scenario"), "to_narrative_text_format", {"output_format": "text"})
 
 
-# ---------------------------------------------------------------------------
-# CE-TIF-VIZ-001 — visualization smoke test
-# ---------------------------------------------------------------------------
-def run_viz():
-    from tif_visualization import run_visualization_tif_scenario
-
-    obs = run_visualization_tif_scenario()
-
-    scenarios = [
-        {
-            "scenario_id": "plot_no_raise_agg_backend",
-            "observations": _obs(obs),
-            "result": "pass" if not obs.exception_raised else "fail",
-            "acceptance": [
-                {
-                    "criterion_ref": "CE-REQ-VIZ-SMOKE-001",
-                    "field": "exception_raised",
-                    "expected": False,
-                    "observed": obs.exception_raised,
-                    "result": "pass" if not obs.exception_raised else "fail",
-                },
-            ],
-        }
-    ]
-
-    overall = "pass" if all(s["result"] == "pass" for s in scenarios) else "fail"
-
-    _write(
-        f"CE-EVID-VIZ-001-{_DATE_SUFFIX}",
-        {
-            "evidence_id": f"CE-EVID-VIZ-001-{_DATE_SUFFIX}",
-            "claim_ids": ["CE-CAP-VIZ-001"],
-            "requirement_ids": ["CE-REQ-VIZ-SMOKE-001"],
-            "adr_refs": ["ADR-023", "ADR-036", "ADR-037"],
-            "tif_ids": ["CE-TIF-VIZ-001"],
-            "verification_type": "empirical_smoke",
-            "result": overall,
-            "timestamp": _TIMESTAMP,
-            "commit_sha": _COMMIT_SHA,
-            "package_version": _PACKAGE_VERSION,
-            "python_version": sys.version.split()[0],
-            "platform": sys.platform,
-            "dataset_id": _DATASET_CLF,
-            "random_seed": 42,
-            "configuration": {"backend": "Agg", "show": False},
-            "scenarios": scenarios,
-        },
-    )
+def run_viz() -> dict[str, Any]:
+    return _single_api_payload("VIZ-001", "CE-TIF-VIZ-001", "CE-CAP-VIZ-001", "CE-REQ-VIZ-SMOKE-001", ["ADR-023", "ADR-036", "ADR-037"], ("tif_visualization", "run_visualization_tif_scenario"), "plot_no_raise_agg_backend", {"backend": "Agg", "show": False})
 
 
-# ---------------------------------------------------------------------------
-# CE-TIF-FILTER-001 — all five filter operations
-# ---------------------------------------------------------------------------
-def run_filter():
+def run_filter() -> dict[str, Any]:
     from tif_filter import run_filter_tif_scenario
 
-    filter_types = ["super", "semi", "counter", "ensured", "pareto"]
     req_map = {
         "super": "CE-REQ-EXPL-FILTER-SUPER-001",
         "semi": "CE-REQ-EXPL-FILTER-SEMI-001",
@@ -828,129 +344,68 @@ def run_filter():
         "ensured": "CE-REQ-EXPL-FILTER-ENSURED-001",
         "pareto": "CE-REQ-EXPL-FILTER-PARETO-001",
     }
-
     scenarios = []
-    for ft in filter_types:
-        obs = run_filter_tif_scenario(filter_type=ft)
-        req = req_map[ft]
-        passed = (
-            not obs.exception_raised
-            and not obs.collection_result_is_none
-            and obs.collection_result_len == obs.n_instances
-            and not obs.individual_result_is_none
-            and not obs.alias_result_is_none
-            and obs.alias_result_len == obs.n_instances
-        )
-        scenarios.append(
-            {
-                "scenario_id": f"filter_{ft}",
-                "observations": _obs(obs),
-                "result": "pass" if passed else "fail",
-                "acceptance": [
-                    {
-                        "criterion_ref": req,
-                        "field": "exception_raised",
-                        "expected": False,
-                        "observed": obs.exception_raised,
-                        "result": "pass" if not obs.exception_raised else "fail",
-                    },
-                    {
-                        "criterion_ref": req,
-                        "field": "collection_result_is_none",
-                        "expected": False,
-                        "observed": obs.collection_result_is_none,
-                        "result": "pass" if not obs.collection_result_is_none else "fail",
-                    },
-                    {
-                        "criterion_ref": req,
-                        "field": "collection_result_len == n_instances",
-                        "expected": True,
-                        "observed": obs.collection_result_len == obs.n_instances,
-                        "result": "pass" if obs.collection_result_len == obs.n_instances else "fail",
-                    },
-                    {
-                        "criterion_ref": req,
-                        "field": "individual_result_is_none",
-                        "expected": False,
-                        "observed": obs.individual_result_is_none,
-                        "result": "pass" if not obs.individual_result_is_none else "fail",
-                    },
-                    {
-                        "criterion_ref": req,
-                        "field": "alias_result_is_none",
-                        "expected": False,
-                        "observed": obs.alias_result_is_none,
-                        "result": "pass" if not obs.alias_result_is_none else "fail",
-                    },
-                ],
-            }
-        )
-
-    overall = "pass" if all(s["result"] == "pass" for s in scenarios) else "fail"
-
-    _write(
-        f"CE-EVID-FILTER-001-{_DATE_SUFFIX}",
-        {
-            "evidence_id": f"CE-EVID-FILTER-001-{_DATE_SUFFIX}",
-            "claim_ids": ["CE-CAP-EXPL-FILTER-001"],
-            "requirement_ids": [
-                "CE-REQ-EXPL-FILTER-SUPER-001",
-                "CE-REQ-EXPL-FILTER-SEMI-001",
-                "CE-REQ-EXPL-FILTER-COUNTER-001",
-                "CE-REQ-EXPL-FILTER-ENSURED-001",
-                "CE-REQ-EXPL-FILTER-PARETO-001",
-            ],
-            "adr_refs": ["ADR-027"],
-            "tif_ids": ["CE-TIF-FILTER-001"],
-            "verification_type": "api_contract",
-            "result": overall,
-            "timestamp": _TIMESTAMP,
-            "commit_sha": _COMMIT_SHA,
-            "package_version": _PACKAGE_VERSION,
-            "python_version": sys.version.split()[0],
-            "platform": sys.platform,
-            "dataset_id": _DATASET_CLF,
-            "random_seed": 42,
-            "configuration": {},
-            "scenarios": scenarios,
-        },
-    )
+    for filter_type, req_id in req_map.items():
+        obs = run_filter_tif_scenario(filter_type=filter_type)
+        scenarios.append(_scenario(f"filter_{filter_type}", _obs(obs), [
+            _acceptance(req_id, "exception_raised", False, obs.exception_raised),
+            _acceptance(req_id, "collection_result_is_none", False, obs.collection_result_is_none),
+            _acceptance(req_id, "collection_result_len == n_instances", True, obs.collection_result_len == obs.n_instances),
+            _acceptance(req_id, "individual_result_is_none", False, obs.individual_result_is_none),
+            _acceptance(req_id, "alias_result_is_none", False, obs.alias_result_is_none),
+        ]))
+    return _payload("FILTER-001", claim_ids=["CE-CAP-EXPL-FILTER-001"], requirement_ids=list(req_map.values()), adr_refs=["ADR-027"], tif_ids=["CE-TIF-FILTER-001"], verification_type="api_contract", dataset_id=_DATASET_CLF, scenarios=scenarios)
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-if __name__ == "__main__":
+_RUNNERS = [
+    ("CE-TIF-EXPL-001", run_expl),
+    ("CE-TIF-EXPL-CONJ-001", run_conj),
+    ("CE-TIF-PRED-001", run_pred),
+    ("CE-TIF-PRED-CLASS-001", run_pred_class),
+    ("CE-TIF-PRED-PROB-001", run_pred_prob),
+    ("CE-TIF-GUARD-001", run_guard),
+    ("CE-TIF-REJECT-001", run_reject),
+    ("CE-TIF-MOND-001", run_mond),
+    ("CE-TIF-NARR-001", run_narr),
+    ("CE-TIF-VIZ-001", run_viz),
+    ("CE-TIF-FILTER-001", run_filter),
+]
+
+
+def main(*, check_current: bool = False) -> int:
     _OUT_DIR.mkdir(parents=True, exist_ok=True)
     print(f"Generating TIF evidence records -> {_OUT_DIR}")
     print(f"  package: {_PACKAGE_VERSION}  commit: {_COMMIT_SHA}")
-    print()
-
-    runners = [
-        ("CE-TIF-EXPL-001", run_expl),
-        ("CE-TIF-PRED-001", run_pred),
-        ("CE-TIF-PRED-CLASS-001", run_pred_class),
-        ("CE-TIF-PRED-PROB-001", run_pred_prob),
-        ("CE-TIF-GUARD-001", run_guard),
-        ("CE-TIF-REJECT-001", run_reject),
-        ("CE-TIF-MOND-001", run_mond),
-        ("CE-TIF-NARR-001", run_narr),
-        ("CE-TIF-VIZ-001", run_viz),
-        ("CE-TIF-FILTER-001", run_filter),
-    ]
-
-    failed = []
-    for tif_id, runner in runners:
+    failed: list[str] = []
+    written: list[dict[str, Any]] = []
+    for tif_id, runner in _RUNNERS:
         print(f"Running {tif_id}...")
         try:
-            runner()
+            payload = runner()
+            _write(payload)
+            written.append(payload)
         except Exception as exc:
             print(f"  ERROR: {exc}")
             failed.append(tif_id)
-
-    print()
+    if check_current:
+        current_sha = _git_sha()
+        stale = [p["evidence_id"] for p in written if p["commit_sha"] != current_sha]
+        failing = [p["evidence_id"] for p in written if p["result"] == "fail"]
+        if stale:
+            print(f"  ERROR: generated evidence is not at current HEAD: {', '.join(stale)}")
+            failed.extend(stale)
+        if failing:
+            print(f"  ERROR: generated evidence has failing result: {', '.join(failing)}")
+            failed.extend(failing)
     if failed:
         print(f"FAILED: {', '.join(failed)}")
-        sys.exit(1)
-    else:
-        print(f"All {len(runners)} TIF evidence records written.")
+        return 1
+    print(f"All {len(_RUNNERS)} TIF evidence records written.")
+    return 0
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--check-current", action="store_true")
+    args = parser.parse_args()
+    sys.exit(main(check_current=args.check_current))

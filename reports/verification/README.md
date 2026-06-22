@@ -17,7 +17,7 @@ TIF verification interface -> development/capabilities/verification/tif/
     -> is executed by
 Test / verification gate -> tests/capabilities/
     -> produces
-Evidence record          -> reports/verification/      (this directory — raw, generated)
+Evidence record          -> reports/verification/      (this directory - raw, generated)
                          -> development/capabilities/evidence/ (curated summaries)
 ```
 
@@ -71,10 +71,10 @@ See `development/capabilities/evidence/README.md` for the full schema, the
 
 ## What does NOT belong here
 
-- Human-written evidence summaries → `development/capabilities/evidence/`
-- Claim or requirement files → `development/capabilities/claims/` or `requirements/`
-- TIF interface specifications → `development/capabilities/verification/tif/`
-- Verification scenarios and helpers → `development/capabilities/verification/`
+- Human-written evidence summaries â†’ `development/capabilities/evidence/`
+- Claim or requirement files â†’ `development/capabilities/claims/` or `requirements/`
+- TIF interface specifications â†’ `development/capabilities/verification/tif/`
+- Verification scenarios and helpers â†’ `development/capabilities/verification/`
 
 ## File naming
 
@@ -86,3 +86,19 @@ run_<area>_<date>.<ext>       # for raw pytest/script output
 Examples:
 - `CE-EVID-EXPL-CONJ-001-20260622.json`
 - `run_expl_conj_2026-06-22.txt`
+
+## Evidence freshness policy
+
+Committed raw evidence is allowed to be historical. Historical evidence remains valid when it records a full git SHA, has a parseable ISO 8601 timestamp, uses valid references, and has internally consistent pass/fail results.
+
+Release closure should regenerate raw evidence at the release commit. Current-commit enforcement is explicit and opt-in:
+
+```bash
+python scripts/generate_tif_evidence.py --check-current
+```
+
+For pytest-only validation, maintainers may also opt in with:
+
+```bash
+CE_REQUIRE_CURRENT_EVIDENCE=1 pytest tests/capabilities/test_evidence_refs.py -q
+```

@@ -1,4 +1,4 @@
-# TIF — Test Interface Framework
+# TIF - Test Interface Framework
 
 This directory contains TIF (Test Interface Framework) verification interface
 specifications and executable TIF scenarios for CE capability verification.
@@ -15,14 +15,13 @@ A TIF interface:
 1. Stimulates CE exclusively through `WrapCalibratedExplainer`.
 2. Captures structured observations from the stimulus.
 3. Returns those observations as a typed dataclass or dictionary.
-4. Does **not** perform final pytest assertions (except local sanity checks).
+4. Does not perform final pytest assertions (except local sanity checks).
 5. Enables multiple tests and requirements to share one verified stimulus.
 
 ## What TIF is not
 
 - TIF is not a pytest test. Tests call TIF; TIF observes.
-- TIF is not a fixture. TIF is parameterized by test scenarios, not by
-  pytest fixture injection (though it may use seeded data internally).
+- TIF is not a fixture. TIF is parameterized by test scenarios, not by pytest fixture injection.
 - TIF is not a mock. TIF runs the actual CE public workflow.
 
 ## Non-negotiable TIF rule
@@ -36,16 +35,26 @@ TIF scenarios must not:
 
 ## File naming
 
-```
+```text
 CE-TIF-<AREA>-<NNN>.md    # interface specification
 tif_<area>.py              # executable scenario implementing the spec
 ```
 
-## Current TIF interfaces
+## Current TIF Interfaces
 
-| TIF ID | Specification | Executable | Requirements served |
-|---|---|---|---|
-| CE-TIF-EXPL-CONJ-001 | [CE-TIF-EXPL-CONJ-001.md](CE-TIF-EXPL-CONJ-001.md) | [tif_conjunction.py](tif_conjunction.py) | CE-REQ-EXPL-CONJ-API-001, CE-REQ-EXPL-CONJ-RETURN-001, CE-REQ-EXPL-CONJ-RULE-001, CE-REQ-EXPL-CONJ-PARAM-001 |
+| TIF ID | Specification | Executable | Requirements served | Claims served |
+|---|---|---|---|---|
+| CE-TIF-EXPL-001 | [CE-TIF-EXPL-001.md](CE-TIF-EXPL-001.md) | [tif_explanation.py](tif_explanation.py) | CE-REQ-EXPL-API-001, CE-REQ-EXPL-RETURN-001, CE-REQ-EXPL-API-002, CE-REQ-EXPL-ALT-RETURN-001 | CE-CAP-EXPL-001, CE-CAP-EXPL-002 |
+| CE-TIF-EXPL-CONJ-001 | [CE-TIF-EXPL-CONJ-001.md](CE-TIF-EXPL-CONJ-001.md) | [tif_conjunction.py](tif_conjunction.py) | CE-REQ-EXPL-CONJ-API-001, CE-REQ-EXPL-CONJ-RETURN-001, CE-REQ-EXPL-CONJ-RULE-001, CE-REQ-EXPL-CONJ-PARAM-001 | CE-CAP-EXPL-CONJ-001 |
+| CE-TIF-FILTER-001 | [CE-TIF-FILTER-001.md](CE-TIF-FILTER-001.md) | [tif_filter.py](tif_filter.py) | CE-REQ-EXPL-FILTER-SUPER-001, CE-REQ-EXPL-FILTER-SEMI-001, CE-REQ-EXPL-FILTER-COUNTER-001, CE-REQ-EXPL-FILTER-ENSURED-001, CE-REQ-EXPL-FILTER-PARETO-001 | CE-CAP-EXPL-FILTER-001 |
+| CE-TIF-GUARD-001 | [CE-TIF-GUARD-001.md](CE-TIF-GUARD-001.md) | [tif_guard.py](tif_guard.py) | CE-REQ-GUARD-API-001 | CE-CAP-GUARD-001 |
+| CE-TIF-MOND-001 | [CE-TIF-MOND-001.md](CE-TIF-MOND-001.md) | [tif_mondrian.py](tif_mondrian.py) | CE-REQ-MOND-API-001 | CE-CAP-MOND-001 |
+| CE-TIF-NARR-001 | [CE-TIF-NARR-001.md](CE-TIF-NARR-001.md) | [tif_narrative.py](tif_narrative.py) | CE-REQ-NARR-API-001 | CE-CAP-NARR-001 |
+| CE-TIF-PRED-001 | [CE-TIF-PRED-001.md](CE-TIF-PRED-001.md) | [tif_prediction.py](tif_prediction.py) | CE-REQ-PRED-API-001, CE-REQ-PRED-INTERVAL-BOUNDS-001 | CE-CAP-PRED-001 |
+| CE-TIF-PRED-CLASS-001 | [CE-TIF-PRED-CLASS-001.md](CE-TIF-PRED-CLASS-001.md) | [tif_classification.py](tif_classification.py) | CE-REQ-PRED-CLASS-API-001, CE-REQ-PRED-CLASS-BOUNDS-001 | CE-CAP-PRED-CLASS-001 |
+| CE-TIF-PRED-PROB-001 | [CE-TIF-PRED-PROB-001.md](CE-TIF-PRED-PROB-001.md) | [tif_prob_regression.py](tif_prob_regression.py) | CE-REQ-PRED-PROB-API-001, CE-REQ-PRED-PROB-BOUNDS-001 | CE-CAP-PRED-PROB-001 |
+| CE-TIF-REJECT-001 | [CE-TIF-REJECT-001.md](CE-TIF-REJECT-001.md) | [tif_reject.py](tif_reject.py) | CE-REQ-REJECT-API-001 | CE-CAP-REJECT-001 |
+| CE-TIF-VIZ-001 | [CE-TIF-VIZ-001.md](CE-TIF-VIZ-001.md) | [tif_visualization.py](tif_visualization.py) | CE-REQ-VIZ-SMOKE-001 | CE-CAP-VIZ-001 |
 
 ## Related locations
 
@@ -54,5 +63,5 @@ tif_<area>.py              # executable scenario implementing the spec
 | Capability claims | `development/capabilities/claims/` |
 | Requirements | `development/capabilities/requirements/` |
 | Pytest capability tests | `tests/capabilities/` |
-| Generated (raw) run outputs | `reports/verification/` |
+| Generated raw run outputs | `reports/verification/` |
 | Curated capability evidence summaries | `development/capabilities/evidence/` |

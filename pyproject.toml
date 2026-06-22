@@ -104,7 +104,7 @@ minversion = "6.0"
 pythonpath = [
     "src",
 ]
-addopts = "-q --cov=src/calibrated_explanations --cov-config=pyproject.toml --cov-report=term-missing --cov-report=xml --cov-fail-under=90"
+addopts = "-q"
 testpaths = [
     "tests",
 ]
