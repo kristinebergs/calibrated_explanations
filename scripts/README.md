@@ -1,19 +1,23 @@
 # Scripts
 
-## Capability evidence
+## TIF evidence
 
-- `generate_capability_evidence.py`: runs TIF verification scenarios for CE capability chains
-  and writes conforming JSON evidence records to `reports/verification/`. Use at release
-  milestones or after significant changes to a capability area.
+- `generate_tif_evidence.py`: discovers all active TIF specs by globbing
+  `development/capabilities/verification/tif/CE-TIF-*.md`, executes each spec's
+  `build_evidence_payload()` entrypoint, validates the resulting JSON, and writes
+  conforming evidence records to `reports/verification/`. Use at release milestones
+  or after significant changes to a capability area.
 
   ```bash
-  python scripts/generate_capability_evidence.py            # run and write evidence files
-  python scripts/generate_capability_evidence.py --dry-run  # print records without writing
-  python scripts/generate_capability_evidence.py --out-dir reports/verification/custom/
+  python scripts/generate_tif_evidence.py               # run all active TIFs and write evidence
+  python scripts/generate_tif_evidence.py --check-current  # also assert evidence matches HEAD SHA
   ```
 
   After a successful run, review the JSON files and write a curated summary to
   `development/capabilities/evidence/evidence_<area>_v<version>.md`.
+
+  > **`generate_capability_evidence.py` is retired.** It produced EXPL-CONJ-only partial
+  > evidence and exits unconditionally with code 1. Use `generate_tif_evidence.py` instead.
 
 ## Over-testing
 
