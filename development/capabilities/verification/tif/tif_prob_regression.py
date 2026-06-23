@@ -1,6 +1,13 @@
 """TIF verification interface for CE probabilistic regression threshold query capabilities.
 
 TIF ID: CE-TIF-PRED-PROB-001
+
+Requirements served:
+  CE-REQ-PRED-PROB-API-001    — predict_proba with threshold API contract
+  CE-REQ-PRED-PROB-BOUNDS-001 — returned probability values bounded in [0, 1]
+
+Tests call run_prob_regression_tif_scenario() and assert on the returned
+ProbRegressionObservation against acceptance criteria from the requirement files.
 """
 
 from __future__ import annotations
@@ -23,6 +30,28 @@ _N_TEST = 5
 
 @dataclass
 class ProbRegressionObservation:
+    """Structured observation returned by probabilistic regression TIF scenarios.
+
+    Fields
+    ------
+    exception_raised : bool
+        Whether an exception was raised.
+    exception_type : str or None
+        Exception class name if raised; None otherwise.
+    result_is_none : bool
+        Whether the result is None.
+    proba_len : int or None
+        Length of the returned probability array.
+    proba_min : float or None
+        Minimum value in the probability array.
+    proba_max : float or None
+        Maximum value in the probability array.
+    threshold : float
+        The threshold used.
+    n_instances : int
+        Number of test instances.
+    """
+
     exception_raised: bool
     exception_type: Optional[str]
     result_is_none: bool
@@ -34,6 +63,7 @@ class ProbRegressionObservation:
 
 
 def _build_regression_explainer() -> tuple:
+    """Build a deterministic fitted+calibrated WrapCalibratedExplainer for regression."""
     X_all, y_all = make_regression(
         n_samples=_N_SAMPLES,
         n_features=_N_FEATURES,
@@ -63,16 +93,42 @@ def run_prob_regression_tif_scenario(
     *,
     threshold: float = 0.0,
 ) -> ProbRegressionObservation:
-    """Stimulate CE-REQ-PRED-PROB-API-001 and CE-REQ-PRED-PROB-BOUNDS-001."""
+    """Stimulate CE-REQ-PRED-PROB-API-001 and CE-REQ-PRED-PROB-BOUNDS-001.
+
+    TIF ID: CE-TIF-PRED-PROB-001
+
+    Requirements served:
+      CE-REQ-PRED-PROB-API-001    (observation: exception_raised, proba_len)
+      CE-REQ-PRED-PROB-BOUNDS-001 (observation: proba_min, proba_max)
+
+    Parameters
+    ----------
+    threshold : float
+        Scalar threshold for P(Y > threshold | X). Default 0.0.
+
+    Returns
+    -------
+    ProbRegressionObservation
+        Structured observations. Tests assert on these fields.
+    """
     explainer, X_test, _ = _build_regression_explainer()
     n_instances = len(X_test)
+
+    exception_raised = False
+    exception_type = None
+    result_is_none = True
+    proba_len = None
+    proba_min = None
+    proba_max = None
 
     try:
         result = explainer.predict_proba(X_test, threshold=threshold)
     except Exception as exc:
+        exception_raised = True
+        exception_type = type(exc).__name__
         return ProbRegressionObservation(
             exception_raised=True,
-            exception_type=type(exc).__name__,
+            exception_type=exception_type,
             result_is_none=True,
             proba_len=None,
             proba_min=None,
@@ -82,9 +138,6 @@ def run_prob_regression_tif_scenario(
         )
 
     result_is_none = result is None
-    proba_len = None
-    proba_min = None
-    proba_max = None
 
     if result is not None:
         proba_arr = np.asarray(result)
@@ -93,8 +146,8 @@ def run_prob_regression_tif_scenario(
         proba_max = float(np.max(proba_arr))
 
     return ProbRegressionObservation(
-        exception_raised=False,
-        exception_type=None,
+        exception_raised=exception_raised,
+        exception_type=exception_type,
         result_is_none=result_is_none,
         proba_len=proba_len,
         proba_min=proba_min,
@@ -119,7 +172,10 @@ def build_evidence_payload(
     python_version: str,
     platform_str: str,
 ) -> dict:
-    """Build a complete evidence payload for CE-TIF-PRED-PROB-001."""
+    """Build a complete evidence payload for CE-TIF-PRED-PROB-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
     from tif_evidence_helpers import (
         acceptance_entry,
         build_payload,

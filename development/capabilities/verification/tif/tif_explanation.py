@@ -79,6 +79,13 @@ class ExplanationObservation:
 
 
 def _build_explainer_and_data() -> tuple:
+    """Build a deterministic fitted+calibrated WrapCalibratedExplainer and test data.
+
+    Returns
+    -------
+    tuple
+        (explainer, X_test) where explainer is fitted and calibrated for binary classification.
+    """
     X_all, y_all = make_classification(
         n_samples=_N_SAMPLES,
         n_features=_N_FEATURES,
@@ -105,7 +112,28 @@ def _build_explainer_and_data() -> tuple:
 
 
 def run_factual_tif_scenario() -> ExplanationObservation:
-    """Stimulate CE-REQ-EXPL-API-001 and CE-REQ-EXPL-RETURN-001 through WrapCalibratedExplainer."""
+    """Stimulate CE-REQ-EXPL-API-001 and CE-REQ-EXPL-RETURN-001 through WrapCalibratedExplainer.
+
+    TIF ID: CE-TIF-EXPL-001
+
+    Requirements served:
+      CE-REQ-EXPL-API-001     (observation: exception_raised)
+      CE-REQ-EXPL-RETURN-001  (observation: result_len, result_is_none, first_item_is_none,
+                                             feature_weights_accessible, result_type_name)
+
+    This function uses the public WrapCalibratedExplainer workflow only:
+      1. Creates deterministic fixture data.
+      2. Instantiates WrapCalibratedExplainer.
+      3. Calls fit().
+      4. Calls calibrate().
+      5. Calls explain_factual().
+      6. Returns an ExplanationObservation with structured observations.
+
+    Returns
+    -------
+    ExplanationObservation
+        Structured observations. Tests assert on these fields.
+    """
     explainer, X_test = _build_explainer_and_data()
     n_instances = len(X_test)
 
@@ -166,7 +194,20 @@ def run_factual_tif_scenario() -> ExplanationObservation:
 
 
 def run_alternative_tif_scenario() -> ExplanationObservation:
-    """Stimulate CE-REQ-EXPL-API-002 and CE-REQ-EXPL-ALT-RETURN-001 through WrapCalibratedExplainer."""
+    """Stimulate CE-REQ-EXPL-API-002 and CE-REQ-EXPL-ALT-RETURN-001 through WrapCalibratedExplainer.
+
+    TIF ID: CE-TIF-EXPL-001
+
+    Requirements served:
+      CE-REQ-EXPL-API-002        (observation: exception_raised)
+      CE-REQ-EXPL-ALT-RETURN-001 (observation: result_len, result_is_none, first_item_is_none,
+                                                result_type_name)
+
+    Returns
+    -------
+    ExplanationObservation
+        Structured observations. Tests assert on these fields.
+    """
     explainer, X_test = _build_explainer_and_data()
     n_instances = len(X_test)
 
@@ -237,7 +278,10 @@ def build_evidence_payload(
     python_version: str,
     platform_str: str,
 ) -> dict:
-    """Build a complete evidence payload for CE-TIF-EXPL-001."""
+    """Build a complete evidence payload for CE-TIF-EXPL-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
     from tif_evidence_helpers import (
         acceptance_entry,
         build_payload,

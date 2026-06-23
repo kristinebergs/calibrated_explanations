@@ -40,7 +40,35 @@ _N_TEST = 3
 
 @dataclass
 class ConjunctionObservation:
-    """Structured observation returned by run_conjunction_tif_scenario()."""
+    """Structured observation returned by run_conjunction_tif_scenario().
+
+    Tests assert on these fields against acceptance criteria from requirement files.
+    This dataclass carries observations only; it does not carry acceptance judgements.
+
+    Fields
+    ------
+    exception_raised : bool
+        Whether an exception was raised during add_conjunctions.
+    exception_type : str or None
+        Class name of the exception if raised; None otherwise.
+    result_is_none : bool
+        Whether the result of add_conjunctions is None.
+    result_len : int or None
+        len(result) if result supports __len__; None otherwise.
+    result_type_name : str or None
+        type(result).__name__ if result is not None; None if result is None.
+    any_has_conjunctive_rules : bool
+        True if at least one item in the collection has has_conjunctive_rules == True.
+        Always False when exception_raised is True.
+    object_level : str
+        The object_level parameter passed to the scenario.
+    max_rule_size : int
+        The max_rule_size parameter used.
+    n_top_features : int
+        The n_top_features parameter used.
+    n_instances : int
+        Number of test instances (len(X_test)).
+    """
 
     exception_raised: bool
     exception_type: Optional[str]
@@ -56,6 +84,13 @@ class ConjunctionObservation:
 
 
 def _build_explainer_and_data() -> tuple:
+    """Build a deterministic fitted+calibrated WrapCalibratedExplainer and test data.
+
+    Returns
+    -------
+    tuple
+        (explainer, X_test) where explainer is fitted and calibrated.
+    """
     x_all, y_all = make_classification(
         n_samples=_N_SAMPLES,
         n_features=_N_FEATURES,
@@ -75,6 +110,8 @@ def _build_explainer_and_data() -> tuple:
     explainer.fit(x_proper, y_proper)
     explainer.calibrate(x_cal, y_cal)
 
+    # Sanity check: ensure the explainer is ready before returning observations.
+    # This is a local guard, not an assertion on CE behavior.
     assert explainer.fitted, "TIF sanity: explainer must be fitted"
     assert explainer.calibrated, "TIF sanity: explainer must be calibrated"
 
@@ -88,7 +125,46 @@ def run_conjunction_tif_scenario(
     n_top_features: int = 5,
     max_rule_size: int = 2,
 ) -> ConjunctionObservation:
-    """Stimulate CE-REQ-EXPL-CONJ-* through WrapCalibratedExplainer."""
+    """Stimulate CE-REQ-EXPL-CONJ-* through WrapCalibratedExplainer.
+
+    TIF ID: CE-TIF-EXPL-CONJ-001
+
+    Requirements served:
+      CE-REQ-EXPL-CONJ-API-001    (observation: exception_raised)
+      CE-REQ-EXPL-CONJ-RETURN-001 (observation: result_is_none, result_len)
+      CE-REQ-EXPL-CONJ-RULE-001   (observation: any_has_conjunctive_rules when max_rule_size >= 2)
+      CE-REQ-EXPL-CONJ-PARAM-001  (observation: any_has_conjunctive_rules when max_rule_size == 1)
+
+    This function uses the public WrapCalibratedExplainer workflow only:
+      1. Creates deterministic fixture data.
+      2. Instantiates WrapCalibratedExplainer.
+      3. Calls fit().
+      4. Calls calibrate().
+      5. Calls explain_factual() or explore_alternatives() per explanation_mode.
+      6. Calls add_conjunctions() on the result (collection or individual).
+      7. Returns a ConjunctionObservation with structured observations.
+
+    This function does NOT perform final pytest assertions. Tests must assert on
+    the returned ConjunctionObservation against acceptance criteria from the
+    requirement files.
+
+    Parameters
+    ----------
+    explanation_mode : str
+        "factual" → explain_factual(); "alternative" → explore_alternatives().
+    object_level : str
+        "collection" → call add_conjunctions on the collection;
+        "individual"  → call add_conjunctions on collection[0].
+    n_top_features : int
+        Passed to add_conjunctions. Default 5.
+    max_rule_size : int
+        Passed to add_conjunctions. Default 2.
+
+    Returns
+    -------
+    ConjunctionObservation
+        Structured observations. Tests assert on these fields.
+    """
     if explanation_mode not in ("factual", "alternative"):
         raise ValueError(
             f"explanation_mode must be 'factual' or 'alternative', got {explanation_mode!r}"
@@ -148,6 +224,7 @@ def run_conjunction_tif_scenario(
         except TypeError:
             result_len = None
 
+        # Inspect each item for has_conjunctive_rules (public attribute, ADR-008)
         for i in range(len(collection)):
             item = collection[i]
             if getattr(item, "has_conjunctive_rules", False):
@@ -155,6 +232,7 @@ def run_conjunction_tif_scenario(
                 break
 
     elif result is not None and object_level == "individual":
+        # For individual: check has_conjunctive_rules on the result itself
         any_has_conjunctive_rules = bool(getattr(result, "has_conjunctive_rules", False))
 
     return ConjunctionObservation(
@@ -187,7 +265,10 @@ def build_evidence_payload(
     python_version: str,
     platform_str: str,
 ) -> dict:
-    """Build a complete evidence payload for CE-TIF-EXPL-CONJ-001."""
+    """Build a complete evidence payload for CE-TIF-EXPL-CONJ-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
     from tif_evidence_helpers import (
         acceptance_entry,
         build_payload,
