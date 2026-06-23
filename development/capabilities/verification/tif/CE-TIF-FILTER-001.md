@@ -7,6 +7,9 @@
 | tif_id | CE-TIF-FILTER-001 |
 | executable | `development/capabilities/verification/tif/tif_filter.py` |
 | entry_functions | `run_filter_tif_scenario(filter_type)` |
+| evidence_builder | `build_evidence_payload()` |
+| evidence_key | FILTER-001 |
+| verification_type | api_contract |
 | status | active |
 
 ## Requirements served

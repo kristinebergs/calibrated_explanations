@@ -7,6 +7,9 @@
 | tif_id | CE-TIF-PRED-PROB-001 |
 | executable | `development/capabilities/verification/tif/tif_prob_regression.py` |
 | entry_functions | `run_prob_regression_tif_scenario(threshold=0.0)` |
+| evidence_builder | `build_evidence_payload()` |
+| evidence_key | PRED-PROB-001 |
+| verification_type | numerical_behavior |
 | status | active |
 
 ## Requirements served

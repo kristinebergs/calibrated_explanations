@@ -7,6 +7,9 @@
 | tif_id | CE-TIF-PRED-001 |
 | executable | `development/capabilities/verification/tif/tif_prediction.py` |
 | entry_functions | `run_prediction_tif_scenario(low_high_percentiles=None)` |
+| evidence_builder | `build_evidence_payload()` |
+| evidence_key | PRED-001 |
+| verification_type | behavioral_contract |
 | status | active |
 
 ## Requirements served
