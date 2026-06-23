@@ -5,9 +5,6 @@ TIF ID: CE-TIF-VIZ-001
 Requirements served:
   CE-REQ-VIZ-SMOKE-001 — CalibratedExplanations.plot() no-raise smoke test
 
-Tests call run_visualization_tif_scenario() and assert on the returned
-VizObservation against acceptance criteria from the requirement files.
-
 Note: requires matplotlib. If matplotlib is not installed this TIF will set
 exception_raised=True with exception_type='ImportError'.
 """
@@ -31,25 +28,12 @@ _N_TEST = 2
 
 @dataclass
 class VizObservation:
-    """Structured observation returned by visualization TIF scenarios.
-
-    Fields
-    ------
-    exception_raised : bool
-        Whether an exception was raised during explanations.plot().
-    exception_type : str or None
-        Exception class name if raised; None otherwise.
-    n_instances : int
-        Number of test instances.
-    """
-
     exception_raised: bool
     exception_type: Optional[str]
     n_instances: int
 
 
 def _build_viz_explainer() -> tuple:
-    """Build a deterministic fitted+calibrated WrapCalibratedExplainer for visualization tests."""
     X_all, y_all = make_classification(
         n_samples=_N_SAMPLES,
         n_features=_N_FEATURES,
@@ -76,20 +60,7 @@ def _build_viz_explainer() -> tuple:
 
 
 def run_visualization_tif_scenario() -> VizObservation:
-    """Stimulate CE-REQ-VIZ-SMOKE-001 through WrapCalibratedExplainer.explain_factual + plot.
-
-    TIF ID: CE-TIF-VIZ-001
-
-    Requirements served:
-      CE-REQ-VIZ-SMOKE-001 (observation: exception_raised)
-
-    Uses the Agg backend to avoid display output. Cleans up figure state after the call.
-
-    Returns
-    -------
-    VizObservation
-        Structured observations. Tests assert on these fields.
-    """
+    """Stimulate CE-REQ-VIZ-SMOKE-001 through WrapCalibratedExplainer.explain_factual + plot."""
     try:
         import matplotlib
         import matplotlib.pyplot as plt
@@ -121,4 +92,54 @@ def run_visualization_tif_scenario() -> VizObservation:
         exception_raised=False,
         exception_type=None,
         n_instances=n_instances,
+    )
+
+
+_DATASET_ID = (
+    "sklearn make_classification n_samples=120 n_features=4 "
+    "n_informative=3 n_redundant=1 random_seed=42"
+)
+
+
+def build_evidence_payload(
+    *,
+    commit_sha: str,
+    timestamp: str,
+    date_suffix: str,
+    package_version: str,
+    python_version: str,
+    platform_str: str,
+) -> dict:
+    """Build a complete evidence payload for CE-TIF-VIZ-001."""
+    from tif_evidence_helpers import (
+        acceptance_entry,
+        build_payload,
+        obs_to_dict,
+        scenario_entry,
+    )
+
+    obs = run_visualization_tif_scenario()
+    scenarios = [
+        scenario_entry(
+            "plot_no_raise_agg_backend",
+            obs_to_dict(obs),
+            [acceptance_entry("CE-REQ-VIZ-SMOKE-001", "exception_raised", False, obs.exception_raised)],
+        ),
+    ]
+    return build_payload(
+        "VIZ-001",
+        claim_ids=["CE-CAP-VIZ-001"],
+        requirement_ids=["CE-REQ-VIZ-SMOKE-001"],
+        adr_refs=["ADR-023", "ADR-036", "ADR-037"],
+        tif_ids=["CE-TIF-VIZ-001"],
+        verification_type="empirical_smoke",
+        dataset_id=_DATASET_ID,
+        scenarios=scenarios,
+        commit_sha=commit_sha,
+        timestamp=timestamp,
+        date_suffix=date_suffix,
+        package_version=package_version,
+        python_version=python_version,
+        platform_str=platform_str,
+        configuration={"backend": "Agg", "show": False},
     )

@@ -34,30 +34,6 @@ FilterType = Literal["super", "semi", "counter", "ensured", "pareto"]
 
 @dataclass
 class FilterObservation:
-    """Structured observation returned by filter TIF scenarios.
-
-    Fields
-    ------
-    filter_type : str
-        Which filter operation was exercised.
-    exception_raised : bool
-        Whether an exception was raised.
-    exception_type : str or None
-        Exception class name if raised; None otherwise.
-    collection_result_is_none : bool
-        Whether the collection-level result is None.
-    collection_result_len : int or None
-        len(result) for collection call; None on exception.
-    individual_result_is_none : bool
-        Whether the individual-level result is None.
-    alias_result_is_none : bool
-        Whether the alias method (e.g. .super()) result is None.
-    alias_result_len : int or None
-        len(alias result) for alias call; None on exception.
-    n_instances : int
-        Number of test instances.
-    """
-
     filter_type: str
     exception_raised: bool
     exception_type: Optional[str]
@@ -70,7 +46,6 @@ class FilterObservation:
 
 
 def _build_alternatives() -> tuple:
-    """Build a deterministic AlternativeExplanations collection."""
     X_all, y_all = make_classification(
         n_samples=_N_SAMPLES,
         n_features=_N_FEATURES,
@@ -107,32 +82,7 @@ def _safe_len(obj) -> Optional[int]:
 
 
 def run_filter_tif_scenario(filter_type: FilterType) -> FilterObservation:
-    """Stimulate one of the five filter operations through WrapCalibratedExplainer.
-
-    TIF ID: CE-TIF-FILTER-001
-
-    Requirements served (by filter_type):
-      "super"    → CE-REQ-EXPL-FILTER-SUPER-001
-      "semi"     → CE-REQ-EXPL-FILTER-SEMI-001
-      "counter"  → CE-REQ-EXPL-FILTER-COUNTER-001
-      "ensured"  → CE-REQ-EXPL-FILTER-ENSURED-001
-      "pareto"   → CE-REQ-EXPL-FILTER-PARETO-001
-
-    Observations per call:
-      collection_result_is_none, collection_result_len — from collection call
-      individual_result_is_none                        — from individual call on result[0]
-      alias_result_is_none, alias_result_len           — from alias method call
-
-    Parameters
-    ----------
-    filter_type : {"super", "semi", "counter", "ensured", "pareto"}
-        Which filter operation to exercise.
-
-    Returns
-    -------
-    FilterObservation
-        Structured observations. Tests assert on these fields.
-    """
+    """Stimulate one of the five filter operations through WrapCalibratedExplainer."""
     alternatives, X_test = _build_alternatives()
     n_instances = len(X_test)
 
@@ -182,4 +132,67 @@ def run_filter_tif_scenario(filter_type: FilterType) -> FilterObservation:
         alias_result_is_none=alias_result is None,
         alias_result_len=_safe_len(alias_result),
         n_instances=n_instances,
+    )
+
+
+_DATASET_ID = (
+    "sklearn make_classification n_samples=120 n_features=4 "
+    "n_informative=3 n_redundant=1 random_seed=42"
+)
+
+_FILTER_REQ_MAP = {
+    "super": "CE-REQ-EXPL-FILTER-SUPER-001",
+    "semi": "CE-REQ-EXPL-FILTER-SEMI-001",
+    "counter": "CE-REQ-EXPL-FILTER-COUNTER-001",
+    "ensured": "CE-REQ-EXPL-FILTER-ENSURED-001",
+    "pareto": "CE-REQ-EXPL-FILTER-PARETO-001",
+}
+
+
+def build_evidence_payload(
+    *,
+    commit_sha: str,
+    timestamp: str,
+    date_suffix: str,
+    package_version: str,
+    python_version: str,
+    platform_str: str,
+) -> dict:
+    """Build a complete evidence payload for CE-TIF-FILTER-001."""
+    from tif_evidence_helpers import (
+        acceptance_entry,
+        build_payload,
+        obs_to_dict,
+        scenario_entry,
+    )
+
+    scenarios = []
+    for filter_type, req_id in _FILTER_REQ_MAP.items():
+        obs = run_filter_tif_scenario(filter_type=filter_type)
+        scenarios.append(scenario_entry(
+            f"filter_{filter_type}",
+            obs_to_dict(obs),
+            [
+                acceptance_entry(req_id, "exception_raised", False, obs.exception_raised),
+                acceptance_entry(req_id, "collection_result_is_none", False, obs.collection_result_is_none),
+                acceptance_entry(req_id, "collection_result_len == n_instances", True, obs.collection_result_len == obs.n_instances),
+                acceptance_entry(req_id, "individual_result_is_none", False, obs.individual_result_is_none),
+                acceptance_entry(req_id, "alias_result_is_none", False, obs.alias_result_is_none),
+            ],
+        ))
+    return build_payload(
+        "FILTER-001",
+        claim_ids=["CE-CAP-EXPL-FILTER-001"],
+        requirement_ids=list(_FILTER_REQ_MAP.values()),
+        adr_refs=["ADR-027"],
+        tif_ids=["CE-TIF-FILTER-001"],
+        verification_type="api_contract",
+        dataset_id=_DATASET_ID,
+        scenarios=scenarios,
+        commit_sha=commit_sha,
+        timestamp=timestamp,
+        date_suffix=date_suffix,
+        package_version=package_version,
+        python_version=python_version,
+        platform_str=platform_str,
     )

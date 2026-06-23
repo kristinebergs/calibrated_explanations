@@ -11,6 +11,7 @@ GuardObservation against acceptance criteria from the requirement files.
 
 from __future__ import annotations
 
+import contextlib
 from dataclasses import dataclass
 from typing import Optional
 
@@ -29,22 +30,6 @@ _N_TEST = 3
 
 @dataclass
 class GuardObservation:
-    """Structured observation returned by guarded explanation TIF scenarios.
-
-    Fields
-    ------
-    exception_raised : bool
-        Whether an exception was raised during the call.
-    exception_type : str or None
-        Exception class name if raised; None otherwise.
-    result_is_none : bool
-        Whether the result is None.
-    result_len : int or None
-        len(result) if result supports __len__; None otherwise.
-    n_instances : int
-        Number of test instances.
-    """
-
     exception_raised: bool
     exception_type: Optional[str]
     result_is_none: bool
@@ -53,7 +38,6 @@ class GuardObservation:
 
 
 def _build_guard_explainer() -> tuple:
-    """Build a deterministic fitted+calibrated WrapCalibratedExplainer for guard tests."""
     X_all, y_all = make_classification(
         n_samples=_N_SAMPLES,
         n_features=_N_FEATURES,
@@ -80,18 +64,7 @@ def _build_guard_explainer() -> tuple:
 
 
 def run_guard_tif_scenario() -> GuardObservation:
-    """Stimulate CE-REQ-GUARD-API-001 through WrapCalibratedExplainer with GuardedOptions.
-
-    TIF ID: CE-TIF-GUARD-001
-
-    Requirements served:
-      CE-REQ-GUARD-API-001 (observation: exception_raised, result_is_none, result_len)
-
-    Returns
-    -------
-    GuardObservation
-        Structured observations. Tests assert on these fields.
-    """
+    """Stimulate CE-REQ-GUARD-API-001 through WrapCalibratedExplainer with GuardedOptions."""
     explainer, X_test = _build_guard_explainer()
     n_instances = len(X_test)
 
@@ -108,8 +81,6 @@ def run_guard_tif_scenario() -> GuardObservation:
 
     result_len = None
     if result is not None:
-        import contextlib
-
         with contextlib.suppress(TypeError):
             result_len = len(result)
 
@@ -119,4 +90,57 @@ def run_guard_tif_scenario() -> GuardObservation:
         result_is_none=result is None,
         result_len=result_len,
         n_instances=n_instances,
+    )
+
+
+_DATASET_ID = (
+    "sklearn make_classification n_samples=120 n_features=4 "
+    "n_informative=3 n_redundant=1 random_seed=42"
+)
+
+
+def build_evidence_payload(
+    *,
+    commit_sha: str,
+    timestamp: str,
+    date_suffix: str,
+    package_version: str,
+    python_version: str,
+    platform_str: str,
+) -> dict:
+    """Build a complete evidence payload for CE-TIF-GUARD-001."""
+    from tif_evidence_helpers import (
+        acceptance_entry,
+        build_payload,
+        obs_to_dict,
+        scenario_entry,
+    )
+
+    obs = run_guard_tif_scenario()
+    scenarios = [
+        scenario_entry(
+            "explain_factual_with_guarded_options",
+            obs_to_dict(obs),
+            [
+                acceptance_entry("CE-REQ-GUARD-API-001", "exception_raised", False, obs.exception_raised),
+                acceptance_entry("CE-REQ-GUARD-API-001", "result_is_none", False, obs.result_is_none),
+                acceptance_entry("CE-REQ-GUARD-API-001", "result_len == n_instances", True, obs.result_len == obs.n_instances),
+            ],
+        ),
+    ]
+    return build_payload(
+        "GUARD-001",
+        claim_ids=["CE-CAP-GUARD-001"],
+        requirement_ids=["CE-REQ-GUARD-API-001"],
+        adr_refs=["ADR-032", "ADR-038"],
+        tif_ids=["CE-TIF-GUARD-001"],
+        verification_type="api_contract",
+        dataset_id=_DATASET_ID,
+        scenarios=scenarios,
+        commit_sha=commit_sha,
+        timestamp=timestamp,
+        date_suffix=date_suffix,
+        package_version=package_version,
+        python_version=python_version,
+        platform_str=platform_str,
     )

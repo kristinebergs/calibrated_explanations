@@ -5,11 +5,6 @@ TIF ID: CE-TIF-PRED-001
 Requirements served:
   CE-REQ-PRED-API-001              — predict with uq_interval=True API contract
   CE-REQ-PRED-INTERVAL-BOUNDS-001  — low_high_percentiles parameter and interval semantics
-
-This module stimulates CE through WrapCalibratedExplainer only.
-
-Tests call run_prediction_tif_scenario() and assert on the returned
-PredictionObservation against acceptance criteria from the requirement files.
 """
 
 from __future__ import annotations
@@ -32,39 +27,6 @@ _N_TEST = 5
 
 @dataclass
 class PredictionObservation:
-    """Structured observation returned by prediction TIF scenarios.
-
-    Fields
-    ------
-    exception_raised : bool
-        Whether an exception was raised during the predict call.
-    exception_type : str or None
-        Class name of the exception if raised; None otherwise.
-    result_is_none : bool
-        Whether the result is None.
-    y_hat_len : int or None
-        Length of the point prediction array; None if exception.
-    low_is_none : bool
-        Whether the lower bound array is None.
-    high_is_none : bool
-        Whether the upper bound array is None.
-    bounds_ordered : bool
-        Whether low[i] <= high[i] for all i. False if exception or None bounds.
-    low_lte_yhat : bool or None
-        Whether low[i] <= y_hat[i] for all i (regression point estimate ordering).
-        None when not applicable.
-    low_high_percentiles : tuple or None
-        The percentile tuple used, or None for default.
-    n_instances : int
-        Number of test instances.
-    low_values : list or None
-        The actual lower bound values, for narrowing assertion checks.
-    high_values : list or None
-        The actual upper bound values.
-    y_hat_values : list or None
-        The point prediction values.
-    """
-
     exception_raised: bool
     exception_type: Optional[str]
     result_is_none: bool
@@ -81,7 +43,6 @@ class PredictionObservation:
 
 
 def _build_regression_explainer() -> tuple:
-    """Build a deterministic fitted+calibrated WrapCalibratedExplainer for regression."""
     X_all, y_all = make_regression(
         n_samples=_N_SAMPLES,
         n_features=_N_FEATURES,
@@ -111,40 +72,9 @@ def run_prediction_tif_scenario(
     *,
     low_high_percentiles: Optional[tuple] = None,
 ) -> PredictionObservation:
-    """Stimulate CE-REQ-PRED-API-001 and CE-REQ-PRED-INTERVAL-BOUNDS-001.
-
-    TIF ID: CE-TIF-PRED-001
-
-    Requirements served:
-      CE-REQ-PRED-API-001             (observation: exception_raised, y_hat_len,
-                                        low_is_none, high_is_none, bounds_ordered)
-      CE-REQ-PRED-INTERVAL-BOUNDS-001 (observation: bounds_ordered, low_values, high_values)
-
-    Parameters
-    ----------
-    low_high_percentiles : tuple or None
-        If provided, passed as low_high_percentiles to predict(uq_interval=True).
-        If None, uses the default (5, 95).
-
-    Returns
-    -------
-    PredictionObservation
-        Structured observations. Tests assert on these fields.
-    """
+    """Stimulate CE-REQ-PRED-API-001 and CE-REQ-PRED-INTERVAL-BOUNDS-001."""
     explainer, X_test = _build_regression_explainer()
     n_instances = len(X_test)
-
-    exception_raised = False
-    exception_type = None
-    result_is_none = True
-    y_hat_len = None
-    low_is_none = True
-    high_is_none = True
-    bounds_ordered = False
-    low_lte_yhat = None
-    low_values = None
-    high_values = None
-    y_hat_values = None
 
     predict_kwargs: dict = {"uq_interval": True}
     if low_high_percentiles is not None:
@@ -153,11 +83,9 @@ def run_prediction_tif_scenario(
     try:
         result = explainer.predict(X_test, **predict_kwargs)
     except Exception as exc:
-        exception_raised = True
-        exception_type = type(exc).__name__
         return PredictionObservation(
             exception_raised=True,
-            exception_type=exception_type,
+            exception_type=type(exc).__name__,
             result_is_none=True,
             y_hat_len=None,
             low_is_none=True,
@@ -169,6 +97,14 @@ def run_prediction_tif_scenario(
         )
 
     result_is_none = result is None
+    y_hat_len = None
+    low_is_none = True
+    high_is_none = True
+    bounds_ordered = False
+    low_lte_yhat = None
+    low_values = None
+    high_values = None
+    y_hat_values = None
 
     if result is not None:
         try:
@@ -190,8 +126,8 @@ def run_prediction_tif_scenario(
             pass
 
     return PredictionObservation(
-        exception_raised=exception_raised,
-        exception_type=exception_type,
+        exception_raised=False,
+        exception_type=None,
         result_is_none=result_is_none,
         y_hat_len=y_hat_len,
         low_is_none=low_is_none,
@@ -203,4 +139,68 @@ def run_prediction_tif_scenario(
         low_values=low_values,
         high_values=high_values,
         y_hat_values=y_hat_values,
+    )
+
+
+_DATASET_ID = (
+    "sklearn make_regression n_samples=150 n_features=4 "
+    "n_informative=3 noise=10 random_seed=42"
+)
+
+
+def build_evidence_payload(
+    *,
+    commit_sha: str,
+    timestamp: str,
+    date_suffix: str,
+    package_version: str,
+    python_version: str,
+    platform_str: str,
+) -> dict:
+    """Build a complete evidence payload for CE-TIF-PRED-001."""
+    from tif_evidence_helpers import (
+        acceptance_entry,
+        build_payload,
+        obs_to_dict,
+        scenario_entry,
+    )
+
+    default = run_prediction_tif_scenario()
+    custom = run_prediction_tif_scenario(low_high_percentiles=(10, 90))
+    scenarios = [
+        scenario_entry(
+            "predict_uq_interval_default",
+            obs_to_dict(default),
+            [
+                acceptance_entry("CE-REQ-PRED-API-001", "exception_raised", False, default.exception_raised),
+                acceptance_entry("CE-REQ-PRED-API-001", "y_hat_len == n_instances", True, default.y_hat_len == default.n_instances),
+                acceptance_entry("CE-REQ-PRED-API-001", "low_is_none", False, default.low_is_none),
+                acceptance_entry("CE-REQ-PRED-API-001", "high_is_none", False, default.high_is_none),
+                acceptance_entry("CE-REQ-PRED-INTERVAL-BOUNDS-001", "bounds_ordered", True, default.bounds_ordered),
+            ],
+        ),
+        scenario_entry(
+            "predict_uq_interval_percentiles_10_90",
+            obs_to_dict(custom),
+            [
+                acceptance_entry("CE-REQ-PRED-INTERVAL-BOUNDS-001", "exception_raised", False, custom.exception_raised),
+                acceptance_entry("CE-REQ-PRED-INTERVAL-BOUNDS-001", "bounds_ordered", True, custom.bounds_ordered),
+            ],
+        ),
+    ]
+    return build_payload(
+        "PRED-001",
+        claim_ids=["CE-CAP-PRED-001"],
+        requirement_ids=["CE-REQ-PRED-API-001", "CE-REQ-PRED-INTERVAL-BOUNDS-001"],
+        adr_refs=["ADR-013", "ADR-021"],
+        tif_ids=["CE-TIF-PRED-001"],
+        verification_type="behavioral_contract",
+        dataset_id=_DATASET_ID,
+        scenarios=scenarios,
+        commit_sha=commit_sha,
+        timestamp=timestamp,
+        date_suffix=date_suffix,
+        package_version=package_version,
+        python_version=python_version,
+        platform_str=platform_str,
     )
