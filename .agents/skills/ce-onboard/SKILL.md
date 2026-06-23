@@ -103,7 +103,11 @@ intervals from any model.
 | Implement serialization | `ce-serializer-impl` |
 | Audit serialization coverage | `ce-serialization-audit` |
 | Analyze standards compliance gaps | `ce-standards-gap-analyzer` |
-| Audit skills against Codex authoring guidance | `ce-skill-audit` |
+| Author a capability claim (CE-CAP-*.yaml) | `ce-claim-author` |
+| Write requirements from a claim (CE-REQ-*.md) | `ce-requirements-author` |
+| Author a TIF spec and Python scenario | `ce-tif-author` |
+| Link test evidence to TIFs and requirements | `ce-evidence-linker` |
+| Audit skills against Claude authoring guidance | `ce-skill-audit` |
 | Create/refactor skills and templates | `ce-skill-creator` |
 | Sync skill registries after skill changes | `ce-skill-registry-sync` |
 | Audit existing tests | `ce-test-audit` |
