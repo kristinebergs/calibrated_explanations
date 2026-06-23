@@ -7,6 +7,9 @@
 | tif_id | CE-TIF-NARR-001 |
 | executable | `development/capabilities/verification/tif/tif_narrative.py` |
 | entry_functions | `run_narrative_tif_scenario()` |
+| evidence_builder | `build_evidence_payload()` |
+| evidence_key | NARR-001 |
+| verification_type | api_contract |
 | status | active |
 
 ## Requirements served

@@ -204,3 +204,70 @@ def run_prediction_tif_scenario(
         high_values=high_values,
         y_hat_values=y_hat_values,
     )
+
+
+_DATASET_ID = (
+    "sklearn make_regression n_samples=150 n_features=4 "
+    "n_informative=3 noise=10 random_seed=42"
+)
+
+
+def build_evidence_payload(
+    *,
+    commit_sha: str,
+    timestamp: str,
+    date_suffix: str,
+    package_version: str,
+    python_version: str,
+    platform_str: str,
+) -> dict:
+    """Build a complete evidence payload for CE-TIF-PRED-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
+    from tif_evidence_helpers import (
+        acceptance_entry,
+        build_payload,
+        obs_to_dict,
+        scenario_entry,
+    )
+
+    default = run_prediction_tif_scenario()
+    custom = run_prediction_tif_scenario(low_high_percentiles=(10, 90))
+    scenarios = [
+        scenario_entry(
+            "predict_uq_interval_default",
+            obs_to_dict(default),
+            [
+                acceptance_entry("CE-REQ-PRED-API-001", "exception_raised", False, default.exception_raised),
+                acceptance_entry("CE-REQ-PRED-API-001", "y_hat_len == n_instances", True, default.y_hat_len == default.n_instances),
+                acceptance_entry("CE-REQ-PRED-API-001", "low_is_none", False, default.low_is_none),
+                acceptance_entry("CE-REQ-PRED-API-001", "high_is_none", False, default.high_is_none),
+                acceptance_entry("CE-REQ-PRED-INTERVAL-BOUNDS-001", "bounds_ordered", True, default.bounds_ordered),
+            ],
+        ),
+        scenario_entry(
+            "predict_uq_interval_percentiles_10_90",
+            obs_to_dict(custom),
+            [
+                acceptance_entry("CE-REQ-PRED-INTERVAL-BOUNDS-001", "exception_raised", False, custom.exception_raised),
+                acceptance_entry("CE-REQ-PRED-INTERVAL-BOUNDS-001", "bounds_ordered", True, custom.bounds_ordered),
+            ],
+        ),
+    ]
+    return build_payload(
+        "PRED-001",
+        claim_ids=["CE-CAP-PRED-001"],
+        requirement_ids=["CE-REQ-PRED-API-001", "CE-REQ-PRED-INTERVAL-BOUNDS-001"],
+        adr_refs=["ADR-013", "ADR-021"],
+        tif_ids=["CE-TIF-PRED-001"],
+        verification_type="behavioral_contract",
+        dataset_id=_DATASET_ID,
+        scenarios=scenarios,
+        commit_sha=commit_sha,
+        timestamp=timestamp,
+        date_suffix=date_suffix,
+        package_version=package_version,
+        python_version=python_version,
+        platform_str=platform_str,
+    )

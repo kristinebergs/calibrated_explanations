@@ -261,3 +261,83 @@ def run_alternative_tif_scenario() -> ExplanationObservation:
         explanation_mode="alternative",
         n_instances=n_instances,
     )
+
+
+_DATASET_ID = (
+    "sklearn make_classification n_samples=120 n_features=4 "
+    "n_informative=3 n_redundant=1 random_seed=42"
+)
+
+
+def build_evidence_payload(
+    *,
+    commit_sha: str,
+    timestamp: str,
+    date_suffix: str,
+    package_version: str,
+    python_version: str,
+    platform_str: str,
+) -> dict:
+    """Build a complete evidence payload for CE-TIF-EXPL-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
+    from tif_evidence_helpers import (
+        acceptance_entry,
+        build_payload,
+        obs_to_dict,
+        scenario_entry,
+    )
+
+    factual = run_factual_tif_scenario()
+    alt = run_alternative_tif_scenario()
+    scenarios = [
+        scenario_entry(
+            "factual_api_contract",
+            obs_to_dict(factual),
+            [acceptance_entry("CE-REQ-EXPL-API-001", "exception_raised", False, factual.exception_raised)],
+        ),
+        scenario_entry(
+            "factual_return_contract",
+            obs_to_dict(factual),
+            [
+                acceptance_entry("CE-REQ-EXPL-RETURN-001", "result_is_none", False, factual.result_is_none),
+                acceptance_entry("CE-REQ-EXPL-RETURN-001", "result_len == n_instances", True, factual.result_len == factual.n_instances),
+                acceptance_entry("CE-REQ-EXPL-RETURN-001", "feature_weights_accessible", True, factual.feature_weights_accessible),
+            ],
+        ),
+        scenario_entry(
+            "alternative_api_contract",
+            obs_to_dict(alt),
+            [acceptance_entry("CE-REQ-EXPL-API-002", "exception_raised", False, alt.exception_raised)],
+        ),
+        scenario_entry(
+            "alternative_return_contract",
+            obs_to_dict(alt),
+            [
+                acceptance_entry("CE-REQ-EXPL-ALT-RETURN-001", "result_type_name", "AlternativeExplanations", alt.result_type_name),
+                acceptance_entry("CE-REQ-EXPL-ALT-RETURN-001", "result_len == n_instances", True, alt.result_len == alt.n_instances),
+            ],
+        ),
+    ]
+    return build_payload(
+        "EXPL-001",
+        claim_ids=["CE-CAP-EXPL-001", "CE-CAP-EXPL-002"],
+        requirement_ids=[
+            "CE-REQ-EXPL-API-001",
+            "CE-REQ-EXPL-RETURN-001",
+            "CE-REQ-EXPL-API-002",
+            "CE-REQ-EXPL-ALT-RETURN-001",
+        ],
+        adr_refs=["ADR-008", "ADR-015", "ADR-026"],
+        tif_ids=["CE-TIF-EXPL-001"],
+        verification_type="behavioral_contract",
+        dataset_id=_DATASET_ID,
+        scenarios=scenarios,
+        commit_sha=commit_sha,
+        timestamp=timestamp,
+        date_suffix=date_suffix,
+        package_version=package_version,
+        python_version=python_version,
+        platform_str=platform_str,
+    )

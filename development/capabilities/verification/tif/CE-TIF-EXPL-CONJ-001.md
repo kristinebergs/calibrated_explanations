@@ -6,7 +6,10 @@
 |---|---|
 | tif_id | CE-TIF-EXPL-CONJ-001 |
 | executable | `development/capabilities/verification/tif/tif_conjunction.py` |
-| entry_function | `run_conjunction_tif_scenario()` |
+| entry_functions | `run_conjunction_tif_scenario()` |
+| evidence_builder | `build_evidence_payload()` |
+| evidence_key | EXPL-CONJ-001 |
+| verification_type | behavioral_contract |
 | status | active |
 
 ## Requirements served

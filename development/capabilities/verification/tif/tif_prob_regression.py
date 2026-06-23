@@ -155,3 +155,61 @@ def run_prob_regression_tif_scenario(
         threshold=threshold,
         n_instances=n_instances,
     )
+
+
+_DATASET_ID = (
+    "sklearn make_regression n_samples=150 n_features=4 "
+    "n_informative=3 noise=10 random_seed=42"
+)
+
+
+def build_evidence_payload(
+    *,
+    commit_sha: str,
+    timestamp: str,
+    date_suffix: str,
+    package_version: str,
+    python_version: str,
+    platform_str: str,
+) -> dict:
+    """Build a complete evidence payload for CE-TIF-PRED-PROB-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
+    from tif_evidence_helpers import (
+        acceptance_entry,
+        build_payload,
+        obs_to_dict,
+        scenario_entry,
+    )
+
+    obs = run_prob_regression_tif_scenario(threshold=0.0)
+    scenarios = [
+        scenario_entry(
+            "prob_regression_threshold_0",
+            obs_to_dict(obs),
+            [
+                acceptance_entry("CE-REQ-PRED-PROB-API-001", "exception_raised", False, obs.exception_raised),
+                acceptance_entry("CE-REQ-PRED-PROB-API-001", "proba_len == n_instances", True, obs.proba_len == obs.n_instances),
+                acceptance_entry("CE-REQ-PRED-PROB-BOUNDS-001", "proba_min >= 0.0", True, obs.proba_min is not None and obs.proba_min >= 0.0),
+                acceptance_entry("CE-REQ-PRED-PROB-BOUNDS-001", "proba_max <= 1.0", True, obs.proba_max is not None and obs.proba_max <= 1.0),
+            ],
+        ),
+    ]
+    return build_payload(
+        "PRED-PROB-001",
+        claim_ids=["CE-CAP-PRED-PROB-001"],
+        requirement_ids=["CE-REQ-PRED-PROB-API-001", "CE-REQ-PRED-PROB-BOUNDS-001"],
+        adr_refs=["ADR-021"],
+        tif_ids=["CE-TIF-PRED-PROB-001"],
+        verification_type="numerical_behavior",
+        dataset_id=_DATASET_ID,
+        scenarios=scenarios,
+        commit_sha=commit_sha,
+        timestamp=timestamp,
+        date_suffix=date_suffix,
+        package_version=package_version,
+        python_version=python_version,
+        platform_str=platform_str,
+        configuration={"threshold": 0.0},
+    )

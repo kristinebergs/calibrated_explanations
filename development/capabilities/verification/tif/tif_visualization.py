@@ -122,3 +122,56 @@ def run_visualization_tif_scenario() -> VizObservation:
         exception_type=None,
         n_instances=n_instances,
     )
+
+
+_DATASET_ID = (
+    "sklearn make_classification n_samples=120 n_features=4 "
+    "n_informative=3 n_redundant=1 random_seed=42"
+)
+
+
+def build_evidence_payload(
+    *,
+    commit_sha: str,
+    timestamp: str,
+    date_suffix: str,
+    package_version: str,
+    python_version: str,
+    platform_str: str,
+) -> dict:
+    """Build a complete evidence payload for CE-TIF-VIZ-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
+    from tif_evidence_helpers import (
+        acceptance_entry,
+        build_payload,
+        obs_to_dict,
+        scenario_entry,
+    )
+
+    obs = run_visualization_tif_scenario()
+    scenarios = [
+        scenario_entry(
+            "plot_no_raise_agg_backend",
+            obs_to_dict(obs),
+            [acceptance_entry("CE-REQ-VIZ-SMOKE-001", "exception_raised", False, obs.exception_raised)],
+        ),
+    ]
+    return build_payload(
+        "VIZ-001",
+        claim_ids=["CE-CAP-VIZ-001"],
+        requirement_ids=["CE-REQ-VIZ-SMOKE-001"],
+        adr_refs=["ADR-023", "ADR-036", "ADR-037"],
+        tif_ids=["CE-TIF-VIZ-001"],
+        verification_type="empirical_smoke",
+        dataset_id=_DATASET_ID,
+        scenarios=scenarios,
+        commit_sha=commit_sha,
+        timestamp=timestamp,
+        date_suffix=date_suffix,
+        package_version=package_version,
+        python_version=python_version,
+        platform_str=platform_str,
+        configuration={"backend": "Agg", "show": False},
+    )
