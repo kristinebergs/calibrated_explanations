@@ -159,3 +159,61 @@ def run_classification_tif_scenario() -> ClassificationObservation:
         labels_len=labels_len,
         n_instances=n_instances,
     )
+
+
+_DATASET_ID = (
+    "sklearn make_classification n_samples=120 n_features=4 "
+    "n_informative=3 n_redundant=1 random_seed=42"
+)
+
+
+def build_evidence_payload(
+    *,
+    commit_sha: str,
+    timestamp: str,
+    date_suffix: str,
+    package_version: str,
+    python_version: str,
+    platform_str: str,
+) -> dict:
+    """Build a complete evidence payload for CE-TIF-PRED-CLASS-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
+    from tif_evidence_helpers import (
+        acceptance_entry,
+        build_payload,
+        obs_to_dict,
+        scenario_entry,
+    )
+
+    obs = run_classification_tif_scenario()
+    scenarios = [
+        scenario_entry(
+            "classification_api_and_bounds",
+            obs_to_dict(obs),
+            [
+                acceptance_entry("CE-REQ-PRED-CLASS-API-001", "exception_raised", False, obs.exception_raised),
+                acceptance_entry("CE-REQ-PRED-CLASS-API-001", "proba_len == n_instances", True, obs.proba_len == obs.n_instances),
+                acceptance_entry("CE-REQ-PRED-CLASS-API-001", "labels_len == n_instances", True, obs.labels_len == obs.n_instances),
+                acceptance_entry("CE-REQ-PRED-CLASS-BOUNDS-001", "proba_min >= 0.0", True, obs.proba_min is not None and obs.proba_min >= 0.0),
+                acceptance_entry("CE-REQ-PRED-CLASS-BOUNDS-001", "proba_max <= 1.0", True, obs.proba_max is not None and obs.proba_max <= 1.0),
+            ],
+        ),
+    ]
+    return build_payload(
+        "PRED-CLASS-001",
+        claim_ids=["CE-CAP-PRED-CLASS-001"],
+        requirement_ids=["CE-REQ-PRED-CLASS-API-001", "CE-REQ-PRED-CLASS-BOUNDS-001"],
+        adr_refs=["ADR-021"],
+        tif_ids=["CE-TIF-PRED-CLASS-001"],
+        verification_type="numerical_behavior",
+        dataset_id=_DATASET_ID,
+        scenarios=scenarios,
+        commit_sha=commit_sha,
+        timestamp=timestamp,
+        date_suffix=date_suffix,
+        package_version=package_version,
+        python_version=python_version,
+        platform_str=platform_str,
+    )

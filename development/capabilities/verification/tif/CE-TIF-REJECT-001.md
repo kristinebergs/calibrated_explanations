@@ -7,6 +7,9 @@
 | tif_id | CE-TIF-REJECT-001 |
 | executable | `development/capabilities/verification/tif/tif_reject.py` |
 | entry_functions | `run_reject_tif_scenario()` |
+| evidence_builder | `build_evidence_payload()` |
+| evidence_key | REJECT-001 |
+| verification_type | api_contract |
 | status | active |
 
 ## Requirements served

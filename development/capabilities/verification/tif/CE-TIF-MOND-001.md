@@ -7,6 +7,9 @@
 | tif_id | CE-TIF-MOND-001 |
 | executable | `development/capabilities/verification/tif/tif_mondrian.py` |
 | entry_functions | `run_mondrian_tif_scenario()` |
+| evidence_builder | `build_evidence_payload()` |
+| evidence_key | MOND-001 |
+| verification_type | api_contract |
 | status | active |
 
 ## Requirements served

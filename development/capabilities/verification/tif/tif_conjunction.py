@@ -248,3 +248,91 @@ def run_conjunction_tif_scenario(
         n_instances=n_instances,
         explanation_mode=explanation_mode,
     )
+
+
+_DATASET_ID = (
+    "sklearn make_classification n_samples=120 n_features=4 "
+    "n_informative=3 n_redundant=1 random_seed=42"
+)
+
+
+def build_evidence_payload(
+    *,
+    commit_sha: str,
+    timestamp: str,
+    date_suffix: str,
+    package_version: str,
+    python_version: str,
+    platform_str: str,
+) -> dict:
+    """Build a complete evidence payload for CE-TIF-EXPL-CONJ-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
+    from tif_evidence_helpers import (
+        acceptance_entry,
+        build_payload,
+        obs_to_dict,
+        scenario_entry,
+    )
+
+    scenarios = []
+    for mode in ("factual", "alternative"):
+        for level in ("collection", "individual"):
+            obs = run_conjunction_tif_scenario(explanation_mode=mode, object_level=level, max_rule_size=2, n_top_features=5)
+            scenarios.append(scenario_entry(
+                f"api_{mode}_{level}",
+                obs_to_dict(obs),
+                [acceptance_entry("CE-REQ-EXPL-CONJ-API-001", "exception_raised", False, obs.exception_raised)],
+                {"explanation_mode": mode, "object_level": level, "max_rule_size": 2, "n_top_features": 5},
+            ))
+    for mode in ("factual", "alternative"):
+        obs = run_conjunction_tif_scenario(explanation_mode=mode, object_level="collection", max_rule_size=2, n_top_features=5)
+        scenarios.append(scenario_entry(
+            f"return_{mode}_collection",
+            obs_to_dict(obs),
+            [
+                acceptance_entry("CE-REQ-EXPL-CONJ-RETURN-001", "result_is_none", False, obs.result_is_none),
+                acceptance_entry("CE-REQ-EXPL-CONJ-RETURN-001", "result_len == n_instances", True, obs.result_len == obs.n_instances),
+            ],
+            {"explanation_mode": mode, "object_level": "collection", "max_rule_size": 2, "n_top_features": 5},
+        ))
+    for max_rule_size in (2, 3):
+        obs = run_conjunction_tif_scenario(explanation_mode="factual", object_level="collection", max_rule_size=max_rule_size, n_top_features=5)
+        scenarios.append(scenario_entry(
+            f"rule_factual_collection_max_rule_size_{max_rule_size}",
+            obs_to_dict(obs),
+            [acceptance_entry("CE-REQ-EXPL-CONJ-RULE-001", "any_has_conjunctive_rules", True, obs.any_has_conjunctive_rules)],
+            {"explanation_mode": "factual", "object_level": "collection", "max_rule_size": max_rule_size, "n_top_features": 5},
+        ))
+    obs = run_conjunction_tif_scenario(explanation_mode="factual", object_level="collection", max_rule_size=1, n_top_features=5)
+    scenarios.append(scenario_entry(
+        "param_factual_collection_max_rule_size_1",
+        obs_to_dict(obs),
+        [
+            acceptance_entry("CE-REQ-EXPL-CONJ-PARAM-001", "any_has_conjunctive_rules", False, obs.any_has_conjunctive_rules),
+            acceptance_entry("CE-REQ-EXPL-CONJ-PARAM-001", "exception_raised", False, obs.exception_raised),
+        ],
+        {"explanation_mode": "factual", "object_level": "collection", "max_rule_size": 1, "n_top_features": 5},
+    ))
+    return build_payload(
+        "EXPL-CONJ-001",
+        claim_ids=["CE-CAP-EXPL-CONJ-001"],
+        requirement_ids=[
+            "CE-REQ-EXPL-CONJ-API-001",
+            "CE-REQ-EXPL-CONJ-RETURN-001",
+            "CE-REQ-EXPL-CONJ-RULE-001",
+            "CE-REQ-EXPL-CONJ-PARAM-001",
+        ],
+        adr_refs=["ADR-008"],
+        tif_ids=["CE-TIF-EXPL-CONJ-001"],
+        verification_type="behavioral_contract",
+        dataset_id=_DATASET_ID,
+        scenarios=scenarios,
+        commit_sha=commit_sha,
+        timestamp=timestamp,
+        date_suffix=date_suffix,
+        package_version=package_version,
+        python_version=python_version,
+        platform_str=platform_str,
+    )

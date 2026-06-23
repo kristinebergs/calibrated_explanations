@@ -125,6 +125,7 @@ filterwarnings = [
     "ignore:Auto-close.*backend switching.*:DeprecationWarning:matplotlib.*",
     "ignore::UserWarning",
     "ignore:numpy.ufunc size changed, may indicate binary incompatibility.*:RuntimeWarning",
+    "ignore:Setting the shape on a NumPy array has been deprecated in NumPy 2.5.*:DeprecationWarning:joblib.*",
     "ignore:The legacy module 'calibrated_explanations.core' is deprecated; import from the 'calibrated_explanations.core' package instead.:DeprecationWarning",
     "ignore:The 'calibrated_explanations.perf' module is deprecated.*:DeprecationWarning",
     "ignore:Importing from 'calibrated_explanations.core.calibration' is deprecated.*:DeprecationWarning",

@@ -7,6 +7,9 @@
 | tif_id | CE-TIF-GUARD-001 |
 | executable | `development/capabilities/verification/tif/tif_guard.py` |
 | entry_functions | `run_guard_tif_scenario()` |
+| evidence_builder | `build_evidence_payload()` |
+| evidence_key | GUARD-001 |
+| verification_type | api_contract |
 | status | active |
 
 ## Requirements served

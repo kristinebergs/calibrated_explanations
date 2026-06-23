@@ -7,6 +7,9 @@
 | tif_id | CE-TIF-EXPL-001 |
 | executable | `development/capabilities/verification/tif/tif_explanation.py` |
 | entry_functions | `run_factual_tif_scenario()`, `run_alternative_tif_scenario()` |
+| evidence_builder | `build_evidence_payload()` |
+| evidence_key | EXPL-001 |
+| verification_type | behavioral_contract |
 | status | active |
 
 ## Requirements served

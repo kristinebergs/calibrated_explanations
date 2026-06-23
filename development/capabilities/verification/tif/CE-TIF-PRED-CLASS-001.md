@@ -7,6 +7,9 @@
 | tif_id | CE-TIF-PRED-CLASS-001 |
 | executable | `development/capabilities/verification/tif/tif_classification.py` |
 | entry_functions | `run_classification_tif_scenario()` |
+| evidence_builder | `build_evidence_payload()` |
+| evidence_key | PRED-CLASS-001 |
+| verification_type | numerical_behavior |
 | status | active |
 
 ## Requirements served

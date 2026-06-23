@@ -7,6 +7,9 @@
 | tif_id | CE-TIF-VIZ-001 |
 | executable | `development/capabilities/verification/tif/tif_visualization.py` |
 | entry_functions | `run_visualization_tif_scenario()` |
+| evidence_builder | `build_evidence_payload()` |
+| evidence_key | VIZ-001 |
+| verification_type | empirical_smoke |
 | status | active |
 
 ## Requirements served

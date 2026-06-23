@@ -1,0 +1,60 @@
+{
+  "evidence_id": "CE-EVID-MOND-001-20260623",
+  "claim_ids": [
+    "CE-CAP-MOND-001"
+  ],
+  "requirement_ids": [
+    "CE-REQ-MOND-API-001"
+  ],
+  "adr_refs": [
+    "ADR-013"
+  ],
+  "standard_refs": [],
+  "tif_ids": [
+    "CE-TIF-MOND-001"
+  ],
+  "verification_type": "api_contract",
+  "result": "fail",
+  "timestamp": "2026-06-23T04:09:00.655771+00:00",
+  "commit_sha": "5d02a2c282256ab445a11c864a1bbbc59c5082c6",
+  "package_version": "v1.0.0-rc-dev",
+  "python_version": "3.11.15",
+  "platform": "linux",
+  "dataset_id": "sklearn make_classification n_samples=120 n_features=4 n_informative=3 n_redundant=1 random_seed=42",
+  "random_seed": 42,
+  "configuration": {
+    "mondrian_fn": "sign of feature 0 (2 categories)"
+  },
+  "scenarios": [
+    {
+      "scenario_id": "calibrate_with_mondrian_categorizer",
+      "observations": {
+        "exception_raised": true,
+        "exception_type": "ConfigurationError",
+        "calibrated": false,
+        "n_instances": 3
+      },
+      "result": "fail",
+      "acceptance": [
+        {
+          "criterion_ref": "CE-REQ-MOND-API-001",
+          "field": "exception_raised",
+          "expected": false,
+          "observed": true,
+          "result": "fail"
+        },
+        {
+          "criterion_ref": "CE-REQ-MOND-API-001",
+          "field": "calibrated",
+          "expected": true,
+          "observed": false,
+          "result": "fail"
+        }
+      ]
+    }
+  ],
+  "artifacts": {
+    "logs": null,
+    "raw_output": null
+  }
+}

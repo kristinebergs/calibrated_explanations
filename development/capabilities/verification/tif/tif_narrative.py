@@ -125,3 +125,61 @@ def run_narrative_tif_scenario() -> NarrativeObservation:
         result_len=result_len,
         n_instances=n_instances,
     )
+
+
+_DATASET_ID = (
+    "sklearn make_classification n_samples=120 n_features=4 "
+    "n_informative=3 n_redundant=1 random_seed=42"
+)
+
+
+def build_evidence_payload(
+    *,
+    commit_sha: str,
+    timestamp: str,
+    date_suffix: str,
+    package_version: str,
+    python_version: str,
+    platform_str: str,
+) -> dict:
+    """Build a complete evidence payload for CE-TIF-NARR-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
+    from tif_evidence_helpers import (
+        acceptance_entry,
+        build_payload,
+        obs_to_dict,
+        scenario_entry,
+    )
+
+    obs = run_narrative_tif_scenario()
+    scenarios = [
+        scenario_entry(
+            "to_narrative_text_format",
+            obs_to_dict(obs),
+            [
+                acceptance_entry("CE-REQ-NARR-API-001", "exception_raised", False, obs.exception_raised),
+                acceptance_entry("CE-REQ-NARR-API-001", "result_is_none", False, obs.result_is_none),
+                acceptance_entry("CE-REQ-NARR-API-001", "result_is_str", True, obs.result_is_str),
+                acceptance_entry("CE-REQ-NARR-API-001", "result_len > 0", True, obs.result_len is not None and obs.result_len > 0),
+            ],
+        ),
+    ]
+    return build_payload(
+        "NARR-001",
+        claim_ids=["CE-CAP-NARR-001"],
+        requirement_ids=["CE-REQ-NARR-API-001"],
+        adr_refs=["ADR-008"],
+        tif_ids=["CE-TIF-NARR-001"],
+        verification_type="api_contract",
+        dataset_id=_DATASET_ID,
+        scenarios=scenarios,
+        commit_sha=commit_sha,
+        timestamp=timestamp,
+        date_suffix=date_suffix,
+        package_version=package_version,
+        python_version=python_version,
+        platform_str=platform_str,
+        configuration={"output_format": "text"},
+    )
