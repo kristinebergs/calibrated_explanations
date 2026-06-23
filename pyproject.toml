@@ -1,107 +1,81 @@
 [build-system]
-requires = [
-    "setuptools>=61.0,<83",
-    "wheel",
-]
-build-backend = "setuptools.build_meta"
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "calibrated_explanations"
 version = "1.0.0-rc-dev"
-description = "Extract calibrated explanations from machine learning models."
+description = "Calibrated Explanations"
 readme = "README.md"
-requires-python = ">=3.8"
-license = "BSD-3-Clause"
-license-files = []
+license = {text = "MIT"}
 authors = [
-    { name = "Helena Löfström", email = "helena.lofstrom@ju.se" },
-    { name = "Tuwe Löfström", email = "tuwe.lofstrom@ju.se" },
+    {name = "Tuwe Löfström", email = "tuvelofstrom@gmail.com"},
+    {name = "Cecilia Sönströd", email = "cecilia.sonstrod@hh.se"},
+    {name = "Johan Löfström", email = "johanlofstrom@users.noreply.github.com"},
+    {name = "UlfJohansson", email = "ulfjohansson@users.noreply.github.com"},
 ]
+requires-python = ">=3.9"
 dependencies = [
-    "crepes>=0.8.0",
-    "venn-abers>=1.4.0",
     "numpy>=1.24",
-    "pandas>=2.0",
-    "scikit-learn>=1.3",
-]
-classifiers = [
-    "Development Status :: 4 - Beta",
-    "Programming Language :: Python :: 3",
-    "Operating System :: OS Independent",
-]
-
-[project.urls]
-Documentation = "https://calibrated-explanations.readthedocs.io/en/latest/?badge=latest"
-Changelog = "https://github.com/Moffran/calibrated_explanations/blob/main/CHANGELOG.md"
-"Bug Tracker" = "https://github.com/Moffran/calibrated_explanations/issues"
-Repository = "https://github.com/Moffran/calibrated_explanations"
-
-[project.optional-dependencies]
-narrative = [
+    "pandas",
+    "crepes>=0.7.1",
+    "scikit-learn",
+    "lime",
+    "shap",
+    "venn-abers>=1.3.1",
+    "joblib",
     "pyyaml",
 ]
-perf = [
-    "cachetools",
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-cov",
+    "pytest-timeout",
+    "pylint",
+    "isort",
+    "black",
+    "matplotlib",
+    "joblib",
+    "ipython",
+    "ipykernel",
+    "jupyter",
+    "numpydoc",
+    "sphinx",
+    "sphinx-rtd-theme",
+    "sphinx-copybutton",
+    "sphinx-autoapi",
+    "sphinxcontrib-mermaid",
+]
+performance = [
+    "matplotlib",
+    "joblib",
+    "ipython",
+    "ipykernel",
+    "jupyter",
 ]
 viz = [
     "matplotlib",
 ]
-notebooks = [
-    "ipython",
-    "jupyter",
-    "nbconvert",
-    "matplotlib",
-]
-dev = [
-    "matplotlib",
-    "pytest",
-    "pytest-cov",
-    "ruff",
-    "mypy",
-    "pydocstyle",
-    "nbqa",
-    "sphinx",
-    "myst-parser",
-    "nbsphinx",
-    "numpydoc",
-    "pydata-sphinx-theme",
-    "furo",
-    "sphinx-rtd-theme",
-    "sphinxcontrib-mermaid",
-    "docutils",
-    "roman",
-    "linkify-it-py",
-    "jsonschema",
-    "tomli-w",
-    "tomli; python_version < '3.11'",
-    "prometheus-client",
-    "pyarrow",
-    "joblib",
-    "ucimlrepo",
-]
-eval = [
-    "lime",
-    "shap",
-    "seaborn",
-    "xgboost",
-    "scipy",
-    "joblib",
-    "ucimlrepo",
-    "matplotlib",
-]
-external-plugins = [
-    "numpy>=1.24",
-    "pandas>=2.0",
-    "scikit-learn>=1.3",
-]
 
-[project.scripts]
-ce = "calibrated_explanations.cli:main"
-"ce.plugins" = "calibrated_explanations.plugins.cli:main"
+[project.urls]
+"Homepage" = "https://github.com/Moffran/calibrated_explanations"
+"Bug Tracker" = "https://github.com/Moffran/calibrated_explanations/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
 
 [tool.pytest.ini_options]
-minversion = "6.0"
-pythonpath = [
+numpy = [
+    "numpy>=1.24",
+]
+joblib = [
+    "joblib",
+]
+src = [
     "src",
 ]
 addopts = "-q"
@@ -125,6 +99,7 @@ filterwarnings = [
     "ignore:Auto-close.*backend switching.*:DeprecationWarning:matplotlib.*",
     "ignore::UserWarning",
     "ignore:numpy.ufunc size changed, may indicate binary incompatibility.*:RuntimeWarning",
+    "ignore:Setting the shape on a NumPy array has been deprecated in NumPy 2.5.*:DeprecationWarning:joblib.*",
     "ignore:The legacy module 'calibrated_explanations.core' is deprecated; import from the 'calibrated_explanations.core' package instead.:DeprecationWarning",
     "ignore:The 'calibrated_explanations.perf' module is deprecated.*:DeprecationWarning",
     "ignore:Importing from 'calibrated_explanations.core.calibration' is deprecated.*:DeprecationWarning",
@@ -143,171 +118,115 @@ source = [
     "src/calibrated_explanations",
 ]
 omit = [
-    "tests/*",
-    "docs/*",
-    "notebooks/*",
-    "tests/benchmarks/*",
-    "scripts/*",
-    "setup.py",
-    "src/calibrated_explanations/viz/matplotlib_adapter.py",
-]
-parallel = false
-
-[tool.coverage.paths]
-calibrated_explanations = [
-    "src/calibrated_explanations",
-    "*/site-packages/calibrated_explanations",
+    "*/tests/*",
+    "*/test_*",
 ]
 
 [tool.coverage.report]
-fail_under = 90
-show_missing = true
-skip_covered = false
-precision = 1
 exclude_lines = [
     "pragma: no cover",
-    "if __name__ == .__main__.",
-    "if TYPE_CHECKING:",
+    "def __repr__",
+    "if self\.debug",
+    "raise AssertionError",
     "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
 ]
 
-[tool.coverage.html]
-directory = "coverage_html"
-
-[tool.setuptools.packages.find]
-where = [
-    "src",
-    "external_plugins",
-]
-
-[tool.setuptools.package-data]
-calibrated_explanations = [
-    "py.typed",
-    "schemas/*.json",
-    "templates/*.json",
-    "templates/*.yaml",
-]
-
-[tool.calibrated_explanations.plugins]
-trusted = [
-    "demo.renderer",
-    "plugin.trusted",
-    "renderer",
-    "target",
-]
-
-[tool.ruff]
-target-version = "py310"
+[tool.black]
 line-length = 100
-extend-exclude = [
-    "build",
-    "dist",
-    "benchmarks",
-    "docs/_build",
-    "scripts",
+target-version = ['py39', 'py310', 'py311', 'py312']
+
+[tool.isort]
+profile = "black"
+line_length = 100
+
+[tool.pylint.messages_control]
+disable = [
+    "C0114",  # missing-module-docstring
+    "C0115",  # missing-class-docstring
+    "C0116",  # missing-function-docstring
+    "R0913",  # too-many-arguments
+    "R0914",  # too-many-locals
+    "R0915",  # too-many-statements
+    "W0212",  # protected-access
+    "W0611",  # unused-import
 ]
 
-[tool.ruff.lint]
-select = [
-    "E",
-    "F",
-    "I",
-    "B",
-    "C4",
-    "SIM",
-    "NPY",
-    "S",
-    "N",
+[tool.pylint.format]
+max-line-length = 100
+
+[tool.pylint.MASTER]
+ignore-paths = ['src/calibrated_explanations/old']
+
+[tool.numpydoc_validation]
+checks = [
+    "all",
+    "EX01",
+    "SA01",
+    "ES01",
 ]
-ignore = [
-    "E501",
-    "S101",
+exclude = [
+    '\\.__init__$',
+    '\\.__repr__$',
+    '\\.__str__$',
 ]
 
-[tool.ruff.lint.per-file-ignores]
-"tests/*" = [
-    "S",
-    "B",
-    "I001",
-    "N806",
-]
-"development/capabilities/verification/tif/*.py" = [
-    "N806",
-]
-"scripts/*.py" = [
-    "E402",
-    "I001",
-]
-"src/calibrated_explanations/core/calibrated_explainer.py" = [
-    "I001",
-    "UP006",
-]
-"src/calibrated_explanations/core/prediction_helpers.py" = [
-    "I001",
-    "UP006",
-]
-"src/calibrated_explanations/core/wrap_explainer.py" = [
-    "N803",
+[tool.pylint.basic]
+good-names = [
+    "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m",
+    "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z",
+    "X", "Y",
+    "df",
+    "ax",
+    "ex",
+    "ok",
+    "lr",
 ]
 
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "space"
-skip-magic-trailing-comma = false
+[tool.pylint.design]
+max-args = 20
+max-attributes = 20
+max-bool-expr = 10
+max-branches = 20
+max-locals = 30
+max-public-methods = 30
+max-returns = 10
+max-statements = 100
+min-public-methods = 1
 
-[tool.pydocstyle]
+[tool.pylint.similarities]
+ignore-comments = true
+ignore-docstrings = true
+ignore-imports = true
+ignore-signatures = true
+
+[tool.pylint.string]
+check-quote-consistency = true
+
+[tool.pylint.typecheck]
+ignored-modules = [
+    "numpy",
+    "scipy",
+    "sklearn",
+    "pandas",
+    "matplotlib",
+    "venn_abers",
+]
+
+[tool.pylint.imports]
+known-third-party = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "sklearn",
+    "matplotlib",
+    "joblib",
+    "venn_abers",
+    "crepes",
+    "lime",
+    "shap",
+]
+
+[tool.pylint.convention]
 convention = "numpy"
-add-ignore = [
-    "D104",
-]
-match-dir = "(?!tests|docs|benchmarks|notebooks|scripts).*"
-match = "(?!test_).*\\.py"
-
-[tool.mypy]
-python_version = "3.11"
-ignore_missing_imports = true
-warn_unused_ignores = true
-warn_return_any = false
-warn_unused_configs = true
-disallow_untyped_defs = false
-show_error_codes = true
-exclude = [
-    "build",
-    "benchmarks",
-    "docs",
-    "notebooks",
-    "scripts",
-]
-follow_imports = "skip"
-check_untyped_defs = false
-
-[[tool.mypy.overrides]]
-module = [
-    "calibrated_explanations.core.exceptions",
-    "calibrated_explanations.core.validation",
-    "calibrated_explanations.api.params",
-    "calibrated_explanations.core.prediction_helpers",
-]
-disallow_untyped_defs = true
-warn_return_any = true
-no_implicit_optional = true
-strict_equality = true
-check_untyped_defs = true
-
-[tool.bandit]
-skips = [
-    "B101",
-]
-exclude = [
-    "tests",
-    "build",
-    "benchmarks",
-    "notebooks",
-    "scripts",
-    "docs",
-    "dist",
-]
-
-[tool.codespell]
-skip = "docs/_build,docs_old/_build,build,dist,tests/benchmarks,notebooks,docs/improvement/anti_pattern_gap_analysis.ipynb"
-ignore-words-list = "dataframe,nd"
