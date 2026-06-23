@@ -1,30 +1,76 @@
 # Claim Verification Gap Analysis
 
-This file tracks the status of capability claim verification across CE.
-The "Closed Behavioral Chains" table lists every active TIF with its
-linked claims and requirements. The capability-chain validator reads this
-table and asserts that each TIF is active and has committed raw evidence.
+This file documents the structure of the CE capability-verification chain and
+how to inspect its current state. It is explanatory documentation, not an
+authoritative inventory. Active chain nodes are discovered at runtime from the
+repository files.
 
 ---
 
-## Closed Behavioral Chains
+## Chain model
 
-| TIF ID | Claim IDs | Requirement IDs |
-|---|---|---|
-| CE-TIF-EXPL-001 | CE-CAP-EXPL-001, CE-CAP-EXPL-002 | CE-REQ-EXPL-API-001, CE-REQ-EXPL-RETURN-001, CE-REQ-EXPL-API-002, CE-REQ-EXPL-ALT-RETURN-001 |
-| CE-TIF-EXPL-CONJ-001 | CE-CAP-EXPL-CONJ-001 | CE-REQ-EXPL-CONJ-API-001, CE-REQ-EXPL-CONJ-RETURN-001, CE-REQ-EXPL-CONJ-RULE-001, CE-REQ-EXPL-CONJ-PARAM-001 |
-| CE-TIF-FILTER-001 | CE-CAP-EXPL-FILTER-001 | CE-REQ-EXPL-FILTER-SUPER-001, CE-REQ-EXPL-FILTER-SEMI-001, CE-REQ-EXPL-FILTER-COUNTER-001, CE-REQ-EXPL-FILTER-ENSURED-001, CE-REQ-EXPL-FILTER-PARETO-001 |
-| CE-TIF-GUARD-001 | CE-CAP-GUARD-001 | CE-REQ-GUARD-API-001 |
-| CE-TIF-MOND-001 | CE-CAP-MOND-001 | CE-REQ-MOND-API-001 |
-| CE-TIF-NARR-001 | CE-CAP-NARR-001 | CE-REQ-NARR-API-001 |
-| CE-TIF-PRED-001 | CE-CAP-PRED-001 | CE-REQ-PRED-API-001, CE-REQ-PRED-INTERVAL-BOUNDS-001 |
-| CE-TIF-PRED-CLASS-001 | CE-CAP-PRED-CLASS-001 | CE-REQ-PRED-CLASS-API-001, CE-REQ-PRED-CLASS-BOUNDS-001 |
-| CE-TIF-PRED-PROB-001 | CE-CAP-PRED-PROB-001 | CE-REQ-PRED-PROB-API-001, CE-REQ-PRED-PROB-BOUNDS-001 |
-| CE-TIF-REJECT-001 | CE-CAP-REJECT-001 | CE-REQ-REJECT-API-001 |
-| CE-TIF-VIZ-001 | CE-CAP-VIZ-001 | CE-REQ-VIZ-SMOKE-001 |
+Each active capability claim is connected to the evidence that verifies it
+through the following chain:
+
+```text
+ADR / Standard refs   (optional governing constraints)
+  -> Capability claim  (development/capabilities/claims/CE-CAP-*.yaml)
+  -> Requirement       (development/capabilities/requirements/CE-REQ-*.md)
+  -> TIF spec          (development/capabilities/verification/tif/CE-TIF-*.md)
+  -> TIF executable    (development/capabilities/verification/tif/tif_*.py)
+  -> Raw evidence      (reports/verification/CE-EVID-*.json)
+  -> Curated summary   (development/capabilities/evidence/evidence_*.md)
+```
+
+All chain nodes are discovered dynamically from the files above. No manifest,
+catalog, or sidecar mapping file is required.
 
 ---
 
-## Open Gaps
+## Discovering the chain
 
-None — all active TIFs have closed behavioral chains with committed evidence.
+To inspect the current chain and validate all links:
+
+```bash
+python scripts/quality/validate_capability_chain.py --check
+```
+
+To regenerate raw evidence from all active TIF specs:
+
+```bash
+python scripts/generate_tif_evidence.py --check-current
+```
+
+To validate all committed evidence files without re-running TIF scenarios:
+
+```bash
+python scripts/generate_tif_evidence.py --validate-existing
+```
+
+To run all capability contract tests:
+
+```bash
+pytest tests/capabilities -q
+```
+
+---
+
+## What the validator checks
+
+The chain validator (`scripts/quality/validate_capability_chain.py`) verifies:
+
+- Claim filenames match `claim_id`; each active claim has at least one requirement.
+- Requirement filenames match `requirement_id`; claim↔requirement links are reciprocal.
+- Behavioral requirements have valid `tif_refs` or a documented `tif_exemption`.
+- TIF filenames match `tif_id`; each active TIF has an executable with `build_evidence_payload()`.
+- TIF↔requirement links are reciprocal; TIF served claims are reachable through served requirements.
+- Every active TIF has at least one committed raw evidence record.
+- Raw evidence references valid claims, requirements, and TIFs.
+- Curated summaries do not overclaim beyond raw evidence.
+
+---
+
+## Open gaps
+
+No known open gaps. Run `python scripts/quality/validate_capability_chain.py --check` to
+see the current state.

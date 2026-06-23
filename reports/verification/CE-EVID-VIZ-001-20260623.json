@@ -16,12 +16,12 @@
     "CE-TIF-VIZ-001"
   ],
   "verification_type": "empirical_smoke",
-  "result": "fail",
-  "timestamp": "2026-06-23T04:09:00.655771+00:00",
-  "commit_sha": "5d02a2c282256ab445a11c864a1bbbc59c5082c6",
+  "result": "pass",
+  "timestamp": "2026-06-23T15:28:24.788303+00:00",
+  "commit_sha": "8f5074c688e4f836e1372a49ec8e4715276bcc16",
   "package_version": "v1.0.0-rc-dev",
-  "python_version": "3.11.15",
-  "platform": "linux",
+  "python_version": "3.14.4",
+  "platform": "win32",
   "dataset_id": "sklearn make_classification n_samples=120 n_features=4 n_informative=3 n_redundant=1 random_seed=42",
   "random_seed": 42,
   "configuration": {
@@ -32,18 +32,18 @@
     {
       "scenario_id": "plot_no_raise_agg_backend",
       "observations": {
-        "exception_raised": true,
-        "exception_type": "ModuleNotFoundError",
+        "exception_raised": false,
+        "exception_type": null,
         "n_instances": 2
       },
-      "result": "fail",
+      "result": "pass",
       "acceptance": [
         {
           "criterion_ref": "CE-REQ-VIZ-SMOKE-001",
           "field": "exception_raised",
           "expected": false,
-          "observed": true,
-          "result": "fail"
+          "observed": false,
+          "result": "pass"
         }
       ]
     }

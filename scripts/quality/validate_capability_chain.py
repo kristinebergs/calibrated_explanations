@@ -30,7 +30,6 @@ _REQ_DIR = _REPO_ROOT / "development" / "capabilities" / "requirements"
 _TIF_DIR = _REPO_ROOT / "development" / "capabilities" / "verification" / "tif"
 _EVID_DIR = _REPO_ROOT / "development" / "capabilities" / "evidence"
 _RAW_EVID_DIR = _REPO_ROOT / "reports" / "verification"
-_GAP_ANALYSIS_PATH = _REPO_ROOT / "development" / "capabilities" / "claim_verification_gap_analysis.md"
 
 # Obligation types for which a verified requirement must have tif_refs (or tif_exemption).
 _TIF_REQUIRED_TYPES: set[str] = {
@@ -365,17 +364,19 @@ def _check_tif_files(
     errors: list[str],
     warnings: list[str],
     reqs: dict[str, dict[str, Any]],
-) -> set[str]:
-    """Check TIF spec/executable presence and README inventory. Returns set of active TIF IDs."""
-    active_tif_ids: set[str] = set()
+) -> dict[str, dict[str, Any]]:
+    """Check TIF spec/executable presence and README inventory.
 
-    # Collect all TIF IDs referenced by requirements
+    Returns {tif_id: spec_metadata} for all active TIF specs discovered from
+    CE-TIF-*.md files (status=active).
+    """
+    # Collect all TIF IDs referenced by requirements and check each has a spec file
+    req_tif_ids: set[str] = set()
     for req_data in reqs.values():
         for tif_id in req_data.get("tif_refs", []):
-            active_tif_ids.add(tif_id)
+            req_tif_ids.add(tif_id)
 
-    # Check each requirement-referenced TIF has a spec file
-    for tif_id in sorted(active_tif_ids):
+    for tif_id in sorted(req_tif_ids):
         spec = _TIF_DIR / f"{tif_id}.md"
         if not spec.exists():
             errors.append(f"tif {tif_id}: spec file {spec.relative_to(_REPO_ROOT)} not found")
@@ -388,17 +389,22 @@ def _check_tif_files(
         _check_tif_executable(errors, warnings, exec_path)
 
     # Discover active TIF specs and cross-check against README inventory
-    _check_readme_tif_inventory(errors, warnings)
+    active_tif_specs = _check_readme_tif_inventory(errors, warnings)
 
-    return active_tif_ids
+    return active_tif_specs
 
 
-def _check_readme_tif_inventory(errors: list[str], warnings: list[str]) -> None:
-    """Discover active TIF specs and bidirectionally cross-check against README table."""
+def _check_readme_tif_inventory(
+    errors: list[str], warnings: list[str]
+) -> dict[str, dict[str, Any]]:
+    """Discover active TIF specs and bidirectionally cross-check against README table.
+
+    Returns {tif_id: spec_metadata} for all active specs discovered from CE-TIF-*.md.
+    """
     readme = _TIF_DIR / "README.md"
 
     # Discover active specs from CE-TIF-*.md
-    active_specs: dict[str, dict[str, str]] = {}
+    active_specs: dict[str, dict[str, Any]] = {}
     for spec_path in sorted(_TIF_DIR.glob("CE-TIF-*.md")):
         meta = _parse_tif_spec_metadata(spec_path)
         tif_id = meta.get("tif_id", "")
@@ -420,7 +426,7 @@ def _check_readme_tif_inventory(errors: list[str], warnings: list[str]) -> None:
 
     if not readme.exists():
         warnings.append("tif README.md not found; skipping inventory check")
-        return
+        return active_specs
 
     readme_text = readme.read_text(encoding="utf-8")
 
@@ -429,7 +435,7 @@ def _check_readme_tif_inventory(errors: list[str], warnings: list[str]) -> None:
         warnings.append(
             "tif README.md: 'Current TIF Interfaces' section not found; skipping inventory check"
         )
-        return
+        return active_specs
 
     rows = _parse_tif_readme_table(readme_text)
     readme_tif_ids: set[str] = {row.get("tif_id", "") for row in rows if row.get("tif_id")}
@@ -502,6 +508,8 @@ def _check_readme_tif_inventory(errors: list[str], warnings: list[str]) -> None:
                     f"!= spec {sorted(spec_claims)}"
                 )
 
+    return active_specs
+
 
 def _check_tif_executable(errors: list[str], warnings: list[str], path: Path) -> None:
     """Guard: check that a TIF executable uses WrapCalibratedExplainer and avoids forbidden patterns."""
@@ -560,6 +568,138 @@ def _check_tif_executable(errors: list[str], warnings: list[str], path: Path) ->
             f"verify this is not accessing internal CE state"
         )
         break  # one warning per file is enough
+
+
+def _check_claim_req_reciprocity(
+    errors: list[str],
+    claims: dict[str, dict[str, Any]],
+    reqs: dict[str, dict[str, Any]],
+) -> None:
+    """Validate that claim↔requirement links are reciprocal.
+
+    - For each requirement R in claim C.requirements: R.claim_refs must include C.
+    - For each claim_ref C in requirement R: C.requirements must include R.
+    Superseded requirements are excluded from the second direction.
+    """
+    claim_reqs_map: dict[str, list[str]] = {
+        cid: (data.get("requirements", []) if isinstance(data, dict) else [])
+        for cid, data in claims.items()
+    }
+
+    for claim_id, req_ids in claim_reqs_map.items():
+        for req_id in req_ids:
+            if req_id not in reqs:
+                continue  # missing file already reported by _check_claims
+            req_claim_refs = reqs[req_id].get("claim_refs", [])
+            if claim_id not in req_claim_refs:
+                errors.append(
+                    f"claim {claim_id}: requirement '{req_id}' does not link back "
+                    f"to this claim in its claim_refs (found: {req_claim_refs})"
+                )
+
+    for req_id, req_data in reqs.items():
+        vstatus = req_data.get("verification_status", "")
+        if vstatus in ("superseded", "deferred"):
+            continue
+        for claim_id in req_data.get("claim_refs", []):
+            if claim_id not in claims:
+                continue  # missing file already reported by _check_requirements
+            if req_id not in claim_reqs_map.get(claim_id, []):
+                errors.append(
+                    f"req {req_id}: claim_ref '{claim_id}' does not list this requirement "
+                    f"in its requirements (claim requirements: {claim_reqs_map.get(claim_id, [])})"
+                )
+
+
+def _check_tif_req_reciprocity(
+    errors: list[str],
+    reqs: dict[str, dict[str, Any]],
+    active_tif_specs: dict[str, dict[str, Any]],
+) -> None:
+    """Validate that TIF↔requirement links are reciprocal.
+
+    - For each tif_ref T in requirement R: T.requirements_served must include R.
+    - For each served requirement R in TIF T: R.tif_refs must include T.
+    """
+    for req_id, req_data in reqs.items():
+        for tif_id in req_data.get("tif_refs", []):
+            if tif_id not in active_tif_specs:
+                continue  # missing spec already reported by _check_tif_files
+            spec_reqs = active_tif_specs[tif_id].get("requirements_served", [])
+            if req_id not in spec_reqs:
+                errors.append(
+                    f"req {req_id}: tif_ref '{tif_id}' spec does not list this requirement "
+                    f"in Requirements served (spec has: {spec_reqs})"
+                )
+
+    for tif_id, spec_meta in active_tif_specs.items():
+        for req_id in spec_meta.get("requirements_served", []):
+            if req_id not in reqs:
+                errors.append(
+                    f"tif {tif_id}: requirements_served '{req_id}' not found in requirements"
+                )
+                continue
+            req_tif_refs = reqs[req_id].get("tif_refs", [])
+            if tif_id not in req_tif_refs:
+                errors.append(
+                    f"tif {tif_id}: requirements_served '{req_id}' does not reference "
+                    f"this TIF in its tif_refs (req tif_refs: {req_tif_refs})"
+                )
+
+
+def _check_tif_claim_reachability(
+    errors: list[str],
+    claims: dict[str, dict[str, Any]],
+    reqs: dict[str, dict[str, Any]],
+    active_tif_specs: dict[str, dict[str, Any]],
+) -> None:
+    """Validate that each TIF's served claims are reachable through its served requirements.
+
+    A served claim C is reachable from TIF T when at least one requirement R in
+    T.requirements_served has C in its claim_refs.
+    """
+    for tif_id, spec_meta in active_tif_specs.items():
+        served_reqs = spec_meta.get("requirements_served", [])
+        for claim_id in spec_meta.get("claims_served", []):
+            if claim_id not in claims:
+                errors.append(
+                    f"tif {tif_id}: claims_served '{claim_id}' not found in claims"
+                )
+                continue
+            reachable = any(
+                claim_id in reqs[r].get("claim_refs", [])
+                for r in served_reqs
+                if r in reqs
+            )
+            if not reachable:
+                errors.append(
+                    f"tif {tif_id}: served claim '{claim_id}' is not reachable through "
+                    f"its served requirements {sorted(served_reqs)} — no requirement in "
+                    f"that set has '{claim_id}' in its claim_refs"
+                )
+
+
+def _check_active_tifs_have_evidence(
+    errors: list[str],
+    warnings: list[str],
+    active_tif_specs: dict[str, dict[str, Any]],
+) -> None:
+    """Verify that every active TIF spec has at least one committed raw evidence record."""
+    # Build set of tif_ids referenced in committed evidence
+    evidence_tif_ids: set[str] = set()
+    for path in sorted(_RAW_EVID_DIR.glob("CE-EVID-*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            evidence_tif_ids.update(data.get("tif_ids", []))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    for tif_id in sorted(active_tif_specs):
+        if tif_id not in evidence_tif_ids:
+            errors.append(
+                f"tif {tif_id}: active TIF spec has no committed raw evidence "
+                f"(no CE-EVID-*.json references tif_id='{tif_id}')"
+            )
 
 
 def _check_raw_evidence(
@@ -692,66 +832,6 @@ def _check_raw_evidence_vs_tif_specs(
                     )
 
 
-def _check_gap_analysis(
-    errors: list[str],
-    warnings: list[str],
-) -> None:
-    """Parse claim_verification_gap_analysis.md and cross-check each row."""
-    if not _GAP_ANALYSIS_PATH.exists():
-        errors.append(
-            f"gap_analysis: {_GAP_ANALYSIS_PATH.name} not found — "
-            "create it with a 'Closed Behavioral Chains' table listing all active TIFs"
-        )
-        return
-
-    text = _GAP_ANALYSIS_PATH.read_text(encoding="utf-8")
-    section = _extract_section_text(text, "Closed Behavioral Chains")
-    if not section:
-        errors.append("gap_analysis: 'Closed Behavioral Chains' section not found")
-        return
-
-    # Extract TIF IDs from the first column of the table
-    gap_tif_ids: list[str] = []
-    for line in section.splitlines():
-        stripped = line.strip()
-        if not stripped.startswith("|"):
-            continue
-        cells = [c.strip() for c in stripped.strip("|").split("|")]
-        if not cells:
-            continue
-        first = cells[0].strip()
-        if not first or first.lower() == "tif id" or re.fullmatch(r"[-:\s]+", first):
-            continue
-        gap_tif_ids.append(first)
-
-    # Active TIF IDs from specs
-    active_tif_ids: set[str] = set()
-    for spec_path in sorted(_TIF_DIR.glob("CE-TIF-*.md")):
-        meta = _parse_tif_spec_metadata(spec_path)
-        if meta.get("status") == "active":
-            active_tif_ids.add(meta.get("tif_id", spec_path.stem))
-
-    # TIF IDs referenced in committed evidence
-    evidence_tif_ids: set[str] = set()
-    for path in sorted(_RAW_EVID_DIR.glob("CE-EVID-*.json")):
-        try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            evidence_tif_ids.update(data.get("tif_ids", []))
-        except (json.JSONDecodeError, OSError):
-            pass
-
-    for tif_id in gap_tif_ids:
-        if tif_id not in active_tif_ids:
-            errors.append(
-                f"gap_analysis: row '{tif_id}' is not an active TIF spec "
-                f"(no CE-TIF-*.md with status=active and tif_id={tif_id!r})"
-            )
-        if tif_id not in evidence_tif_ids:
-            errors.append(
-                f"gap_analysis: row '{tif_id}' has no committed evidence "
-                f"(no CE-EVID-*.json references tif_id={tif_id!r})"
-            )
-
 
 def _check_curated_evidence(
     errors: list[str],
@@ -858,10 +938,13 @@ def run_checks() -> tuple[list[str], list[str]]:
 
     claims = _check_claims(errors, warnings)
     reqs = _check_requirements(errors, warnings, claims)
-    active_tif_ids = _check_tif_files(errors, warnings, reqs)
+    _check_claim_req_reciprocity(errors, claims, reqs)
+    active_tif_specs = _check_tif_files(errors, warnings, reqs)
+    _check_tif_req_reciprocity(errors, reqs, active_tif_specs)
+    _check_tif_claim_reachability(errors, claims, reqs, active_tif_specs)
+    _check_active_tifs_have_evidence(errors, warnings, active_tif_specs)
     raw_evidence_ids = _check_raw_evidence(errors, warnings, claims, reqs)
     _check_raw_evidence_vs_tif_specs(errors, warnings)
-    _check_gap_analysis(errors, warnings)
     _check_curated_evidence(errors, warnings, reqs, raw_evidence_ids)
     _check_verified_behavioral_have_raw_evidence(errors, warnings, reqs, raw_evidence_ids)
 

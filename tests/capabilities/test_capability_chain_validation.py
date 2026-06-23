@@ -192,17 +192,6 @@ def chain_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Pat
     monkeypatch.setattr(vcc, "_EVID_DIR", dirs["evid"])
     monkeypatch.setattr(vcc, "_RAW_EVID_DIR", dirs["raw_evid"])
 
-    # Patch _GAP_ANALYSIS_PATH to an empty-table file so run_checks() doesn't
-    # compare the real gap analysis against the minimal temp TIF/evidence dirs.
-    gap_file = tmp_path / "gap_analysis.md"
-    gap_file.write_text(
-        "## Closed Behavioral Chains\n\n"
-        "| TIF ID | Claim IDs | Requirement IDs |\n"
-        "|---|---|---|\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(vcc, "_GAP_ANALYSIS_PATH", gap_file)
-
     return dirs
 
 
@@ -748,19 +737,6 @@ def _readme_with_tif_table_full(rows: list[dict]) -> str:
     """)
 
 
-def _minimal_gap_analysis(tif_rows: list[dict]) -> str:
-    """Build a minimal claim_verification_gap_analysis.md with a Closed Behavioral Chains table."""
-    rows = "\n".join(
-        f"| {r['tif_id']} | {r.get('claim_ids', '')} | {r.get('req_ids', '')} |" for r in tif_rows
-    )
-    return (
-        "## Closed Behavioral Chains\n\n"
-        "| TIF ID | Claim IDs | Requirement IDs |\n"
-        "|---|---|---|\n"
-        f"{rows}\n"
-    )
-
-
 # ---------------------------------------------------------------------------
 # Tests: committed evidence vs TIF spec cross-check
 # ---------------------------------------------------------------------------
@@ -947,33 +923,14 @@ def test_should_fail_when_readme_row_has_wrong_claims_served(
 
 
 # ---------------------------------------------------------------------------
-# Tests: gap analysis cross-check
+# Tests: active TIF must have committed evidence (_check_active_tifs_have_evidence)
 # ---------------------------------------------------------------------------
 
 
-def test_should_fail_when_gap_analysis_row_has_nonexistent_tif(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
+def test_should_fail_when_active_tif_spec_has_no_committed_evidence(
     chain_dirs: dict[str, Path],
 ) -> None:
-    """A gap analysis row whose TIF ID has no matching active spec fails."""
-    gap_file = tmp_path / "gap_analysis.md"
-    gap_file.write_text(
-        _minimal_gap_analysis([{"tif_id": "CE-TIF-GHOST-001", "claim_ids": "", "req_ids": ""}]),
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(vcc, "_GAP_ANALYSIS_PATH", gap_file)
-
-    errors, _ = vcc.run_checks()
-    assert any("CE-TIF-GHOST-001" in e and "not an active TIF" in e for e in errors), errors
-
-
-def test_should_fail_when_gap_analysis_active_tif_has_no_evidence(
-    tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
-    chain_dirs: dict[str, Path],
-) -> None:
-    """A gap analysis row with an active TIF but no committed evidence fails."""
+    """An active TIF spec with no matching CE-EVID-*.json file fails."""
     tif_dir = chain_dirs["tif"]
     _write(
         tif_dir / "CE-TIF-TEST-001.md",
@@ -983,17 +940,300 @@ def test_should_fail_when_gap_analysis_active_tif_has_no_evidence(
             "TEST-001",
         ),
     )
-    # No evidence written to chain_dirs["raw_evid"]
-
-    gap_file = tmp_path / "gap_analysis.md"
-    gap_file.write_text(
-        _minimal_gap_analysis([{"tif_id": "CE-TIF-TEST-001", "claim_ids": "", "req_ids": ""}]),
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(vcc, "_GAP_ANALYSIS_PATH", gap_file)
+    # chain_dirs["raw_evid"] is empty — no evidence written
 
     errors, _ = vcc.run_checks()
-    assert any("CE-TIF-TEST-001" in e and "no committed evidence" in e for e in errors), errors
+    assert any("CE-TIF-TEST-001" in e and "no committed raw evidence" in e for e in errors), errors
+
+
+def test_should_pass_when_active_tif_spec_has_committed_evidence(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """An active TIF with matching evidence does not produce an evidence-missing error."""
+    tif_dir = chain_dirs["tif"]
+    raw_dir = chain_dirs["raw_evid"]
+    claims_dir = chain_dirs["claims"]
+    reqs_dir = chain_dirs["reqs"]
+
+    _write(
+        claims_dir / "CE-CAP-TEST-001.yaml",
+        _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
+    )
+    _write(
+        reqs_dir / "CE-REQ-TEST-001.md",
+        _minimal_req(
+            "CE-REQ-TEST-001",
+            "CE-CAP-TEST-001",
+            vstatus="not_implemented",
+            tif_exemption="documentation_boundary",
+        ),
+    )
+    _write(
+        tif_dir / "CE-TIF-TEST-001.md",
+        _tif_spec_with_sections(
+            "CE-TIF-TEST-001",
+            str(tif_dir / "tif_test.py"),
+            "TEST-001",
+        ),
+    )
+    evid = _minimal_raw_evidence(
+        "CE-EVID-TEST-001-20260622",
+        claim_ids=["CE-CAP-TEST-001"],
+        req_ids=["CE-REQ-TEST-001"],
+        tif_ids=["CE-TIF-TEST-001"],
+    )
+    (raw_dir / "CE-EVID-TEST-001-20260622.json").write_text(json.dumps(evid), encoding="utf-8")
+
+    errors, _ = vcc.run_checks()
+    assert not any(
+        "CE-TIF-TEST-001" in e and "no committed raw evidence" in e for e in errors
+    ), errors
+
+
+# ---------------------------------------------------------------------------
+# Tests: bidirectional claim↔requirement reciprocity
+# ---------------------------------------------------------------------------
+
+
+def test_should_fail_when_claim_to_req_link_not_reciprocal(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """Claim lists a requirement whose claim_refs does not include the claim."""
+    claims_dir = chain_dirs["claims"]
+    reqs_dir = chain_dirs["reqs"]
+
+    _write(
+        claims_dir / "CE-CAP-TEST-001.yaml",
+        _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
+    )
+    # Requirement points to a DIFFERENT claim — not back to CE-CAP-TEST-001
+    _write(
+        reqs_dir / "CE-REQ-TEST-001.md",
+        _minimal_req(
+            "CE-REQ-TEST-001",
+            "CE-CAP-OTHER-001",  # wrong claim_ref
+            vstatus="not_implemented",
+            tif_exemption="documentation_boundary",
+        ),
+    )
+
+    errors, _ = vcc.run_checks()
+    assert any(
+        "CE-CAP-TEST-001" in e and "CE-REQ-TEST-001" in e and "does not link back" in e
+        for e in errors
+    ), errors
+
+
+def test_should_fail_when_req_to_claim_link_not_reciprocal(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """Requirement's claim_ref points to a claim that does not list this requirement."""
+    claims_dir = chain_dirs["claims"]
+    reqs_dir = chain_dirs["reqs"]
+
+    # Claim does NOT list CE-REQ-TEST-001 in its requirements
+    _write(
+        claims_dir / "CE-CAP-TEST-001.yaml",
+        _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-002"], atomic_rationale=True),
+    )
+    _write(
+        reqs_dir / "CE-REQ-TEST-002.md",
+        _minimal_req(
+            "CE-REQ-TEST-002",
+            "CE-CAP-TEST-001",
+            vstatus="not_implemented",
+            tif_exemption="documentation_boundary",
+        ),
+    )
+    # This requirement references CE-CAP-TEST-001 but the claim does not list it
+    _write(
+        reqs_dir / "CE-REQ-TEST-001.md",
+        _minimal_req(
+            "CE-REQ-TEST-001",
+            "CE-CAP-TEST-001",  # references the claim
+            vstatus="verified",
+            tif_exemption="documentation_boundary",
+        ),
+    )
+
+    errors, _ = vcc.run_checks()
+    assert any(
+        "CE-REQ-TEST-001" in e and "CE-CAP-TEST-001" in e and "does not list this requirement" in e
+        for e in errors
+    ), errors
+
+
+# ---------------------------------------------------------------------------
+# Tests: bidirectional TIF↔requirement reciprocity
+# ---------------------------------------------------------------------------
+
+
+def test_should_fail_when_req_tif_ref_not_in_tif_requirements_served(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """Requirement has a tif_ref to T, but T's requirements_served does not include the req."""
+    tif_dir = chain_dirs["tif"]
+    reqs_dir = chain_dirs["reqs"]
+    claims_dir = chain_dirs["claims"]
+
+    _write(
+        claims_dir / "CE-CAP-TEST-001.yaml",
+        _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
+    )
+    # TIF spec with empty requirements_served — doesn't list CE-REQ-TEST-001
+    _write(
+        tif_dir / "CE-TIF-TEST-001.md",
+        _tif_spec_with_sections(
+            "CE-TIF-TEST-001",
+            str(tif_dir / "tif_test.py"),
+            "TEST-001",
+            requirements_served=[],  # intentionally empty
+            claims_served=["CE-CAP-TEST-001"],
+        ),
+    )
+    # Requirement references the TIF
+    _write(
+        reqs_dir / "CE-REQ-TEST-001.md",
+        _minimal_req(
+            "CE-REQ-TEST-001",
+            "CE-CAP-TEST-001",
+            obligation_type="api_contract",
+            vstatus="verified",
+            tif_refs=["CE-TIF-TEST-001"],
+        ),
+    )
+
+    errors, _ = vcc.run_checks()
+    assert any(
+        "CE-REQ-TEST-001" in e and "CE-TIF-TEST-001" in e and "does not list this requirement" in e
+        for e in errors
+    ), errors
+
+
+def test_should_fail_when_tif_requirements_served_not_in_req_tif_refs(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """TIF spec lists a requirement in requirements_served, but that req's tif_refs omits the TIF."""
+    tif_dir = chain_dirs["tif"]
+    reqs_dir = chain_dirs["reqs"]
+    claims_dir = chain_dirs["claims"]
+
+    _write(
+        claims_dir / "CE-CAP-TEST-001.yaml",
+        _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
+    )
+    # TIF spec serves CE-REQ-TEST-001
+    _write(
+        tif_dir / "CE-TIF-TEST-001.md",
+        _tif_spec_with_sections(
+            "CE-TIF-TEST-001",
+            str(tif_dir / "tif_test.py"),
+            "TEST-001",
+            requirements_served=["CE-REQ-TEST-001"],
+            claims_served=["CE-CAP-TEST-001"],
+        ),
+    )
+    # Requirement does NOT reference the TIF back (uses tif_exemption instead)
+    _write(
+        reqs_dir / "CE-REQ-TEST-001.md",
+        _minimal_req(
+            "CE-REQ-TEST-001",
+            "CE-CAP-TEST-001",
+            obligation_type="api_contract",
+            vstatus="verified",
+            tif_exemption="documentation_boundary",  # no tif_refs
+        ),
+    )
+
+    errors, _ = vcc.run_checks()
+    assert any(
+        "CE-TIF-TEST-001" in e and "CE-REQ-TEST-001" in e and "does not reference" in e
+        for e in errors
+    ), errors
+
+
+# ---------------------------------------------------------------------------
+# Tests: TIF→claim reachability
+# ---------------------------------------------------------------------------
+
+
+def test_should_fail_when_tif_served_claim_not_reachable_through_served_requirements(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """TIF serves a claim, but none of its requirements_served have that claim in claim_refs."""
+    tif_dir = chain_dirs["tif"]
+    reqs_dir = chain_dirs["reqs"]
+    claims_dir = chain_dirs["claims"]
+
+    _write(
+        claims_dir / "CE-CAP-TEST-001.yaml",
+        _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
+    )
+    _write(
+        claims_dir / "CE-CAP-ORPHAN-001.yaml",
+        _minimal_claim("CE-CAP-ORPHAN-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
+    )
+    _write(
+        reqs_dir / "CE-REQ-TEST-001.md",
+        _minimal_req(
+            "CE-REQ-TEST-001",
+            "CE-CAP-TEST-001",  # only references CE-CAP-TEST-001, not CE-CAP-ORPHAN-001
+            vstatus="not_implemented",
+            tif_exemption="documentation_boundary",
+        ),
+    )
+    # TIF claims to serve CE-CAP-ORPHAN-001, but its served requirements only link to CE-CAP-TEST-001
+    _write(
+        tif_dir / "CE-TIF-TEST-001.md",
+        _tif_spec_with_sections(
+            "CE-TIF-TEST-001",
+            str(tif_dir / "tif_test.py"),
+            "TEST-001",
+            requirements_served=["CE-REQ-TEST-001"],
+            claims_served=["CE-CAP-ORPHAN-001"],  # not reachable
+        ),
+    )
+
+    errors, _ = vcc.run_checks()
+    assert any(
+        "CE-TIF-TEST-001" in e and "CE-CAP-ORPHAN-001" in e and "not reachable" in e for e in errors
+    ), errors
+
+
+def test_should_pass_when_tif_served_claim_is_reachable_through_served_requirements(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """TIF serving a claim whose requirement links back passes reachability check."""
+    tif_dir = chain_dirs["tif"]
+    reqs_dir = chain_dirs["reqs"]
+    claims_dir = chain_dirs["claims"]
+
+    _write(
+        claims_dir / "CE-CAP-TEST-001.yaml",
+        _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
+    )
+    _write(
+        reqs_dir / "CE-REQ-TEST-001.md",
+        _minimal_req(
+            "CE-REQ-TEST-001",
+            "CE-CAP-TEST-001",
+            vstatus="not_implemented",
+            tif_exemption="documentation_boundary",
+        ),
+    )
+    _write(
+        tif_dir / "CE-TIF-TEST-001.md",
+        _tif_spec_with_sections(
+            "CE-TIF-TEST-001",
+            str(tif_dir / "tif_test.py"),
+            "TEST-001",
+            requirements_served=["CE-REQ-TEST-001"],
+            claims_served=["CE-CAP-TEST-001"],
+        ),
+    )
+
+    errors, _ = vcc.run_checks()
+    assert not any("not reachable" in e for e in errors), errors
 
 
 # ---------------------------------------------------------------------------
