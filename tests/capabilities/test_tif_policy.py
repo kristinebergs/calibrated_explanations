@@ -27,10 +27,15 @@ import pytest
 _REPO_ROOT = Path(__file__).parents[2]
 _TIF_PY_DIR = _REPO_ROOT / "development" / "capabilities" / "verification" / "tif"
 
+_TIF_UTILITY_MODULES = {
+    "__init__.py",
+    "tif_evidence_helpers.py",
+}
+
 
 def _get_tif_py_files() -> list[Path]:
-    """Return all .py files under the TIF directory (excluding __init__.py)."""
-    return [p for p in _TIF_PY_DIR.glob("*.py") if p.name != "__init__.py"]
+    """Return TIF scenario .py files (excludes __init__.py and shared utility modules)."""
+    return [p for p in _TIF_PY_DIR.glob("*.py") if p.name not in _TIF_UTILITY_MODULES]
 
 
 def _read_source(path: Path) -> str:
@@ -70,11 +75,7 @@ _FORBIDDEN_INTERNAL_IMPORT = re.compile(
 
 @pytest.mark.parametrize("tif_file", _get_tif_py_files(), ids=lambda p: p.name)
 def test_tif_should_not_import_calibrated_explainer_directly(tif_file: Path):
-    """TIF files must not import CalibratedExplainer from core directly.
-
-    Importing CalibratedExplainer from the internal module bypasses the
-    WrapCalibratedExplainer entry point and exposes internal implementation.
-    """
+    """TIF files must not import CalibratedExplainer from core directly."""
     source = _read_source(tif_file)
     assert not _FORBIDDEN_INTERNAL_IMPORT.search(source), (
         f"TIF policy violation in {tif_file.name}: "
@@ -96,11 +97,7 @@ _FORBIDDEN_DIRECT_CONSTRUCTION = re.compile(
 
 @pytest.mark.parametrize("tif_file", _get_tif_py_files(), ids=lambda p: p.name)
 def test_tif_should_not_construct_explanation_objects_directly(tif_file: Path):
-    """TIF files must not construct FactualExplanation or AlternativeExplanation directly.
-
-    Direct construction bypasses the WrapCalibratedExplainer workflow and produces
-    explanation objects that are not produced through the supported public lifecycle.
-    """
+    """TIF files must not construct FactualExplanation or AlternativeExplanation directly."""
     source = _read_source(tif_file)
     match = _FORBIDDEN_DIRECT_CONSTRUCTION.search(source)
     assert not match, (
@@ -123,15 +120,7 @@ _PRIVATE_MEMBER_PATTERN = re.compile(
 
 @pytest.mark.parametrize("tif_file", _get_tif_py_files(), ids=lambda p: p.name)
 def test_tif_should_not_access_private_members(tif_file: Path):
-    """TIF files must not access private members of CE objects.
-
-    Private member access (._something) on CE objects indicates the TIF is
-    relying on internal implementation details rather than the public API.
-
-    This check uses a heuristic pattern. It looks for ._<attr> access on
-    common CE object variable names. It may miss indirect private access via
-    intermediate variables but provides a focused guard against obvious violations.
-    """
+    """TIF files must not access private members of CE objects."""
     source = _read_source(tif_file)
     match = _PRIVATE_MEMBER_PATTERN.search(source)
     assert not match, (
@@ -162,11 +151,7 @@ def test_tif_directory_should_have_readme():
 
 @pytest.mark.parametrize("tif_file", _get_tif_py_files(), ids=lambda p: p.name)
 def test_tif_python_file_should_have_corresponding_spec(tif_file: Path):
-    """Each TIF executable should be covered by a CE-TIF-*.md specification.
-
-    This is a documentation completeness check, not a behavioral check.
-    It ensures TIF executables are not written without a governing specification.
-    """
+    """Each TIF executable should be covered by a CE-TIF-*.md specification."""
     stem = tif_file.stem  # e.g. "tif_conjunction"
     # Look for any CE-TIF-*.md that references this executable
     md_files = list(_TIF_PY_DIR.glob("CE-TIF-*.md"))
@@ -192,15 +177,7 @@ _TIF_EXEMPTION_RE = re.compile(r"tif_exemption")
 
 
 def test_capability_requirements_should_declare_tif_refs_or_exemption():
-    """Requirements that cite tests/capabilities/ must declare tif_refs or tif_exemption.
-
-    Any requirement whose verification targets include a test in tests/capabilities/
-    is a CE capability-facing requirement and must either:
-    - Declare tif_refs pointing to one or more CE-TIF-*.md interfaces, OR
-    - Declare tif_exemption with a rationale (for non-WrapCalibratedExplainer checks).
-
-    Governance requirements verified through tests/unit/ are excluded from this rule.
-    """
+    """Requirements that cite tests/capabilities/ must declare tif_refs or tif_exemption."""
     repo_root = _REPO_ROOT
     req_dir = repo_root / "development" / "capabilities" / "requirements"
     errors: list[str] = []
@@ -225,4 +202,71 @@ def test_capability_requirements_should_declare_tif_refs_or_exemption():
         "TIF architecture policy: every requirement that cites a test in tests/capabilities/ "
         "must declare tif_refs (pointing to a CE-TIF-*.md interface) or tif_exemption "
         "(with rationale). Missing:\n" + "\n".join(f"  {e}" for e in errors)
+    )
+
+
+# ---------------------------------------------------------------------------
+# Rule 8: Active TIF specs must declare required Identity metadata
+# ---------------------------------------------------------------------------
+
+_REQUIRED_IDENTITY_FIELDS = {"tif_id", "executable", "entry_functions", "evidence_key", "verification_type", "status"}
+
+
+def _spec_table_value(text: str, field: str) -> str:
+    match = re.search(rf"\|\s*{re.escape(field)}\s*\|\s*([^|]+?)\s*\|", text)
+    return match.group(1).strip() if match else ""
+
+
+@pytest.mark.parametrize(
+    "spec_path",
+    sorted(_TIF_PY_DIR.glob("CE-TIF-*.md")),
+    ids=lambda p: p.name,
+)
+def test_active_tif_spec_should_have_required_identity_fields(spec_path: Path):
+    """Active TIF specs must declare all required Identity table fields."""
+    text = spec_path.read_text(encoding="utf-8")
+    status = _spec_table_value(text, "status")
+    if status != "active":
+        pytest.skip(f"{spec_path.name} is not active (status={status!r})")
+
+    missing = [f for f in _REQUIRED_IDENTITY_FIELDS if not _spec_table_value(text, f)]
+    assert not missing, (
+        f"{spec_path.name}: active TIF spec is missing Identity table fields: {sorted(missing)}. "
+        "All active TIF specs must declare these fields so they can be discovered "
+        "dynamically by scripts/generate_tif_evidence.py."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Rule 9: Active TIF executables must expose build_evidence_payload()
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("tif_file", _get_tif_py_files(), ids=lambda p: p.name)
+def test_tif_executable_should_expose_build_evidence_payload(tif_file: Path):
+    """Every TIF scenario executable must expose build_evidence_payload()."""
+    source = _read_source(tif_file)
+    assert "def build_evidence_payload(" in source, (
+        f"TIF policy violation in {tif_file.name}: "
+        "build_evidence_payload() function is not defined. "
+        "Every TIF executable must expose this function so it can be discovered "
+        "and called dynamically by scripts/generate_tif_evidence.py."
+    )
+
+
+# ---------------------------------------------------------------------------
+# Rule 10: TIF README table must not have stale entries (bidirectional check)
+# ---------------------------------------------------------------------------
+
+
+def test_tif_readme_should_not_have_stale_entries():
+    """README table entries must resolve to existing CE-TIF-*.md spec files."""
+    readme = (_TIF_PY_DIR / "README.md").read_text(encoding="utf-8")
+    existing_spec_names = {p.name for p in _TIF_PY_DIR.glob("CE-TIF-*.md")}
+
+    referenced_in_readme = re.findall(r"CE-TIF-[A-Z0-9-]+\.md", readme)
+    stale = [name for name in referenced_in_readme if name not in existing_spec_names]
+    assert not stale, (
+        f"TIF README contains entries with no corresponding CE-TIF-*.md spec file: {stale}. "
+        "Remove stale README table rows or add the missing spec files."
     )
