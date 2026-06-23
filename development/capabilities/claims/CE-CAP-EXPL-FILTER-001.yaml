@@ -57,7 +57,8 @@ assumptions:
   - This claim does not assert that any filter produces a statistically optimal selection;
     it asserts only that the API is callable and returns a non-None collection or
     individual explanation of the correct type.
-  - "Ensured" here means the calibrated probability interval for the rule does not
+  - >-
+    "Ensured" here means the calibrated probability interval for the rule does not
     straddle the decision boundary. This is a calibration-data-dependent property.
 
 evidence_required:

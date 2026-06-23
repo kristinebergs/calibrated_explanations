@@ -1254,6 +1254,17 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
         -------
         CalibratedExplanations
             Returns a self reference, to allow for method chaining.
+
+        Notes
+        -----
+        **Assumption boundary**: Conjunctive rules extend single-feature rules with
+        multi-feature combinations. This API verifies that conjunction generation
+        completes and returns a valid collection. It does not assert that conjunction
+        rules are semantically superior to single-feature rules for any particular
+        task or dataset. Calibration validity of conjunction-rule probabilities
+        depends on the same exchangeability assumptions as the underlying factual
+        explanations. Runtime performance is not guaranteed for large feature spaces
+        or high ``max_rule_size`` values.
         """
         for explanation in self.explanations:
             explanation.add_conjunctions(n_top_features, max_rule_size, **kwargs)

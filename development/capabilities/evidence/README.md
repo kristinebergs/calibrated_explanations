@@ -190,3 +190,19 @@ The evidence-reference pytest suite remains historical-safe by default. To requi
 ```bash
 CE_REQUIRE_CURRENT_EVIDENCE=1 pytest tests/capabilities/test_evidence_refs.py -q
 ```
+
+## Structural validation
+
+To validate committed raw evidence files without running TIF scenarios:
+
+```bash
+python scripts/generate_tif_evidence.py --validate-existing
+```
+
+This is included in `make capability-chain-check` and runs as part of `make local-checks-pr`.
+
+To validate the full chain (claims → requirements → TIFs → evidence):
+
+```bash
+make capability-chain-check
+```

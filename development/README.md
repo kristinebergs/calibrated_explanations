@@ -95,3 +95,27 @@ Start here, then follow the current locations:
 4. Test quality method (ADR-030 tooling): `development/standards/test-quality-method/`
 5. Test guidance: `tests/README.md`
 6. Repository-wide agent rules: `CONTRIBUTOR_INSTRUCTIONS.md`
+
+## Capability verification workflow
+
+When changing claims, requirements, TIFs, tests, or evidence:
+
+```bash
+make capability-chain-check
+```
+
+When changing TIF behavior or capability-test acceptance criteria:
+
+```bash
+make capability-evidence-refresh
+# commit updated reports/verification/CE-EVID-*.json
+```
+
+At release closure:
+
+```bash
+make capability-evidence-refresh
+make capability-chain-check
+```
+
+The non-mutating `capability-chain-check` target is included in `make local-checks-pr`.

@@ -9,8 +9,9 @@
 | claim_refs | CE-CAP-EXPL-002 |
 | adr_refs | ADR-008, ADR-026 |
 | status | active |
-| verification_status | not_implemented |
-| gap_ref | CE-REQ-EXPL-ALT-DOC-001 |
+| verification_status | verified |
+| verification_strength | documentation_boundary |
+| evidence_level | curated_summary |
 | applicable_on | CE documentation (RTD, docstrings) |
 | tif_exemption | documentation_boundary |
 | verification_strength | documentation_boundary |
@@ -56,15 +57,12 @@ Human review of RTD pages and public docstrings.
 
 ## Verification targets
 
-Gap: `not_implemented` — documentation review has not been executed as a formal
-verification step for this requirement.
+Curated evidence review: `development/capabilities/evidence/evidence_documentation_boundaries_v0.11.4.md`
 
-```
-gap_ref: CE-REQ-EXPL-ALT-DOC-001
-missing_behavior: formal documentation review confirming assumption boundary claims
-why_not_verified: documentation review is not currently an automated CI gate
-intended_closure: manual review during v0.12.x documentation audit
-```
+The review confirms that `WrapCalibratedExplainer.explore_alternatives` docstring states
+the API-contract scope, that alternative explanations do not guarantee achievability, and
+that the exchangeability assumption applies. See the curated evidence record for reviewed
+doc paths, findings, and assumption boundary statement.
 
 ## Evidence required
 

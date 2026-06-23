@@ -36,7 +36,8 @@ verification:
   verification_type: automated
 
 assumptions:
-  - Mondrian conformal prediction provides conditional validity guarantees: coverage
+  - >-
+    Mondrian conformal prediction provides conditional validity guarantees: coverage
     holds within each Mondrian category, not globally. Each category must contain
     sufficient calibration samples; small per-category sets degrade coverage.
   - The mc parameter must be a callable returning category keys for each calibration

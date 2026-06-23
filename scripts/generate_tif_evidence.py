@@ -372,7 +372,97 @@ _RUNNERS = [
 ]
 
 
-def main(*, check_current: bool = False) -> int:
+def _validate_existing_evidence() -> int:
+    """Validate committed raw evidence files without running TIF scenarios.
+
+    Checks structural integrity of each CE-EVID-*.json file:
+      - evidence_id matches filename stem
+      - claim_ids, requirement_ids, tif_ids present
+      - commit_sha is a valid 40-char hex SHA (or 'unknown' when unavailable)
+      - verification_type is valid
+      - top-level result is consistent with scenario results
+      - criterion_ref values are in requirement_ids
+      - behavioral evidence has tif_ids
+
+    Does not re-run TIF scenarios or write files.
+    """
+    print(f"Validating committed raw evidence files in {_OUT_DIR}")
+    failed: list[str] = []
+
+    evidence_files = sorted(_OUT_DIR.glob("CE-EVID-*.json"))
+    if not evidence_files:
+        print("  No CE-EVID-*.json files found.")
+        return 0
+
+    for path in evidence_files:
+        stem = path.stem
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            print(f"  ERROR {stem}: JSON parse error: {exc}")
+            failed.append(stem)
+            continue
+
+        ok = True
+
+        def _fail(msg: str) -> None:
+            nonlocal ok
+            print(f"  ERROR {stem}: {msg}")
+            failed.append(stem)
+            ok = False
+
+        if data.get("evidence_id") != stem:
+            _fail(f"evidence_id '{data.get('evidence_id')}' != filename stem '{stem}'")
+
+        if not data.get("claim_ids"):
+            _fail("claim_ids is empty")
+
+        if not data.get("requirement_ids"):
+            _fail("requirement_ids is empty")
+
+        vtype = data.get("verification_type", "")
+        if vtype in _BEHAVIORAL_TYPES and not data.get("tif_ids"):
+            _fail(f"behavioral verification_type '{vtype}' but tif_ids is empty")
+
+        sha = data.get("commit_sha", "")
+        if sha and sha != "unknown" and not _SHA_RE.fullmatch(sha):
+            _fail(f"commit_sha '{sha}' is not a 40-character hex SHA")
+
+        scenarios: list[dict[str, Any]] = data.get("scenarios", [])
+        if not scenarios:
+            _fail("scenarios list is empty")
+        else:
+            all_pass = all(s.get("result") == "pass" for s in scenarios)
+            expected_top = "pass" if all_pass else "fail"
+            if data.get("result") and data["result"] != expected_top:
+                _fail(
+                    f"top-level result '{data['result']}' disagrees with scenarios (expected '{expected_top}')"
+                )
+
+        ev_req_set = set(data.get("requirement_ids", []))
+        for scenario in scenarios:
+            for acc in scenario.get("acceptance", []):
+                cref = acc.get("criterion_ref", "")
+                if cref and cref not in ev_req_set:
+                    _fail(
+                        f"scenario '{scenario.get('scenario_id')}': "
+                        f"criterion_ref '{cref}' not in requirement_ids"
+                    )
+
+        if ok:
+            print(f"  OK    {stem}")
+
+    if failed:
+        print(f"\nFAILED: {', '.join(dict.fromkeys(failed))}")
+        return 1
+    print(f"\nAll {len(evidence_files)} evidence file(s) valid.")
+    return 0
+
+
+def main(*, check_current: bool = False, validate_existing: bool = False) -> int:
+    if validate_existing:
+        return _validate_existing_evidence()
+
     _OUT_DIR.mkdir(parents=True, exist_ok=True)
     print(f"Generating TIF evidence records -> {_OUT_DIR}")
     print(f"  package: {_PACKAGE_VERSION}  commit: {_COMMIT_SHA}")
@@ -406,6 +496,15 @@ def main(*, check_current: bool = False) -> int:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check-current", action="store_true")
+    parser.add_argument(
+        "--check-current",
+        action="store_true",
+        help="After generating evidence, fail if evidence is not at current HEAD or any result is fail.",
+    )
+    parser.add_argument(
+        "--validate-existing",
+        action="store_true",
+        help="Validate committed evidence files structurally without running TIF scenarios.",
+    )
     args = parser.parse_args()
-    sys.exit(main(check_current=args.check_current))
+    sys.exit(main(check_current=args.check_current, validate_existing=args.validate_existing))

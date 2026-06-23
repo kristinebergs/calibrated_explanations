@@ -32,7 +32,8 @@ verification:
 assumptions:
   - The explainer must be fitted and calibrated on a representative calibration set
     before calling predict_proba or predict.
-  - Venn-Abers calibration validity (interval coverage) holds under the exchangeability
+  - >-
+    Venn-Abers calibration validity (interval coverage) holds under the exchangeability
     assumption: calibration and test instances must be exchangeable draws from the same
     distribution. Distribution shift invalidates coverage guarantees.
   - predict_proba returns empirical Venn-Abers probabilities. These are not guaranteed

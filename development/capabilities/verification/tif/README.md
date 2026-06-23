@@ -56,6 +56,24 @@ tif_<area>.py              # executable scenario implementing the spec
 | CE-TIF-REJECT-001 | [CE-TIF-REJECT-001.md](CE-TIF-REJECT-001.md) | [tif_reject.py](tif_reject.py) | CE-REQ-REJECT-API-001 | CE-CAP-REJECT-001 |
 | CE-TIF-VIZ-001 | [CE-TIF-VIZ-001.md](CE-TIF-VIZ-001.md) | [tif_visualization.py](tif_visualization.py) | CE-REQ-VIZ-SMOKE-001 | CE-CAP-VIZ-001 |
 
+## Chain enforcement
+
+Run after any change to claims, requirements, TIF specs, tests, or evidence:
+
+```bash
+make capability-chain-check
+```
+
+This runs the non-mutating chain validator and validates committed evidence files.
+
+Run at release closure or when TIF behavior changes:
+
+```bash
+make capability-evidence-refresh
+```
+
+This re-executes all TIF scenarios, writes fresh evidence, and fails if evidence is not at HEAD.
+
 ## Related locations
 
 | Material | Location |
@@ -65,3 +83,5 @@ tif_<area>.py              # executable scenario implementing the spec
 | Pytest capability tests | `tests/capabilities/` |
 | Generated raw run outputs | `reports/verification/` |
 | Curated capability evidence summaries | `development/capabilities/evidence/` |
+| Capability-chain validator | `scripts/quality/validate_capability_chain.py` |
+| Raw evidence generator | `scripts/generate_tif_evidence.py` |

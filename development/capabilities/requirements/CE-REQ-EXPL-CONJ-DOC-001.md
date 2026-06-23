@@ -9,8 +9,9 @@
 | claim_refs | CE-CAP-EXPL-CONJ-001 |
 | adr_refs | ADR-008 |
 | status | active |
-| verification_status | not_implemented |
-| gap_ref | ADR-008 |
+| verification_status | verified |
+| verification_strength | documentation_boundary |
+| evidence_level | curated_summary |
 | applicable_on | CE documentation (RTD, docstrings) |
 | supersedes | — |
 | tif_exemption | documentation_boundary |
@@ -63,17 +64,13 @@ Human review of RTD pages and public docstrings.
 
 ## Verification targets
 
-Gap: `adr_gap_open` — human review of conjunction documentation has not been
-executed as a formal verification step. Documentation content may be accurate but
-has not been reviewed against this requirement.
+Curated evidence review: `development/capabilities/evidence/evidence_documentation_boundaries_v0.11.4.md`
 
-```
-gap_ref: CE-REQ-EXPL-CONJ-DOC-001
-adr_gap_ref: ADR-008
-missing_behavior: formal documentation review confirming boundary claims
-why_not_verified: documentation review is not currently an automated CI gate
-intended_closure: manual review during v0.12.x documentation audit
-```
+The review confirms that `CalibratedExplanations.add_conjunctions` docstring states
+what the API guarantees (conjunction generation completes and returns a valid collection),
+that conjunction rules are not asserted to be superior to single-feature rules, and that
+calibration validity depends on the same exchangeability assumptions. See the curated
+evidence record for reviewed doc paths, findings, and assumption boundary statement.
 
 ## Evidence required
 

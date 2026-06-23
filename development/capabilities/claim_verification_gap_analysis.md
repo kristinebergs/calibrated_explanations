@@ -1,8 +1,8 @@
 # CE Capability Claim Verification Gap Analysis
 
 **Date:** 2026-06-22
-**Status:** Active - synchronized after TIF evidence hardening
-**Task:** Capability-verification drift and evidence-hardening pass
+**Status:** Active - updated after documentation-boundary closure and chain hardening pass
+**Task:** Capability-verification chain hardening and documentation-boundary closure
 
 ## Purpose
 
@@ -43,12 +43,19 @@ evidence records exist.
 | CE-CAP-REJECT-001 | CE-REQ-REJECT-API-001 | CE-TIF-REJECT-001 (`tif_reject.py`) | `tests/capabilities/test_reject_policy_contracts.py` | `reports/verification/CE-EVID-REJECT-001-*.json` |
 | CE-CAP-VIZ-001 | CE-REQ-VIZ-SMOKE-001 | CE-TIF-VIZ-001 (`tif_visualization.py`) | `tests/capabilities/test_visualization_contracts.py` | `reports/verification/CE-EVID-VIZ-001-*.json` |
 
+## Closed Documentation-Boundary Chains
+
+| Requirement | Closure action | Evidence |
+|---|---|---|
+| CE-REQ-EXPL-DOC-001 | Documentation review; assumption boundary added to `WrapCalibratedExplainer.explain_factual` | `development/capabilities/evidence/evidence_documentation_boundaries_v0.11.4.md` |
+| CE-REQ-EXPL-ALT-DOC-001 | Documentation review; assumption boundary added to `WrapCalibratedExplainer.explore_alternatives` | `development/capabilities/evidence/evidence_documentation_boundaries_v0.11.4.md` |
+| CE-REQ-EXPL-CONJ-DOC-001 | Documentation review; assumption boundary added to `CalibratedExplanations.add_conjunctions` | `development/capabilities/evidence/evidence_documentation_boundaries_v0.11.4.md` |
+
 ## Still Open
 
-| Gap | Status | Rationale / next action |
-|---|---|---|
-| Documentation-boundary requirements for factual and alternative explanations | still open | CE-REQ-EXPL-DOC-001 and CE-REQ-EXPL-ALT-DOC-001 are TIF-exempt documentation-boundary requirements. They need documentation review evidence, not a behavioral TIF. |
-| CE-REQ-EXPL-CONJ-DOC-001 | still open | TIF-exempt documentation-boundary requirement. Curated EXPL-CONJ evidence records it as not implemented. |
+No behavioral or documentation-boundary gaps remain open. All known open gaps are either
+closed (see above and the Closed Behavioral Chains table) or intentionally deferred with
+rationale (see Deferred With Rationale below).
 
 ## Deferred With Rationale
 
@@ -77,3 +84,5 @@ integration tests, schema checks, or TIF exemptions as appropriate.
 - Regenerate raw evidence with `python scripts/generate_tif_evidence.py` after changing TIF behavior.
 - Use `python scripts/generate_tif_evidence.py --check-current` at release closure when raw evidence must match the release commit.
 - Do not leave stale `NONE` entries for TIF, tests, or evidence when files exist.
+- Run `make capability-chain-check` after changing claims, requirements, TIF specs, or evidence.
+- Run `make capability-evidence-refresh` after changing TIF behavior or acceptance logic, and commit updated `reports/verification/CE-EVID-*.json` files.

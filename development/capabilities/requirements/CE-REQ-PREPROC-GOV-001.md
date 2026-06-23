@@ -10,6 +10,7 @@
 | adr_refs | ADR-009 |
 | status | active |
 | verification_status | verified |
+| tif_exemption | repository_policy |
 
 ## Scope
 

@@ -466,6 +466,17 @@ class WrapCalibratedExplainer:
         CalibratedExplanations or mapping
             Explanation collection produced by the underlying explainer.
 
+        Notes
+        -----
+        **Assumption boundary**: This method verifies the API contract — that the
+        call completes and returns a valid explanation collection. It does not
+        guarantee the statistical validity of calibrated feature attributions for
+        any particular instance. The calibration validity depends on the
+        exchangeability assumption: the calibration set must be representative of
+        the test distribution. Feature attribution magnitudes reflect calibrated
+        probability shifts, not causal importances or ground-truth attribution
+        correctness.
+
         See Also
         --------
         :meth:`CalibratedExplainer.explain_factual`
@@ -496,10 +507,19 @@ class WrapCalibratedExplainer:
     def explore_alternatives(self, x: Any, **kwargs: Any) -> Any:
         """Generate alternative explanations for the test data.
 
+        Notes
+        -----
+        **Assumption boundary**: Alternative explanations describe feature changes
+        that would shift the predicted probability toward an alternative outcome.
+        They do not guarantee that the described feature changes are physically
+        achievable, distributionally feasible, or actionable in a new model
+        deployment. The exchangeability assumption applies: results depend on the
+        calibration set being representative of the test distribution.
+
         See Also
         --------
-        :meth:`.CalibratedExplainer.explore_alternatives` : Refer to the docstring for explore_alternatives in CalibratedExplainer for more details.
-
+        :meth:`.CalibratedExplainer.explore_alternatives` : Refer to the docstring
+            for explore_alternatives in CalibratedExplainer for more details.
         """
         assert (
             self._assert_fitted(

@@ -111,3 +111,16 @@ local-checks-ci:
 # PR-scope only: lint/type/core-tests + policy scanners.
 local-checks-pr:
 	python scripts/local_checks.py --skip-main
+
+# Validate the capability verification chain without executing TIF scenarios.
+# Safe to run on every PR — does not mutate any files.
+.PHONY: capability-chain-check
+capability-chain-check:
+	python scripts/quality/validate_capability_chain.py --check
+	python scripts/generate_tif_evidence.py --validate-existing
+
+# Regenerate raw evidence by running all TIF scenarios and checking they pass at HEAD.
+# Run explicitly when TIF behavior or acceptance logic changes, and at release closure.
+.PHONY: capability-evidence-refresh
+capability-evidence-refresh:
+	python scripts/generate_tif_evidence.py --check-current

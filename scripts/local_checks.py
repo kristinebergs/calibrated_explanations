@@ -684,6 +684,14 @@ def main() -> int:
             optional=True,
         ),
         Step("Core tests (no viz/no cov)", core_test_command),
+        Step(
+            "Capability-chain validator",
+            _python_cmd("scripts/quality/validate_capability_chain.py", "--check"),
+        ),
+        Step(
+            "Raw evidence structural validation",
+            _python_cmd("scripts/generate_tif_evidence.py", "--validate-existing"),
+        ),
         Step("Private-member scan", _python_cmd("scripts/anti-pattern-analysis/scan_private_usage.py", "tests", "--check")),
         Step(
             "ADR-030 anti-pattern detector",
