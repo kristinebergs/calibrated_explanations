@@ -10,6 +10,7 @@ Requirements exercised:
 from __future__ import annotations
 
 import json
+import re
 import sys
 import textwrap
 from pathlib import Path
@@ -491,3 +492,178 @@ def test_should_fail_validate_existing_when_behavioral_evidence_has_no_tif_ids(
 
     rc = gte.main(validate_existing=True)
     assert rc != 0
+
+
+# ---------------------------------------------------------------------------
+# Helpers for TIF spec / README fixture creation
+# ---------------------------------------------------------------------------
+
+
+def _minimal_tif_spec(
+    tif_id: str,
+    executable: str,
+    evidence_key: str,
+    *,
+    verification_type: str = "api_contract",
+    status: str = "active",
+    evidence_builder: str = "build_evidence_payload()",
+) -> str:
+    return textwrap.dedent(f"""\
+        # {tif_id}
+
+        ## Identity
+
+        | Field | Value |
+        |---|---|
+        | tif_id | {tif_id} |
+        | executable | `{executable}` |
+        | evidence_builder | `{evidence_builder}` |
+        | evidence_key | {evidence_key} |
+        | verification_type | {verification_type} |
+        | status | {status} |
+    """)
+
+
+def _readme_with_tif_table(rows: list[dict]) -> str:
+    """Build a README snippet with a 'Current TIF Interfaces' table."""
+    header = "| TIF ID | Executable | Evidence Key | Verification Type | Status |"
+    sep = "|---|---|---|---|---|"
+    data = "\n".join(
+        f"| {r['tif_id']} | {r.get('executable', '')} | {r.get('evidence_key', '')} "
+        f"| {r.get('verification_type', 'api_contract')} | {r.get('status', 'active')} |"
+        for r in rows
+    )
+    return textwrap.dedent(f"""\
+        # TIF README
+
+        ## Current TIF Interfaces
+
+        {header}
+        {sep}
+        {data}
+    """)
+
+
+# ---------------------------------------------------------------------------
+# Tests: README bidirectional cross-check (validate_capability_chain)
+# ---------------------------------------------------------------------------
+
+
+def test_should_fail_when_active_spec_missing_from_readme(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """An active TIF spec not listed in the README table fails."""
+    tif_dir = chain_dirs["tif"]
+    exec_path = tif_dir / "tif_test.py"
+    _write(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
+    # Add build_evidence_payload to the executable
+    exec_path.write_text(
+        exec_path.read_text(encoding="utf-8")
+        + "\ndef build_evidence_payload(**_kw):\n    return {}\n",
+        encoding="utf-8",
+    )
+    _write(
+        tif_dir / "CE-TIF-TEST-001.md",
+        _minimal_tif_spec(
+            "CE-TIF-TEST-001",
+            f"{tif_dir}/tif_test.py",
+            "TEST-001",
+        ),
+    )
+    # README exists but does NOT list CE-TIF-TEST-001
+    _write(tif_dir / "README.md", _readme_with_tif_table([]))
+
+    errors, _ = vcc.run_checks()
+    assert any("CE-TIF-TEST-001" in e and "not listed" in e for e in errors), errors
+
+
+def test_should_fail_when_readme_has_stale_extra_row(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """A README row whose TIF ID has no matching active spec fails."""
+    tif_dir = chain_dirs["tif"]
+    # No spec files — README has a row for a non-existent spec
+    _write(
+        tif_dir / "README.md",
+        _readme_with_tif_table(
+            [
+                {
+                    "tif_id": "CE-TIF-GHOST-001",
+                    "executable": "tif_ghost.py",
+                    "evidence_key": "GHOST-001",
+                    "verification_type": "api_contract",
+                    "status": "active",
+                }
+            ]
+        ),
+    )
+
+    errors, _ = vcc.run_checks()
+    assert any("CE-TIF-GHOST-001" in e and "no matching active spec" in e for e in errors), errors
+
+
+def test_should_fail_when_readme_metadata_mismatches_spec(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """A README row whose verification_type differs from the spec fails."""
+    tif_dir = chain_dirs["tif"]
+    exec_path = tif_dir / "tif_test.py"
+    _write(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
+    exec_path.write_text(
+        exec_path.read_text(encoding="utf-8")
+        + "\ndef build_evidence_payload(**_kw):\n    return {}\n",
+        encoding="utf-8",
+    )
+    _write(
+        tif_dir / "CE-TIF-TEST-001.md",
+        _minimal_tif_spec(
+            "CE-TIF-TEST-001",
+            f"{tif_dir}/tif_test.py",
+            "TEST-001",
+            verification_type="behavioral_contract",
+        ),
+    )
+    # README has wrong verification_type
+    _write(
+        tif_dir / "README.md",
+        _readme_with_tif_table(
+            [
+                {
+                    "tif_id": "CE-TIF-TEST-001",
+                    "executable": "tif_test.py",
+                    "evidence_key": "TEST-001",
+                    "verification_type": "api_contract",  # mismatch
+                    "status": "active",
+                }
+            ]
+        ),
+    )
+
+    errors, _ = vcc.run_checks()
+    assert any("CE-TIF-TEST-001" in e and "verification_type" in e for e in errors), errors
+
+
+def test_should_fail_when_tif_executable_missing_build_evidence_payload(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """A tif_*.py that does not define build_evidence_payload() fails."""
+    tif_dir = chain_dirs["tif"]
+    # Write a valid TIF py with WrapCalibratedExplainer but no build_evidence_payload
+    _write(tif_dir / "tif_test.py", _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
+
+    errors, _ = vcc.run_checks()
+    assert any("build_evidence_payload" in e for e in errors), errors
+
+
+def test_should_not_have_manual_registry_in_generate_capability_evidence() -> None:
+    """generate_capability_evidence.py must be deleted or contain no _RUNNERS or TIF imports."""
+    script = Path(__file__).parents[2] / "scripts" / "generate_capability_evidence.py"
+    if not script.exists():
+        return  # Deleted — compliant
+    text = script.read_text(encoding="utf-8")
+    assert (
+        "_RUNNERS" not in text
+    ), "generate_capability_evidence.py still contains a manual _RUNNERS registry"
+    assert not re.search(
+        r"^(?:import|from)\s+tif_", text, re.MULTILINE
+    ), "generate_capability_evidence.py has direct TIF module imports"

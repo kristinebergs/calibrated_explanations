@@ -34,6 +34,16 @@ _BEHAVIORAL_TYPES = {
     "empirical_smoke",
     "visualization_structure",
 }
+_REQUIRED_PAYLOAD_FIELDS = (
+    "evidence_id",
+    "claim_ids",
+    "requirement_ids",
+    "verification_type",
+    "result",
+    "timestamp",
+    "commit_sha",
+    "scenarios",
+)
 _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 _NOW = datetime.now(timezone.utc)
 _DATE_SUFFIX = _NOW.strftime("%Y%m%d")
@@ -57,13 +67,18 @@ _PACKAGE_VERSION = calibrated_explanations.__version__
 
 
 def _validate_payload(payload: dict[str, Any], output_stem: str) -> None:
+    """Validate a raw evidence payload structure. Raises ValueError on any violation."""
+    missing = [f for f in _REQUIRED_PAYLOAD_FIELDS if f not in payload]
+    if missing:
+        raise ValueError(f"{output_stem}: missing required fields: {', '.join(missing)}")
+
     if payload["evidence_id"] != output_stem:
         raise ValueError(f"{output_stem}: evidence_id does not match filename stem")
     if not payload["claim_ids"]:
         raise ValueError(f"{output_stem}: claim_ids must be non-empty")
     if not payload["requirement_ids"]:
         raise ValueError(f"{output_stem}: requirement_ids must be non-empty")
-    if payload["verification_type"] in _BEHAVIORAL_TYPES and not payload["tif_ids"]:
+    if payload["verification_type"] in _BEHAVIORAL_TYPES and not payload.get("tif_ids"):
         raise ValueError(f"{output_stem}: behavioral evidence must include tif_ids")
     if not payload["scenarios"]:
         raise ValueError(f"{output_stem}: scenarios must be non-empty")
@@ -90,36 +105,64 @@ def _parse_tif_spec(spec_path: Path) -> dict[str, str]:
 
     def table_value(field: str) -> str:
         match = re.search(rf"\|\s*{re.escape(field)}\s*\|\s*([^|]+?)\s*\|", text)
-        return match.group(1).strip() if match else ""
+        return match.group(1).strip().strip("`") if match else ""
 
     return {
         "tif_id": table_value("tif_id"),
         "status": table_value("status"),
-        "executable": table_value("executable").strip("`"),
+        "executable": table_value("executable"),
+        "evidence_builder": table_value("evidence_builder"),
+        "evidence_key": table_value("evidence_key"),
+        "verification_type": table_value("verification_type"),
     }
 
 
-def _discover_active_tifs() -> list[tuple[str, Any]]:
-    """Discover active TIF specs and return (tif_id, module) pairs.
+def _discover_active_tifs() -> list[tuple[str, Any, dict[str, str]]]:
+    """Discover active TIF specs and return (tif_id, module, meta) triples.
 
-    Globs CE-TIF-*.md, skips non-active specs, imports each declared executable,
-    and verifies the module exposes build_evidence_payload().
+    Globs CE-TIF-*.md, skips non-active specs, validates all required metadata,
+    imports each declared executable, and verifies the module exposes
+    build_evidence_payload().
 
-    Raises RuntimeError for any active TIF that cannot be discovered, imported,
-    or validated.
+    Raises RuntimeError for any active TIF that cannot be discovered, validated,
+    imported, or does not expose the required entry point.
     """
-    runners: list[tuple[str, Any]] = []
+    runners: list[tuple[str, Any, dict[str, str]]] = []
     for spec_path in sorted(_TIF_DIR.glob("CE-TIF-*.md")):
         meta = _parse_tif_spec(spec_path)
-        status = meta.get("status", "")
-        if status != "active":
+        if meta.get("status", "") != "active":
             continue
 
         tif_id = meta.get("tif_id") or spec_path.stem
-        executable = meta.get("executable", "")
-        if not executable:
+
+        if tif_id != spec_path.stem:
             raise RuntimeError(
-                f"{spec_path.name}: active TIF spec has no 'executable' declared in Identity table"
+                f"{spec_path.name}: tif_id '{tif_id}' does not match filename stem '{spec_path.stem}'"
+            )
+
+        for field in ("executable", "evidence_builder", "evidence_key", "verification_type"):
+            if not meta.get(field):
+                raise RuntimeError(
+                    f"{spec_path.name}: active TIF spec missing required field '{field}'"
+                )
+
+        executable = meta["executable"]
+        exec_path = _REPO_ROOT / executable
+        if not exec_path.exists():
+            raise RuntimeError(
+                f"{spec_path.name}: declared executable '{executable}' does not exist"
+            )
+        try:
+            exec_path.relative_to(_TIF_DIR)
+        except ValueError:
+            raise RuntimeError(
+                f"{spec_path.name}: executable '{executable}' is not under the TIF directory"
+            ) from None
+
+        if meta["evidence_builder"] != "build_evidence_payload()":
+            raise RuntimeError(
+                f"{spec_path.name}: evidence_builder must be 'build_evidence_payload()' "
+                f"but got '{meta['evidence_builder']}'"
             )
 
         module_name = Path(executable).stem
@@ -136,7 +179,7 @@ def _discover_active_tifs() -> list[tuple[str, Any]]:
                 "function — every active TIF executable must expose build_evidence_payload()"
             )
 
-        runners.append((tif_id, module))
+        runners.append((tif_id, module, meta))
 
     if not runners:
         raise RuntimeError(
@@ -147,6 +190,54 @@ def _discover_active_tifs() -> list[tuple[str, Any]]:
     return runners
 
 
+def _validate_payload_against_spec(
+    payload: dict[str, Any], tif_id: str, meta: dict[str, str]
+) -> None:
+    """Check that the generated payload is consistent with its TIF spec."""
+    if tif_id not in payload.get("tif_ids", []):
+        raise ValueError(
+            f"payload tif_ids {payload.get('tif_ids')} does not include spec tif_id '{tif_id}'"
+        )
+    spec_vtype = meta["verification_type"]
+    if payload.get("verification_type") != spec_vtype:
+        raise ValueError(
+            f"payload verification_type '{payload.get('verification_type')}' "
+            f"does not match spec '{spec_vtype}'"
+        )
+    evidence_key = meta["evidence_key"]
+    expected_prefix = f"CE-EVID-{evidence_key}-"
+    if not payload.get("evidence_id", "").startswith(expected_prefix):
+        raise ValueError(
+            f"payload evidence_id '{payload.get('evidence_id')}' "
+            f"does not start with expected prefix '{expected_prefix}'"
+        )
+
+
+def _validate_existing_evidence() -> int:
+    """Validate committed CE-EVID-*.json files without executing any TIF scenarios."""
+    print(f"Validating committed evidence files in {_OUT_DIR}")
+    paths = sorted(_OUT_DIR.glob("CE-EVID-*.json"))
+    if not paths:
+        print("  no CE-EVID-*.json files found")
+        return 0
+
+    failed: list[str] = []
+    for path in paths:
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            _validate_payload(payload, path.stem)
+            print(f"  OK: {path.name}")
+        except (json.JSONDecodeError, KeyError, ValueError) as exc:
+            print(f"  FAIL: {path.name}: {exc}")
+            failed.append(path.name)
+
+    if failed:
+        print(f"FAILED: {', '.join(failed)}")
+        return 1
+    print(f"All {len(paths)} evidence file(s) validated.")
+    return 0
+
+
 def _write(payload: dict[str, Any]) -> None:
     out = _OUT_DIR / f"{payload['evidence_id']}.json"
     _validate_payload(payload, out.stem)
@@ -154,7 +245,10 @@ def _write(payload: dict[str, Any]) -> None:
     print(f"  wrote {out.name}")
 
 
-def main(*, check_current: bool = False) -> int:
+def main(*, check_current: bool = False, validate_existing: bool = False) -> int:
+    if validate_existing:
+        return _validate_existing_evidence()
+
     _OUT_DIR.mkdir(parents=True, exist_ok=True)
     print(f"Generating TIF evidence records -> {_OUT_DIR}")
     print(f"  package: {_PACKAGE_VERSION}  commit: {_COMMIT_SHA}")
@@ -178,10 +272,11 @@ def main(*, check_current: bool = False) -> int:
 
     failed: list[str] = []
     written: list[dict[str, Any]] = []
-    for tif_id, module in runners:
+    for tif_id, module, meta in runners:
         print(f"Running {tif_id}...")
         try:
             payload = module.build_evidence_payload(**build_kwargs)
+            _validate_payload_against_spec(payload, tif_id, meta)
             _write(payload)
             written.append(payload)
         except Exception as exc:
@@ -208,6 +303,18 @@ def main(*, check_current: bool = False) -> int:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check-current", action="store_true")
+    parser.add_argument(
+        "--check-current",
+        action="store_true",
+        help="After generating, assert all evidence matches the current HEAD SHA.",
+    )
+    parser.add_argument(
+        "--validate-existing",
+        action="store_true",
+        help=(
+            "Validate committed CE-EVID-*.json files without executing TIF scenarios. "
+            "Non-mutating: reads only, writes nothing."
+        ),
+    )
     args = parser.parse_args()
-    sys.exit(main(check_current=args.check_current))
+    sys.exit(main(check_current=args.check_current, validate_existing=args.validate_existing))

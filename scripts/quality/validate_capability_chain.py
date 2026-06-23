@@ -126,6 +126,53 @@ def _extract_section_text(text: str, section_name: str) -> str:
     return m.group(1).strip() if m else ""
 
 
+def _parse_tif_spec_metadata(spec_path: Path) -> dict[str, str]:
+    """Parse Identity table fields from a CE-TIF-*.md spec file."""
+    text = spec_path.read_text(encoding="utf-8")
+
+    def table_value(field: str) -> str:
+        match = re.search(rf"\|\s*{re.escape(field)}\s*\|\s*([^|]+?)\s*\|", text)
+        return match.group(1).strip().strip("`") if match else ""
+
+    return {
+        "tif_id": table_value("tif_id"),
+        "status": table_value("status"),
+        "executable": table_value("executable"),
+        "evidence_builder": table_value("evidence_builder"),
+        "evidence_key": table_value("evidence_key"),
+        "verification_type": table_value("verification_type"),
+    }
+
+
+def _parse_tif_readme_table(text: str) -> list[dict[str, str]]:
+    """Parse the 'Current TIF Interfaces' Markdown table into a list of row dicts."""
+    section = _extract_section_text(text, "Current TIF Interfaces")
+    headers: list[str] = []
+    rows: list[dict[str, str]] = []
+
+    for line in section.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue
+        cells = [c.strip() for c in stripped.strip("|").split("|")]
+        if not headers:
+            headers = [h.strip().lower().replace(" ", "_") for h in cells]
+            continue
+        if all(re.fullmatch(r"[-:\s]+", c) for c in cells if c):
+            continue
+        if not cells or not any(c for c in cells):
+            continue
+        row: dict[str, str] = {}
+        for i, h in enumerate(headers):
+            val = cells[i].strip() if i < len(cells) else ""
+            val = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", val)
+            row[h] = val
+        if any(row.values()):
+            rows.append(row)
+
+    return rows
+
+
 def _parse_verification_targets(text: str) -> list[str]:
     """Extract file paths from the Verification targets section."""
     section = _extract_section_text(text, "Verification targets")
@@ -314,29 +361,113 @@ def _check_tif_files(
         for tif_id in req_data.get("tif_refs", []):
             active_tif_ids.add(tif_id)
 
-    # Check each active TIF has both spec and executable
+    # Check each requirement-referenced TIF has a spec file
     for tif_id in sorted(active_tif_ids):
         spec = _TIF_DIR / f"{tif_id}.md"
-        # Derive executable name: CE-TIF-EXPL-001 -> tif_expl_001.py -> tif_explanation.py (custom)
-        # Actually, the naming is: CE-TIF-EXPL-001 -> derive stem from spec or check pattern
         if not spec.exists():
             errors.append(f"tif {tif_id}: spec file {spec.relative_to(_REPO_ROOT)} not found")
 
-    # Check all tif_*.py executables
+    # Check all tif_*.py scenario executables for CE-first compliance.
+    # Skip *_helpers.py files — they are shared utilities, not TIF scenario executables.
     for exec_path in sorted(_TIF_DIR.glob("tif_*.py")):
+        if exec_path.stem.endswith("_helpers"):
+            continue
         _check_tif_executable(errors, warnings, exec_path)
 
-    # Check TIF README inventory
-    readme = _TIF_DIR / "README.md"
-    if readme.exists():
-        readme_text = readme.read_text(encoding="utf-8")
-        for tif_id in sorted(active_tif_ids):
-            if tif_id not in readme_text:
-                errors.append(f"tif README: {tif_id} is not listed in TIF README inventory")
-    else:
-        warnings.append("tif README.md not found; skipping inventory check")
+    # Discover active TIF specs and cross-check against README inventory
+    _check_readme_tif_inventory(errors, warnings)
 
     return active_tif_ids
+
+
+def _check_readme_tif_inventory(errors: list[str], warnings: list[str]) -> None:
+    """Discover active TIF specs and bidirectionally cross-check against README table."""
+    readme = _TIF_DIR / "README.md"
+
+    # Discover active specs from CE-TIF-*.md
+    active_specs: dict[str, dict[str, str]] = {}
+    for spec_path in sorted(_TIF_DIR.glob("CE-TIF-*.md")):
+        meta = _parse_tif_spec_metadata(spec_path)
+        tif_id = meta.get("tif_id", "")
+        if not tif_id:
+            errors.append(f"tif {spec_path.name}: tif_id missing from Identity table")
+            tif_id = spec_path.stem
+        if tif_id != spec_path.stem:
+            errors.append(
+                f"tif {spec_path.name}: tif_id '{tif_id}' does not match filename stem '{spec_path.stem}'"
+            )
+        if meta.get("status", "") != "active":
+            continue
+        for field in ("executable", "evidence_builder", "evidence_key", "verification_type"):
+            if not meta.get(field):
+                errors.append(
+                    f"tif {spec_path.name}: active spec missing required field '{field}'"
+                )
+        active_specs[tif_id] = meta
+
+    if not readme.exists():
+        warnings.append("tif README.md not found; skipping inventory check")
+        return
+
+    readme_text = readme.read_text(encoding="utf-8")
+
+    # Only skip if the section is entirely absent; an empty-data table still requires cross-check.
+    if not _extract_section_text(readme_text, "Current TIF Interfaces"):
+        warnings.append(
+            "tif README.md: 'Current TIF Interfaces' section not found; skipping inventory check"
+        )
+        return
+
+    rows = _parse_tif_readme_table(readme_text)
+    readme_tif_ids: set[str] = {row.get("tif_id", "") for row in rows if row.get("tif_id")}
+
+    # active spec missing from README
+    for tif_id in sorted(active_specs):
+        if tif_id not in readme_tif_ids:
+            errors.append(
+                f"tif README: active spec '{tif_id}' is not listed in TIF README inventory"
+            )
+
+    # README row with no matching active spec (stale)
+    for row in rows:
+        tif_id = row.get("tif_id", "")
+        if not tif_id:
+            continue
+        if tif_id not in active_specs:
+            errors.append(
+                f"tif README: row '{tif_id}' has no matching active spec (stale or inactive)"
+            )
+            continue
+
+        spec_meta = active_specs[tif_id]
+
+        readme_exec = row.get("executable", "")
+        spec_exec_name = Path(spec_meta.get("executable", "")).name
+        if readme_exec and readme_exec != spec_exec_name:
+            errors.append(
+                f"tif README: '{tif_id}' executable '{readme_exec}' != spec '{spec_exec_name}'"
+            )
+
+        readme_evid_key = row.get("evidence_key", "")
+        spec_evid_key = spec_meta.get("evidence_key", "")
+        if readme_evid_key and readme_evid_key != spec_evid_key:
+            errors.append(
+                f"tif README: '{tif_id}' evidence_key '{readme_evid_key}' != spec '{spec_evid_key}'"
+            )
+
+        readme_vtype = row.get("verification_type", "")
+        spec_vtype = spec_meta.get("verification_type", "")
+        if readme_vtype and readme_vtype != spec_vtype:
+            errors.append(
+                f"tif README: '{tif_id}' verification_type '{readme_vtype}' != spec '{spec_vtype}'"
+            )
+
+        readme_status = row.get("status", "")
+        spec_status = spec_meta.get("status", "")
+        if readme_status and readme_status != spec_status:
+            errors.append(
+                f"tif README: '{tif_id}' status '{readme_status}' != spec '{spec_status}'"
+            )
 
 
 def _check_tif_executable(errors: list[str], warnings: list[str], path: Path) -> None:
@@ -351,6 +482,12 @@ def _check_tif_executable(errors: list[str], warnings: list[str], path: Path) ->
         errors.append(
             f"tif {path.name}: WrapCalibratedExplainer not found — "
             f"TIF must enter CE through WrapCalibratedExplainer"
+        )
+
+    if not re.search(r"^def build_evidence_payload\b", text, re.MULTILINE):
+        errors.append(
+            f"tif {path.name}: build_evidence_payload() not defined — "
+            f"every TIF executable must expose build_evidence_payload()"
         )
 
     if any(

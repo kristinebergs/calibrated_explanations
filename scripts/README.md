@@ -9,8 +9,9 @@
   or after significant changes to a capability area.
 
   ```bash
-  python scripts/generate_tif_evidence.py               # run all active TIFs and write evidence
-  python scripts/generate_tif_evidence.py --check-current  # also assert evidence matches HEAD SHA
+  python scripts/generate_tif_evidence.py                     # run all active TIFs and write evidence
+  python scripts/generate_tif_evidence.py --check-current     # also assert evidence matches HEAD SHA
+  python scripts/generate_tif_evidence.py --validate-existing # validate committed evidence; writes nothing
   ```
 
   After a successful run, review the JSON files and write a curated summary to
