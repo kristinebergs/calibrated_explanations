@@ -31,6 +31,24 @@ _N_TEST = 3
 
 @dataclass
 class NarrativeObservation:
+    """Structured observation returned by narrative TIF scenarios.
+
+    Fields
+    ------
+    exception_raised : bool
+        Whether an exception was raised during the call.
+    exception_type : str or None
+        Exception class name if raised; None otherwise.
+    result_is_none : bool
+        Whether the result is None.
+    result_is_str : bool
+        Whether isinstance(result, str).
+    result_len : int or None
+        len(result) if result is a non-None str; None otherwise.
+    n_instances : int
+        Number of test instances.
+    """
+
     exception_raised: bool
     exception_type: Optional[str]
     result_is_none: bool
@@ -40,6 +58,7 @@ class NarrativeObservation:
 
 
 def _build_narrative_explainer() -> tuple:
+    """Build a deterministic fitted+calibrated WrapCalibratedExplainer for narrative tests."""
     X_all, y_all = make_classification(
         n_samples=_N_SAMPLES,
         n_features=_N_FEATURES,
@@ -66,7 +85,18 @@ def _build_narrative_explainer() -> tuple:
 
 
 def run_narrative_tif_scenario() -> NarrativeObservation:
-    """Stimulate CE-REQ-NARR-API-001 through WrapCalibratedExplainer.explain_factual + to_narrative."""
+    """Stimulate CE-REQ-NARR-API-001 through WrapCalibratedExplainer.explain_factual + to_narrative.
+
+    TIF ID: CE-TIF-NARR-001
+
+    Requirements served:
+      CE-REQ-NARR-API-001 (observation: exception_raised, result_is_none, result_is_str, result_len)
+
+    Returns
+    -------
+    NarrativeObservation
+        Structured observations. Tests assert on these fields.
+    """
     explainer, X_test = _build_narrative_explainer()
     n_instances = len(X_test)
 
@@ -112,7 +142,10 @@ def build_evidence_payload(
     python_version: str,
     platform_str: str,
 ) -> dict:
-    """Build a complete evidence payload for CE-TIF-NARR-001."""
+    """Build a complete evidence payload for CE-TIF-NARR-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
     from tif_evidence_helpers import (
         acceptance_entry,
         build_payload,

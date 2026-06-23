@@ -5,6 +5,9 @@ TIF ID: CE-TIF-VIZ-001
 Requirements served:
   CE-REQ-VIZ-SMOKE-001 — CalibratedExplanations.plot() no-raise smoke test
 
+Tests call run_visualization_tif_scenario() and assert on the returned
+VizObservation against acceptance criteria from the requirement files.
+
 Note: requires matplotlib. If matplotlib is not installed this TIF will set
 exception_raised=True with exception_type='ImportError'.
 """
@@ -28,12 +31,25 @@ _N_TEST = 2
 
 @dataclass
 class VizObservation:
+    """Structured observation returned by visualization TIF scenarios.
+
+    Fields
+    ------
+    exception_raised : bool
+        Whether an exception was raised during explanations.plot().
+    exception_type : str or None
+        Exception class name if raised; None otherwise.
+    n_instances : int
+        Number of test instances.
+    """
+
     exception_raised: bool
     exception_type: Optional[str]
     n_instances: int
 
 
 def _build_viz_explainer() -> tuple:
+    """Build a deterministic fitted+calibrated WrapCalibratedExplainer for visualization tests."""
     X_all, y_all = make_classification(
         n_samples=_N_SAMPLES,
         n_features=_N_FEATURES,
@@ -60,7 +76,20 @@ def _build_viz_explainer() -> tuple:
 
 
 def run_visualization_tif_scenario() -> VizObservation:
-    """Stimulate CE-REQ-VIZ-SMOKE-001 through WrapCalibratedExplainer.explain_factual + plot."""
+    """Stimulate CE-REQ-VIZ-SMOKE-001 through WrapCalibratedExplainer.explain_factual + plot.
+
+    TIF ID: CE-TIF-VIZ-001
+
+    Requirements served:
+      CE-REQ-VIZ-SMOKE-001 (observation: exception_raised)
+
+    Uses the Agg backend to avoid display output. Cleans up figure state after the call.
+
+    Returns
+    -------
+    VizObservation
+        Structured observations. Tests assert on these fields.
+    """
     try:
         import matplotlib
         import matplotlib.pyplot as plt
@@ -110,7 +139,10 @@ def build_evidence_payload(
     python_version: str,
     platform_str: str,
 ) -> dict:
-    """Build a complete evidence payload for CE-TIF-VIZ-001."""
+    """Build a complete evidence payload for CE-TIF-VIZ-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
     from tif_evidence_helpers import (
         acceptance_entry,
         build_payload,

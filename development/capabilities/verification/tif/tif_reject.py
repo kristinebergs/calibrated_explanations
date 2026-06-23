@@ -1,11 +1,16 @@
 """TIF verification interface for CE reject policy explanation capabilities.
 
 TIF ID: CE-TIF-REJECT-001
+
+Requirements served:
+  CE-REQ-REJECT-API-001 — explain_factual with RejectPolicySpec API contract
+
+Tests call run_reject_tif_scenario() and assert on the returned
+RejectObservation against acceptance criteria from the requirement files.
 """
 
 from __future__ import annotations
 
-import contextlib
 from dataclasses import dataclass
 from typing import Optional
 
@@ -24,6 +29,22 @@ _N_TEST = 3
 
 @dataclass
 class RejectObservation:
+    """Structured observation returned by reject policy TIF scenarios.
+
+    Fields
+    ------
+    exception_raised : bool
+        Whether an exception was raised during the call.
+    exception_type : str or None
+        Exception class name if raised; None otherwise.
+    result_is_none : bool
+        Whether the result is None.
+    result_len : int or None
+        len(result) if result supports __len__; None otherwise.
+    n_instances : int
+        Number of test instances.
+    """
+
     exception_raised: bool
     exception_type: Optional[str]
     result_is_none: bool
@@ -32,6 +53,7 @@ class RejectObservation:
 
 
 def _build_reject_explainer() -> tuple:
+    """Build a deterministic fitted+calibrated WrapCalibratedExplainer for reject tests."""
     X_all, y_all = make_classification(
         n_samples=_N_SAMPLES,
         n_features=_N_FEATURES,
@@ -58,7 +80,18 @@ def _build_reject_explainer() -> tuple:
 
 
 def run_reject_tif_scenario() -> RejectObservation:
-    """Stimulate CE-REQ-REJECT-API-001 through WrapCalibratedExplainer with RejectPolicySpec."""
+    """Stimulate CE-REQ-REJECT-API-001 through WrapCalibratedExplainer with RejectPolicySpec.
+
+    TIF ID: CE-TIF-REJECT-001
+
+    Requirements served:
+      CE-REQ-REJECT-API-001 (observation: exception_raised, result_is_none, result_len)
+
+    Returns
+    -------
+    RejectObservation
+        Structured observations. Tests assert on these fields.
+    """
     explainer, X_test = _build_reject_explainer()
     n_instances = len(X_test)
 
@@ -75,6 +108,8 @@ def run_reject_tif_scenario() -> RejectObservation:
 
     result_len = None
     if result is not None:
+        import contextlib
+
         with contextlib.suppress(TypeError):
             result_len = len(result)
 
@@ -102,7 +137,10 @@ def build_evidence_payload(
     python_version: str,
     platform_str: str,
 ) -> dict:
-    """Build a complete evidence payload for CE-TIF-REJECT-001."""
+    """Build a complete evidence payload for CE-TIF-REJECT-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
     from tif_evidence_helpers import (
         acceptance_entry,
         build_payload,
