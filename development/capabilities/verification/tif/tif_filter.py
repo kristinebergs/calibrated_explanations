@@ -34,6 +34,30 @@ FilterType = Literal["super", "semi", "counter", "ensured", "pareto"]
 
 @dataclass
 class FilterObservation:
+    """Structured observation returned by filter TIF scenarios.
+
+    Fields
+    ------
+    filter_type : str
+        Which filter operation was exercised.
+    exception_raised : bool
+        Whether an exception was raised.
+    exception_type : str or None
+        Exception class name if raised; None otherwise.
+    collection_result_is_none : bool
+        Whether the collection-level result is None.
+    collection_result_len : int or None
+        len(result) for collection call; None on exception.
+    individual_result_is_none : bool
+        Whether the individual-level result is None.
+    alias_result_is_none : bool
+        Whether the alias method (e.g. .super()) result is None.
+    alias_result_len : int or None
+        len(alias result) for alias call; None on exception.
+    n_instances : int
+        Number of test instances.
+    """
+
     filter_type: str
     exception_raised: bool
     exception_type: Optional[str]
@@ -46,6 +70,7 @@ class FilterObservation:
 
 
 def _build_alternatives() -> tuple:
+    """Build a deterministic AlternativeExplanations collection."""
     X_all, y_all = make_classification(
         n_samples=_N_SAMPLES,
         n_features=_N_FEATURES,
@@ -82,7 +107,32 @@ def _safe_len(obj) -> Optional[int]:
 
 
 def run_filter_tif_scenario(filter_type: FilterType) -> FilterObservation:
-    """Stimulate one of the five filter operations through WrapCalibratedExplainer."""
+    """Stimulate one of the five filter operations through WrapCalibratedExplainer.
+
+    TIF ID: CE-TIF-FILTER-001
+
+    Requirements served (by filter_type):
+      "super"    → CE-REQ-EXPL-FILTER-SUPER-001
+      "semi"     → CE-REQ-EXPL-FILTER-SEMI-001
+      "counter"  → CE-REQ-EXPL-FILTER-COUNTER-001
+      "ensured"  → CE-REQ-EXPL-FILTER-ENSURED-001
+      "pareto"   → CE-REQ-EXPL-FILTER-PARETO-001
+
+    Observations per call:
+      collection_result_is_none, collection_result_len — from collection call
+      individual_result_is_none                        — from individual call on result[0]
+      alias_result_is_none, alias_result_len           — from alias method call
+
+    Parameters
+    ----------
+    filter_type : {"super", "semi", "counter", "ensured", "pareto"}
+        Which filter operation to exercise.
+
+    Returns
+    -------
+    FilterObservation
+        Structured observations. Tests assert on these fields.
+    """
     alternatives, X_test = _build_alternatives()
     n_instances = len(X_test)
 
@@ -158,7 +208,10 @@ def build_evidence_payload(
     python_version: str,
     platform_str: str,
 ) -> dict:
-    """Build a complete evidence payload for CE-TIF-FILTER-001."""
+    """Build a complete evidence payload for CE-TIF-FILTER-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
     from tif_evidence_helpers import (
         acceptance_entry,
         build_payload,

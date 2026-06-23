@@ -11,7 +11,6 @@ GuardObservation against acceptance criteria from the requirement files.
 
 from __future__ import annotations
 
-import contextlib
 from dataclasses import dataclass
 from typing import Optional
 
@@ -30,6 +29,22 @@ _N_TEST = 3
 
 @dataclass
 class GuardObservation:
+    """Structured observation returned by guarded explanation TIF scenarios.
+
+    Fields
+    ------
+    exception_raised : bool
+        Whether an exception was raised during the call.
+    exception_type : str or None
+        Exception class name if raised; None otherwise.
+    result_is_none : bool
+        Whether the result is None.
+    result_len : int or None
+        len(result) if result supports __len__; None otherwise.
+    n_instances : int
+        Number of test instances.
+    """
+
     exception_raised: bool
     exception_type: Optional[str]
     result_is_none: bool
@@ -38,6 +53,7 @@ class GuardObservation:
 
 
 def _build_guard_explainer() -> tuple:
+    """Build a deterministic fitted+calibrated WrapCalibratedExplainer for guard tests."""
     X_all, y_all = make_classification(
         n_samples=_N_SAMPLES,
         n_features=_N_FEATURES,
@@ -64,7 +80,18 @@ def _build_guard_explainer() -> tuple:
 
 
 def run_guard_tif_scenario() -> GuardObservation:
-    """Stimulate CE-REQ-GUARD-API-001 through WrapCalibratedExplainer with GuardedOptions."""
+    """Stimulate CE-REQ-GUARD-API-001 through WrapCalibratedExplainer with GuardedOptions.
+
+    TIF ID: CE-TIF-GUARD-001
+
+    Requirements served:
+      CE-REQ-GUARD-API-001 (observation: exception_raised, result_is_none, result_len)
+
+    Returns
+    -------
+    GuardObservation
+        Structured observations. Tests assert on these fields.
+    """
     explainer, X_test = _build_guard_explainer()
     n_instances = len(X_test)
 
@@ -81,6 +108,8 @@ def run_guard_tif_scenario() -> GuardObservation:
 
     result_len = None
     if result is not None:
+        import contextlib
+
         with contextlib.suppress(TypeError):
             result_len = len(result)
 
@@ -108,7 +137,10 @@ def build_evidence_payload(
     python_version: str,
     platform_str: str,
 ) -> dict:
-    """Build a complete evidence payload for CE-TIF-GUARD-001."""
+    """Build a complete evidence payload for CE-TIF-GUARD-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
     from tif_evidence_helpers import (
         acceptance_entry,
         build_payload,

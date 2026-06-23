@@ -29,6 +29,20 @@ _N_TEST = 3
 
 @dataclass
 class MondrianObservation:
+    """Structured observation returned by Mondrian calibration TIF scenarios.
+
+    Fields
+    ------
+    exception_raised : bool
+        Whether an exception was raised during calibrate.
+    exception_type : str or None
+        Exception class name if raised; None otherwise.
+    calibrated : bool
+        Whether wrapper.calibrated is True after calibration.
+    n_instances : int
+        Number of test instances (X_test size; calibration size not reported here).
+    """
+
     exception_raised: bool
     exception_type: Optional[str]
     calibrated: bool
@@ -41,7 +55,18 @@ def _mondrian_fn(x: np.ndarray) -> np.ndarray:
 
 
 def run_mondrian_tif_scenario() -> MondrianObservation:
-    """Stimulate CE-REQ-MOND-API-001 through WrapCalibratedExplainer with mc= param."""
+    """Stimulate CE-REQ-MOND-API-001 through WrapCalibratedExplainer with mc= param.
+
+    TIF ID: CE-TIF-MOND-001
+
+    Requirements served:
+      CE-REQ-MOND-API-001 (observation: exception_raised, calibrated)
+
+    Returns
+    -------
+    MondrianObservation
+        Structured observations. Tests assert on these fields.
+    """
     X_all, y_all = make_classification(
         n_samples=_N_SAMPLES,
         n_features=_N_FEATURES,
@@ -96,7 +121,10 @@ def build_evidence_payload(
     python_version: str,
     platform_str: str,
 ) -> dict:
-    """Build a complete evidence payload for CE-TIF-MOND-001."""
+    """Build a complete evidence payload for CE-TIF-MOND-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
     from tif_evidence_helpers import (
         acceptance_entry,
         build_payload,

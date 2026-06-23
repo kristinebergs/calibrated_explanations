@@ -1,6 +1,13 @@
 """TIF verification interface for CE classification prediction capabilities.
 
 TIF ID: CE-TIF-PRED-CLASS-001
+
+Requirements served:
+  CE-REQ-PRED-CLASS-API-001    — predict_proba and predict API contract for classification
+  CE-REQ-PRED-CLASS-BOUNDS-001 — probability values bounded in [0, 1]
+
+Tests call run_classification_tif_scenario() and assert on the returned
+ClassificationObservation against acceptance criteria from the requirement files.
 """
 
 from __future__ import annotations
@@ -23,6 +30,30 @@ _N_TEST = 5
 
 @dataclass
 class ClassificationObservation:
+    """Structured observation returned by classification TIF scenarios.
+
+    Fields
+    ------
+    exception_raised : bool
+        Whether an exception was raised.
+    exception_type : str or None
+        Exception class name if raised; None otherwise.
+    proba_is_none : bool
+        Whether predict_proba returned None.
+    proba_len : int or None
+        Length of the probability array.
+    proba_min : float or None
+        Minimum value in the probability array.
+    proba_max : float or None
+        Maximum value in the probability array.
+    labels_is_none : bool
+        Whether predict returned None.
+    labels_len : int or None
+        Length of the label array.
+    n_instances : int
+        Number of test instances.
+    """
+
     exception_raised: bool
     exception_type: Optional[str]
     proba_is_none: bool
@@ -35,6 +66,7 @@ class ClassificationObservation:
 
 
 def _build_classification_explainer() -> tuple:
+    """Build a deterministic fitted+calibrated WrapCalibratedExplainer for binary classification."""
     X_all, y_all = make_classification(
         n_samples=_N_SAMPLES,
         n_features=_N_FEATURES,
@@ -61,17 +93,40 @@ def _build_classification_explainer() -> tuple:
 
 
 def run_classification_tif_scenario() -> ClassificationObservation:
-    """Stimulate CE-REQ-PRED-CLASS-API-001 and CE-REQ-PRED-CLASS-BOUNDS-001."""
+    """Stimulate CE-REQ-PRED-CLASS-API-001 and CE-REQ-PRED-CLASS-BOUNDS-001.
+
+    TIF ID: CE-TIF-PRED-CLASS-001
+
+    Requirements served:
+      CE-REQ-PRED-CLASS-API-001    (observation: exception_raised, proba_len, labels_len)
+      CE-REQ-PRED-CLASS-BOUNDS-001 (observation: proba_min, proba_max)
+
+    Returns
+    -------
+    ClassificationObservation
+        Structured observations. Tests assert on these fields.
+    """
     explainer, X_test = _build_classification_explainer()
     n_instances = len(X_test)
+
+    exception_raised = False
+    exception_type = None
+    proba_is_none = True
+    proba_len = None
+    proba_min = None
+    proba_max = None
+    labels_is_none = True
+    labels_len = None
 
     try:
         probas = explainer.predict_proba(X_test)
         labels = explainer.predict(X_test)
     except Exception as exc:
+        exception_raised = True
+        exception_type = type(exc).__name__
         return ClassificationObservation(
             exception_raised=True,
-            exception_type=type(exc).__name__,
+            exception_type=exception_type,
             proba_is_none=True,
             proba_len=None,
             proba_min=None,
@@ -83,10 +138,6 @@ def run_classification_tif_scenario() -> ClassificationObservation:
 
     proba_is_none = probas is None
     labels_is_none = labels is None
-    proba_len = None
-    proba_min = None
-    proba_max = None
-    labels_len = None
 
     if probas is not None:
         proba_arr = np.asarray(probas)
@@ -98,8 +149,8 @@ def run_classification_tif_scenario() -> ClassificationObservation:
         labels_len = len(labels)
 
     return ClassificationObservation(
-        exception_raised=False,
-        exception_type=None,
+        exception_raised=exception_raised,
+        exception_type=exception_type,
         proba_is_none=proba_is_none,
         proba_len=proba_len,
         proba_min=proba_min,
@@ -125,7 +176,10 @@ def build_evidence_payload(
     python_version: str,
     platform_str: str,
 ) -> dict:
-    """Build a complete evidence payload for CE-TIF-PRED-CLASS-001."""
+    """Build a complete evidence payload for CE-TIF-PRED-CLASS-001.
+
+    Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    """
     from tif_evidence_helpers import (
         acceptance_entry,
         build_payload,
