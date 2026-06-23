@@ -154,9 +154,18 @@ def build_evidence_payload(
             "explain_factual_with_guarded_options",
             obs_to_dict(obs),
             [
-                acceptance_entry("CE-REQ-GUARD-API-001", "exception_raised", False, obs.exception_raised),
-                acceptance_entry("CE-REQ-GUARD-API-001", "result_is_none", False, obs.result_is_none),
-                acceptance_entry("CE-REQ-GUARD-API-001", "result_len == n_instances", True, obs.result_len == obs.n_instances),
+                acceptance_entry(
+                    "CE-REQ-GUARD-API-001", "exception_raised", False, obs.exception_raised
+                ),
+                acceptance_entry(
+                    "CE-REQ-GUARD-API-001", "result_is_none", False, obs.result_is_none
+                ),
+                acceptance_entry(
+                    "CE-REQ-GUARD-API-001",
+                    "result_len == n_instances",
+                    True,
+                    obs.result_len == obs.n_instances,
+                ),
             ],
         ),
     ]

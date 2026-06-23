@@ -222,17 +222,30 @@ def build_evidence_payload(
     scenarios = []
     for filter_type, req_id in _FILTER_REQ_MAP.items():
         obs = run_filter_tif_scenario(filter_type=filter_type)
-        scenarios.append(scenario_entry(
-            f"filter_{filter_type}",
-            obs_to_dict(obs),
-            [
-                acceptance_entry(req_id, "exception_raised", False, obs.exception_raised),
-                acceptance_entry(req_id, "collection_result_is_none", False, obs.collection_result_is_none),
-                acceptance_entry(req_id, "collection_result_len == n_instances", True, obs.collection_result_len == obs.n_instances),
-                acceptance_entry(req_id, "individual_result_is_none", False, obs.individual_result_is_none),
-                acceptance_entry(req_id, "alias_result_is_none", False, obs.alias_result_is_none),
-            ],
-        ))
+        scenarios.append(
+            scenario_entry(
+                f"filter_{filter_type}",
+                obs_to_dict(obs),
+                [
+                    acceptance_entry(req_id, "exception_raised", False, obs.exception_raised),
+                    acceptance_entry(
+                        req_id, "collection_result_is_none", False, obs.collection_result_is_none
+                    ),
+                    acceptance_entry(
+                        req_id,
+                        "collection_result_len == n_instances",
+                        True,
+                        obs.collection_result_len == obs.n_instances,
+                    ),
+                    acceptance_entry(
+                        req_id, "individual_result_is_none", False, obs.individual_result_is_none
+                    ),
+                    acceptance_entry(
+                        req_id, "alias_result_is_none", False, obs.alias_result_is_none
+                    ),
+                ],
+            )
+        )
     return build_payload(
         "FILTER-001",
         claim_ids=["CE-CAP-EXPL-FILTER-001"],

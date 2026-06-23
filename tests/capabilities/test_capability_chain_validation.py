@@ -192,11 +192,16 @@ def chain_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Pat
     monkeypatch.setattr(vcc, "_EVID_DIR", dirs["evid"])
     monkeypatch.setattr(vcc, "_RAW_EVID_DIR", dirs["raw_evid"])
 
-    # Also patch the repo root so verification targets resolve (they won't exist,
-    # but we want to avoid false failures on real repo files during unit tests).
-    # We'll keep _REPO_ROOT as-is; verification target existence checks are based
-    # on the real repo in integration mode and we skip them in these isolated tests
-    # by using non-verified status or verified requirements whose targets exist.
+    # Patch _GAP_ANALYSIS_PATH to an empty-table file so run_checks() doesn't
+    # compare the real gap analysis against the minimal temp TIF/evidence dirs.
+    gap_file = tmp_path / "gap_analysis.md"
+    gap_file.write_text(
+        "## Closed Behavioral Chains\n\n"
+        "| TIF ID | Claim IDs | Requirement IDs |\n"
+        "|---|---|---|\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(vcc, "_GAP_ANALYSIS_PATH", gap_file)
 
     return dirs
 
@@ -667,3 +672,409 @@ def test_should_not_have_manual_registry_in_generate_capability_evidence() -> No
     assert not re.search(
         r"^(?:import|from)\s+tif_", text, re.MULTILINE
     ), "generate_capability_evidence.py has direct TIF module imports"
+
+
+# ---------------------------------------------------------------------------
+# Helper: TIF spec with optional Requirements/Claims/ADR sections
+# ---------------------------------------------------------------------------
+
+
+def _tif_spec_with_sections(
+    tif_id: str,
+    executable: str,
+    evidence_key: str,
+    *,
+    verification_type: str = "api_contract",
+    status: str = "active",
+    evidence_builder: str = "build_evidence_payload()",
+    requirements_served: list[str] | None = None,
+    claims_served: list[str] | None = None,
+    adr_refs: list[str] | None = None,
+) -> str:
+    identity = textwrap.dedent(f"""\
+        # {tif_id}
+
+        ## Identity
+
+        | Field | Value |
+        |---|---|
+        | tif_id | {tif_id} |
+        | executable | `{executable}` |
+        | evidence_builder | `{evidence_builder}` |
+        | evidence_key | {evidence_key} |
+        | verification_type | {verification_type} |
+        | status | {status} |
+    """)
+    req_section = ""
+    if requirements_served:
+        rows = "\n".join(f"| {r} | - |" for r in requirements_served)
+        req_section = (
+            "\n## Requirements served\n\n"
+            "| Requirement | Observation fields used |\n|---|---|\n"
+            f"{rows}\n"
+        )
+    claims_section = ""
+    if claims_served:
+        items = "\n".join(f"- {c}" for c in claims_served)
+        claims_section = f"\n## Claims served\n\n{items}\n"
+    adr_section = ""
+    if adr_refs:
+        items = "\n".join(f"- {a}" for a in adr_refs)
+        adr_section = f"\n## ADR refs\n\n{items}\n"
+    return identity + req_section + claims_section + adr_section
+
+
+def _readme_with_tif_table_full(rows: list[dict]) -> str:
+    """Build a README snippet with all columns including requirements_served and claims_served."""
+    header = (
+        "| TIF ID | Executable | Evidence Key | Verification Type | Status "
+        "| Requirements served | Claims served |"
+    )
+    sep = "|---|---|---|---|---|---|---|"
+    data = "\n".join(
+        f"| {r['tif_id']} | {r.get('executable', '')} | {r.get('evidence_key', '')} "
+        f"| {r.get('verification_type', 'api_contract')} | {r.get('status', 'active')} "
+        f"| {r.get('requirements_served', '')} | {r.get('claims_served', '')} |"
+        for r in rows
+    )
+    return textwrap.dedent(f"""\
+        # TIF README
+
+        ## Current TIF Interfaces
+
+        {header}
+        {sep}
+        {data}
+    """)
+
+
+def _minimal_gap_analysis(tif_rows: list[dict]) -> str:
+    """Build a minimal claim_verification_gap_analysis.md with a Closed Behavioral Chains table."""
+    rows = "\n".join(
+        f"| {r['tif_id']} | {r.get('claim_ids', '')} | {r.get('req_ids', '')} |" for r in tif_rows
+    )
+    return (
+        "## Closed Behavioral Chains\n\n"
+        "| TIF ID | Claim IDs | Requirement IDs |\n"
+        "|---|---|---|\n"
+        f"{rows}\n"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Tests: committed evidence vs TIF spec cross-check
+# ---------------------------------------------------------------------------
+
+
+def test_should_fail_when_committed_evidence_has_wrong_claim_ids(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """Evidence referencing a TIF spec is missing a claim declared by that spec."""
+    tif_dir = chain_dirs["tif"]
+    raw_dir = chain_dirs["raw_evid"]
+
+    _write(
+        tif_dir / "CE-TIF-TEST-001.md",
+        _tif_spec_with_sections(
+            "CE-TIF-TEST-001",
+            str(tif_dir / "tif_test.py"),
+            "TEST-001",
+            claims_served=["CE-CAP-TEST-001"],
+            requirements_served=["CE-REQ-TEST-001"],
+        ),
+    )
+    evid = _minimal_raw_evidence(
+        "CE-EVID-TEST-001-20260622",
+        claim_ids=["CE-CAP-WRONG-001"],  # missing CE-CAP-TEST-001
+        req_ids=["CE-REQ-TEST-001"],
+        tif_ids=["CE-TIF-TEST-001"],
+    )
+    (raw_dir / "CE-EVID-TEST-001-20260622.json").write_text(json.dumps(evid), encoding="utf-8")
+
+    errors, _ = vcc.run_checks()
+    assert any("CE-CAP-TEST-001" in e and "claim_ids" in e for e in errors), errors
+
+
+def test_should_fail_when_committed_evidence_has_wrong_requirement_ids(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """Evidence referencing a TIF spec is missing a requirement declared by that spec."""
+    tif_dir = chain_dirs["tif"]
+    raw_dir = chain_dirs["raw_evid"]
+
+    _write(
+        tif_dir / "CE-TIF-TEST-001.md",
+        _tif_spec_with_sections(
+            "CE-TIF-TEST-001",
+            str(tif_dir / "tif_test.py"),
+            "TEST-001",
+            claims_served=["CE-CAP-TEST-001"],
+            requirements_served=["CE-REQ-TEST-001"],
+        ),
+    )
+    evid = _minimal_raw_evidence(
+        "CE-EVID-TEST-001-20260622",
+        claim_ids=["CE-CAP-TEST-001"],
+        req_ids=["CE-REQ-WRONG-001"],  # missing CE-REQ-TEST-001
+        tif_ids=["CE-TIF-TEST-001"],
+    )
+    (raw_dir / "CE-EVID-TEST-001-20260622.json").write_text(json.dumps(evid), encoding="utf-8")
+
+    errors, _ = vcc.run_checks()
+    assert any("CE-REQ-TEST-001" in e and "requirement_ids" in e for e in errors), errors
+
+
+def test_should_fail_when_committed_evidence_omits_declared_adr_refs(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """Evidence referencing a TIF spec is missing an ADR ref declared by that spec."""
+    tif_dir = chain_dirs["tif"]
+    raw_dir = chain_dirs["raw_evid"]
+
+    _write(
+        tif_dir / "CE-TIF-TEST-001.md",
+        _tif_spec_with_sections(
+            "CE-TIF-TEST-001",
+            str(tif_dir / "tif_test.py"),
+            "TEST-001",
+            claims_served=["CE-CAP-TEST-001"],
+            requirements_served=["CE-REQ-TEST-001"],
+            adr_refs=["ADR-001"],
+        ),
+    )
+    evid = _minimal_raw_evidence(
+        "CE-EVID-TEST-001-20260622",
+        claim_ids=["CE-CAP-TEST-001"],
+        req_ids=["CE-REQ-TEST-001"],
+        tif_ids=["CE-TIF-TEST-001"],
+    )
+    evid["adr_refs"] = []  # spec declares ADR-001, evidence omits it
+    (raw_dir / "CE-EVID-TEST-001-20260622.json").write_text(json.dumps(evid), encoding="utf-8")
+
+    errors, _ = vcc.run_checks()
+    assert any("ADR-001" in e and "adr_refs" in e for e in errors), errors
+
+
+# ---------------------------------------------------------------------------
+# Tests: README requirements_served / claims_served cross-check
+# ---------------------------------------------------------------------------
+
+
+def test_should_fail_when_readme_row_has_wrong_requirements_served(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """A README row whose requirements_served differs from the spec fails."""
+    tif_dir = chain_dirs["tif"]
+    exec_path = tif_dir / "tif_test.py"
+    _write(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
+    exec_path.write_text(
+        exec_path.read_text(encoding="utf-8")
+        + "\ndef build_evidence_payload(**_kw):\n    return {}\n",
+        encoding="utf-8",
+    )
+    _write(
+        tif_dir / "CE-TIF-TEST-001.md",
+        _tif_spec_with_sections(
+            "CE-TIF-TEST-001",
+            str(tif_dir / "tif_test.py"),
+            "TEST-001",
+            requirements_served=["CE-REQ-TEST-001"],
+            claims_served=["CE-CAP-TEST-001"],
+        ),
+    )
+    _write(
+        tif_dir / "README.md",
+        _readme_with_tif_table_full(
+            [
+                {
+                    "tif_id": "CE-TIF-TEST-001",
+                    "executable": "tif_test.py",
+                    "evidence_key": "TEST-001",
+                    "verification_type": "api_contract",
+                    "status": "active",
+                    "requirements_served": "CE-REQ-WRONG-001",  # mismatch
+                    "claims_served": "CE-CAP-TEST-001",
+                }
+            ]
+        ),
+    )
+
+    errors, _ = vcc.run_checks()
+    assert any("CE-TIF-TEST-001" in e and "requirements_served" in e for e in errors), errors
+
+
+def test_should_fail_when_readme_row_has_wrong_claims_served(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """A README row whose claims_served differs from the spec fails."""
+    tif_dir = chain_dirs["tif"]
+    exec_path = tif_dir / "tif_test.py"
+    _write(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
+    exec_path.write_text(
+        exec_path.read_text(encoding="utf-8")
+        + "\ndef build_evidence_payload(**_kw):\n    return {}\n",
+        encoding="utf-8",
+    )
+    _write(
+        tif_dir / "CE-TIF-TEST-001.md",
+        _tif_spec_with_sections(
+            "CE-TIF-TEST-001",
+            str(tif_dir / "tif_test.py"),
+            "TEST-001",
+            requirements_served=["CE-REQ-TEST-001"],
+            claims_served=["CE-CAP-TEST-001"],
+        ),
+    )
+    _write(
+        tif_dir / "README.md",
+        _readme_with_tif_table_full(
+            [
+                {
+                    "tif_id": "CE-TIF-TEST-001",
+                    "executable": "tif_test.py",
+                    "evidence_key": "TEST-001",
+                    "verification_type": "api_contract",
+                    "status": "active",
+                    "requirements_served": "CE-REQ-TEST-001",
+                    "claims_served": "CE-CAP-WRONG-001",  # mismatch
+                }
+            ]
+        ),
+    )
+
+    errors, _ = vcc.run_checks()
+    assert any("CE-TIF-TEST-001" in e and "claims_served" in e for e in errors), errors
+
+
+# ---------------------------------------------------------------------------
+# Tests: gap analysis cross-check
+# ---------------------------------------------------------------------------
+
+
+def test_should_fail_when_gap_analysis_row_has_nonexistent_tif(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    chain_dirs: dict[str, Path],
+) -> None:
+    """A gap analysis row whose TIF ID has no matching active spec fails."""
+    gap_file = tmp_path / "gap_analysis.md"
+    gap_file.write_text(
+        _minimal_gap_analysis([{"tif_id": "CE-TIF-GHOST-001", "claim_ids": "", "req_ids": ""}]),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(vcc, "_GAP_ANALYSIS_PATH", gap_file)
+
+    errors, _ = vcc.run_checks()
+    assert any("CE-TIF-GHOST-001" in e and "not an active TIF" in e for e in errors), errors
+
+
+def test_should_fail_when_gap_analysis_active_tif_has_no_evidence(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    chain_dirs: dict[str, Path],
+) -> None:
+    """A gap analysis row with an active TIF but no committed evidence fails."""
+    tif_dir = chain_dirs["tif"]
+    _write(
+        tif_dir / "CE-TIF-TEST-001.md",
+        _tif_spec_with_sections(
+            "CE-TIF-TEST-001",
+            str(tif_dir / "tif_test.py"),
+            "TEST-001",
+        ),
+    )
+    # No evidence written to chain_dirs["raw_evid"]
+
+    gap_file = tmp_path / "gap_analysis.md"
+    gap_file.write_text(
+        _minimal_gap_analysis([{"tif_id": "CE-TIF-TEST-001", "claim_ids": "", "req_ids": ""}]),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(vcc, "_GAP_ANALYSIS_PATH", gap_file)
+
+    errors, _ = vcc.run_checks()
+    assert any("CE-TIF-TEST-001" in e and "no committed evidence" in e for e in errors), errors
+
+
+# ---------------------------------------------------------------------------
+# Tests: hardened curated evidence raw_evidence_ref checks
+# ---------------------------------------------------------------------------
+
+
+def test_should_fail_when_curated_evidence_has_unresolved_raw_evidence_ref(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """A curated evidence file referencing a non-existent CE-EVID-* ID fails with a hard error."""
+    evid_dir = chain_dirs["evid"]
+    _write(
+        evid_dir / "evidence_test_001.md",
+        """\
+        # Test Evidence
+
+        | Field | Value |
+        |---|---|
+        | requirement_ids | CE-REQ-TEST-001 |
+
+        raw_evidence_ref: CE-EVID-NONEXISTENT-001-20260622
+        """,
+    )
+
+    errors, _ = vcc.run_checks()
+    assert any(
+        "CE-EVID-NONEXISTENT-001-20260622" in e and "exact match" in e for e in errors
+    ), errors
+
+
+def test_should_pass_when_curated_tif_exempt_evidence_uses_none_raw_ref(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """Curated evidence with raw_evidence_ref: none passes when requirements are TIF-exempt."""
+    evid_dir = chain_dirs["evid"]
+    claims_dir = chain_dirs["claims"]
+    reqs_dir = chain_dirs["reqs"]
+
+    _write(
+        claims_dir / "CE-CAP-TEST-001.yaml",
+        _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-SCHEMA-001"], atomic_rationale=True),
+    )
+    _write(
+        reqs_dir / "CE-REQ-TEST-SCHEMA-001.md",
+        _minimal_req(
+            "CE-REQ-TEST-SCHEMA-001",
+            "CE-CAP-TEST-001",
+            obligation_type="schema_validation",
+            vstatus="verified",
+            tif_exemption="schema_validation",
+        ),
+    )
+    _write(
+        evid_dir / "evidence_test_schema.md",
+        """\
+        # Schema validation evidence
+
+        | Field | Value |
+        |---|---|
+        | requirement_ids | CE-REQ-TEST-SCHEMA-001 |
+
+        raw_evidence_ref: none — TIF-exempt schema validation check
+        """,
+    )
+
+    errors, _ = vcc.run_checks()
+    assert not any("raw_evidence_ref" in e for e in errors), errors
+
+
+# ---------------------------------------------------------------------------
+# Test: generate_tif_evidence.py has no manual registry
+# ---------------------------------------------------------------------------
+
+
+def test_should_not_have_manual_registry_in_generate_tif_evidence() -> None:
+    """generate_tif_evidence.py must not contain a manual runner registry or direct TIF imports."""
+    script = Path(__file__).parents[2] / "scripts" / "generate_tif_evidence.py"
+    assert script.exists(), "generate_tif_evidence.py not found"
+    text = script.read_text(encoding="utf-8")
+    assert "_RUNNERS" not in text, "generate_tif_evidence.py contains a manual _RUNNERS registry"
+    assert not re.search(
+        r"^(?:import|from)\s+tif_", text, re.MULTILINE
+    ), "generate_tif_evidence.py has direct TIF module imports"

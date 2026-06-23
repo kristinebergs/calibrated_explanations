@@ -30,6 +30,7 @@ _REQ_DIR = _REPO_ROOT / "development" / "capabilities" / "requirements"
 _TIF_DIR = _REPO_ROOT / "development" / "capabilities" / "verification" / "tif"
 _EVID_DIR = _REPO_ROOT / "development" / "capabilities" / "evidence"
 _RAW_EVID_DIR = _REPO_ROOT / "reports" / "verification"
+_GAP_ANALYSIS_PATH = _REPO_ROOT / "development" / "capabilities" / "claim_verification_gap_analysis.md"
 
 # Obligation types for which a verified requirement must have tif_refs (or tif_exemption).
 _TIF_REQUIRED_TYPES: set[str] = {
@@ -126,13 +127,22 @@ def _extract_section_text(text: str, section_name: str) -> str:
     return m.group(1).strip() if m else ""
 
 
-def _parse_tif_spec_metadata(spec_path: Path) -> dict[str, str]:
-    """Parse Identity table fields from a CE-TIF-*.md spec file."""
+def _parse_tif_spec_metadata(spec_path: Path) -> dict[str, Any]:
+    """Parse Identity table fields and served refs from a CE-TIF-*.md spec file."""
     text = spec_path.read_text(encoding="utf-8")
 
     def table_value(field: str) -> str:
         match = re.search(rf"\|\s*{re.escape(field)}\s*\|\s*([^|]+?)\s*\|", text)
         return match.group(1).strip().strip("`") if match else ""
+
+    reqs_section = _extract_section_text(text, "Requirements served")
+    requirements_served: list[str] = re.findall(r"\|\s*(CE-REQ-[\w-]+)\s*\|", reqs_section)
+
+    claims_section = _extract_section_text(text, "Claims served")
+    claims_served: list[str] = re.findall(r"^\s*[-*]\s+(CE-CAP-[\w-]+)", claims_section, re.MULTILINE)
+
+    adr_section = _extract_section_text(text, "ADR refs")
+    adr_refs: list[str] = re.findall(r"^\s*[-*]\s+(ADR-\d+)", adr_section, re.MULTILINE)
 
     return {
         "tif_id": table_value("tif_id"),
@@ -141,6 +151,9 @@ def _parse_tif_spec_metadata(spec_path: Path) -> dict[str, str]:
         "evidence_builder": table_value("evidence_builder"),
         "evidence_key": table_value("evidence_key"),
         "verification_type": table_value("verification_type"),
+        "requirements_served": requirements_served,
+        "claims_served": claims_served,
+        "adr_refs": adr_refs,
     }
 
 
@@ -469,6 +482,26 @@ def _check_readme_tif_inventory(errors: list[str], warnings: list[str]) -> None:
                 f"tif README: '{tif_id}' status '{readme_status}' != spec '{spec_status}'"
             )
 
+        readme_reqs_cell = row.get("requirements_served", "")
+        if readme_reqs_cell:
+            readme_reqs = set(_split_refs(readme_reqs_cell))
+            spec_reqs = set(spec_meta.get("requirements_served", []))
+            if readme_reqs != spec_reqs:
+                errors.append(
+                    f"tif README: '{tif_id}' requirements_served {sorted(readme_reqs)} "
+                    f"!= spec {sorted(spec_reqs)}"
+                )
+
+        readme_claims_cell = row.get("claims_served", "")
+        if readme_claims_cell:
+            readme_claims = set(_split_refs(readme_claims_cell))
+            spec_claims = set(spec_meta.get("claims_served", []))
+            if readme_claims != spec_claims:
+                errors.append(
+                    f"tif README: '{tif_id}' claims_served {sorted(readme_claims)} "
+                    f"!= spec {sorted(spec_claims)}"
+                )
+
 
 def _check_tif_executable(errors: list[str], warnings: list[str], path: Path) -> None:
     """Guard: check that a TIF executable uses WrapCalibratedExplainer and avoids forbidden patterns."""
@@ -607,6 +640,119 @@ def _check_raw_evidence(
     return evidence_ids
 
 
+def _check_raw_evidence_vs_tif_specs(
+    errors: list[str],
+    warnings: list[str],
+) -> None:
+    """Cross-check committed raw evidence against its referenced TIF specs."""
+    active_specs: dict[str, dict[str, Any]] = {}
+    for spec_path in sorted(_TIF_DIR.glob("CE-TIF-*.md")):
+        meta = _parse_tif_spec_metadata(spec_path)
+        if meta.get("status") == "active":
+            active_specs[meta.get("tif_id", spec_path.stem)] = meta
+
+    for path in sorted(_RAW_EVID_DIR.glob("CE-EVID-*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, OSError):
+            continue  # already reported by _check_raw_evidence
+
+        ev_claims = set(data.get("claim_ids", []))
+        ev_reqs = set(data.get("requirement_ids", []))
+        ev_adrs = set(data.get("adr_refs", []))
+
+        for tif_id in data.get("tif_ids", []):
+            spec = active_specs.get(tif_id)
+            if not spec:
+                continue  # no active spec for this tif_id; skip (other checks catch this)
+
+            spec_claims = spec.get("claims_served", [])
+            missing_claims = [c for c in spec_claims if c not in ev_claims]
+            if missing_claims:
+                errors.append(
+                    f"evidence {path.name}: tif '{tif_id}' spec declares claims "
+                    f"{missing_claims} not present in evidence claim_ids"
+                )
+
+            spec_reqs = spec.get("requirements_served", [])
+            missing_reqs = [r for r in spec_reqs if r not in ev_reqs]
+            if missing_reqs:
+                errors.append(
+                    f"evidence {path.name}: tif '{tif_id}' spec declares requirements "
+                    f"{missing_reqs} not present in evidence requirement_ids"
+                )
+
+            spec_adrs = spec.get("adr_refs", [])
+            if spec_adrs:
+                missing_adrs = [a for a in spec_adrs if a not in ev_adrs]
+                if missing_adrs:
+                    errors.append(
+                        f"evidence {path.name}: tif '{tif_id}' spec declares ADR refs "
+                        f"{missing_adrs} not present in evidence adr_refs"
+                    )
+
+
+def _check_gap_analysis(
+    errors: list[str],
+    warnings: list[str],
+) -> None:
+    """Parse claim_verification_gap_analysis.md and cross-check each row."""
+    if not _GAP_ANALYSIS_PATH.exists():
+        errors.append(
+            f"gap_analysis: {_GAP_ANALYSIS_PATH.name} not found — "
+            "create it with a 'Closed Behavioral Chains' table listing all active TIFs"
+        )
+        return
+
+    text = _GAP_ANALYSIS_PATH.read_text(encoding="utf-8")
+    section = _extract_section_text(text, "Closed Behavioral Chains")
+    if not section:
+        errors.append("gap_analysis: 'Closed Behavioral Chains' section not found")
+        return
+
+    # Extract TIF IDs from the first column of the table
+    gap_tif_ids: list[str] = []
+    for line in section.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue
+        cells = [c.strip() for c in stripped.strip("|").split("|")]
+        if not cells:
+            continue
+        first = cells[0].strip()
+        if not first or first.lower() == "tif id" or re.fullmatch(r"[-:\s]+", first):
+            continue
+        gap_tif_ids.append(first)
+
+    # Active TIF IDs from specs
+    active_tif_ids: set[str] = set()
+    for spec_path in sorted(_TIF_DIR.glob("CE-TIF-*.md")):
+        meta = _parse_tif_spec_metadata(spec_path)
+        if meta.get("status") == "active":
+            active_tif_ids.add(meta.get("tif_id", spec_path.stem))
+
+    # TIF IDs referenced in committed evidence
+    evidence_tif_ids: set[str] = set()
+    for path in sorted(_RAW_EVID_DIR.glob("CE-EVID-*.json")):
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            evidence_tif_ids.update(data.get("tif_ids", []))
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    for tif_id in gap_tif_ids:
+        if tif_id not in active_tif_ids:
+            errors.append(
+                f"gap_analysis: row '{tif_id}' is not an active TIF spec "
+                f"(no CE-TIF-*.md with status=active and tif_id={tif_id!r})"
+            )
+        if tif_id not in evidence_tif_ids:
+            errors.append(
+                f"gap_analysis: row '{tif_id}' has no committed evidence "
+                f"(no CE-EVID-*.json references tif_id={tif_id!r})"
+            )
+
+
 def _check_curated_evidence(
     errors: list[str],
     warnings: list[str],
@@ -635,15 +781,34 @@ def _check_curated_evidence(
         if raw_ref_match:
             raw_ref = raw_ref_match.group(1).strip().rstrip(",")
             is_none_ref = raw_ref.lower().startswith("none")
-            if not is_none_ref:
-                # Check that referenced evidence file exists
+            if is_none_ref:
+                # Valid only when all referenced requirements are TIF-exempt
+                table_req_match = re.search(
+                    r"\|\s*requirement_ids\s*\|\s*([^|]+)\|", text, re.IGNORECASE
+                )
+                if table_req_match:
+                    curated_req_ids = [
+                        r.strip()
+                        for r in re.split(r"[,\s]+", table_req_match.group(1))
+                        if r.strip().startswith("CE-REQ-")
+                    ]
+                    non_exempt = [
+                        r for r in curated_req_ids
+                        if r in reqs and not reqs[r].get("tif_exemption")
+                    ]
+                    if non_exempt:
+                        errors.append(
+                            f"curated_evidence {path.name}: raw_evidence_ref is 'none' but "
+                            f"requirements {non_exempt} are not TIF-exempt"
+                        )
+            else:
+                # CE-EVID-* IDs must resolve exactly
                 ref_ids = re.findall(r"\bCE-EVID-[\w-]+\b", raw_ref)
                 for ref_id in ref_ids:
-                    if not any(eid.startswith(ref_id.rstrip("0123456789-").rstrip("-")) for eid in raw_evidence_ids):
-                        # Soft check: raw evidence may be at a different date stamp
-                        warnings.append(
+                    if ref_id not in raw_evidence_ids:
+                        errors.append(
                             f"curated_evidence {path.name}: raw_evidence_ref '{ref_id}' "
-                            f"not found in committed raw evidence files"
+                            f"not found in committed raw evidence files (exact match required)"
                         )
 
 
@@ -695,6 +860,8 @@ def run_checks() -> tuple[list[str], list[str]]:
     reqs = _check_requirements(errors, warnings, claims)
     active_tif_ids = _check_tif_files(errors, warnings, reqs)
     raw_evidence_ids = _check_raw_evidence(errors, warnings, claims, reqs)
+    _check_raw_evidence_vs_tif_specs(errors, warnings)
+    _check_gap_analysis(errors, warnings)
     _check_curated_evidence(errors, warnings, reqs, raw_evidence_ids)
     _check_verified_behavioral_have_raw_evidence(errors, warnings, reqs, raw_evidence_ids)
 

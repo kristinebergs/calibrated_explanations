@@ -295,28 +295,58 @@ def build_evidence_payload(
         scenario_entry(
             "factual_api_contract",
             obs_to_dict(factual),
-            [acceptance_entry("CE-REQ-EXPL-API-001", "exception_raised", False, factual.exception_raised)],
+            [
+                acceptance_entry(
+                    "CE-REQ-EXPL-API-001", "exception_raised", False, factual.exception_raised
+                )
+            ],
         ),
         scenario_entry(
             "factual_return_contract",
             obs_to_dict(factual),
             [
-                acceptance_entry("CE-REQ-EXPL-RETURN-001", "result_is_none", False, factual.result_is_none),
-                acceptance_entry("CE-REQ-EXPL-RETURN-001", "result_len == n_instances", True, factual.result_len == factual.n_instances),
-                acceptance_entry("CE-REQ-EXPL-RETURN-001", "feature_weights_accessible", True, factual.feature_weights_accessible),
+                acceptance_entry(
+                    "CE-REQ-EXPL-RETURN-001", "result_is_none", False, factual.result_is_none
+                ),
+                acceptance_entry(
+                    "CE-REQ-EXPL-RETURN-001",
+                    "result_len == n_instances",
+                    True,
+                    factual.result_len == factual.n_instances,
+                ),
+                acceptance_entry(
+                    "CE-REQ-EXPL-RETURN-001",
+                    "feature_weights_accessible",
+                    True,
+                    factual.feature_weights_accessible,
+                ),
             ],
         ),
         scenario_entry(
             "alternative_api_contract",
             obs_to_dict(alt),
-            [acceptance_entry("CE-REQ-EXPL-API-002", "exception_raised", False, alt.exception_raised)],
+            [
+                acceptance_entry(
+                    "CE-REQ-EXPL-API-002", "exception_raised", False, alt.exception_raised
+                )
+            ],
         ),
         scenario_entry(
             "alternative_return_contract",
             obs_to_dict(alt),
             [
-                acceptance_entry("CE-REQ-EXPL-ALT-RETURN-001", "result_type_name", "AlternativeExplanations", alt.result_type_name),
-                acceptance_entry("CE-REQ-EXPL-ALT-RETURN-001", "result_len == n_instances", True, alt.result_len == alt.n_instances),
+                acceptance_entry(
+                    "CE-REQ-EXPL-ALT-RETURN-001",
+                    "result_type_name",
+                    "AlternativeExplanations",
+                    alt.result_type_name,
+                ),
+                acceptance_entry(
+                    "CE-REQ-EXPL-ALT-RETURN-001",
+                    "result_len == n_instances",
+                    True,
+                    alt.result_len == alt.n_instances,
+                ),
             ],
         ),
     ]

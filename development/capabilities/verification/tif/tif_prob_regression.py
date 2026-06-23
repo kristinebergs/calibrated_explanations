@@ -158,8 +158,7 @@ def run_prob_regression_tif_scenario(
 
 
 _DATASET_ID = (
-    "sklearn make_regression n_samples=150 n_features=4 "
-    "n_informative=3 noise=10 random_seed=42"
+    "sklearn make_regression n_samples=150 n_features=4 " "n_informative=3 noise=10 random_seed=42"
 )
 
 
@@ -189,10 +188,27 @@ def build_evidence_payload(
             "prob_regression_threshold_0",
             obs_to_dict(obs),
             [
-                acceptance_entry("CE-REQ-PRED-PROB-API-001", "exception_raised", False, obs.exception_raised),
-                acceptance_entry("CE-REQ-PRED-PROB-API-001", "proba_len == n_instances", True, obs.proba_len == obs.n_instances),
-                acceptance_entry("CE-REQ-PRED-PROB-BOUNDS-001", "proba_min >= 0.0", True, obs.proba_min is not None and obs.proba_min >= 0.0),
-                acceptance_entry("CE-REQ-PRED-PROB-BOUNDS-001", "proba_max <= 1.0", True, obs.proba_max is not None and obs.proba_max <= 1.0),
+                acceptance_entry(
+                    "CE-REQ-PRED-PROB-API-001", "exception_raised", False, obs.exception_raised
+                ),
+                acceptance_entry(
+                    "CE-REQ-PRED-PROB-API-001",
+                    "proba_len == n_instances",
+                    True,
+                    obs.proba_len == obs.n_instances,
+                ),
+                acceptance_entry(
+                    "CE-REQ-PRED-PROB-BOUNDS-001",
+                    "proba_min >= 0.0",
+                    True,
+                    obs.proba_min is not None and obs.proba_min >= 0.0,
+                ),
+                acceptance_entry(
+                    "CE-REQ-PRED-PROB-BOUNDS-001",
+                    "proba_max <= 1.0",
+                    True,
+                    obs.proba_max is not None and obs.proba_max <= 1.0,
+                ),
             ],
         ),
     ]

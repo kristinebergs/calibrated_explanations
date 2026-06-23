@@ -237,7 +237,14 @@ def test_capability_requirements_should_declare_tif_refs_or_exemption():
 # Rule 8: Active TIF specs must declare required Identity metadata
 # ---------------------------------------------------------------------------
 
-_REQUIRED_IDENTITY_FIELDS = {"tif_id", "executable", "entry_functions", "evidence_key", "verification_type", "status"}
+_REQUIRED_IDENTITY_FIELDS = {
+    "tif_id",
+    "executable",
+    "entry_functions",
+    "evidence_key",
+    "verification_type",
+    "status",
+}
 
 
 def _spec_table_value(text: str, field: str) -> str:

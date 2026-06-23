@@ -46,6 +46,13 @@ _REQUIRED_PAYLOAD_FIELDS = (
 )
 _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 _NOW = datetime.now(timezone.utc)
+
+
+def _extract_section_text(text: str, section_name: str) -> str:
+    """Return the body of a `## <section_name>` Markdown section."""
+    pattern = rf"(?m)^##\s+{re.escape(section_name)}\s*$\n(.*?)(?=^##\s|\Z)"
+    m = re.search(pattern, text, re.DOTALL)
+    return m.group(1).strip() if m else ""
 _DATE_SUFFIX = _NOW.strftime("%Y%m%d")
 _TIMESTAMP = _NOW.isoformat()
 
@@ -99,13 +106,22 @@ def _validate_payload(payload: dict[str, Any], output_stem: str) -> None:
                 )
 
 
-def _parse_tif_spec(spec_path: Path) -> dict[str, str]:
-    """Parse Identity table metadata from a CE-TIF-*.md spec file."""
+def _parse_tif_spec(spec_path: Path) -> dict[str, Any]:
+    """Parse Identity table metadata and served refs from a CE-TIF-*.md spec file."""
     text = spec_path.read_text(encoding="utf-8")
 
     def table_value(field: str) -> str:
         match = re.search(rf"\|\s*{re.escape(field)}\s*\|\s*([^|]+?)\s*\|", text)
         return match.group(1).strip().strip("`") if match else ""
+
+    reqs_section = _extract_section_text(text, "Requirements served")
+    requirements_served: list[str] = re.findall(r"\|\s*(CE-REQ-[\w-]+)\s*\|", reqs_section)
+
+    claims_section = _extract_section_text(text, "Claims served")
+    claims_served: list[str] = re.findall(r"^\s*[-*]\s+(CE-CAP-[\w-]+)", claims_section, re.MULTILINE)
+
+    adr_section = _extract_section_text(text, "ADR refs")
+    adr_refs: list[str] = re.findall(r"^\s*[-*]\s+(ADR-\d+)", adr_section, re.MULTILINE)
 
     return {
         "tif_id": table_value("tif_id"),
@@ -114,6 +130,9 @@ def _parse_tif_spec(spec_path: Path) -> dict[str, str]:
         "evidence_builder": table_value("evidence_builder"),
         "evidence_key": table_value("evidence_key"),
         "verification_type": table_value("verification_type"),
+        "requirements_served": requirements_served,
+        "claims_served": claims_served,
+        "adr_refs": adr_refs,
     }
 
 
@@ -191,7 +210,7 @@ def _discover_active_tifs() -> list[tuple[str, Any, dict[str, str]]]:
 
 
 def _validate_payload_against_spec(
-    payload: dict[str, Any], tif_id: str, meta: dict[str, str]
+    payload: dict[str, Any], tif_id: str, meta: dict[str, Any]
 ) -> None:
     """Check that the generated payload is consistent with its TIF spec."""
     if tif_id not in payload.get("tif_ids", []):
@@ -211,6 +230,44 @@ def _validate_payload_against_spec(
             f"payload evidence_id '{payload.get('evidence_id')}' "
             f"does not start with expected prefix '{expected_prefix}'"
         )
+
+    spec_claims = meta.get("claims_served", [])
+    if spec_claims:
+        payload_claims = set(payload.get("claim_ids", []))
+        missing = [c for c in spec_claims if c not in payload_claims]
+        if missing:
+            raise ValueError(
+                f"payload claim_ids missing spec-declared claims: {missing}"
+            )
+
+    spec_reqs = meta.get("requirements_served", [])
+    if spec_reqs:
+        payload_reqs = set(payload.get("requirement_ids", []))
+        missing = [r for r in spec_reqs if r not in payload_reqs]
+        if missing:
+            raise ValueError(
+                f"payload requirement_ids missing spec-declared requirements: {missing}"
+            )
+
+    spec_adr_refs = meta.get("adr_refs", [])
+    if spec_adr_refs:
+        payload_adrs = set(payload.get("adr_refs", []))
+        missing = [a for a in spec_adr_refs if a not in payload_adrs]
+        if missing:
+            raise ValueError(
+                f"payload adr_refs missing spec-declared ADR refs: {missing}"
+            )
+
+    if spec_reqs:
+        criteria_refs: set[str] = set()
+        for scenario in payload.get("scenarios", []):
+            for acc in scenario.get("acceptance", []):
+                criteria_refs.add(acc.get("criterion_ref", ""))
+        uncovered = [r for r in spec_reqs if r not in criteria_refs]
+        if uncovered:
+            raise ValueError(
+                f"payload scenarios have no acceptance criterion for spec requirements: {uncovered}"
+            )
 
 
 def _validate_existing_evidence() -> int:

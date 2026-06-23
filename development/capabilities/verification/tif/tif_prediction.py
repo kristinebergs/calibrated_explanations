@@ -207,8 +207,7 @@ def run_prediction_tif_scenario(
 
 
 _DATASET_ID = (
-    "sklearn make_regression n_samples=150 n_features=4 "
-    "n_informative=3 noise=10 random_seed=42"
+    "sklearn make_regression n_samples=150 n_features=4 " "n_informative=3 noise=10 random_seed=42"
 )
 
 
@@ -239,19 +238,40 @@ def build_evidence_payload(
             "predict_uq_interval_default",
             obs_to_dict(default),
             [
-                acceptance_entry("CE-REQ-PRED-API-001", "exception_raised", False, default.exception_raised),
-                acceptance_entry("CE-REQ-PRED-API-001", "y_hat_len == n_instances", True, default.y_hat_len == default.n_instances),
+                acceptance_entry(
+                    "CE-REQ-PRED-API-001", "exception_raised", False, default.exception_raised
+                ),
+                acceptance_entry(
+                    "CE-REQ-PRED-API-001",
+                    "y_hat_len == n_instances",
+                    True,
+                    default.y_hat_len == default.n_instances,
+                ),
                 acceptance_entry("CE-REQ-PRED-API-001", "low_is_none", False, default.low_is_none),
-                acceptance_entry("CE-REQ-PRED-API-001", "high_is_none", False, default.high_is_none),
-                acceptance_entry("CE-REQ-PRED-INTERVAL-BOUNDS-001", "bounds_ordered", True, default.bounds_ordered),
+                acceptance_entry(
+                    "CE-REQ-PRED-API-001", "high_is_none", False, default.high_is_none
+                ),
+                acceptance_entry(
+                    "CE-REQ-PRED-INTERVAL-BOUNDS-001",
+                    "bounds_ordered",
+                    True,
+                    default.bounds_ordered,
+                ),
             ],
         ),
         scenario_entry(
             "predict_uq_interval_percentiles_10_90",
             obs_to_dict(custom),
             [
-                acceptance_entry("CE-REQ-PRED-INTERVAL-BOUNDS-001", "exception_raised", False, custom.exception_raised),
-                acceptance_entry("CE-REQ-PRED-INTERVAL-BOUNDS-001", "bounds_ordered", True, custom.bounds_ordered),
+                acceptance_entry(
+                    "CE-REQ-PRED-INTERVAL-BOUNDS-001",
+                    "exception_raised",
+                    False,
+                    custom.exception_raised,
+                ),
+                acceptance_entry(
+                    "CE-REQ-PRED-INTERVAL-BOUNDS-001", "bounds_ordered", True, custom.bounds_ordered
+                ),
             ],
         ),
     ]

@@ -193,11 +193,33 @@ def build_evidence_payload(
             "classification_api_and_bounds",
             obs_to_dict(obs),
             [
-                acceptance_entry("CE-REQ-PRED-CLASS-API-001", "exception_raised", False, obs.exception_raised),
-                acceptance_entry("CE-REQ-PRED-CLASS-API-001", "proba_len == n_instances", True, obs.proba_len == obs.n_instances),
-                acceptance_entry("CE-REQ-PRED-CLASS-API-001", "labels_len == n_instances", True, obs.labels_len == obs.n_instances),
-                acceptance_entry("CE-REQ-PRED-CLASS-BOUNDS-001", "proba_min >= 0.0", True, obs.proba_min is not None and obs.proba_min >= 0.0),
-                acceptance_entry("CE-REQ-PRED-CLASS-BOUNDS-001", "proba_max <= 1.0", True, obs.proba_max is not None and obs.proba_max <= 1.0),
+                acceptance_entry(
+                    "CE-REQ-PRED-CLASS-API-001", "exception_raised", False, obs.exception_raised
+                ),
+                acceptance_entry(
+                    "CE-REQ-PRED-CLASS-API-001",
+                    "proba_len == n_instances",
+                    True,
+                    obs.proba_len == obs.n_instances,
+                ),
+                acceptance_entry(
+                    "CE-REQ-PRED-CLASS-API-001",
+                    "labels_len == n_instances",
+                    True,
+                    obs.labels_len == obs.n_instances,
+                ),
+                acceptance_entry(
+                    "CE-REQ-PRED-CLASS-BOUNDS-001",
+                    "proba_min >= 0.0",
+                    True,
+                    obs.proba_min is not None and obs.proba_min >= 0.0,
+                ),
+                acceptance_entry(
+                    "CE-REQ-PRED-CLASS-BOUNDS-001",
+                    "proba_max <= 1.0",
+                    True,
+                    obs.proba_max is not None and obs.proba_max <= 1.0,
+                ),
             ],
         ),
     ]

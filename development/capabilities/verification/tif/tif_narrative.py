@@ -159,10 +159,19 @@ def build_evidence_payload(
             "to_narrative_text_format",
             obs_to_dict(obs),
             [
-                acceptance_entry("CE-REQ-NARR-API-001", "exception_raised", False, obs.exception_raised),
-                acceptance_entry("CE-REQ-NARR-API-001", "result_is_none", False, obs.result_is_none),
+                acceptance_entry(
+                    "CE-REQ-NARR-API-001", "exception_raised", False, obs.exception_raised
+                ),
+                acceptance_entry(
+                    "CE-REQ-NARR-API-001", "result_is_none", False, obs.result_is_none
+                ),
                 acceptance_entry("CE-REQ-NARR-API-001", "result_is_str", True, obs.result_is_str),
-                acceptance_entry("CE-REQ-NARR-API-001", "result_len > 0", True, obs.result_len is not None and obs.result_len > 0),
+                acceptance_entry(
+                    "CE-REQ-NARR-API-001",
+                    "result_len > 0",
+                    True,
+                    obs.result_len is not None and obs.result_len > 0,
+                ),
             ],
         ),
     ]

@@ -155,7 +155,11 @@ def build_evidence_payload(
         scenario_entry(
             "plot_no_raise_agg_backend",
             obs_to_dict(obs),
-            [acceptance_entry("CE-REQ-VIZ-SMOKE-001", "exception_raised", False, obs.exception_raised)],
+            [
+                acceptance_entry(
+                    "CE-REQ-VIZ-SMOKE-001", "exception_raised", False, obs.exception_raised
+                )
+            ],
         ),
     ]
     return build_payload(

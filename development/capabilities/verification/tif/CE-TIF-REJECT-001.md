@@ -25,6 +25,7 @@
 ## ADR refs
 
 - ADR-029
+- ADR-038
 
 ## Public API surface under test
 

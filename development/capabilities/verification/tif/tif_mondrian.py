@@ -138,7 +138,9 @@ def build_evidence_payload(
             "calibrate_with_mondrian_categorizer",
             obs_to_dict(obs),
             [
-                acceptance_entry("CE-REQ-MOND-API-001", "exception_raised", False, obs.exception_raised),
+                acceptance_entry(
+                    "CE-REQ-MOND-API-001", "exception_raised", False, obs.exception_raised
+                ),
                 acceptance_entry("CE-REQ-MOND-API-001", "calibrated", True, obs.calibrated),
             ],
         ),
