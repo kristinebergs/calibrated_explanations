@@ -11,6 +11,7 @@
 | status | active |
 | verification_status | verified |
 | tif_exemption | repository_policy |
+| tif_exemption_rationale | Governance events are emitted on the internal observability bus, which is not accessible through the WrapCalibratedExplainer public API; they are verified by unit tests that spy on the event bus and quality-gate scripts that assert on emission counts. |
 
 ## Scope
 

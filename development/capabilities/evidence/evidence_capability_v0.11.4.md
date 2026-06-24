@@ -98,7 +98,7 @@ Notes:
 |---|---|---|---|
 | `development/capabilities/requirements/CE-REQ-PRED-CLASS-API-001.md` | CE-REQ-PRED-CLASS-API-001 | CE-CAP-PRED-CLASS-001 | api_contract |
 | `development/capabilities/requirements/CE-REQ-PRED-PROB-API-001.md` | CE-REQ-PRED-PROB-API-001 | CE-CAP-PRED-PROB-001 | api_contract |
-| `development/capabilities/requirements/CE-REQ-EXPL-ENSURED-API-001.md` | CE-REQ-EXPL-ENSURED-API-001 | CE-CAP-EXPL-ENSURED-001 | api_contract |
+| `development/capabilities/requirements/CE-REQ-EXPL-FILTER-ENSURED-001.md` | CE-REQ-EXPL-FILTER-ENSURED-001 | CE-CAP-EXPL-FILTER-001 | api_contract |
 | `development/capabilities/requirements/CE-REQ-EXPL-CONJ-API-001.md` | CE-REQ-EXPL-CONJ-API-001 | CE-CAP-EXPL-CONJ-001 | api_contract |
 | `development/capabilities/requirements/CE-REQ-NARR-API-001.md` | CE-REQ-NARR-API-001 | CE-CAP-NARR-001 | api_contract |
 | `development/capabilities/requirements/CE-REQ-GUARD-API-001.md` | CE-REQ-GUARD-API-001 | CE-CAP-GUARD-001 | api_contract |
@@ -113,7 +113,8 @@ Notes:
 |---|---|---|
 | `tests/capabilities/test_classification_contracts.py` | 2 | CE-REQ-PRED-CLASS-API-001 |
 | `tests/capabilities/test_probabilistic_regression_contracts.py` | 2 | CE-REQ-PRED-PROB-API-001 |
-| `tests/capabilities/test_advanced_explanation_contracts.py` | 3 | CE-REQ-EXPL-ENSURED-API-001, CE-REQ-EXPL-CONJ-API-001 |
+| `tests/capabilities/test_filter_contracts.py` | 4 | CE-REQ-EXPL-FILTER-ENSURED-001 |
+| `tests/capabilities/test_conjunction_contracts.py` | 4 | CE-REQ-EXPL-CONJ-API-001 |
 | `tests/capabilities/test_narrative_contracts.py` | 1 | CE-REQ-NARR-API-001 |
 | `tests/capabilities/test_guard_contracts.py` | 1 | CE-REQ-GUARD-API-001 |
 | `tests/capabilities/test_reject_policy_contracts.py` | 1 | CE-REQ-REJECT-API-001 |

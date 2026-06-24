@@ -11,6 +11,7 @@
 | status | active |
 | verification_status | verified |
 | tif_exemption | repository_policy |
+| tif_exemption_rationale | Serialization persistence is verified by unit tests that save/load state objects directly; WrapCalibratedExplainer scenarios cannot verify schema version manifests, checksum rejection, or primitive JSON-safe round-trips at the required granularity. |
 
 ## Scope
 

@@ -11,6 +11,7 @@
 | status | active |
 | verification_status | verified |
 | tif_exemption | repository_policy |
+| tif_exemption_rationale | Parallel strategy resolution is driven by environment-variable configuration and is not observable through the WrapCalibratedExplainer public API; it is verified by unit tests that control the environment and assert on internal strategy state. |
 
 ## Scope
 

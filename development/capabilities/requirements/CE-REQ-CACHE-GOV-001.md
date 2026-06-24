@@ -11,6 +11,7 @@
 | status | active |
 | verification_status | verified |
 | tif_exemption | repository_policy |
+| tif_exemption_rationale | Cache internals (key construction, LRU eviction, disabled-state behavior) are implementation details verified by unit tests targeting the cache layer directly; WrapCalibratedExplainer scenarios cannot observe cache policy at the required granularity. |
 
 ## Scope
 

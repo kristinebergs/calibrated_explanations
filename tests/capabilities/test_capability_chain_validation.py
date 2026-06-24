@@ -62,12 +62,15 @@ def _minimal_req(
     vstatus: str = "verified",
     tif_refs: list[str] | None = None,
     tif_exemption: str = "",
+    tif_exemption_rationale: str = "",
 ) -> str:
     tif_line = ""
     if tif_refs:
         tif_line = f"| tif_refs | {', '.join(tif_refs)} |"
     elif tif_exemption:
         tif_line = f"| tif_exemption | {tif_exemption} |"
+        if tif_exemption_rationale:
+            tif_line += f"\n        | tif_exemption_rationale | {tif_exemption_rationale} |"
     return f"""\
         # {req_id}
 
@@ -1472,3 +1475,70 @@ def test_should_not_have_manifest_or_registry_sidecar_files() -> None:
         "Manifest/registry/sidecar file(s) detected — these are forbidden "
         f"(active inventories must not be added as sidecar files): {found}"
     )
+
+
+# ---------------------------------------------------------------------------
+# Tests: tif_exemption_rationale required for behavioral types
+# ---------------------------------------------------------------------------
+
+
+def test_should_warn_when_behavioral_requirement_exempted_without_rationale(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """A behavioral requirement with tif_exemption but no tif_exemption_rationale warns.
+
+    repository_policy exemptions on runtime_behavior/api_contract/serialization_contract etc.
+    must document WHY WrapCalibratedExplainer-based TIF is not appropriate.
+    """
+    claims_dir = chain_dirs["claims"]
+    reqs_dir = chain_dirs["reqs"]
+
+    _write(
+        claims_dir / "CE-CAP-TEST-001.yaml",
+        _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
+    )
+    _write(
+        reqs_dir / "CE-REQ-TEST-001.md",
+        _minimal_req(
+            "CE-REQ-TEST-001",
+            "CE-CAP-TEST-001",
+            obligation_type="runtime_behavior",
+            vstatus="verified",
+            tif_exemption="repository_policy",
+            # tif_exemption_rationale intentionally omitted
+        ),
+    )
+
+    _, warnings = vcc.run_checks()
+    assert any(
+        "tif_exemption_rationale" in w and "CE-REQ-TEST-001" in w for w in warnings
+    ), warnings
+
+
+def test_should_not_warn_when_behavioral_requirement_exempted_with_rationale(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """A behavioral requirement with tif_exemption AND tif_exemption_rationale does not warn about rationale."""
+    claims_dir = chain_dirs["claims"]
+    reqs_dir = chain_dirs["reqs"]
+
+    _write(
+        claims_dir / "CE-CAP-TEST-001.yaml",
+        _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
+    )
+    _write(
+        reqs_dir / "CE-REQ-TEST-001.md",
+        _minimal_req(
+            "CE-REQ-TEST-001",
+            "CE-CAP-TEST-001",
+            obligation_type="runtime_behavior",
+            vstatus="verified",
+            tif_exemption="repository_policy",
+            tif_exemption_rationale="Verified by unit tests targeting internals not observable through WrapCalibratedExplainer.",
+        ),
+    )
+
+    _, warnings = vcc.run_checks()
+    assert not any(
+        "tif_exemption_rationale" in w and "CE-REQ-TEST-001" in w for w in warnings
+    ), warnings

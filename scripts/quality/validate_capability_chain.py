@@ -340,6 +340,12 @@ def _check_requirements(
                         f"req {path.name}: obligation_type '{obligation_type}' uses "
                         f"tif_exemption '{tif_exemption}'; confirm this is a non-runtime check"
                     )
+                    if not table.get("tif_exemption_rationale", ""):
+                        warnings.append(
+                            f"req {path.name}: tif_exemption '{tif_exemption}' is set but "
+                            f"tif_exemption_rationale is missing — add this field to document "
+                            f"why WrapCalibratedExplainer-based TIF coverage is not appropriate"
+                        )
 
         # Check each TIF spec file exists
         for tif_id in tif_refs:

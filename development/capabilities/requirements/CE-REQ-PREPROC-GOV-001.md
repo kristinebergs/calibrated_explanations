@@ -11,6 +11,7 @@
 | status | active |
 | verification_status | verified |
 | tif_exemption | repository_policy |
+| tif_exemption_rationale | Preprocessor wiring is verified by integration tests that assert on telemetry metadata not exposed through WrapCalibratedExplainer; the preprocessor is a callsite-controlled pipeline stage below the public wrapper boundary. |
 
 ## Scope
 

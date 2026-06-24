@@ -11,6 +11,7 @@
 | status | active |
 | verification_status | verified |
 | tif_exemption | static_importability_check |
+| tif_exemption_rationale | Plugin protocol importability is a static module-level check; it does not exercise the WrapCalibratedExplainer workflow and cannot be stimulated through that entry point. |
 
 ## TIF exemption
 

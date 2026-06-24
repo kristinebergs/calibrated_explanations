@@ -11,6 +11,7 @@
 | status | active |
 | verification_status | verified |
 | tif_exemption | repository_policy |
+| tif_exemption_rationale | PlotSpec IR round-trip and schema validation operate at the IR layer below the public API; they are verified by unit tests that construct and validate PlotSpec objects directly, not through WrapCalibratedExplainer. |
 
 ## Scope
 

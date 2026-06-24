@@ -11,6 +11,7 @@
 | status | active |
 | verification_status | verified |
 | tif_exemption | repository_policy |
+| tif_exemption_rationale | The legacy API surface (CalibratedExplainer direct usage) is broader than WrapCalibratedExplainer; compatibility is verified by dedicated unit tests against the legacy entry points, not through the modern wrapper. |
 
 ## Scope
 
