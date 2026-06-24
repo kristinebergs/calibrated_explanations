@@ -1318,3 +1318,157 @@ def test_should_not_have_manual_registry_in_generate_tif_evidence() -> None:
     assert not re.search(
         r"^(?:import|from)\s+tif_", text, re.MULTILINE
     ), "generate_tif_evidence.py has direct TIF module imports"
+
+
+# ---------------------------------------------------------------------------
+# Tests: entry_functions validation
+# ---------------------------------------------------------------------------
+
+
+def test_should_fail_when_active_tif_spec_declares_missing_entry_function(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """An active TIF spec that declares an entry function not defined in the executable fails."""
+    tif_dir = chain_dirs["tif"]
+    exec_path = tif_dir / "tif_test.py"
+    # Executable has WrapCalibratedExplainer and build_evidence_payload but NOT the declared fn
+    _write(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
+    exec_path.write_text(
+        exec_path.read_text(encoding="utf-8")
+        + "\ndef build_evidence_payload(**_kw):\n    return {}\n",
+        encoding="utf-8",
+    )
+    _write(
+        tif_dir / "CE-TIF-TEST-001.md",
+        textwrap.dedent(f"""\
+            # CE-TIF-TEST-001
+
+            ## Identity
+
+            | Field | Value |
+            |---|---|
+            | tif_id | CE-TIF-TEST-001 |
+            | executable | `{exec_path}` |
+            | entry_functions | `run_nonexistent_scenario()` |
+            | evidence_builder | `build_evidence_payload()` |
+            | evidence_key | TEST-001 |
+            | verification_type | api_contract |
+            | status | active |
+        """),
+    )
+
+    errors, _ = vcc.run_checks()
+    assert any(
+        "run_nonexistent_scenario" in e and "not found" in e for e in errors
+    ), f"Expected entry-function-not-found error, got: {errors}"
+
+
+def test_should_pass_when_active_tif_spec_entry_functions_exist(
+    chain_dirs: dict[str, Path],
+) -> None:
+    """An active TIF spec whose declared entry functions exist in the executable passes."""
+    tif_dir = chain_dirs["tif"]
+    exec_path = tif_dir / "tif_test.py"
+    _write(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
+    exec_path.write_text(
+        exec_path.read_text(encoding="utf-8")
+        + "\ndef run_scenario():\n    pass\n\ndef build_evidence_payload(**_kw):\n    return {}\n",
+        encoding="utf-8",
+    )
+    _write(
+        tif_dir / "CE-TIF-TEST-001.md",
+        textwrap.dedent(f"""\
+            # CE-TIF-TEST-001
+
+            ## Identity
+
+            | Field | Value |
+            |---|---|
+            | tif_id | CE-TIF-TEST-001 |
+            | executable | `{exec_path}` |
+            | entry_functions | `run_scenario()` |
+            | evidence_builder | `build_evidence_payload()` |
+            | evidence_key | TEST-001 |
+            | verification_type | api_contract |
+            | status | active |
+        """),
+    )
+
+    errors, _ = vcc.run_checks()
+    assert not any(
+        "run_scenario" in e and "not found" in e for e in errors
+    ), f"Unexpected entry-function errors: {errors}"
+
+
+# ---------------------------------------------------------------------------
+# Tests: TIF spec metadata injection into build_evidence_payload
+# ---------------------------------------------------------------------------
+
+
+def test_should_not_have_hardcoded_envelope_in_tif_executables() -> None:
+    """TIF executables must use spec-injected kwargs, not hardcode claim/req/tif IDs.
+
+    Regression guard: build_evidence_payload() must accept spec_* kwargs.
+    This test scans each active TIF executable's build_evidence_payload signature.
+    """
+    import ast
+
+    tif_dir = Path(__file__).parents[2] / "development" / "capabilities" / "verification" / "tif"
+    executables = [p for p in tif_dir.glob("tif_*.py") if not p.stem.endswith("_helpers")]
+    for exec_path in executables:
+        source = exec_path.read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        for node in ast.walk(tree):
+            if not (isinstance(node, ast.FunctionDef) and node.name == "build_evidence_payload"):
+                continue
+            arg_names = {a.arg for a in node.args.kwonlyargs}
+            assert "spec_claim_ids" in arg_names, (
+                f"{exec_path.name}: build_evidence_payload() missing 'spec_claim_ids' kwarg — "
+                "envelope metadata must be injected from the TIF spec, not hardcoded"
+            )
+            assert (
+                "spec_requirement_ids" in arg_names
+            ), f"{exec_path.name}: build_evidence_payload() missing 'spec_requirement_ids' kwarg"
+            assert (
+                "spec_tif_id" in arg_names
+            ), f"{exec_path.name}: build_evidence_payload() missing 'spec_tif_id' kwarg"
+
+
+# ---------------------------------------------------------------------------
+# Tests: no manifest/sidecar/registry files added
+# ---------------------------------------------------------------------------
+
+
+def test_should_not_have_manifest_or_registry_sidecar_files() -> None:
+    """No manifest, generated registry, or sidecar mapping file should exist in the repo.
+
+    Forbidden patterns: files named *_manifest.*, *_registry.*, *_catalog.*,
+    *_inventory.*, or tif_map.* anywhere under development/capabilities/ or scripts/.
+    """
+    repo_root = Path(__file__).parents[2]
+    forbidden_patterns = [
+        "*_manifest.*",
+        "*_registry.*",
+        "*_catalog.*",
+        "*_inventory.*",
+        "tif_map.*",
+        "claim_map.*",
+        "req_map.*",
+    ]
+    search_dirs = [
+        repo_root / "development" / "capabilities",
+        repo_root / "scripts",
+    ]
+    found: list[str] = []
+    for search_dir in search_dirs:
+        if not search_dir.exists():
+            continue
+        for pattern in forbidden_patterns:
+            for match in search_dir.rglob(pattern):
+                # Allow Python cache dirs
+                if "__pycache__" not in str(match):
+                    found.append(str(match.relative_to(repo_root)))
+    assert not found, (
+        "Manifest/registry/sidecar file(s) detected — these are forbidden "
+        f"(active inventories must not be added as sidecar files): {found}"
+    )

@@ -126,6 +126,16 @@ def _extract_section_text(text: str, section_name: str) -> str:
     return m.group(1).strip() if m else ""
 
 
+def _parse_entry_functions(entry_fn_raw: str) -> list[str]:
+    """Parse function names from an entry_functions metadata value."""
+    names: list[str] = []
+    for part in entry_fn_raw.split(","):
+        fn_match = re.match(r"(\w+)\s*\(", part.strip().strip("`"))
+        if fn_match:
+            names.append(fn_match.group(1))
+    return names
+
+
 def _parse_tif_spec_metadata(spec_path: Path) -> dict[str, Any]:
     """Parse Identity table fields and served refs from a CE-TIF-*.md spec file."""
     text = spec_path.read_text(encoding="utf-8")
@@ -143,10 +153,14 @@ def _parse_tif_spec_metadata(spec_path: Path) -> dict[str, Any]:
     adr_section = _extract_section_text(text, "ADR refs")
     adr_refs: list[str] = re.findall(r"^\s*[-*]\s+(ADR-\d+)", adr_section, re.MULTILINE)
 
+    entry_fn_raw = table_value("entry_functions")
+    entry_functions = _parse_entry_functions(entry_fn_raw) if entry_fn_raw else []
+
     return {
         "tif_id": table_value("tif_id"),
         "status": table_value("status"),
         "executable": table_value("executable"),
+        "entry_functions": entry_functions,
         "evidence_builder": table_value("evidence_builder"),
         "evidence_key": table_value("evidence_key"),
         "verification_type": table_value("verification_type"),
@@ -360,6 +374,31 @@ def _check_requirements(
     return reqs
 
 
+def _check_tif_entry_functions(
+    errors: list[str],
+    active_tif_specs: dict[str, dict[str, Any]],
+) -> None:
+    """For each active TIF spec, verify declared entry functions exist in the executable."""
+    for tif_id, meta in sorted(active_tif_specs.items()):
+        exec_str = meta.get("executable", "")
+        entry_functions = meta.get("entry_functions", [])
+        if not exec_str or not entry_functions:
+            continue
+        exec_path = _REPO_ROOT / exec_str
+        if not exec_path.exists():
+            continue  # missing executable already reported elsewhere
+        try:
+            text = exec_path.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        for fn_name in entry_functions:
+            if not re.search(rf"^def {re.escape(fn_name)}\b", text, re.MULTILINE):
+                errors.append(
+                    f"tif {tif_id}: declared entry function '{fn_name}' "
+                    f"not found in executable '{exec_str}'"
+                )
+
+
 def _check_tif_files(
     errors: list[str],
     warnings: list[str],
@@ -390,6 +429,9 @@ def _check_tif_files(
 
     # Discover active TIF specs and cross-check against README inventory
     active_tif_specs = _check_readme_tif_inventory(errors, warnings)
+
+    # Check that each active spec's declared entry functions exist in the executable
+    _check_tif_entry_functions(errors, active_tif_specs)
 
     return active_tif_specs
 

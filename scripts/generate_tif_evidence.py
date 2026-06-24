@@ -106,6 +106,16 @@ def _validate_payload(payload: dict[str, Any], output_stem: str) -> None:
                 )
 
 
+def _parse_entry_functions(entry_fn_raw: str) -> list[str]:
+    """Parse function names from an entry_functions metadata value."""
+    names: list[str] = []
+    for part in entry_fn_raw.split(","):
+        fn_match = re.match(r"(\w+)\s*\(", part.strip().strip("`"))
+        if fn_match:
+            names.append(fn_match.group(1))
+    return names
+
+
 def _parse_tif_spec(spec_path: Path) -> dict[str, Any]:
     """Parse Identity table metadata and served refs from a CE-TIF-*.md spec file."""
     text = spec_path.read_text(encoding="utf-8")
@@ -123,10 +133,14 @@ def _parse_tif_spec(spec_path: Path) -> dict[str, Any]:
     adr_section = _extract_section_text(text, "ADR refs")
     adr_refs: list[str] = re.findall(r"^\s*[-*]\s+(ADR-\d+)", adr_section, re.MULTILINE)
 
+    entry_fn_raw = table_value("entry_functions")
+    entry_functions = _parse_entry_functions(entry_fn_raw) if entry_fn_raw else []
+
     return {
         "tif_id": table_value("tif_id"),
         "status": table_value("status"),
         "executable": table_value("executable"),
+        "entry_functions": entry_functions,
         "evidence_builder": table_value("evidence_builder"),
         "evidence_key": table_value("evidence_key"),
         "verification_type": table_value("verification_type"),
@@ -197,6 +211,13 @@ def _discover_active_tifs() -> list[tuple[str, Any, dict[str, str]]]:
                 f"{spec_path.name}: executable '{module_name}' has no build_evidence_payload() "
                 "function — every active TIF executable must expose build_evidence_payload()"
             )
+
+        for fn_name in meta.get("entry_functions", []):
+            if not hasattr(module, fn_name):
+                raise RuntimeError(
+                    f"{spec_path.name}: declared entry function '{fn_name}' "
+                    f"not found in module '{module_name}'"
+                )
 
         runners.append((tif_id, module, meta))
 
@@ -318,7 +339,7 @@ def main(*, check_current: bool = False, validate_existing: bool = False) -> int
 
     print(f"  discovered {len(runners)} active TIF(s)")
 
-    build_kwargs = {
+    _base_kwargs = {
         "commit_sha": _COMMIT_SHA,
         "timestamp": _TIMESTAMP,
         "date_suffix": _DATE_SUFFIX,
@@ -331,6 +352,16 @@ def main(*, check_current: bool = False, validate_existing: bool = False) -> int
     written: list[dict[str, Any]] = []
     for tif_id, module, meta in runners:
         print(f"Running {tif_id}...")
+        # Spec metadata is injected so executables are not authoritative for envelope fields.
+        build_kwargs = {
+            **_base_kwargs,
+            "spec_claim_ids": meta.get("claims_served", []),
+            "spec_requirement_ids": meta.get("requirements_served", []),
+            "spec_adr_refs": meta.get("adr_refs", []),
+            "spec_tif_id": tif_id,
+            "spec_verification_type": meta["verification_type"],
+            "spec_evidence_key": meta["evidence_key"],
+        }
         try:
             payload = module.build_evidence_payload(**build_kwargs)
             _validate_payload_against_spec(payload, tif_id, meta)

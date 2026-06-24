@@ -136,10 +136,18 @@ def build_evidence_payload(
     package_version: str,
     python_version: str,
     platform_str: str,
+    spec_claim_ids: list,
+    spec_requirement_ids: list,
+    spec_adr_refs: list,
+    spec_tif_id: str,
+    spec_verification_type: str,
+    spec_evidence_key: str,
 ) -> dict:
     """Build a complete evidence payload for CE-TIF-GUARD-001.
 
     Called by scripts/generate_tif_evidence.py during dynamic discovery.
+    Envelope metadata (claim_ids, requirement_ids, etc.) is injected from the
+    TIF spec by the caller; this function is not authoritative for those fields.
     """
     from tif_evidence_helpers import (
         acceptance_entry,
@@ -170,12 +178,12 @@ def build_evidence_payload(
         ),
     ]
     return build_payload(
-        "GUARD-001",
-        claim_ids=["CE-CAP-GUARD-001"],
-        requirement_ids=["CE-REQ-GUARD-API-001"],
-        adr_refs=["ADR-032", "ADR-038"],
-        tif_ids=["CE-TIF-GUARD-001"],
-        verification_type="api_contract",
+        spec_evidence_key,
+        claim_ids=spec_claim_ids,
+        requirement_ids=spec_requirement_ids,
+        adr_refs=spec_adr_refs,
+        tif_ids=[spec_tif_id],
+        verification_type=spec_verification_type,
         dataset_id=_DATASET_ID,
         scenarios=scenarios,
         commit_sha=commit_sha,
