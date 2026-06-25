@@ -2963,20 +2963,71 @@ class AlternativeExplanation(CalibratedExplanation):
             new_rules["feature_value"].append(None)
         new_rules["is_conjunctive"].append(rules["is_conjunctive"][rule])
 
-    def _filter_rules(
+    def filter_rules(
         self,
         only_ensured=False,
+        only_pareto=False,
+        pareto_cost: str = "uncertainty_width",
         make_super=False,
         make_semi=False,
         make_counter=False,
         include_potential=False,
+        copy=True,
     ):
-        """Filter rules based on the explanation type."""
-        is_plain_regression = self.is_regression() and not self.is_probabilistic()
-        initial_uncertainty = np.abs(self.prediction["high"] - self.prediction["low"])
+        """Filter rules based on the explanation type.
 
-        new_rules = self._set_up_result()
-        rules = self.get_rules()  # pylint: disable=protected-access
+        Parameters
+        ----------
+        only_ensured : bool, default=False
+            When ``True``, keep only alternatives whose uncertainty interval is
+            no wider than the base prediction interval.
+        only_pareto : bool, default=False
+            When ``True``, keep only alternatives on the output-envelope Pareto
+            frontier (dominated alternatives are removed). When combined with
+            ``only_ensured``, both conditions must be satisfied.
+        pareto_cost : str, default="uncertainty_width"
+            Cost dimension used by the Pareto filter. One of
+            ``"uncertainty_width"`` or ``"rule_size"``. Ignored when
+            ``only_pareto=False``.
+        make_super : bool, default=False
+            Keep alternatives that reinforce the current prediction.
+        make_semi : bool, default=False
+            Keep alternatives that move toward the decision boundary without
+            crossing it.
+        make_counter : bool, default=False
+            Keep alternatives that cross the decision boundary.
+        include_potential : bool, default=False
+            When ``True``, also include *potential* alternatives (those whose
+            uncertainty interval spans the decision boundary).
+        copy : bool, default=True
+            When ``True``, return a new explanation. When ``False``, filter
+            in place and return ``self``.
+
+        Returns
+        -------
+        :class:`.AlternativeExplanation`
+            The filtered explanation.
+
+        Notes
+        -----
+        When multiple directional flags (``make_super``, ``make_semi``,
+        ``make_counter``) are active simultaneously, the result is their
+        *union*: a rule is kept when it satisfies at least one active flag.
+        ``only_ensured`` and ``only_pareto`` are independent AND-conditions
+        applied on top of the directional filter.
+        """
+        target = self.copy() if copy else self
+        is_plain_regression = target.is_regression() and not target.is_probabilistic()
+        initial_uncertainty = np.abs(target.prediction["high"] - target.prediction["low"])
+
+        new_rules = target._set_up_result()
+        rules = target.get_rules()  # pylint: disable=protected-access
+
+        pareto_indexes = (
+            set(target._pareto_rule_indexes(rules, pareto_cost=pareto_cost))
+            if only_pareto
+            else None
+        )
 
         if is_plain_regression:
             # For plain regression, redefine filtering concepts:
@@ -2987,36 +3038,36 @@ class AlternativeExplanation(CalibratedExplanation):
             for rule in range(len(rules["rule"])):
                 is_potential = (
                     rules["predict_low"][rule]
-                    <= self.prediction["predict"]
+                    <= target.prediction["predict"]
                     <= rules["predict_high"][rule]
                 )
                 if not include_potential and is_potential:
                     continue
-                # Super: keep only rules with higher prediction
-                if make_super and rules["predict"][rule] <= self.prediction["predict"]:
-                    continue
+                # Compute directional membership booleans.
+                is_super = rules["predict"][rule] > target.prediction["predict"]
+                is_counter = rules["predict"][rule] < target.prediction["predict"]
                 # Semi: for plain regression, keep alternatives where the
                 # uncertainty intervals mutually include the other's mean
                 # (i.e. conservative 'semi' definition). Use predict and
                 # predict_low/predict_high for comparisons.
-                if make_semi:
-                    try:
-                        rule_mean = float(rules["predict"][rule])
-                        rule_low = float(rules["predict_low"][rule])
-                        rule_high = float(rules["predict_high"][rule])
-                        base_mean = float(self.prediction["predict"])
-                        base_low = float(self.prediction["low"])
-                        base_high = float(self.prediction["high"])
-                    except (TypeError, ValueError):
-                        # If values are not numeric, skip this rule
-                        continue
-                    if not (
-                        (rule_low <= base_mean <= rule_high)
-                        and (base_low <= rule_mean <= base_high)
-                    ):
-                        continue
-                # Counter: keep only rules with lower prediction than original
-                if make_counter and rules["predict"][rule] >= self.prediction["predict"]:
+                try:
+                    rule_mean = float(rules["predict"][rule])
+                    rule_low = float(rules["predict_low"][rule])
+                    rule_high = float(rules["predict_high"][rule])
+                    base_mean = float(target.prediction["predict"])
+                    base_low = float(target.prediction["low"])
+                    base_high = float(target.prediction["high"])
+                    is_semi = (rule_low <= base_mean <= rule_high) and (
+                        base_low <= rule_mean <= base_high
+                    )
+                except (TypeError, ValueError):
+                    is_semi = False
+                # Union: if any directional flag is active the rule must satisfy at least one.
+                if (make_super or make_semi or make_counter) and not (
+                    (make_super and is_super)
+                    or (make_semi and is_semi)
+                    or (make_counter and is_counter)
+                ):
                     continue
                 if (
                     only_ensured
@@ -3024,15 +3075,17 @@ class AlternativeExplanation(CalibratedExplanation):
                     > initial_uncertainty
                 ):
                     continue
+                if only_pareto and rule not in pareto_indexes:
+                    continue
                 if (
                     rules["base_predict_low"] == rules["predict_low"][rule]
                     and rules["base_predict_high"] == rules["predict_high"][rule]
-                    and rules["predict"][rule] == self.prediction["predict"]
+                    and rules["predict"][rule] == target.prediction["predict"]
                 ):
                     continue
-                self._append_rule(new_rules, rules, rule)
+                target._append_rule(new_rules, rules, rule)
         else:
-            positive_class = self.prediction["predict"] > 0.5
+            positive_class = target.prediction["predict"] > 0.5
             for rule in range(len(rules["rule"])):
                 is_potential = rules["predict_low"][rule] < 0.5 < rules["predict_high"][rule]
                 # filter out potential rules if include_potential is False
@@ -3042,30 +3095,30 @@ class AlternativeExplanation(CalibratedExplanation):
                 rule_predict = rules["predict"][rule]
                 # super: moves further into the predicted class (away from 0.5)
                 is_super_by_point = (
-                    positive_class and rule_predict > self.prediction["predict"]
-                ) or (not positive_class and rule_predict < self.prediction["predict"])
+                    positive_class and rule_predict > target.prediction["predict"]
+                ) or (not positive_class and rule_predict < target.prediction["predict"])
                 # semi: same side as base but closer to the decision boundary (towards 0.5)
                 if positive_class:
                     is_semi_by_point = (rule_predict > 0.5) and (
-                        rule_predict < self.prediction["predict"]
+                        rule_predict < target.prediction["predict"]
                     )
                 else:
                     is_semi_by_point = (rule_predict < 0.5) and (
-                        rule_predict > self.prediction["predict"]
+                        rule_predict > target.prediction["predict"]
                     )
                 # counter: crosses the decision boundary (opposite side of 0.5)
                 is_counter_by_point = (positive_class and rule_predict <= 0.5) or (
                     not positive_class and rule_predict >= 0.5
                 )
 
-                # Enforce membership by point-prediction for all modes. Potentials
-                # are still controlled by the `include_potential` flag above, but
-                # when included they must also satisfy the point-based comparator.
-                if make_super and not is_super_by_point:
-                    continue
-                if make_semi and not is_semi_by_point:
-                    continue
-                if make_counter and not is_counter_by_point:
+                # Union: if any directional flag is active the rule must satisfy at least one.
+                # Potentials are still controlled by `include_potential` above, but when
+                # included they must also satisfy the point-based comparator.
+                if (make_super or make_semi or make_counter) and not (
+                    (make_super and is_super_by_point)
+                    or (make_semi and is_semi_by_point)
+                    or (make_counter and is_counter_by_point)
+                ):
                     continue
                 # if only_ensured is True, filter out rules that lead to increased uncertainty
                 if (
@@ -3074,20 +3127,22 @@ class AlternativeExplanation(CalibratedExplanation):
                     > initial_uncertainty
                 ):
                     continue
+                if only_pareto and rule not in pareto_indexes:
+                    continue
                 # filter out rules that does not provide a different prediction
                 if (
                     rules["base_predict_low"] == rules["predict_low"][rule]
                     and rules["base_predict_high"] == rules["predict_high"][rule]
                 ):
                     continue
-                self._append_rule(new_rules, rules, rule)
+                target._append_rule(new_rules, rules, rule)
 
         new_rules["classes"] = rules["classes"]
 
-        if self.has_conjunctive_rules:  # pylint: disable=protected-access
-            self._extracted_non_conjunctive_rules(new_rules)
-        self.rules = new_rules
-        return self
+        if target.has_conjunctive_rules:  # pylint: disable=protected-access
+            target._extracted_non_conjunctive_rules(new_rules)
+        target.rules = new_rules
+        return target
 
     def _pareto_rule_indexes(self, rules, *, pareto_cost: str):
         """Return rule indices on the output-envelope Pareto frontier.
@@ -3317,9 +3372,11 @@ class AlternativeExplanation(CalibratedExplanation):
         >>> alternatives = explainer.explore_alternatives(x_query)
         >>> super_alts = alternatives[0].super_explanations()
         """
-        target = self.copy() if copy else self
-        target._filter_rules(
-            only_ensured=only_ensured, make_super=True, include_potential=include_potential
+        target = self.filter_rules(
+            only_ensured=only_ensured,
+            make_super=True,
+            include_potential=include_potential,
+            copy=copy,
         )
         target._is_super_explanation = True  # pylint: disable=protected-access
         return target
@@ -3368,9 +3425,11 @@ class AlternativeExplanation(CalibratedExplanation):
         >>> alternatives = explainer.explore_alternatives(x_query)
         >>> semi_alts = alternatives[0].semi_explanations()
         """
-        target = self.copy() if copy else self
-        target._filter_rules(
-            only_ensured=only_ensured, make_semi=True, include_potential=include_potential
+        target = self.filter_rules(
+            only_ensured=only_ensured,
+            make_semi=True,
+            include_potential=include_potential,
+            copy=copy,
         )
         target._is_semi_explanation = True  # pylint: disable=protected-access
         return target
@@ -3419,9 +3478,11 @@ class AlternativeExplanation(CalibratedExplanation):
         >>> alternatives = explainer.explore_alternatives(x_query)
         >>> counter_alts = alternatives[0].counter_explanations()
         """
-        target = self.copy() if copy else self
-        target._filter_rules(
-            only_ensured=only_ensured, make_counter=True, include_potential=include_potential
+        target = self.filter_rules(
+            only_ensured=only_ensured,
+            make_counter=True,
+            include_potential=include_potential,
+            copy=copy,
         )
         target._is_counter_explanation = True  # pylint: disable=protected-access
         return target
@@ -3462,9 +3523,7 @@ class AlternativeExplanation(CalibratedExplanation):
         >>> alternatives = explainer.explore_alternatives(x_query)
         >>> ensured = alternatives[0].ensured_explanations()
         """
-        target = self.copy() if copy else self
-        target._filter_rules(only_ensured=True, include_potential=include_potential)
-        return target
+        return self.filter_rules(only_ensured=True, include_potential=include_potential, copy=copy)
 
     def ensured(self, include_potential=True, copy=True):
         """Shorthand delegator for :meth:`.ensured_explanations`."""
@@ -3504,10 +3563,12 @@ class AlternativeExplanation(CalibratedExplanation):
         The output axis is the calibrated probability (classification /
         probabilistic regression) or the calibrated numeric output (regression).
         """
-        target = self.copy() if copy else self
-        target._filter_rules(include_potential=include_potential)
-        target._pareto_filter_rules(pareto_cost=pareto_cost)
-        return target
+        return self.filter_rules(
+            only_pareto=True,
+            pareto_cost=pareto_cost,
+            include_potential=include_potential,
+            copy=copy,
+        )
 
     def pareto(
         self,
