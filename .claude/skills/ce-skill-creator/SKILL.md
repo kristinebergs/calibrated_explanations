@@ -1,8 +1,9 @@
----
+﻿---
 name: ce-skill-creator
 description: >
   Create or refactor skills with precise triggers, reusable assets and references,
   and synchronized registry updates.
+model: haiku
 ---
 
 # CE Skill Creator
