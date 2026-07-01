@@ -1448,6 +1448,14 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
         if index is None and custom_plot_style:
             from ..plotting import _render_collection_plot_plugin
 
+            plugin_options = {
+                **kwargs,
+                "rnk_metric": rnk_metric,
+                "rnk_weight": rnk_weight,
+                "uncertainty": uncertainty,
+                "filter_top": filter_top,
+            }
+
             plugin_result = _render_collection_plot_plugin(
                 self,
                 explicit_style=style_override
@@ -1458,7 +1466,7 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
                 save_ext=plugin_save_ext,
                 renderer_override=kwargs.get("renderer"),
                 intent_type="alternative" if self.is_alternative() else "factual",
-                options=kwargs,
+                options=plugin_options,
             )
             if plugin_result is not None:
                 return plugin_result

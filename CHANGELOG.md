@@ -4,6 +4,7 @@
 ## [Unreleased]
 
 - **ADR-038 RC graduation planning:** v1.0.0-rc remains validation/freeze by default, but now explicitly allows only one planned implementation item: closing the ADR-038 `**kwargs` graduation gate for `explain_factual` / `explore_alternatives` and aligned `WrapCalibratedExplainer` delegators. The RC deprecation gate is strict: `make deprecation-closure` must prove zero active deprecations, not merely zero blocking deprecations, before tagging RC.
+- **ADR-037: Fixed collection-level plot plugin ranking option forwarding.** `CalibratedExplanations.plot()` now forwards explicit `rnk_metric`, `rnk_weight`, `uncertainty`, and `filter_top` values to collection plugin `options` for custom styles, so plugin-rendered collection plots apply caller-selected ranking instead of silently falling back to plugin defaults.
 
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v0.11.4...main)
 

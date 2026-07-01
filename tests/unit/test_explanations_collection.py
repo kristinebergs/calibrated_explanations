@@ -516,6 +516,60 @@ def test_plot_routing(monkeypatch, calibrated_collection):
         assert any(call[0] == "plot" for call in exp.calls)
 
 
+def test_should_forward_ranking_options_to_collection_plot_plugin_when_custom_style(
+    monkeypatch, calibrated_collection
+):
+    observed = {}
+
+    def fake_render_collection_plot_plugin(
+        explanations,
+        *,
+        explicit_style,
+        show,
+        path,
+        save_ext,
+        renderer_override,
+        intent_type,
+        options,
+    ):
+        observed["explanations"] = explanations
+        observed["explicit_style"] = explicit_style
+        observed["show"] = show
+        observed["renderer_override"] = renderer_override
+        observed["intent_type"] = intent_type
+        observed["options"] = options
+        return {"ok": True}
+
+    monkeypatch.setattr(
+        "calibrated_explanations.plotting._render_collection_plot_plugin",
+        fake_render_collection_plot_plugin,
+    )
+
+    result = calibrated_collection.plot(
+        style="plotly.local.alternative_bars",
+        show=False,
+        filter_top=7,
+        uncertainty=True,
+        rnk_metric="feature_weight",
+        rnk_weight=0.25,
+        renderer="json",
+        extra_option="kept",
+    )
+
+    assert result == {"ok": True}
+    assert observed["explanations"] is calibrated_collection
+    assert observed["explicit_style"] == "plotly.local.alternative_bars"
+    assert observed["show"] is False
+    assert observed["renderer_override"] == "json"
+    assert observed["intent_type"] == "factual"
+    assert observed["options"]["rnk_metric"] == "feature_weight"
+    assert observed["options"]["rnk_weight"] == 0.25
+    assert observed["options"]["uncertainty"] is True
+    assert observed["options"]["filter_top"] == 7
+    assert observed["options"]["renderer"] == "json"
+    assert observed["options"]["extra_option"] == "kept"
+
+
 def test_conjunction_management(calibrated_collection):
     calibrated_collection.add_conjunctions(n_top_features=2, max_rule_size=3)
     calibrated_collection.reset()
