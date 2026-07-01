@@ -39,7 +39,6 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for <3.11
 # Core imports (no cross-sibling dependencies)
 from ..calibration.interval_wrappers import is_fast_interval_collection
 from ..utils import check_is_fitted, convert_targets_to_numeric, safe_isinstance
-from ..utils.deprecations import deprecate
 
 from ..utils.exceptions import (
     DataShapeError,
@@ -1449,7 +1448,6 @@ class CalibratedExplainer:
         features_to_ignore=None,
         *,
         guarded_options=None,
-        guarded: bool = False,
         _use_plugin: bool = True,
         **kwargs,
     ) -> CalibratedExplanations:
@@ -1477,10 +1475,7 @@ class CalibratedExplainer:
             (ADR-038). When provided, the guarded path is activated automatically.
             Use :class:`~calibrated_explanations.GuardedOptions` to bundle guard tuning
             parameters (``confidence``, ``n_neighbors``, ``normalize``, ``merge_adjacent``,
-            ``verbose``). Replaces the deprecated ``guarded=True`` + loose kwargs pattern.
-        guarded : bool, default=False
-            **[EXPERIMENTAL, Deprecated]** When True, activate guarded explanations.
-            Deprecated in v0.11.3; use ``guarded_options=GuardedOptions()`` instead.
+            ``verbose``).
         reject_policy : RejectPolicySpec | None, default=None
             When non-``None``, activates reject orchestration.  Pass a
             :class:`.RejectPolicySpec` constructed via
@@ -1500,28 +1495,19 @@ class CalibratedExplainer:
             explanation plugin. Passed via ``**kwargs``. Subject to the same
             experimental-graduation constraint as ``multi_labels_enabled``.
         **kwargs : dict
-            **[EXPERIMENTAL, Deprecated]** When ``guarded=True``, loose guard tuning
-            parameters (``significance``, ``n_neighbors``, ``normalize_guard``,
-            ``merge_adjacent``, ``verbose``) are accepted for backwards compatibility.
-            Use ``guarded_options=GuardedOptions(...)`` instead (ADR-038 §3).
+            **[EXPERIMENTAL]** Additional keyword arguments forwarded to the explanation plugin.
+            Silently ignored if not recognised (ADR-038 §3 experimental exception).
 
         Returns
         -------
         CalibratedExplanations : :class:`.CalibratedExplanations`
             A `CalibratedExplanations` containing one :class:`.FactualExplanation` for each instance.
-            When ``guarded_options`` is non-``None`` or ``guarded=True``, per-instance explanations are
+            When ``guarded_options`` is non-``None``, per-instance explanations are
             :class:`~calibrated_explanations.explanations.guarded_explanation.GuardedFactualExplanation`.
             When ``reject_policy`` is non-``None``, returns
             :class:`~calibrated_explanations.explanations.reject.RejectCalibratedExplanations`.
         """
-        if guarded_options is not None or guarded:
-            if guarded and guarded_options is None:
-                deprecate(
-                    "guarded=True is deprecated; use guarded_options=GuardedOptions() instead.",
-                    key="guarded_true_boolean_kwarg",
-                    stacklevel=2,
-                    raise_on_error=False,
-                )
+        if guarded_options is not None:
             if not _use_plugin and kwargs.get("verbose", False):
                 warnings.warn(
                     "_use_plugin has no effect on guarded explanation methods",
@@ -1575,7 +1561,6 @@ class CalibratedExplainer:
         features_to_ignore=None,
         *,
         guarded_options=None,
-        guarded: bool = False,
         _use_plugin: bool = True,
         **kwargs,
     ) -> AlternativeExplanations:
@@ -1602,10 +1587,7 @@ class CalibratedExplainer:
             **[EXPERIMENTAL]** Per-call tuning for the KNN-based in-distribution guard
             (ADR-038). When provided, the guarded path is activated automatically.
             Use :class:`~calibrated_explanations.GuardedOptions` to bundle guard tuning
-            parameters. Replaces the deprecated ``guarded=True`` + loose kwargs pattern.
-        guarded : bool, default=False
-            **[EXPERIMENTAL, Deprecated]** When True, activate guarded alternative explanations.
-            Deprecated in v0.11.3; use ``guarded_options=GuardedOptions()`` instead.
+            parameters.
         reject_policy : RejectPolicySpec | None, default=None
             When non-``None``, activates reject orchestration.  Pass a
             :class:`.RejectPolicySpec` constructed via
@@ -1625,9 +1607,8 @@ class CalibratedExplainer:
             explanation plugin. Passed via ``**kwargs``. Subject to the same
             experimental-graduation constraint as ``multi_labels_enabled``.
         **kwargs : dict
-            **[EXPERIMENTAL, Deprecated]** Loose guard tuning parameters accepted for
-            backwards compatibility when ``guarded=True``. Use ``guarded_options=GuardedOptions(...)``
-            instead (ADR-038 §3).
+            **[EXPERIMENTAL]** Additional keyword arguments forwarded to the explanation plugin.
+            Silently ignored if not recognised (ADR-038 §3 experimental exception).
 
         Returns
         -------
@@ -1638,17 +1619,10 @@ class CalibratedExplainer:
         Notes
         -----
         The `explore_alternatives` will eventually be used instead of the `explain_counterfactual` method.
-        When ``guarded_options`` is non-``None`` or ``guarded=True``, per-instance explanations are
+        When ``guarded_options`` is non-``None``, per-instance explanations are
         :class:`~calibrated_explanations.explanations.guarded_explanation.GuardedAlternativeExplanation`.
         """
-        if guarded_options is not None or guarded:
-            if guarded and guarded_options is None:
-                deprecate(
-                    "guarded=True is deprecated; use guarded_options=GuardedOptions() instead.",
-                    key="guarded_true_boolean_kwarg",
-                    stacklevel=2,
-                    raise_on_error=False,
-                )
+        if guarded_options is not None:
             if not _use_plugin and kwargs.get("verbose", False):
                 warnings.warn(
                     "_use_plugin has no effect on guarded explanation methods",

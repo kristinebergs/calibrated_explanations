@@ -896,25 +896,6 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
         """Public wrapper around internal collection metadata helper."""
         return self._collection_metadata()
 
-    def legacy_payload(self, exp) -> Mapping[str, Any]:
-        """Return the legacy-shaped payload dict for an explanation.
-
-        .. deprecated:: v0.11.4
-            ``legacy_payload`` will be removed in v1.0.0.  Use ``to_json()``
-            for serialization or ``_exp_to_domain(exp)`` for domain model
-            construction.
-        """
-        from ..utils.deprecations import deprecate
-
-        deprecate(
-            "CalibratedExplanations.legacy_payload is deprecated and will be removed in v1.0.0. "
-            "Use to_json() for serialization or _exp_to_domain(exp) for domain model construction.",
-            key="explanations:legacy_payload",
-            stacklevel=2,
-            raise_on_error=False,
-        )
-        return self._legacy_payload(exp)
-
     @property
     def prediction_interval(self) -> List[Tuple[Optional[float], Optional[float]]]:
         """Return the prediction intervals for each explanation.

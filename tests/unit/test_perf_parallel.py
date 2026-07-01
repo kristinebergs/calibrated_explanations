@@ -88,21 +88,14 @@ class TestParallelConfig:
 class TestParallelExecutor:
     """Tests for the executor facade."""
 
-    def test_strategy_auto_selection_joblib(self):
-        """Test auto strategy prefers joblib when available and CPUs > 2."""
+    def test_strategy_auto_selection_raises_configuration_error(self):
+        """strategy='auto' with enabled=True raises ConfigurationError in v1.0.0."""
+        from calibrated_explanations.utils.exceptions import ConfigurationError
+
         cfg = ParallelConfig(enabled=True, strategy="auto")
         executor = ParallelExecutor(cfg)
-        # Mock joblib presence by patching the module attribute in the parallel module
-        with (
-            patch("os.name", "posix"),
-            patch("os.cpu_count", return_value=4),
-            patch("calibrated_explanations.parallel.parallel._JoblibParallel", new=MagicMock()),
-            patch.object(ParallelExecutor, "_is_ci_environment", return_value=False),
-            patch.object(ParallelExecutor, "get_cgroup_cpu_quota", return_value=None),
-        ):
-            with pytest.warns(DeprecationWarning, match="strategy='auto'"):
-                strategy = executor.resolve_strategy()
-            assert strategy.func == executor.joblib_strategy
+        with pytest.raises(ConfigurationError, match="strategy.*auto"):
+            executor.resolve_strategy()
 
     def test_joblib_missing_fallback(self, enable_fallbacks, caplog):
         """Test fallback to threads if joblib is requested but missing."""

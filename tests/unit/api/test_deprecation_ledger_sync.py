@@ -66,12 +66,12 @@ def test_explore_guarded_alternatives_absent_from_wrap_explainer():
 
 
 # ---------------------------------------------------------------------------
-# Active-deprecations table must not be empty when active sites exist
+# Active-deprecations table must be empty in v1.0.0
 # ---------------------------------------------------------------------------
 
 
-def test_active_deprecations_table_not_empty():
-    """Active-deprecations table must have rows when active deprecation sites exist."""
+def test_active_deprecations_table_is_empty():
+    """Active-deprecations table must be empty: all deprecations were removed in 1.0.0."""
     text = _load_deprecations_md()
 
     # Find the Active deprecations section and extract the table rows
@@ -92,27 +92,31 @@ def test_active_deprecations_table_not_empty():
     # Filter out the header row (contains "Deprecated symbol")
     data_rows = [r for r in data_rows if "Deprecated symbol" not in r]
 
-    assert data_rows, (
-        "Active deprecations table is empty but active deprecation call sites exist in the "
-        "codebase. Add all active deprecations to the table in docs/migration/deprecations.md."
+    assert not data_rows, (
+        "Active deprecations table must be empty in v1.0.0 but still contains rows: "
+        + str(data_rows)
     )
 
 
-def test_active_deprecations_table_contains_guarded_kwarg():
-    """guarded=True kwarg deprecation must be listed in active-deprecations table."""
+def test_removed_history_contains_guarded_kwarg():
+    """guarded=True kwarg deprecation must be listed in the removed-history table."""
     text = _load_deprecations_md()
-    assert "guarded=True" in text, (
-        "Active deprecations table is missing the guarded=True kwarg deprecation. "
-        "Add it to the Active deprecations table."
+    match = re.search(r"### Removed deprecations \(history\)(.*?)(?:##|$)", text, re.DOTALL)
+    assert match, "Removed deprecations (history) section not found"
+    assert "guarded=True" in match.group(1), (
+        "Removed-history table is missing the guarded=True kwarg removal. "
+        "Move it from Active to history when removing the implementation."
     )
 
 
-def test_active_deprecations_table_contains_reject_confidence():
-    """confidence= / reject_confidence= rename must be listed in active-deprecations table."""
+def test_removed_history_contains_reject_confidence():
+    """confidence= / reject_confidence= rename must be in removed-history table."""
     text = _load_deprecations_md()
-    assert "reject_confidence" in text, (
-        "Active deprecations table is missing the confidence=/reject_confidence= rename. "
-        "Add it to the Active deprecations table."
+    match = re.search(r"### Removed deprecations \(history\)(.*?)(?:##|$)", text, re.DOTALL)
+    assert match, "Removed deprecations (history) section not found"
+    assert "reject_confidence" in match.group(1), (
+        "Removed-history table is missing the confidence=/reject_confidence= rename. "
+        "Move it from Active to history when removing the implementation."
     )
 
 

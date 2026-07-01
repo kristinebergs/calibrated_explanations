@@ -369,8 +369,9 @@ class TestIntervalCalibratorContextMutableFieldFreezing:
         assert "extra" not in ctx.difficulty
 
 
-def test_explainer_handle_getattr_learner_emits_deprecation_warning():
-    """Direct __getattr__('learner') access must use the deprecated property path."""
+def test_explainer_handle_getattr_learner_delegates_without_warning():
+    """__getattr__('learner') delegates to the underlying explainer without a deprecation warning."""
+    import warnings
     from types import SimpleNamespace
 
     from calibrated_explanations.plugins.explanations import ExplainerHandle
@@ -378,8 +379,11 @@ def test_explainer_handle_getattr_learner_emits_deprecation_warning():
     learner = object()
     handle = ExplainerHandle(SimpleNamespace(learner=learner), metadata={})
 
-    with pytest.warns(DeprecationWarning, match="ExplainerHandle.learner"):
-        assert handle.__getattr__("learner") is learner
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        result = handle.__getattr__("learner")
+
+    assert result is learner
 
     def test_should_freeze_fast_flags_dict(self):
         flags = {"flag": True}

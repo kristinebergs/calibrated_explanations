@@ -349,44 +349,27 @@ def _active_deprecation_rows(ledger_path: Path) -> list[dict[str, str]]:
     return rows
 
 
-def _is_permitted_active_deprecation(row: dict[str, str]) -> bool:
-    """Return True if an active deprecation row is permitted at the v0.11.3 milestone boundary.
-
-    Rows whose removal_eta is exactly ``v1.0.0`` are intentional next-major deprecations
-    (e.g. the Task-17 guarded-API taxonomy entries) and do not block milestone closure.
-    All other ETAs — v0.x, v1.0.0-rc, slash-delimited targets that include a pre-v1.0.0
-    milestone — are blocking.
-    """
-    return row["removal_eta"].strip() == "v1.0.0"
-
-
 def _write_active_deprecations_report(rows: list[dict[str, str]], output_path: Path) -> int:
     """Write the active-deprecation ledger artifact and return its gate code.
 
-    Rows targeting exactly ``v1.0.0`` are permitted as intentional next-major deprecations
-    and do not contribute to the failure count.
+    Any row present in the Active deprecations section is blocking for 1.0.0rc1.
+    The Active deprecations section must be empty before the RC gate passes.
     """
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    blocking = [r for r in rows if not _is_permitted_active_deprecation(r)]
-    permitted = [r for r in rows if _is_permitted_active_deprecation(r)]
     payload = {
         "schema_version": 1,
         "generated_at": _utc_now_iso(),
-        "status": "pass" if not blocking else "fail",
+        "status": "pass" if not rows else "fail",
         "active_rows_count": len(rows),
-        "blocking_rows_count": len(blocking),
-        "permitted_rows_count": len(permitted),
-        "blocking_symbols": [r["deprecated_symbol"] for r in blocking],
-        "permitted_symbols": [r["deprecated_symbol"] for r in permitted],
+        "blocking_rows_count": len(rows),
+        "blocking_symbols": [r["deprecated_symbol"] for r in rows],
     }
     output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
-    if blocking:
-        print("ERROR: Blocking active deprecations remain in docs/migration/deprecations.md:")
-        for row in blocking:
+    if rows:
+        print("ERROR: Active deprecations remain in docs/migration/deprecations.md:")
+        for row in rows:
             print(f"  {row['deprecated_symbol']} (ETA: {row['removal_eta']})")
         return 1
-    if permitted:
-        print(f"INFO: {len(permitted)} active deprecation(s) targeting v1.0.0 are permitted at this milestone boundary.")
     return 0
 
 
@@ -395,7 +378,7 @@ def _write_deprecation_closure_timing_report(
     started_at: float,
     output_path: Path,
 ) -> None:
-    """Write the v0.11.3 deprecation-closure timing report."""
+    """Write the v1.0.0-rc deprecation-closure timing report."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "schema_version": 1,
@@ -409,7 +392,7 @@ def _write_deprecation_closure_timing_report(
 
 
 def deprecation_closure_steps() -> list[Step]:
-    """Return the v0.11.3 deprecation-closure validation sequence."""
+    """Return the v1.0.0-rc deprecation-closure validation sequence."""
     return [
         Step(
             "Focused deprecation closure tests",
@@ -430,7 +413,7 @@ def deprecation_closure_steps() -> list[Step]:
 
 
 def run_deprecation_closure() -> int:
-    """Run the v0.11.3 deprecation-closure lane and emit timing evidence."""
+    """Run the v1.0.0-rc deprecation-closure lane and emit timing evidence."""
     ledger_report = Path("reports/deprecations/active_deprecations_check.json")
     timing_report = Path("reports/deprecations/deprecation_closure_timing.json")
     records: list[dict[str, object]] = []
@@ -555,7 +538,7 @@ def main() -> int:
     parser.add_argument(
         "--deprecation-closure",
         action="store_true",
-        help="Run the v0.11.3 deprecation-closure lane and timing report.",
+        help="Run the v1.0.0-rc deprecation-closure lane and timing report.",
     )
     args = parser.parse_args()
 

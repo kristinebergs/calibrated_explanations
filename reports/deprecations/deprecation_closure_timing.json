@@ -1,39 +1,39 @@
 {
-  "generated_at": "2026-06-18T16:06:07.387505+00:00",
+  "generated_at": "2026-07-01T10:09:19.199385+00:00",
   "platform": "Windows",
-  "python_version": "3.11.9",
+  "python_version": "3.14.4",
   "schema_version": 1,
   "steps": [
     {
       "command": "parse docs/migration/deprecations.md",
-      "elapsed_seconds": 0.0,
+      "elapsed_seconds": 0.001,
       "exit_code": 0,
       "name": "Active deprecations ledger check"
     },
     {
       "command": "python -m pytest tests/ -k deprecat or lime or shap or reject or plugin or parallel or calibration -v --no-cov",
-      "elapsed_seconds": 35.735,
+      "elapsed_seconds": 29.96,
       "exit_code": 0,
       "name": "Focused deprecation closure tests"
     },
     {
       "command": "python scripts/local_checks.py --adr030-ratification",
-      "elapsed_seconds": 5.515,
+      "elapsed_seconds": 4.52,
       "exit_code": 0,
       "name": "ADR-030 ratification lane"
     },
     {
       "command": "make local-checks-pr",
-      "elapsed_seconds": 242.188,
+      "elapsed_seconds": 636.392,
       "exit_code": 0,
       "name": "PR local checks"
     },
     {
       "command": "make local-checks",
-      "elapsed_seconds": 554.984,
+      "elapsed_seconds": 802.061,
       "exit_code": 2,
       "name": "Main local checks"
     }
   ],
-  "total_elapsed_seconds": 838.515
+  "total_elapsed_seconds": 1472.996
 }

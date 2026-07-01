@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from calibrated_explanations.calibration.normalization_strategy import (
     NormalizationStrategy,
@@ -17,12 +16,9 @@ def test_should_return_strategy_member_unchanged() -> None:
     )
 
 
-def test_should_coerce_legacy_boolean_values_with_warning() -> None:
-    with pytest.warns(DeprecationWarning, match="normalize=True"):
-        assert coerce_normalization_strategy(True) is NormalizationStrategy.COHERENCE
-
-    with pytest.warns(DeprecationWarning, match="normalize=False"):
-        assert coerce_normalization_strategy(False) is NormalizationStrategy.NONE
+def test_should_fall_back_to_scale_for_boolean_values() -> None:
+    assert coerce_normalization_strategy(True) is NormalizationStrategy.SCALE
+    assert coerce_normalization_strategy(False) is NormalizationStrategy.SCALE
 
 
 def test_should_coerce_strings_and_fallback_for_unknown_values() -> None:

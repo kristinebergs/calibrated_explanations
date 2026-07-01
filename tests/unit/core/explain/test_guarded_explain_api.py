@@ -575,52 +575,6 @@ def test_in_distribution_guard__normalize_affects_conformity():
 
 
 # ---------------------------------------------------------------------------
-# Red-team hardening tests — significance validation
-# ---------------------------------------------------------------------------
-
-
-def test_should_accept_significance_of_one():
-    """significance=1.0 is allowed (interval is (0, 1])."""
-    explainer, x_cal = make_classification_explainer(seed=50)
-    with pytest.warns(DeprecationWarning):
-        result = explainer.explain_factual(x_cal[:1], guarded=True, significance=1.0)
-    assert result is not None
-
-
-def test_should_reject_significance_of_zero():
-    """significance=0.0 must be rejected."""
-    explainer, x_cal = make_classification_explainer(seed=51)
-
-    with (
-        pytest.warns(DeprecationWarning),
-        pytest.raises(ValidationError, match=r"significance must be in the interval \(0, 1\]"),
-    ):
-        explainer.explain_factual(x_cal[:1], guarded=True, significance=0.0)
-
-
-def test_should_reject_negative_significance():
-    """Negative significance must be rejected."""
-    explainer, x_cal = make_classification_explainer(seed=52)
-
-    with (
-        pytest.warns(DeprecationWarning),
-        pytest.raises(ValidationError, match=r"significance must be in the interval \(0, 1\]"),
-    ):
-        explainer.explain_factual(x_cal[:1], guarded=True, significance=-0.1)
-
-
-def test_should_reject_significance_above_one():
-    """significance>1 must be rejected."""
-    explainer, x_cal = make_classification_explainer(seed=53)
-
-    with (
-        pytest.warns(DeprecationWarning),
-        pytest.raises(ValidationError, match=r"significance must be in the interval \(0, 1\]"),
-    ):
-        explainer.explain_factual(x_cal[:1], guarded=True, significance=1.5)
-
-
-# ---------------------------------------------------------------------------
 # Red-team hardening tests — WrapExplainer guarded preconditions
 # ---------------------------------------------------------------------------
 
@@ -734,11 +688,11 @@ def test_guard_should_reject_significance_boundary_values():
 
 
 def test_explain_factual_guarded_false__preserves_unguarded_behavior():
-    """explain_factual(guarded=False) must return the standard FactualExplanation container."""
+    """explain_factual without guarded_options must return the standard FactualExplanation container."""
     from calibrated_explanations.explanations.explanation import FactualExplanation
 
     explainer, x_cal = make_classification_explainer(seed=100)
-    result = explainer.explain_factual(x_cal[:2], guarded=False)
+    result = explainer.explain_factual(x_cal[:2])
 
     assert isinstance(result, CalibratedExplanations)
     assert len(result) == 2
@@ -762,11 +716,11 @@ def test_explain_factual_guarded_true__returns_guarded_factual_container():
 
 
 def test_explore_alternatives_guarded_false__preserves_unguarded_behavior():
-    """explore_alternatives(guarded=False) must return standard AlternativeExplanation container."""
+    """explore_alternatives without guarded_options must return standard AlternativeExplanation container."""
     from calibrated_explanations.explanations.explanation import AlternativeExplanation
 
     explainer, x_cal = make_classification_explainer(seed=102)
-    result = explainer.explore_alternatives(x_cal[:1], guarded=False)
+    result = explainer.explore_alternatives(x_cal[:1])
 
     assert isinstance(result, AlternativeExplanations)
     assert len(result) == 1

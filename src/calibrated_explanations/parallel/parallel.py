@@ -34,7 +34,6 @@ except BaseException:  # pragma: no cover - joblib remains optional
 
 from ..cache import CalibratorCache, TelemetryCallback
 from ..core.config_manager import ConfigManager, get_process_config_manager
-from ..utils.deprecations import deprecate
 from ..utils.exceptions import ConfigurationError
 
 logger = logging.getLogger(__name__)
@@ -446,13 +445,10 @@ class ParallelExecutor:
         """Return a concrete execution strategy based on configuration."""
         strategy = self.active_strategy_name or self.config.strategy
         if strategy == "auto" and self.config.enabled:
-            deprecate(
-                "ParallelConfig(strategy='auto') with enabled=True performs automatic "
-                "backend selection and will be removed in v1.0.0. "
+            raise ConfigurationError(
+                "ParallelConfig(strategy='auto') with enabled=True is not supported in v1.0.0. "
                 "Set an explicit strategy: 'sequential', 'threads', 'processes', or 'joblib'.",
-                key="parallel:strategy=auto:enabled",
-                stacklevel=3,
-                raise_on_error=False,
+                details={"strategy": "auto"},
             )
         if strategy == "auto":
             strategy = self._auto_strategy(work_items=work_items)

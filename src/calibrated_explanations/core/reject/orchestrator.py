@@ -2046,14 +2046,6 @@ class RejectOrchestrator:
             predictions that are incorrect, and ``reject_rate`` is the fraction of
             instances rejected.
         """
-        # Backwards-compatible: accept deprecated `confidence` kwarg
-        if "confidence" in kwargs and "reject_confidence" not in kwargs:
-            warnings.warn(
-                "confidence= is deprecated in predict_reject; use reject_confidence= instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            reject_confidence = kwargs.pop("confidence")
         breakdown = self.predict_reject_breakdown(
             x, bins=bins, confidence=reject_confidence, threshold=threshold
         )
@@ -2093,14 +2085,6 @@ class RejectOrchestrator:
         RejectResult
             Envelope with `prediction`, `explanation`, `rejected`, `policy`, and `metadata`.
         """
-        # Backwards-compatible: accept deprecated `confidence` kwarg
-        if "confidence" in kwargs and "reject_confidence" not in kwargs:
-            warnings.warn(
-                "confidence= is deprecated in apply_policy; use reject_confidence= instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            reject_confidence = kwargs.pop("confidence")
         confidence = validate_reject_confidence(reject_confidence)
         # Allow callers to select a strategy identifier via the `strategy` kwarg.
         # By default, resolve to `builtin.default` which preserves legacy semantics.

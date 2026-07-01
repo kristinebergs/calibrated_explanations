@@ -147,16 +147,20 @@ def test_explainerhandle_get_preprocessor_state_variants(preprocessor_metadata, 
         assert dict(state) == expected
 
 
-def test_should_emit_deprecation_warning_when_learner_accessed():
-    """ExplainerHandle.learner must emit DeprecationWarning on access (ADR-015 gap 2, ADR-011)."""
+def test_learner_delegates_to_explainer_without_warning():
+    """ExplainerHandle.learner delegates to the underlying explainer without a deprecation warning."""
+    import warnings
 
     class Dummy:
         learner = object()
 
     handle = ExplainerHandle(Dummy(), {})
 
-    with pytest.warns(DeprecationWarning, match="ExplainerHandle.learner"):
-        _ = handle.learner
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", DeprecationWarning)
+        result = handle.learner  # must not raise DeprecationWarning
+
+    assert result is Dummy.learner
 
 
 def test_should_not_emit_deprecation_warning_when_predict_called():

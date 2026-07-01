@@ -661,46 +661,17 @@ def test_collection_to_json_without_version(calibrated_collection):
     assert all("schema_version" not in item for item in payload["explanations"])
 
 
-def test_legacy_payload_prefers_available_rules(calibrated_collection):
-    exp = calibrated_collection.explanations[0]
-    exp.has_conjunctive_rules = True  # pylint: disable=protected-access
-    exp.conjunctive_rules = {"ensured": ["rule-a"]}
-    with pytest.warns(DeprecationWarning, match="legacy_payload"):
-        payload = calibrated_collection.legacy_payload(exp)
-    assert payload["rules"] == exp.conjunctive_rules
-
-    exp.has_conjunctive_rules = False  # pylint: disable=protected-access
-    exp.conjunctive_rules = None
-    exp.rules = {"ensured": ["rule-b"]}
-    with pytest.warns(DeprecationWarning, match="legacy_payload"):
-        payload_rules = calibrated_collection.legacy_payload(exp)
-    assert payload_rules["rules"] == exp.rules
-
-    exp.rules = None
-    with pytest.warns(DeprecationWarning, match="legacy_payload"):
-        generated = calibrated_collection.legacy_payload(exp)
-    assert "rule" in generated["rules"]
+def test_legacy_payload_was_removed_from_collection(calibrated_collection):
+    """legacy_payload() public method was removed in v1.0.0."""
+    assert not hasattr(
+        calibrated_collection, "legacy_payload"
+    ), "legacy_payload() public method must be removed in v1.0.0"
 
 
-def test_legacy_payload_handles_get_rules_exception(calibrated_collection):
-    class BrokenRules:
-        index = 0
-        has_conjunctive_rules = False
-        conjunctive_rules = None
-        rules = None
-        feature_weights = {}
-        feature_predict = {}
-        prediction = {}
-
-        def get_mode(self):
-            return "classification"
-
-        def get_rules(self):
-            raise RuntimeError("boom")
-
-    with pytest.warns(DeprecationWarning, match="legacy_payload"):
-        payload = calibrated_collection.legacy_payload(BrokenRules())
-    assert payload["rules"] == {}
+def test_legacy_payload_public_method_does_not_exist(calibrated_collection):
+    """Accessing legacy_payload on CalibratedExplanations must raise AttributeError in v1.0.0."""
+    with pytest.raises(AttributeError):
+        _ = calibrated_collection.legacy_payload
 
 
 def test_collection_metadata_includes_runtime(calibrated_collection):

@@ -8,7 +8,6 @@ import warnings
 from types import MappingProxyType
 from typing import Any, Dict, Iterable, Mapping, Protocol, Sequence
 
-from ..utils.deprecations import deprecate
 from ..utils.exceptions import ValidationError
 
 try:  # Python < 3.10 compatibility
@@ -47,8 +46,7 @@ _SEMANTIC_PLOT_KINDS: frozenset[str] = frozenset(
         "global_regression",
     }
 )
-_CATEGORY_PLOT_KINDS: frozenset[str] = frozenset({"instance", "collection", "global"})
-_ALLOWED_PLOT_KINDS: frozenset[str] = _SEMANTIC_PLOT_KINDS | _CATEGORY_PLOT_KINDS
+_ALLOWED_PLOT_KINDS: frozenset[str] = _SEMANTIC_PLOT_KINDS
 _ALLOWED_PLOT_MODES: frozenset[str] = frozenset({"factual", "alternative", "fast", "any"})
 _DEFAULT_PLOT_KINDS: tuple[str, ...] = (
     "factual_probabilistic",
@@ -415,18 +413,6 @@ def validate_plugin_meta(meta: Dict[str, Any]) -> None:
                 raise ValidationError(
                     f"plugin_meta['plot_kinds'] contains invalid values: {sorted(invalid)}; "
                     f"allowed: {sorted(_ALLOWED_PLOT_KINDS)}"
-                )
-            deprecated_kinds = sorted(k for k in kinds if k in _CATEGORY_PLOT_KINDS)
-            if deprecated_kinds:
-                deprecate(
-                    "plugin_meta['plot_kinds'] values "
-                    f"{deprecated_kinds} use the deprecated category vocabulary "
-                    "('instance', 'collection', 'global'). Use semantic kind names "
-                    "('factual_probabilistic', 'factual_regression', etc.) instead. "
-                    "Category names will be removed in v1.0.0.",
-                    key="plot_kinds_category_vocabulary",
-                    stacklevel=4,
-                    raise_on_error=False,
                 )
             meta["plot_kinds"] = kinds
         else:

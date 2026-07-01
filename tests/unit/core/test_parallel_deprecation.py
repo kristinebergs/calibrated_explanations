@@ -7,11 +7,13 @@ import pytest
 from calibrated_explanations.parallel import ParallelConfig, ParallelExecutor
 
 
-def test_auto_strategy_deprecation_fires_when_enabled():
-    """strategy='auto' with enabled=True must emit DeprecationWarning."""
+def test_auto_strategy_raises_configuration_error_when_enabled():
+    """strategy='auto' with enabled=True must raise ConfigurationError in v1.0.0."""
+    from calibrated_explanations.utils.exceptions import ConfigurationError
+
     config = ParallelConfig(strategy="auto", enabled=True)
     executor = ParallelExecutor(config)
-    with pytest.warns(DeprecationWarning, match=r"strategy.*auto"):
+    with pytest.raises(ConfigurationError, match="strategy.*auto"):
         executor.resolve_strategy()
 
 

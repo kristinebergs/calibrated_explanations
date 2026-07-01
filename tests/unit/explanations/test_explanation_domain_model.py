@@ -180,14 +180,16 @@ def test_to_json_with_conjunctive_rules_uses_them():
     ), "Conjunctive rule text must appear in to_json output when has_conjunctive_rules=True"
 
 
-def test_to_json_does_not_call_legacy_payload(monkeypatch):
-    """After Gap 1 closure, to_json must NOT call legacy_payload (the public wrapper)."""
+def test_to_json_does_not_call_legacy_payload():
+    """After v1.0.0, legacy_payload() is removed and to_json() must produce a valid payload without it."""
     ce = _make_minimal_factual()
-    calls = []
-    original = ce.legacy_payload
-    monkeypatch.setattr(ce, "legacy_payload", lambda exp: (calls.append(1), original(exp))[1])
-    ce.to_json()
-    assert calls == [], "legacy_payload must not be called by to_json after Gap 1 closure"
+    assert not hasattr(
+        ce, "legacy_payload"
+    ), "legacy_payload public method must be removed in v1.0.0"
+    payload = ce.to_json()
+    assert (
+        "explanations" in payload
+    ), "to_json must produce a valid payload after legacy_payload removal"
 
 
 # ---------------------------------------------------------------------------

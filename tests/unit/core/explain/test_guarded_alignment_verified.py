@@ -1,7 +1,6 @@
 """Internal consistency tests for guarded CE-compatible compatibility shims."""
 
 import numpy as np
-import pytest
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from calibrated_explanations import GuardedOptions
 
@@ -50,12 +49,11 @@ def test_should_preserve_ce_compatible_baseline_payload_shape():
     x_test = np.array([[0, 0]])
 
     factual = explainer.explain_factual(x_test).explanations[0].get_rules()
-    with pytest.warns(DeprecationWarning):
-        guarded = (
-            explainer.explain_factual(x_test, guarded=True, significance=1.0)
-            .explanations[0]
-            .get_rules()
-        )
+    guarded = (
+        explainer.explain_factual(x_test, guarded_options=GuardedOptions(confidence=0.001))
+        .explanations[0]
+        .get_rules()
+    )
 
     assert len(factual["base_predict"]) == 1
     assert len(guarded["base_predict"]) == 1
@@ -139,8 +137,7 @@ def test_should_include_prob_key_in_classification_prediction_metadata():
 
     # Act
     x_test = np.array([[0, 0]])
-    with pytest.warns(DeprecationWarning):
-        result = explainer.explain_factual(x_test, guarded=True, significance=1.0)
+    result = explainer.explain_factual(x_test, guarded_options=GuardedOptions(confidence=0.001))
     expl = result.explanations[0]
 
     # CE-compatible helper surfaces expect a `prob` key for classification.

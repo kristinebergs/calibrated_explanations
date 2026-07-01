@@ -517,13 +517,7 @@ class ExplanationOrchestrator:
 
         if not _ce_skip_reject:
             if isinstance(extras, Mapping):
-                reject_confidence = extras.get("reject_confidence", extras.get("confidence", 0.95))
-                if "confidence" in extras and "reject_confidence" not in extras:
-                    warnings.warn(
-                        "confidence= is deprecated in the reject path; use reject_confidence=.",
-                        DeprecationWarning,
-                        stacklevel=3,
-                    )
+                reject_confidence = extras.get("reject_confidence", 0.95)
             else:
                 reject_confidence = 0.95
             confidence = reject_confidence
@@ -1066,13 +1060,7 @@ class ExplanationOrchestrator:
                     default_policy=RejectPolicy.NONE,
                 )
                 effective_policy = resolution.policy
-                confidence = kwargs.get("reject_confidence", kwargs.get("confidence", 0.95))
-                if "confidence" in kwargs and "reject_confidence" not in kwargs:
-                    warnings.warn(
-                        "confidence= is deprecated in the reject path; use reject_confidence=.",
-                        DeprecationWarning,
-                        stacklevel=3,
-                    )
+                confidence = kwargs.get("reject_confidence", 0.95)
 
                 # Prepare a per-class explain_fn closure that legacy_explain can call
                 def make_explain_fn_for_class(cls_val):
@@ -1271,13 +1259,7 @@ class ExplanationOrchestrator:
                     default_policy=RejectPolicy.NONE,
                 )
                 effective_policy = resolution.policy
-                confidence = kwargs.get("reject_confidence", kwargs.get("confidence", 0.95))
-                if "confidence" in kwargs and "reject_confidence" not in kwargs:
-                    warnings.warn(
-                        "confidence= is deprecated in the reject path; use reject_confidence=.",
-                        DeprecationWarning,
-                        stacklevel=3,
-                    )
+                confidence = kwargs.get("reject_confidence", 0.95)
 
                 def make_explain_fn_for_class(cls_val):
                     def _explain_fn(x_subset, **inner_kw):
@@ -1388,11 +1370,6 @@ class ExplanationOrchestrator:
         per_instance_features_to_ignore: Any = None,
         reject_policy: Any | None = None,
         guarded_options: Any | None = None,
-        significance: float | None = None,
-        merge_adjacent: bool = False,
-        n_neighbors: int = 5,
-        normalize_guard: bool = True,
-        verbose: bool = False,
         **kwargs: Any,
     ) -> Any:
         """[EXPERIMENTAL] Execute guarded factual explanation.
@@ -1416,20 +1393,8 @@ class ExplanationOrchestrator:
         features_to_ignore : sequence or None
             Feature indices to exclude.
         guarded_options : GuardedOptions or None, default=None
-            Per-call tuning for the in-distribution guard (ADR-038). When provided,
-            all individual guard tuning kwargs are ignored.
-        significance : float or None, default=None
-            **Deprecated.** Use ``guarded_options=GuardedOptions(confidence=1-significance)``.
-            The numeric value is inverted: ``significance=0.1`` becomes
-            ``GuardedOptions(confidence=0.9)``.
-        merge_adjacent : bool, default=False
-            **Deprecated.** Use ``guarded_options=GuardedOptions(merge_adjacent=True)``.
-        n_neighbors : int, default=5
-            **Deprecated.** Use ``guarded_options=GuardedOptions(n_neighbors=...)``.
-        normalize_guard : bool, default=True
-            **Deprecated.** Use ``guarded_options=GuardedOptions(normalize=...)``.
-        verbose : bool, default=False
-            **Deprecated.** Use ``guarded_options=GuardedOptions(verbose=True)``.
+            Per-call tuning for the in-distribution guard (ADR-038).
+            When ``None``, defaults are taken from a ``GuardedOptions()`` instance.
         **kwargs : Any
             Reserved.
 
@@ -1438,73 +1403,24 @@ class ExplanationOrchestrator:
         CalibratedExplanations
             Container with :class:`GuardedFactualExplanation` objects.
         """
-        import warnings as _warnings  # pylint: disable=import-outside-toplevel
-
         import numpy as np  # pylint: disable=import-outside-toplevel
 
         from ...core.reject.policy import RejectPolicy
+        from ...explanations.guarded_options import (
+            GuardedOptions,  # pylint: disable=import-outside-toplevel
+        )
         from ._guarded_explain import guarded_explain  # pylint: disable=import-outside-toplevel
 
-        # Resolve guard parameters from GuardedOptions or deprecated kwargs
-        if guarded_options is not None:
-            # New API: derive all params from GuardedOptions
-            _significance = 1.0 - guarded_options.confidence
-            _n_neighbors = guarded_options.n_neighbors
-            _normalize = guarded_options.normalize
-            _merge_adjacent = guarded_options.merge_adjacent
-            _verbose = guarded_options.verbose
-        else:
-            # Deprecated path: use individual kwargs directly (bypass GuardedOptions validation
-            # so that legacy edge cases like significance=1.0 continue to work until v1.0.0)
-            _significance = significance if significance is not None else 0.1
-            _n_neighbors = n_neighbors
-            _normalize = normalize_guard
-            _merge_adjacent = merge_adjacent
-            _verbose = verbose
-            _defaults = {
-                "merge_adjacent": False,
-                "n_neighbors": 5,
-                "normalize_guard": True,
-                "verbose": False,
-            }
-            if significance is not None:
-                _warnings.warn(
-                    f"significance={significance!r} is deprecated; use "
-                    f"guarded_options=GuardedOptions(confidence={1.0 - significance!r}) — "
-                    "note the value is inverted: confidence = 1 − significance.",
-                    DeprecationWarning,
-                    stacklevel=3,
-                )
-            for _kwarg, _field in [
-                ("merge_adjacent", "merge_adjacent"),
-                ("n_neighbors", "n_neighbors"),
-                ("normalize_guard", "normalize"),
-                ("verbose", "verbose"),
-            ]:
-                _local = {
-                    "merge_adjacent": merge_adjacent,
-                    "n_neighbors": n_neighbors,
-                    "normalize_guard": normalize_guard,
-                    "verbose": verbose,
-                }
-                if _local[_kwarg] != _defaults[_kwarg]:
-                    _warnings.warn(
-                        f"{_kwarg}= is deprecated; use guarded_options=GuardedOptions({_field}=...).",
-                        DeprecationWarning,
-                        stacklevel=3,
-                    )
+        if guarded_options is None:
+            guarded_options = GuardedOptions()
+        _significance = 1.0 - guarded_options.confidence
+        _n_neighbors = guarded_options.n_neighbors
+        _normalize = guarded_options.normalize
+        _merge_adjacent = guarded_options.merge_adjacent
+        _verbose = guarded_options.verbose
 
         if not kwargs.pop("_ce_skip_reject", False):
-            reject_confidence = kwargs.get(
-                "reject_confidence",
-                kwargs.get("confidence", 0.95),
-            )
-            if "confidence" in kwargs and "reject_confidence" not in kwargs:
-                _warnings.warn(
-                    "confidence= is deprecated in the reject path; use reject_confidence=.",
-                    DeprecationWarning,
-                    stacklevel=3,
-                )
+            reject_confidence = kwargs.get("reject_confidence", 0.95)
             resolution = _resolve_effective_reject_policy(
                 reject_policy,
                 self.explainer,
@@ -1617,11 +1533,6 @@ class ExplanationOrchestrator:
         per_instance_features_to_ignore: Any = None,
         reject_policy: Any | None = None,
         guarded_options: Any | None = None,
-        significance: float | None = None,
-        merge_adjacent: bool = False,
-        n_neighbors: int = 5,
-        normalize_guard: bool = True,
-        verbose: bool = False,
         **kwargs: Any,
     ) -> Any:
         """[EXPERIMENTAL] Execute guarded alternative explanation.
@@ -1646,18 +1557,8 @@ class ExplanationOrchestrator:
         features_to_ignore : sequence or None
             Feature indices to exclude.
         guarded_options : GuardedOptions or None, default=None
-            Per-call tuning for the in-distribution guard (ADR-038). When provided,
-            all individual guard tuning kwargs are ignored.
-        significance : float or None, default=None
-            **Deprecated.** Use ``guarded_options=GuardedOptions(confidence=1-significance)``.
-        merge_adjacent : bool, default=False
-            **Deprecated.** Use ``guarded_options=GuardedOptions(merge_adjacent=True)``.
-        n_neighbors : int, default=5
-            **Deprecated.** Use ``guarded_options=GuardedOptions(n_neighbors=...)``.
-        normalize_guard : bool, default=True
-            **Deprecated.** Use ``guarded_options=GuardedOptions(normalize=...)``.
-        verbose : bool, default=False
-            **Deprecated.** Use ``guarded_options=GuardedOptions(verbose=True)``.
+            Per-call tuning for the in-distribution guard (ADR-038).
+            When ``None``, defaults are taken from a ``GuardedOptions()`` instance.
         **kwargs : Any
             Reserved.
 
@@ -1666,73 +1567,24 @@ class ExplanationOrchestrator:
         AlternativeExplanations
             Container with :class:`GuardedAlternativeExplanation` objects.
         """
-        import warnings as _warnings  # pylint: disable=import-outside-toplevel
-
         import numpy as np  # pylint: disable=import-outside-toplevel
 
         from ...core.reject.policy import RejectPolicy
+        from ...explanations.guarded_options import (
+            GuardedOptions,  # pylint: disable=import-outside-toplevel
+        )
         from ._guarded_explain import guarded_explain  # pylint: disable=import-outside-toplevel
 
-        # Resolve guard parameters from GuardedOptions or deprecated kwargs
-        if guarded_options is not None:
-            # New API: derive all params from GuardedOptions
-            _significance = 1.0 - guarded_options.confidence
-            _n_neighbors = guarded_options.n_neighbors
-            _normalize = guarded_options.normalize
-            _merge_adjacent = guarded_options.merge_adjacent
-            _verbose = guarded_options.verbose
-        else:
-            # Deprecated path: use individual kwargs directly (bypass GuardedOptions validation
-            # so that legacy edge cases like significance=1.0 continue to work until v1.0.0)
-            _significance = significance if significance is not None else 0.1
-            _n_neighbors = n_neighbors
-            _normalize = normalize_guard
-            _merge_adjacent = merge_adjacent
-            _verbose = verbose
-            _defaults = {
-                "merge_adjacent": False,
-                "n_neighbors": 5,
-                "normalize_guard": True,
-                "verbose": False,
-            }
-            if significance is not None:
-                _warnings.warn(
-                    f"significance={significance!r} is deprecated; use "
-                    f"guarded_options=GuardedOptions(confidence={1.0 - significance!r}) — "
-                    "note the value is inverted: confidence = 1 − significance.",
-                    DeprecationWarning,
-                    stacklevel=3,
-                )
-            for _kwarg, _field in [
-                ("merge_adjacent", "merge_adjacent"),
-                ("n_neighbors", "n_neighbors"),
-                ("normalize_guard", "normalize"),
-                ("verbose", "verbose"),
-            ]:
-                _local = {
-                    "merge_adjacent": merge_adjacent,
-                    "n_neighbors": n_neighbors,
-                    "normalize_guard": normalize_guard,
-                    "verbose": verbose,
-                }
-                if _local[_kwarg] != _defaults[_kwarg]:
-                    _warnings.warn(
-                        f"{_kwarg}= is deprecated; use guarded_options=GuardedOptions({_field}=...).",
-                        DeprecationWarning,
-                        stacklevel=3,
-                    )
+        if guarded_options is None:
+            guarded_options = GuardedOptions()
+        _significance = 1.0 - guarded_options.confidence
+        _n_neighbors = guarded_options.n_neighbors
+        _normalize = guarded_options.normalize
+        _merge_adjacent = guarded_options.merge_adjacent
+        _verbose = guarded_options.verbose
 
         if not kwargs.pop("_ce_skip_reject", False):
-            reject_confidence = kwargs.get(
-                "reject_confidence",
-                kwargs.get("confidence", 0.95),
-            )
-            if "confidence" in kwargs and "reject_confidence" not in kwargs:
-                _warnings.warn(
-                    "confidence= is deprecated in the reject path; use reject_confidence=.",
-                    DeprecationWarning,
-                    stacklevel=3,
-                )
+            reject_confidence = kwargs.get("reject_confidence", 0.95)
             resolution = _resolve_effective_reject_policy(
                 reject_policy,
                 self.explainer,
