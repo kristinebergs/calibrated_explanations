@@ -59,6 +59,7 @@ dev = [
     "ruff",
     "mypy",
     "pydocstyle",
+    "pre-commit",
     "nbqa",
     "sphinx",
     "myst-parser",
