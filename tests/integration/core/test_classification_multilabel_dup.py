@@ -112,6 +112,8 @@ def test_multiclass_conditional_ce_multi_labels_dup(multiclass_dataset):
         feature_names,
     ) = multiclass_dataset
     model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    bins_cal = (x_cal[:, 0] >= 0).astype(int)
+    bins_test = (x_test[:, 0] >= 0).astype(int)
     cal_exp = initiate_explainer(
         model,
         x_cal,
@@ -119,11 +121,11 @@ def test_multiclass_conditional_ce_multi_labels_dup(multiclass_dataset):
         feature_names,
         categorical_labels,
         mode="classification",
-        bins=x_cal[:, 0],
+        bins=bins_cal,
     )
 
     # exercise conditional + multi-label generation
-    multi_factual = cal_exp.explain_factual(x_test, bins=x_test[:, 0], multi_labels_enabled=True)
+    multi_factual = cal_exp.explain_factual(x_test, bins=bins_test, multi_labels_enabled=True)
     multi_factual.add_conjunctions()
     assert multi_factual is not None
     assert len(multi_factual.explanations) == len(x_test)

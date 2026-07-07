@@ -340,6 +340,10 @@ Immediate v0.11.5 adoption:
 5. Treat the ADR-039 Mondrian capability-chain extension as one v0.11.5 application
    of the framework, not as the framework itself.
 
+## Governed claims
+
+- `CE-CAP-MOND-001`
+
 Future adoption:
 
 1. Add a short ADR-040 summary to the release roadmap at the next release-plan

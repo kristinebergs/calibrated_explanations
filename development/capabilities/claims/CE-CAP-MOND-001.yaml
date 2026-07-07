@@ -6,6 +6,7 @@ status: current
 adr_links:
   - ADR-013
   - ADR-039
+  - ADR-040
 
 claim_text: >
   calibrated_explanations supports Mondrian conditional calibration through
