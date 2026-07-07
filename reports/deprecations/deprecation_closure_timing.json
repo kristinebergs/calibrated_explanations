@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-07T08:14:01.793025+00:00",
+  "generated_at": "2026-07-07T16:34:04.784294+00:00",
   "platform": "Windows",
   "python_version": "3.11.9",
   "schema_version": 1,
@@ -12,16 +12,16 @@
     },
     {
       "command": "python -m pytest tests/ -k deprecat or lime or shap or reject or plugin or parallel or calibration -v --no-cov",
-      "elapsed_seconds": 37.875,
+      "elapsed_seconds": 43.375,
       "exit_code": 0,
       "name": "Focused deprecation closure tests"
     },
     {
       "command": "python scripts/local_checks.py --adr030-ratification",
-      "elapsed_seconds": 6.016,
+      "elapsed_seconds": 5.687,
       "exit_code": 0,
       "name": "ADR-030 ratification lane"
     }
   ],
-  "total_elapsed_seconds": 43.938
+  "total_elapsed_seconds": 49.172
 }

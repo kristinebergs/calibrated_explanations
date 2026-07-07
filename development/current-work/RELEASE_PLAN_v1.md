@@ -175,6 +175,8 @@ Gap-by-gap severity tables now live only in `development/current-work/RELEASE_PL
 
 **ADR-039 - Conditional Calibration and Explanation Semantics:** Accepted (2026-07-07); full implementation targeted at v0.11.5 (bins/mc channel exclusivity, fail-fast inference consistency, lifecycle reset with `reuse_conditional` opt-in, `mc` serialization visibility, conditional documentation corrections). No deprecation cycles introduced; remediation ships as fail-fast bug fixes to keep the RC ledger empty. Canonical implementation contract: `development/current-work/v0.11.5_plan.md`.
 
+**ADR-040 - Capability Verification Framework and Requirements-as-Code Governance:** Accepted (2026-07-07); ratifies the already-implemented cross-capability verification framework (claims → requirements → TIF interfaces → tests/gates → evidence) with canonical locations, requirements-as-code fields, TIF public-API rules, evidence semantics, and assumption boundaries. Release gates: `make capability-chain-check` (structural, per-PR safe) and `make capability-evidence-refresh` (release boundary, waivable only with owner and follow-up). v0.11.5 ratifies the framework and extends the Mondrian chain under it (ADR-039 D6); Mondrian is one application, not the framework boundary. Ratification task: v0.11.5 plan Task 6A.
+
 **Standard-001 - Nomenclature Standardization:** Completed; nomenclature guardrails and transitional shim removals are closed. No open appendix gaps.
 
 **Standard-002 - Code Documentation Standardisation:** Completed; docstring coverage and wrapper/public numpydoc closure are complete. No open appendix gaps.
@@ -620,7 +622,7 @@ Release gate: Plugin registries enforce trust and protocol policies, extras inst
 
 **Milestone closure — 2026-06-19:** v0.11.4 is complete. All 19 tasks implemented and verified (7 items explicitly deferred to post-v1.0 or v1.0.0-rc assessment). Key closures: ADR-004 `strategy="auto"` deprecation and v1.0.0 removal ledger row; ADR-006 checksum trust-elevation bypass closed and keyed trust controls retained; ADR-008 domain-authoritative serialization boundary, typed `CalibrationDescriptor`/`ModelDescriptor` descriptors, and multiclass `class_index` preservation; ADR-012 docs HTML/linkcheck CI job wired via `docs-build` in `ci-nightly.yml` and release-branch strict docs workflow; ADR-013 runtime output validation, frozen-context replacement, and pre-plugin migration guidance; ADR-015 `ExplainerHandle.learner` deprecation and broad delegation documented; ADR-021 calibrated interval semantics verified; ADR-026 rule-level batch validation and trusted built-in monitor exemption; ADR-027 non-strict feature-filter events reclassified to `DEBUG`; ADR-028/STD-005 `configure_logging()` and operational logger domain compliance closed; ADR-031 calibrator primitives migrated to JSON-safe schema v2 with v1 migration warnings and round-trip tests; ADR-033 `data_modalities` fail-closed enforcement (ValidationError on missing key); ADR-037 plugin metadata migrated to six semantic plot kinds with `triangular` documented as internal routing; ADR-038 plugin taxonomy policy and warning allowlist drift closed; documentation migration to canonical `development/` map; capability test scaffold; and nightly parity-reference determinism (scoped scikit-learn version overlay). Remaining-scope table records 7 explicitly deferred items (ADR-008 core-pipeline authority, ADR-038 `**kwargs` graduation, ADR-029 lifecycle hooks, ADR-034 sensitive-value redaction and `export_effective()` schema contract, ADR-035 branch-protection flip). Gates: `make local-checks-pr` ✅, `make deprecation-closure` ✅ (11 active v1.0.0 permitted, 0 blocking), `python scripts/quality/check_warning_policy.py` ✅ (0 UNCLASSIFIED), `2155 passed, 2 skipped`, coverage `90.02%`. Version tagged: `0.11.4`. Next: v0.11.5 (inserted 2026-07-07), then v1.0.0-rc.
 
-### v0.11.5 (conditional calibration hardening — ADR-039)
+### v0.11.5 (conditional calibration hardening — ADR-039; capability verification framework ratification — ADR-040)
 
 > **Replanning note (2026-07-07):** This milestone was inserted between v0.11.4 and
 > v1.0.0-rc. Rationale: the ADR-039 conditional-calibration defects (empirically
@@ -659,13 +661,22 @@ Release gate: Plugin registries enforce trust and protocol policies, extras inst
    history rows for the 15 removed symbols updated from `Removed in: 1.0.0` to
    `Removed in: v0.11.5` (the version in which users actually lose access);
    `docs/upgrade/v1.0.0-upgrade-checklist.md` aligned.
+8. Ratify ADR-040 (Capability Verification Framework and Requirements-as-Code
+   Governance): align release governance and framework documentation with the
+   already-implemented capability verification chain, run `make
+   capability-chain-check`, and run `make capability-evidence-refresh` at release
+   closure (or record an explicit waiver with owner and follow-up). Position the
+   Mondrian chain extension (item 6) as one application of the framework, not the
+   framework itself. Detailed steps: v0.11.5 plan Task 6A.
 
 Release gate: ADR-039 Accepted; all six empirically confirmed conditional defect
 classes covered by regression tests; zero new active-deprecation rows (`make
 deprecation-closure` remains green — v0.11.5 introduces no new deprecation cycles);
 conditional docs corrected and consistent with implementation; deprecation ledger
 history attribution updated to v0.11.5; CHANGELOG migration notes present for every
-ADR-039 behavior change; `make local-checks-pr` passes.
+ADR-039 behavior change; ADR-040 Accepted with `make capability-chain-check`
+passing and `make capability-evidence-refresh` run at release closure or explicitly
+waived; `make local-checks-pr` passes.
 
 ### v1.0.0-rc (release candidate readiness)
 

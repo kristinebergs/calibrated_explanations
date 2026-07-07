@@ -24,8 +24,11 @@ Evidence record          -> reports/verification/ (raw)
 
 ## Location authority
 
-This directory is the canonical location for CE requirements.
-See `development/README.md` for the full location map.
+This directory is the canonical location for CE requirements. Canonical
+locations are ratified by
+`development/adrs/ADR-040-capability-verification-framework.md` (D2);
+`development/README.md` mirrors the full location map. On conflict, ADR-040 is
+authoritative.
 
 ## File naming
 
@@ -45,7 +48,10 @@ Each requirement file must state:
 - **obligation_type**: one of `api_contract`, `payload_schema`, `numerical_behavior`,
   `statistical_method_alignment`, `documentation_boundary`, `visualization_behavior`,
   `plugin_behavior`, `runtime_behavior`, `serialization_contract`, `static_policy`,
-  `quality_gate`, `empirical_smoke`
+  `quality_gate`, `empirical_smoke`. This list is the operational vocabulary; it
+  refines the open verification-type list in ADR-040 D8. Extend it here (and in
+  `scripts/quality/validate_capability_chain.py`) rather than inventing ad-hoc
+  values in requirement files.
 - **claim_refs**: which CE-CAP-... claims this requirement serves
 - **adr_refs** or **standard_refs**: which active ADRs / Standards govern the obligation
 - **status**: whether the requirement is active, superseded, or retired

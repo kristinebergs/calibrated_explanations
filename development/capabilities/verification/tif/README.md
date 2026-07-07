@@ -1,5 +1,9 @@
 # TIF - Test Interface Framework
 
+> **Governing ADR:** `development/adrs/ADR-040-capability-verification-framework.md`
+> (see D5–D6 for the TIF layer and exemption rules). On conflict, ADR-040 is
+> authoritative; this README is the operational guide.
+
 This directory contains TIF (Test Interface Framework) verification interface
 specifications and executable TIF scenarios for CE capability verification.
 

@@ -1,5 +1,9 @@
 # Verification Scenarios and Helpers — Capabilities
 
+> **Governing ADR:** `development/adrs/ADR-040-capability-verification-framework.md`
+> ratifies this framework. On conflict, ADR-040 is authoritative; this README is
+> the operational guide.
+
 This directory contains executable verification scenarios, helpers, and TIF
 (Test Interface Framework) definitions for CE capability verification.
 

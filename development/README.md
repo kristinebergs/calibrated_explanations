@@ -33,6 +33,11 @@ requirement catalogs, and curated closure evidence summaries.
 These locations are authoritative even when a directory has not yet been
 created. Do not create additional locations for the same material.
 
+The capability-verification rows of this map (claims, requirements, TIF,
+verification scenarios, capability tests, raw and curated evidence) are ratified
+by `development/adrs/ADR-040-capability-verification-framework.md` (D2). New
+locations for that material require amending or superseding ADR-040.
+
 ---
 
 ## Verification Layout Rule

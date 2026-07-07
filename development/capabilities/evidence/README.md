@@ -1,5 +1,9 @@
 # Capability Evidence - Curated Summaries
 
+> **Governing ADR:** `development/adrs/ADR-040-capability-verification-framework.md`
+> (see D7–D9 for evidence semantics, assumption boundaries, and release gates).
+> On conflict, ADR-040 is authoritative; this README is the operational guide.
+
 This directory contains human-curated evidence summaries for CE capability
 verification runs. Curated evidence records here are produced after a
 verification run in `reports/verification/` and capture a human-reviewed
@@ -184,6 +188,14 @@ Release closure should regenerate raw evidence at the release commit and then re
 ```bash
 python scripts/generate_tif_evidence.py --check-current
 ```
+
+The two freshness policies are complementary, not contradictory: `make
+capability-evidence-refresh` (the ADR-040 D9 release-boundary gate) regenerates
+evidence and enforces current-commit freshness, so at release closure evidence
+must be at `HEAD` (or an explicit release-plan waiver recorded). The
+historical-safe default described here applies only to the standalone pytest
+suite and `--validate-existing`, which validate committed evidence without
+re-executing TIF scenarios.
 
 The evidence-reference pytest suite remains historical-safe by default. To require committed evidence to match the current checkout, run:
 

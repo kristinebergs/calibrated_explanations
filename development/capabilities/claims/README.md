@@ -22,8 +22,11 @@ Evidence record          -> reports/verification/ (raw)
 
 ## Location authority
 
-This directory is the canonical location for CE capability claims.
-See `development/README.md` for the full location map.
+This directory is the canonical location for CE capability claims. Canonical
+locations are ratified by
+`development/adrs/ADR-040-capability-verification-framework.md` (D2);
+`development/README.md` mirrors the full location map. On conflict, ADR-040 is
+authoritative.
 
 ## File naming
 

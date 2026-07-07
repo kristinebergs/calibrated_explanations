@@ -100,6 +100,10 @@ Design patterns:
 
 ### 4A. Capability-Based Verification
 
+This section is the agent-facing operational summary of
+`development/adrs/ADR-040-capability-verification-framework.md`, the governing
+ADR for capability verification. On conflict, ADR-040 is authoritative.
+
 Externally visible CE capability claims are product/library claims about
 `calibrated_explanations` behavior. Treat them as verifiable engineering
 contracts, not as verified facts merely because they appear in documentation.
