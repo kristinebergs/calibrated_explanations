@@ -196,6 +196,21 @@ def test_should_raise_data_shape_error_when_calibration_bins_length_mismatches_s
     assert exc_info.value.details == {"bins_length": 1, "n_samples": len(X_cal)}
 
 
+def test_should_raise_data_shape_error_when_mc_derives_wrong_length_bins(
+    mondrian_setup,
+):
+    """Verify CE-REQ-MOND-VAL-001 for mc-derived bins that do not match x."""
+    explainer, X_cal, y_cal, _X_test, _y_test, _mondrian_fn = mondrian_setup
+
+    def wrong_length_mc(x):
+        return np.zeros(1, dtype=int)
+
+    with pytest.raises(DataShapeError, match="length of Mondrian bins") as exc_info:
+        explainer.calibrate(X_cal, y_cal, mc=wrong_length_mc)
+
+    assert exc_info.value.details == {"bins_length": 1, "n_samples": len(X_cal)}
+
+
 def test_should_raise_data_shape_error_when_core_explainer_bins_length_mismatches_samples(
     mondrian_setup,
 ):

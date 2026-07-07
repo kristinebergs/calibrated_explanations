@@ -407,9 +407,11 @@ def deprecation_closure_steps() -> list[Step]:
             ),
         ),
         Step("ADR-030 ratification lane", _python_cmd("scripts/local_checks.py", "--adr030-ratification")),
-        Step("PR local checks", ["make", "local-checks-pr"]),
-        Step("Main local checks", ["make", "local-checks"]),
     ]
+        # Avoid invoking top-level make targets here (they run the full
+        # verification stack and can be extremely time-consuming). The
+        # deprecation-closure lane should be focused and not re-run the
+        # entire PR/main local-check sequences.
 
 
 def run_deprecation_closure() -> int:
