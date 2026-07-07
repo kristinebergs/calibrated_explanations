@@ -18,7 +18,7 @@
   "result": "pass",
   "timestamp": "2026-06-22T16:26:13.600418+00:00",
   "commit_sha": "d336b9ccb617569f6d9da0c5f502c2b3e52a44f0",
-  "package_version": "v1.0.0-rc-dev",
+  "package_version": "v0.11.5-dev",
   "python_version": "3.11.9",
   "platform": "win32",
   "dataset_id": "sklearn make_regression n_samples=150 n_features=4 n_informative=3 noise=10 random_seed=42",

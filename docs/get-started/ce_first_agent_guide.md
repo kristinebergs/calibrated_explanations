@@ -313,9 +313,10 @@ Notebook patterns to reference in the OSS repo:
 ```python
 from crepes.extras import MondrianCategorizer
 
-mc = MondrianCategorizer(x_train, [0, 1])
-explainer.calibrate(x_cal, y_cal, mc=mc, bins=mc)
-explanations = explainer.explain_factual(x_test[:3], bins=mc)
+mc = MondrianCategorizer()
+mc.fit(x_cal, f=lambda X: model.predict_proba(X)[:, 1], no_bins=5)
+explainer.calibrate(x_cal, y_cal, mc=mc)
+explanations = explainer.explain_factual(x_test[:3])
 ```
 
 ### Difficulty estimation for regression

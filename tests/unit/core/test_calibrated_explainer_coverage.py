@@ -193,18 +193,18 @@ def test_explain_mondrian_bins_and_legacy_path(mock_learner, mock_plugin_manager
 
     x_test = np.array([[3, 4]])
     explainer.explanation_orchestrator.invoke_factual.return_value = "factual"
-    explainer.explain_factual(x_test)
+    explainer.explain_factual(x_test, bins=explainer.bins)
     _, kwargs = explainer.explanation_orchestrator.invoke_factual.call_args
     assert kwargs["bins"] is explainer.bins
 
     explainer.explanation_orchestrator.invoke_alternative.return_value = "alternative"
-    explainer.explore_alternatives(x_test)
+    explainer.explore_alternatives(x_test, bins=explainer.bins)
     _, kwargs = explainer.explanation_orchestrator.invoke_alternative.call_args
     assert kwargs["bins"] is explainer.bins
 
     with patch("calibrated_explanations.core.explain.legacy_explain") as mock_legacy:
         mock_legacy.return_value = "legacy"
-        result = explainer(x_test, bins=None, _use_plugin=False)
+        result = explainer(x_test, bins=explainer.bins, _use_plugin=False)
         assert result == "legacy"
         assert mock_legacy.call_args.kwargs["bins"] is explainer.bins
 
@@ -313,12 +313,12 @@ def test_additional_coverage(monkeypatch: pytest.MonkeyPatch, mock_learner, mock
     # explain_factual with mondrian
     explainer.bins = np.array([0])
     with patch.object(explainer.explanation_orchestrator, "invoke_factual") as mock_invoke:
-        explainer.explain_factual(x_cal)
+        explainer.explain_factual(x_cal, bins=explainer.bins)
         mock_invoke.assert_called_once()
 
     # explore_alternatives with mondrian
     with patch.object(explainer.explanation_orchestrator, "invoke_alternative") as mock_invoke:
-        explainer.explore_alternatives(x_cal)
+        explainer.explore_alternatives(x_cal, bins=explainer.bins)
         mock_invoke.assert_called_once()
 
     # __call__
@@ -330,7 +330,7 @@ def test_additional_coverage(monkeypatch: pytest.MonkeyPatch, mock_learner, mock
     import external_plugins.fast_explanations.pipeline as fast_pipeline_mod
 
     with patch.object(fast_pipeline_mod, "FastExplanationPipeline") as mock_pipeline:
-        explainer.explain_fast(x_cal, _use_plugin=False)
+        explainer.explain_fast(x_cal, bins=explainer.bins, _use_plugin=False)
         mock_pipeline.assert_called()
 
     # v0.11.2 removal phase (Task 5A): core LIME/SHAP methods are removed.
@@ -399,6 +399,7 @@ def test_additional_coverage(monkeypatch: pytest.MonkeyPatch, mock_learner, mock
         mock_pred.assert_called_once()
 
     # predict calibrated regression
+    explainer.bins = None
     explainer.mode = "regression"
     with patch.object(
         explainer.prediction_orchestrator,

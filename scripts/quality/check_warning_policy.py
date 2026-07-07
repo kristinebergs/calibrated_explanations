@@ -115,7 +115,7 @@ ALLOWLISTED_PATHS: frozenset[str] = frozenset(
         "core/prediction_helpers.py",
         # core/prediction/orchestrator.py: prediction orchestrator contract warnings
         "core/prediction/orchestrator.py",
-        # core/wrap_explainer.py: wrap explainer contract warnings
+        # core/wrap_explainer.py: wrap explainer contract warnings, including ADR-039 mc-drop persistence warning
         "core/wrap_explainer.py",
         # calibration/normalization_strategy.py: normalization deprecation
         "calibration/normalization_strategy.py",

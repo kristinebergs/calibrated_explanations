@@ -45,6 +45,7 @@ from ..utils.exceptions import (
     ValidationError,
 )
 from .prediction.interval_summary import IntervalSummary, coerce_interval_summary
+from .prediction_helpers import resolve_conditional_bins
 
 # Lazy imports deferred to avoid cross-sibling coupling
 # These are imported inside methods/properties where used
@@ -1507,6 +1508,7 @@ class CalibratedExplainer:
             When ``reject_policy`` is non-``None``, returns
             :class:`~calibrated_explanations.explanations.reject.RejectCalibratedExplanations`.
         """
+        bins = resolve_conditional_bins(x, bins, calibration_bins=self.bins)
         if guarded_options is not None:
             if not _use_plugin and kwargs.get("verbose", False):
                 warnings.warn(
@@ -1514,8 +1516,6 @@ class CalibratedExplainer:
                     UserWarning,
                     stacklevel=2,
                 )
-            if bins is None and self.is_mondrian():
-                bins = self.bins
             ctx = (
                 self._perf_parallel if self._perf_parallel is not None else contextlib.nullcontext()
             )
@@ -1531,8 +1531,6 @@ class CalibratedExplainer:
                     guarded_options=guarded_options,
                     **kwargs,
                 )
-        if bins is None and self.is_mondrian():
-            bins = self.bins
         # Thin delegator that sets discretizer and delegates to orchestrator
         discretizer = "binaryRegressor" if "regression" in self.mode else "binaryEntropy"
         ctx = self._perf_parallel if self._perf_parallel is not None else contextlib.nullcontext()
@@ -1622,6 +1620,7 @@ class CalibratedExplainer:
         When ``guarded_options`` is non-``None``, per-instance explanations are
         :class:`~calibrated_explanations.explanations.guarded_explanation.GuardedAlternativeExplanation`.
         """
+        bins = resolve_conditional_bins(x, bins, calibration_bins=self.bins)
         if guarded_options is not None:
             if not _use_plugin and kwargs.get("verbose", False):
                 warnings.warn(
@@ -1629,8 +1628,6 @@ class CalibratedExplainer:
                     UserWarning,
                     stacklevel=2,
                 )
-            if bins is None and self.is_mondrian():
-                bins = self.bins
             ctx = (
                 self._perf_parallel if self._perf_parallel is not None else contextlib.nullcontext()
             )
@@ -1646,8 +1643,6 @@ class CalibratedExplainer:
                     guarded_options=guarded_options,
                     **kwargs,
                 )  # type: ignore[return-value]
-        if bins is None and self.is_mondrian():
-            bins = self.bins
         # Thin delegator that sets discretizer and delegates to orchestrator
         discretizer = "regressor" if "regression" in self.mode else "entropy"
         ctx = self._perf_parallel if self._perf_parallel is not None else contextlib.nullcontext()
@@ -1736,8 +1731,7 @@ class CalibratedExplainer:
         _use_plugin: bool = True,
         _skip_instance_parallel: bool = False,
     ) -> CalibratedExplanations:
-        if bins is None and self.is_mondrian():
-            bins = self.bins
+        bins = resolve_conditional_bins(x, bins, calibration_bins=self.bins)
         # Thin delegator to orchestrator
         if _use_plugin:
             mode = self.infer_explanation_mode()
@@ -1822,8 +1816,7 @@ class CalibratedExplainer:
         CalibratedExplanations : :class:`.CalibratedExplanations`
             A `CalibratedExplanations` containing one :class:`.FastExplanation` for each instance.
         """
-        if bins is None and self.is_mondrian():
-            bins = self.bins
+        bins = resolve_conditional_bins(x, bins, calibration_bins=self.bins)
         if _use_plugin:
             return self.explanation_orchestrator.invoke(
                 "fast",
@@ -2113,6 +2106,12 @@ class CalibratedExplainer:
                 self.learner, x, threshold=kwargs.get("threshold"), uq_interval=uq_interval
             )
 
+        kwargs["bins"] = resolve_conditional_bins(
+            x,
+            kwargs.get("bins"),
+            calibration_bins=self.bins,
+        )
+
         # Resolve reject policy (per-call overrides explainer default)
         from .reject.policy import RejectPolicy as _RejectPolicy
         from .reject.orchestrator import (  # pylint: disable=import-outside-toplevel
@@ -2364,6 +2363,11 @@ class CalibratedExplainer:
             else:
                 proba_payload = self.learner.predict_proba(x)
         else:
+            kwargs["bins"] = resolve_conditional_bins(
+                x,
+                kwargs.get("bins"),
+                calibration_bins=self.bins,
+            )
             # Calibrated predictions
             if self.mode == "regression":
                 # y_threshold is the internal alias for the user-facing `threshold` parameter (matches crepes API convention)

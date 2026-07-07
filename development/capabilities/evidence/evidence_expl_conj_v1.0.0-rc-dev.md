@@ -1,7 +1,7 @@
 # Curated Evidence - EXPL-CONJ Chain
 
 **Capability:** CE-CAP-EXPL-CONJ-001 - Conjunctive multi-feature explanation rules
-**Milestone:** v1.0.0-rc-dev
+**Milestone:** v0.11.5-dev
 **Date:** 2026-06-22
 **Status:** PASS (4 of 5 requirements verified; 1 TIF-exempt, documented gap)
 
@@ -121,7 +121,7 @@ This evidence explicitly does NOT prove:
 | tif_id | CE-TIF-EXPL-CONJ-001 |
 | evidence_level | raw_evidence + curated_summary |
 | commit_sha | f1af9628a4c4f5073f380592070b1773ce9e16ff |
-| package_version | 0.11.3.dev0 (installed; source milestone v1.0.0-rc-dev) |
+| package_version | 0.11.3.dev0 (installed; source milestone v0.11.5-dev) |
 | python_version | 3.14.4 |
 | platform | Windows-11-10.0.26200-SP0 |
 | dataset | sklearn make_classification n_samples=120 n_features=4 n_informative=3 n_redundant=1 random_seed=42 |

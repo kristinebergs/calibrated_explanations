@@ -1,127 +1,79 @@
 # Mondrian (Conditional) Calibration Playbook
 
-Mondrian calibration allows you to calibrate separately for different subgroups, addressing potential bias and providing group-specific uncertainty estimates.
+Mondrian calibration fits separate calibrators for user-defined category labels.
+Use it when uncertainty must be inspected by subgroup, segment, region, or another
+auditable partition.
 
-## When to Use Mondrian Calibration
+## Inline Category Labels
 
-* **Fairness-aware deployments**: Calibrate separately by protected attributes to reveal group-specific prediction quality
-* **Heterogeneous data**: When different subgroups have different prediction patterns or error distributions
-* **Domain-specific groupings**: Industry segments, geographic regions, customer tiers, or other natural partitions
-
-## Quick Start
+Use inline `bins` when the category labels are already known for both calibration
+and inference instances.
 
 ```python
 from calibrated_explanations import WrapCalibratedExplainer
-import numpy as np
 
 explainer = WrapCalibratedExplainer(model)
-explainer.fit(x_proper, y_proper)
-explainer.calibrate(x_cal, y_cal, feature_names=feature_names)
+explainer.fit(x_train, y_train)
 
-# Define group labels for your test instances
-# Example: group by a categorical feature or external attribute
-group_labels = x_test[:, group_feature_idx]  # or any array of group assignments
+group_cal = x_cal[:, protected_feature_idx].astype(int)
+group_test = x_test[:, protected_feature_idx].astype(int)
 
-# Use bins parameter for conditional calibration
-factual = explainer.explain_factual(
+explainer.calibrate(x_cal, y_cal, bins=group_cal)
+factual = explainer.explain_factual(x_test, bins=group_test)
+probabilities, interval = explainer.predict_proba(
     x_test,
-    bins=group_labels
+    uq_interval=True,
+    bins=group_test,
 )
 ```
 
-## Using MondrianCategorizer
+## MondrianCategorizer
 
-For more control over bin definitions, use `crepes.extras.MondrianCategorizer`:
+Use `mc=` when category labels should be derived from the input matrix. The
+categorizer is stored on the wrapper and applied automatically at inference time.
 
 ```python
 from crepes.extras import MondrianCategorizer
 
-# Create categorizer based on a continuous feature (auto-binning)
-categorizer = MondrianCategorizer()
-categorizer.fit(x_cal[:, feature_idx])
+from calibrated_explanations import WrapCalibratedExplainer
 
-# Apply to calibration and explanation
-factual = explainer.explain_factual(x_test, bins=categorizer)
+explainer = WrapCalibratedExplainer(model)
+explainer.fit(x_train, y_train)
+
+mc = MondrianCategorizer()
+mc.fit(x_cal, f=lambda X: model.predict_proba(X)[:, 1], no_bins=5)
+
+explainer.calibrate(x_cal, y_cal, mc=mc)
+factual = explainer.explain_factual(x_test)
+probabilities, interval = explainer.predict_proba(x_test, uq_interval=True)
 ```
 
-### Custom Bin Boundaries
+## Consistency Rules
 
-```python
-# Define explicit bin boundaries
-categorizer = MondrianCategorizer(bins=[0, 25, 50, 75, 100])
-categorizer.fit(x_cal[:, age_feature_idx])
-```
+- Calibrate with exactly one conditional channel: `bins=`, `mc=`, or
+  `reuse_conditional=True`.
+- If calibration used inline `bins=`, every inference call must pass matching
+  per-instance `bins=`.
+- If calibration used `mc=`, inference calls omit `bins=` because labels are
+  derived automatically.
+- If calibration was global, inference calls must not pass `bins=`.
+- Test-time labels must belong to the label vocabulary seen during calibration.
 
-## Trade-offs
+Recalibrating without `bins=` or `mc=` resets the wrapper to global calibration.
+Use `calibrate(..., reuse_conditional=True)` only when you intentionally want to
+reuse a stored categorizer on a new calibration set.
 
-| Aspect | Without Mondrian | With Mondrian |
-| :--- | :--- | :--- |
-| Calibration data per group | Full set | Split by group |
-| Interval width | May underestimate for minorities | Group-appropriate |
-| Fairness visibility | Averaged across groups | Group-specific uncertainty |
-| Sample requirements | Lower | Higher (need enough per group) |
+## Persistence Caveat
 
-```{admonition} Minimum Bin Size Warning
-:class: warning
+Calibrator-level Mondrian bins round-trip through persistence, but arbitrary
+`mc` categorizer objects are not portable. Pickle and `save_state()` warn when a
+configured `mc` is dropped. After loading, pass explicit `bins=` at inference time
+for wrappers that were saved from an `mc`-calibrated state.
 
-Each Mondrian bin needs sufficient calibration samples for reliable intervals. With too few samples per bin:
+## Minimum Category Size
 
-* Intervals may be overly wide or unstable
-* Coverage guarantees may not hold
+Each category needs enough calibration samples for useful intervals. As a rule of
+thumb, aim for at least 30-50 calibration samples per category and document any
+smaller category as an assumption boundary.
 
-**Rule of thumb**: Aim for at least 30-50 samples per bin. If a bin has fewer samples, consider merging with adjacent bins or using fewer groups.
-```
-
-## Common Use Cases
-
-### Fairness Analysis
-
-```python
-# Calibrate separately by protected attribute
-protected_attr = x_test[:, gender_idx]  # e.g., 0 or 1
-
-factual = explainer.explain_factual(x_test, bins=protected_attr)
-
-# Compare uncertainty intervals across groups
-# Wider intervals for a group may indicate less reliable predictions
-```
-
-### Domain-Specific Calibration
-
-```python
-# Calibrate by customer segment
-segments = customer_data["segment"]  # e.g., "enterprise", "smb", "consumer"
-
-factual = explainer.explain_factual(x_test, bins=segments)
-```
-
-### Geographic Regions
-
-```python
-# Calibrate by region where prediction patterns differ
-regions = location_data["region"]  # e.g., "north", "south", "east", "west"
-
-factual = explainer.explain_factual(x_test, bins=regions)
-```
-
-## Interpreting Mondrian Results
-
-When using Mondrian calibration:
-
-1. **Compare interval widths across groups**: Wider intervals indicate more uncertainty for that group
-2. **Check coverage per group**: Verify that calibration quality holds for each subgroup
-3. **Look for systematic differences**: If one group consistently has wider intervals, you may need more calibration data for that group
-
-## Research Background
-
-Conditional calibrated explanations are documented in:
-
-> Löfström, H., et al. (2024). Conditional Calibrated Explanations.
-> In: xAI 2024. Lecture Notes in Computer Science.
-> [DOI: 10.1007/978-3-031-63787-2_17](https://link.springer.com/chapter/10.1007/978-3-031-63787-2_17)
-
-## Cross-References
-
-* {doc}`../../tasks/capabilities` - Full capability manifest
-* {doc}`../../foundations/how-to/interpret_explanations` - Interpretation guide
-* {doc}`../../citing` - Citation information
+See also: [](../../foundations/how-to/conditional_calibration.md).

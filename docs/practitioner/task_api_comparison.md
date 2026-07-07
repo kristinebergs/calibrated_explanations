@@ -75,7 +75,7 @@ Both APIs support the same explanation parameters:
 |--|--|--|
 | `threshold` | Threshold for probabilistic regression | `threshold=1000` |
 | `low_high_percentiles` | Uncertainty interval bounds | `low_high_percentiles=(5, 95)` |
-| `bins` | Custom discretization bins | `bins=custom_bins` |
+| `bins` | Mondrian category labels for conditional calibration; supply at calibration and inference, or use `mc=` at calibration | `bins=group_labels` |
 
 ## Migration between APIs
 

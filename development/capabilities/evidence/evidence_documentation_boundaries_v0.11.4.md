@@ -26,7 +26,7 @@ through documentation review, not through a behavioral TIF scenario.
 | tif_ids | none — TIF-exempt documentation-boundary requirements |
 | verification_strength | documentation_boundary |
 | evidence_level | curated_summary |
-| package_version | v1.0.0-rc-dev |
+| package_version | v0.11.5-dev |
 | commit_sha | 5d02a2c282256ab445a11c864a1bbbc59c5082c6 |
 | reviewer | Tuwe Löfström-Cavallin |
 | result | PASS |

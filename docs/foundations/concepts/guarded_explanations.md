@@ -28,7 +28,7 @@ guarded_alts = explainer.explore_alternatives(X, guarded_options=GuardedOptions(
 `GuardedOptions` fields (all optional): `confidence=0.9`, `n_neighbors=None`,
 `normalize=False`, `merge_adjacent=False`.
 
-> **Migration note**: `guarded=True` is deprecated (removed in v1.0.0). Replace
+> **Migration note**: `guarded=True` was removed in v0.11.5. Replace
 > `guarded=True, significance=0.1` with `guarded_options=GuardedOptions(confidence=0.9)`
 > (`confidence = 1 − significance`).
 

@@ -17,6 +17,10 @@
 | Requirement | Observation fields used |
 |---|---|
 | CE-REQ-MOND-API-001 | `exception_raised`, `calibrated` |
+| CE-REQ-MOND-CONS-001 | `exception_raised`, `exception_type` |
+| CE-REQ-MOND-VAL-001 | `exception_raised`, `exception_type` |
+| CE-REQ-MOND-LIFE-001 | `calibrated`, `exception_raised`, `exception_type` |
+| CE-REQ-MOND-SER-001 | `exception_raised`, `exception_type` |
 
 ## Claims served
 
@@ -25,11 +29,17 @@
 ## ADR refs
 
 - ADR-013
+- ADR-039
 
 ## Public API surface under test
 
 - `WrapCalibratedExplainer(model).fit(X, y)`
 - `explainer.calibrate(X_cal, y_cal, mc=mondrian_fn)` where `mondrian_fn` is a callable
+- `explainer.calibrate(X_cal, y_cal, bins=bins_cal)`
+- `explainer.calibrate(X_cal, y_cal, reuse_conditional=True)`
+- `explainer.predict(X_test, bins=bins_test)`
+- `explainer.predict_proba(X_test, bins=bins_test)`
+- `explainer.explain_factual(X_test, bins=bins_test)`
 - `explainer.calibrated` — boolean property
 
 ## Fixture / data contract
@@ -88,6 +98,10 @@ The TIF returns a `MondrianObservation` dataclass with these fields:
 |---|---|---|---|
 | CE-REQ-MOND-API-001 | calibrate completes without exception | `exception_raised` | `False` |
 | CE-REQ-MOND-API-001 | wrapper reports calibrated | `calibrated` | `True` |
+| CE-REQ-MOND-CONS-001 | omitted or conflicting bins fail fast | `exception_type` | `ValidationError` or `ConfigurationError` |
+| CE-REQ-MOND-VAL-001 | malformed or unknown bins fail fast | `exception_type` | `DataShapeError` or `ValidationError` |
+| CE-REQ-MOND-LIFE-001 | recalibration state follows the current call | `calibrated`, `exception_type` | `True` or `ValidationError` |
+| CE-REQ-MOND-SER-001 | persistence drop remains visible | `exception_type` | `ValidationError` after load without bins |
 
 ## TIF constraints
 

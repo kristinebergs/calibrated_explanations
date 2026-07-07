@@ -7,7 +7,7 @@
 | requirement_id | CE-REQ-MOND-API-001 |
 | obligation_type | api_contract |
 | claim_refs | CE-CAP-MOND-001 |
-| adr_refs | ADR-013 |
+| adr_refs | ADR-013, ADR-039 |
 | status | active |
 | verification_status | verified |
 | tif_refs | CE-TIF-MOND-001 |
@@ -16,7 +16,8 @@
 
 Public API: `WrapCalibratedExplainer.calibrate(X_cal, y_cal, mc=mondrian_fn)`
 
-Applicable task types: binary classification, multiclass classification.
+Applicable task types: binary classification, multiclass classification, regression,
+probabilistic regression.
 
 Applicable workflow: fit-calibrate with Mondrian categorizer callable.
 

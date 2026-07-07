@@ -20,7 +20,7 @@ pytest tests/capabilities/ --no-cov
 
 | Field | Value |
 |---|---|
-| package_version | calibrated_explanations v1.0.0-rc-dev |
+| package_version | calibrated_explanations v0.11.5-dev |
 | commit_sha | ba0f95e1 |
 | test_command | `pytest tests/capabilities/ --no-cov` |
 | tests_run | 119 |
@@ -173,4 +173,4 @@ pytest tests/capabilities/ --no-cov
 119 passed in 3.41s
 ```
 
-Test session date: 2026-06-22. Commit: ba0f95e1. Package: v1.0.0-rc-dev.
+Test session date: 2026-06-22. Commit: ba0f95e1. Package: v0.11.5-dev.

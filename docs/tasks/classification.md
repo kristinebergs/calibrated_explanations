@@ -92,7 +92,9 @@ multi_alternative = explainer.explore_alternatives(x_test, multi_labels_enabled=
 
 ## Key parameters
 
-* **`bins`**: Supply Mondrian categories/bins for conditional calibration.
+* **`bins`**: Supply Mondrian category labels for conditional calibration at both
+  `calibrate(..., bins=...)` and inference. See
+  [](../foundations/how-to/conditional_calibration.md).
 * **`uq_interval`**: Set to `True` to receive uncertainty intervals (tuples of lower/upper bounds).
 
 Entry-point tier: Tier 2.

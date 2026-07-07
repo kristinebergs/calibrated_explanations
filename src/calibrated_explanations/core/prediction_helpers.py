@@ -17,8 +17,9 @@ if TYPE_CHECKING:
     from ..explanations import CalibratedExplanations
 
 from ..utils.exceptions import (
-    ValidationError,
+    ConfigurationError,
     DataShapeError,
+    ValidationError,
 )
 from ..utils import assert_threshold, safe_isinstance
 from .explain._computation import explain_predict_step
@@ -31,6 +32,126 @@ ThresholdLike = Union[
     Sequence[Tuple[float, float]],
     np.ndarray,
 ]
+
+
+def _n_samples(x: Any) -> int:
+    """Return the number of samples represented by ``x``."""
+    arr = np.asarray(x)
+    if arr.ndim == 0:
+        return 1
+    return int(arr.shape[0])
+
+
+def _normalize_conditional_bins(bins: Any, *, n_samples: int) -> np.ndarray:
+    """Normalize Mondrian category labels to one label per sample."""
+    arr = np.asarray(bins)
+    if arr.ndim == 0:
+        arr = np.full(n_samples, arr.item())
+    elif arr.ndim > 1:
+        arr = arr.reshape(-1)
+    if len(arr) != n_samples:
+        raise DataShapeError(
+            "The length of Mondrian bins must match the number of samples.",
+            details={"bins_length": int(len(arr)), "n_samples": n_samples},
+        )
+    return arr
+
+
+def _apply_conditional_categorizer(mc: Any, x: Any) -> Any:
+    """Apply a Mondrian categorizer or callable without importing crepes eagerly."""
+    apply = getattr(mc, "apply", None)
+    if callable(apply):
+        return apply(x)
+    return mc(x)
+
+
+def _sorted_labels(values: np.ndarray) -> list[Any]:
+    """Return deterministic labels for messages/details."""
+    labels = np.unique(values).tolist()
+    return sorted(labels, key=lambda item: str(item))
+
+
+def resolve_conditional_bins(
+    x: Any,
+    bins: Any = None,
+    *,
+    mc: Any = None,
+    calibration_bins: Any = None,
+) -> np.ndarray | None:
+    """Resolve and validate Mondrian bins per ADR-039 D2/D3.
+
+    Parameters
+    ----------
+    x : array-like
+        Instances for the public inference call.
+    bins : array-like, optional
+        Explicit per-instance Mondrian category labels.
+    mc : callable, optional
+        Stored Mondrian categorizer used to derive category labels.
+    calibration_bins : array-like, optional
+        Category labels used during calibration.
+
+    Returns
+    -------
+    ndarray or None
+        Normalized per-instance category labels, or ``None`` for global
+        calibration.
+
+    Raises
+    ------
+    ValidationError
+        If required bins are omitted or labels are outside the calibration
+        vocabulary.
+    ConfigurationError
+        If conditional inputs conflict with the active calibration state.
+    DataShapeError
+        If the category label count does not match the number of samples.
+    """
+    n_samples = _n_samples(x)
+    has_calibration_bins = calibration_bins is not None
+
+    if mc is not None:
+        if bins is not None:
+            raise ConfigurationError(
+                "A configured Mondrian categorizer derives bins automatically; "
+                "remove bins= or recalibrate without mc.",
+                details={"conflict": "bins and mc"},
+            )
+        bins = _apply_conditional_categorizer(mc, x)
+    elif has_calibration_bins:
+        if bins is None:
+            raise ValidationError(
+                "This explainer was calibrated with Mondrian bins; pass bins= "
+                "with one category label per instance. Use reuse_conditional=True "
+                "to recalibrate with a stored categorizer, or call calibrate() "
+                "without bins/mc to return to global calibration.",
+                details={
+                    "n_instances": n_samples,
+                    "requirement": "bins required for bins-calibrated inference",
+                },
+            )
+    elif bins is not None:
+        raise ConfigurationError(
+            "This explainer was not calibrated with Mondrian bins, so conditional "
+            "output is unavailable; calibrate with bins= or mc= first.",
+            details={"requirement": "conditional calibration required before bins inference"},
+        )
+    else:
+        return None
+
+    resolved = _normalize_conditional_bins(bins, n_samples=n_samples)
+    if has_calibration_bins:
+        known = np.asarray(calibration_bins).reshape(-1)
+        unknown = np.setdiff1d(np.unique(resolved), np.unique(known))
+        if len(unknown) > 0:
+            raise ValidationError(
+                "Mondrian bins contain labels that were not seen during calibration.",
+                details={
+                    "unknown_labels": _sorted_labels(unknown),
+                    "known_labels": _sorted_labels(known),
+                },
+            )
+    return resolved
 
 
 class _ExplainerProtocol(Protocol):
@@ -97,8 +218,6 @@ def initialize_explanation(
         is_mondrian = is_mondrian()
     if is_mondrian:
         if bins is None:
-            bins = getattr(explainer, "bins", None)
-        if bins is None:
             raise ValidationError("Bins required for Mondrian explanations")
         if len(bins) != len(x):  # pragma: no cover - defensive
             raise DataShapeError("The length of bins must match the number of added instances.")
@@ -149,6 +268,7 @@ def predict_internal(
 
 __all__ = [
     "validate_and_prepare_input",
+    "resolve_conditional_bins",
     "initialize_explanation",
     "predict_internal",
     "explain_predict_step",

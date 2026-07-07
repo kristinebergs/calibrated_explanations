@@ -20,7 +20,7 @@
   "result": "pass",
   "timestamp": "2026-06-23T19:40:53.504563+00:00",
   "commit_sha": "76b5feeae49fc4584190d6c532ba38e14e292922",
-  "package_version": "v1.0.0-rc-dev",
+  "package_version": "v0.11.5-dev",
   "python_version": "3.14.4",
   "platform": "win32",
   "dataset_id": "sklearn make_classification n_samples=120 n_features=4 n_informative=3 n_redundant=1 random_seed=42",
