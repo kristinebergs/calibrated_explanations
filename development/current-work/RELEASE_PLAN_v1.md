@@ -6,7 +6,7 @@
 
 ## Current released version: v0.11.5
 
-> Status: v0.11.5 shipped on 2026-07-07.
+> Status: v0.11.5 shipped on 2026-07-07. Release artifacts were validated in a clean venv, and RTD stable was verified against the `v0.11.5` tag.
 
 
 Maintainers: Core team
