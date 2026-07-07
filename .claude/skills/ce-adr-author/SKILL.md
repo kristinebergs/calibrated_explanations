@@ -1,8 +1,9 @@
----
+﻿---
 name: ce-adr-author
 description: >
   Author or revise ADR files and release-plan ADR entries; use for new ADR drafts,
   status transitions, and ADR governance updates.
+model: haiku
 ---
 
 # CE ADR Author

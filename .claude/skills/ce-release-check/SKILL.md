@@ -1,8 +1,9 @@
----
+﻿---
 name: ce-release-check
 description: >
   Read release-plan state and select the next ADR-compliant actionable development
   step.
+model: haiku
 ---
 
 # CE Release Check
@@ -120,24 +121,6 @@ the appropriate section header:
 - ...
 ```
 
----
-
-## Quick reference: upcoming milestone summary (v0.11.x)
-
-Based on `RELEASE_PLAN_v1.md` (verify current status in the file):
-
-| ADR | Outstanding work | Target |
-|---|---|---|
-| ADR-004 | `ParallelFacade` → `ParallelExecutor` name alignment (docs) | v0.11.0 |
-| ADR-005 | Strict payload validator + fixtures | v0.11.1 |
-| ADR-006 | `PluginManager` shell, over-scoped surface cleanup | v0.11.0 |
-| ADR-008 | Domain-model hardening | v0.11.1 |
-| ADR-020 | Release checklist + legacy API audit workflow | v0.11.0 |
-| ADR-026 | Strict invariant enforcement + immutability | v0.11.0 |
-| ADR-028 | Enforcement tooling + examples | v0.11.1 |
-| ADR-030 | Determinism / assertion checks in CI | v0.11.0 |
-| ADR-031 | `to_primitive` / `from_primitive` + `save_state` / `load_state` | v0.11.x |
-| ADR-033 | Metadata contract (v0.11.0); CLI/shims (v0.11.1) | v0.11.0–v0.11.1 |
 
 ---
 

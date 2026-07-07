@@ -1,181 +1,301 @@
 """Capability contract tests for conjunctive multi-feature explanation rules.
 
-Requirement verified:
-  CE-REQ-EXPL-CONJ-001 — Conjunction API contract: collection and individual
-                          (CE-CAP-EXPL-CONJ-001)
+Requirements verified:
+  CE-REQ-EXPL-CONJ-API-001    — add_conjunctions callable without exception
+                                 (CE-CAP-EXPL-CONJ-001)
+  CE-REQ-EXPL-CONJ-RETURN-001 — return type and collection cardinality contract
+                                 (CE-CAP-EXPL-CONJ-001)
+  CE-REQ-EXPL-CONJ-RULE-001   — multi-feature conjunction rules produced when
+                                 max_rule_size >= 2 (CE-CAP-EXPL-CONJ-001)
+  CE-REQ-EXPL-CONJ-PARAM-001  — max_rule_size=1 suppresses multi-feature rules
+                                 (CE-CAP-EXPL-CONJ-001)
 
-  applicable_on: collection (CalibratedExplanations, AlternativeExplanations)
-                 and individual (FactualExplanation, AlternativeExplanation)
+TIF interface used: CE-TIF-EXPL-CONJ-001
+TIF executable: development/capabilities/verification/tif/tif_conjunction.py
 
-These tests verify the observable public-API behavior stated in that requirement.
-They do not assert that conjunctions produce better explanations than single-feature
-rules. See development/capabilities/requirements/ for the full assumption boundary.
+Tests call run_conjunction_tif_scenario() and assert on the returned
+ConjunctionObservation against acceptance criteria stated in the requirement files.
+TIF observes; tests assert.
+
+These tests do not assert that conjunctions produce better explanations than
+single-feature rules. See development/capabilities/requirements/ for the full
+assumption boundary.
 """
 
 from __future__ import annotations
 
 import pytest
-from sklearn.datasets import make_classification
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
 
-from calibrated_explanations.core.wrap_explainer import WrapCalibratedExplainer
-
-_RNG_SEED = 42
-_N_SAMPLES = 120
-_N_FEATURES = 4
-_N_TEST = 3
-
-
-@pytest.fixture(scope="module")
-def explainer_and_data():
-    """Return a fitted and calibrated WrapCalibratedExplainer plus test data."""
-    X, y = make_classification(
-        n_samples=_N_SAMPLES,
-        n_features=_N_FEATURES,
-        n_informative=3,
-        n_redundant=1,
-        random_state=_RNG_SEED,
-    )
-    X_train_cal, X_test, y_train_cal, _ = train_test_split(
-        X, y, test_size=_N_TEST, random_state=_RNG_SEED
-    )
-    X_proper, X_cal, y_proper, y_cal = train_test_split(
-        X_train_cal, y_train_cal, test_size=0.35, random_state=_RNG_SEED
-    )
-    explainer = WrapCalibratedExplainer(
-        RandomForestClassifier(n_estimators=10, random_state=_RNG_SEED)
-    )
-    explainer.fit(X_proper, y_proper)
-    explainer.calibrate(X_cal, y_cal)
-    return explainer, X_test
+# tif_conjunction is importable because tests/capabilities/conftest.py adds
+# development/capabilities/verification/tif/ to sys.path.
+from tif_conjunction import run_conjunction_tif_scenario
 
 
 # ---------------------------------------------------------------------------
-# CE-REQ-EXPL-CONJ-001 — Collection level (applicable_on: collection)
+# CE-REQ-EXPL-CONJ-API-001 — API availability (callable without exception)
 # ---------------------------------------------------------------------------
 
 
-def test_should_return_conjunctions_when_factual_collection_default_params(
-    explainer_and_data,
-):
-    """Verify CE-REQ-EXPL-CONJ-001: add_conjunctions on factual collection is non-None.
+def test_should_not_raise_when_factual_collection_add_conjunctions():
+    """Verify CE-REQ-EXPL-CONJ-API-001: add_conjunctions on factual collection is callable.
 
     Acceptance criterion:
-    - factual.add_conjunctions() completes without error.
-    - Result is not None and len == len(X_test).
+    - observation.exception_raised is False.
     """
-    explainer, X_test = explainer_and_data
-    factual = explainer.explain_factual(X_test)
+    obs = run_conjunction_tif_scenario(
+        explanation_mode="factual",
+        object_level="collection",
+        max_rule_size=2,
+        n_top_features=5,
+    )
 
-    result = factual.add_conjunctions()
-
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-CONJ-001: add_conjunctions on factual collection must return non-None"
-    assert len(result) == len(
-        X_test
-    ), f"CE-REQ-EXPL-CONJ-001: len(result)={len(result)} != len(X_test)={len(X_test)}"
+    assert not obs.exception_raised, (
+        f"CE-REQ-EXPL-CONJ-API-001: add_conjunctions on factual collection raised "
+        f"{obs.exception_type}"
+    )
 
 
-def test_should_return_conjunctions_when_alternative_collection_default_params(
-    explainer_and_data,
-):
-    """Verify CE-REQ-EXPL-CONJ-001: add_conjunctions on alternative collection is non-None.
+def test_should_not_raise_when_alternative_collection_add_conjunctions():
+    """Verify CE-REQ-EXPL-CONJ-API-001: add_conjunctions on alternative collection is callable.
 
     Acceptance criterion:
-    - alternatives.add_conjunctions() completes without error.
-    - Result is not None and len == len(X_test).
+    - observation.exception_raised is False.
     """
-    explainer, X_test = explainer_and_data
-    alternatives = explainer.explore_alternatives(X_test)
+    obs = run_conjunction_tif_scenario(
+        explanation_mode="alternative",
+        object_level="collection",
+        max_rule_size=2,
+        n_top_features=5,
+    )
 
-    result = alternatives.add_conjunctions()
-
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-CONJ-001: add_conjunctions on alternative collection must return non-None"
-    assert len(result) == len(
-        X_test
-    ), f"CE-REQ-EXPL-CONJ-001: len(result)={len(result)} != len(X_test)={len(X_test)}"
+    assert not obs.exception_raised, (
+        f"CE-REQ-EXPL-CONJ-API-001: add_conjunctions on alternative collection raised "
+        f"{obs.exception_type}"
+    )
 
 
-def test_should_return_conjunctions_when_alternative_collection_max_rule_size_one(
-    explainer_and_data,
-):
-    """Verify CE-REQ-EXPL-CONJ-001: add_conjunctions with max_rule_size=1 returns non-None.
+def test_should_not_raise_when_individual_factual_add_conjunctions():
+    """Verify CE-REQ-EXPL-CONJ-API-001: add_conjunctions on individual FactualExplanation.
 
-    max_rule_size=1 disables conjunction generation (single-feature rules only).
-    API must still complete without error.
+    Acceptance criterion:
+    - observation.exception_raised is False.
     """
-    explainer, X_test = explainer_and_data
-    alternatives = explainer.explore_alternatives(X_test)
+    obs = run_conjunction_tif_scenario(
+        explanation_mode="factual",
+        object_level="individual",
+        max_rule_size=2,
+        n_top_features=5,
+    )
 
-    result = alternatives.add_conjunctions(max_rule_size=1)
+    assert not obs.exception_raised, (
+        f"CE-REQ-EXPL-CONJ-API-001: add_conjunctions on individual FactualExplanation raised "
+        f"{obs.exception_type}"
+    )
 
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-CONJ-001: add_conjunctions(max_rule_size=1) must return non-None"
-    assert len(result) == len(
-        X_test
-    ), f"CE-REQ-EXPL-CONJ-001: len(result)={len(result)} != len(X_test)={len(X_test)}"
+
+def test_should_not_raise_when_individual_alternative_add_conjunctions():
+    """Verify CE-REQ-EXPL-CONJ-API-001: add_conjunctions on individual AlternativeExplanation.
+
+    Acceptance criterion:
+    - observation.exception_raised is False.
+    """
+    obs = run_conjunction_tif_scenario(
+        explanation_mode="alternative",
+        object_level="individual",
+        max_rule_size=2,
+        n_top_features=5,
+    )
+
+    assert not obs.exception_raised, (
+        f"CE-REQ-EXPL-CONJ-API-001: add_conjunctions on individual AlternativeExplanation raised "
+        f"{obs.exception_type}"
+    )
 
 
 # ---------------------------------------------------------------------------
-# CE-REQ-EXPL-CONJ-001 — Individual level (applicable_on: individual)
+# CE-REQ-EXPL-CONJ-RETURN-001 — Return type and cardinality contract
 # ---------------------------------------------------------------------------
 
 
-def test_should_return_conjunctions_when_individual_factual_explanation(
-    explainer_and_data,
-):
-    """Verify CE-REQ-EXPL-CONJ-001: add_conjunctions on individual FactualExplanation.
+def test_should_preserve_cardinality_when_factual_collection_add_conjunctions():
+    """Verify CE-REQ-EXPL-CONJ-RETURN-001: factual collection cardinality preserved.
+
+    Acceptance criteria:
+    - observation.result_is_none is False.
+    - observation.result_len == observation.n_instances.
+    """
+    obs = run_conjunction_tif_scenario(
+        explanation_mode="factual",
+        object_level="collection",
+        max_rule_size=2,
+        n_top_features=5,
+    )
+
+    assert (
+        not obs.result_is_none
+    ), "CE-REQ-EXPL-CONJ-RETURN-001: add_conjunctions on factual collection must return non-None"
+    assert obs.result_len == obs.n_instances, (
+        f"CE-REQ-EXPL-CONJ-RETURN-001: len(result)={obs.result_len} != "
+        f"n_instances={obs.n_instances}"
+    )
+
+
+def test_should_preserve_cardinality_when_alternative_collection_add_conjunctions():
+    """Verify CE-REQ-EXPL-CONJ-RETURN-001: alternative collection cardinality preserved.
+
+    Acceptance criteria:
+    - observation.result_is_none is False.
+    - observation.result_len == observation.n_instances.
+    """
+    obs = run_conjunction_tif_scenario(
+        explanation_mode="alternative",
+        object_level="collection",
+        max_rule_size=2,
+        n_top_features=5,
+    )
+
+    assert not obs.result_is_none, "CE-REQ-EXPL-CONJ-RETURN-001: add_conjunctions on alternative collection must return non-None"
+    assert obs.result_len == obs.n_instances, (
+        f"CE-REQ-EXPL-CONJ-RETURN-001: len(result)={obs.result_len} != "
+        f"n_instances={obs.n_instances}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# CE-REQ-EXPL-CONJ-RULE-001 — Multi-feature conjunction rule semantics
+# ---------------------------------------------------------------------------
+
+
+def test_should_produce_conjunctive_rules_when_max_rule_size_two():
+    """Verify CE-REQ-EXPL-CONJ-RULE-001: multi-feature rules produced when max_rule_size=2.
+
+    Fixture has n_informative=3 and n_features=4, sufficient for conjunction generation.
 
     Acceptance criterion:
-    - factual[0].add_conjunctions() completes without error.
-    - Result is not None.
+    - observation.any_has_conjunctive_rules is True.
     """
-    explainer, X_test = explainer_and_data
-    factual = explainer.explain_factual(X_test)
-
-    result = factual[0].add_conjunctions()
+    obs = run_conjunction_tif_scenario(
+        explanation_mode="factual",
+        object_level="collection",
+        max_rule_size=2,
+        n_top_features=5,
+    )
 
     assert (
-        result is not None
-    ), "CE-REQ-EXPL-CONJ-001: add_conjunctions on individual FactualExplanation must return non-None"
+        not obs.exception_raised
+    ), f"CE-REQ-EXPL-CONJ-RULE-001: unexpected exception {obs.exception_type}"
+    assert obs.any_has_conjunctive_rules, (
+        "CE-REQ-EXPL-CONJ-RULE-001: expected at least one item to have "
+        "has_conjunctive_rules == True when max_rule_size=2 and n_informative=3, "
+        "but no conjunctive rules were produced. This may indicate a regression "
+        "in conjunction generation behavior."
+    )
 
 
-def test_should_return_conjunctions_when_individual_alternative_explanation(
-    explainer_and_data,
-):
-    """Verify CE-REQ-EXPL-CONJ-001: add_conjunctions on individual AlternativeExplanation.
+def test_should_produce_conjunctive_rules_when_max_rule_size_three():
+    """Verify CE-REQ-EXPL-CONJ-RULE-001: multi-feature rules produced when max_rule_size=3.
+
+    max_rule_size >= 2 covers the minimum case (2) and larger values (3).
+    Fixture has n_informative=3 and n_features=4, sufficient for 3-feature conjunction rules.
 
     Acceptance criterion:
-    - alternatives[0].add_conjunctions() completes without error.
-    - Result is not None.
+    - observation.any_has_conjunctive_rules is True.
     """
-    explainer, X_test = explainer_and_data
-    alternatives = explainer.explore_alternatives(X_test)
-
-    result = alternatives[0].add_conjunctions()
+    obs = run_conjunction_tif_scenario(
+        explanation_mode="factual",
+        object_level="collection",
+        max_rule_size=3,
+        n_top_features=5,
+    )
 
     assert (
-        result is not None
-    ), "CE-REQ-EXPL-CONJ-001: add_conjunctions on individual AlternativeExplanation must return non-None"
+        not obs.exception_raised
+    ), f"CE-REQ-EXPL-CONJ-RULE-001: unexpected exception {obs.exception_type}"
+    assert obs.any_has_conjunctive_rules, (
+        "CE-REQ-EXPL-CONJ-RULE-001: expected at least one item to have "
+        "has_conjunctive_rules == True when max_rule_size=3 and n_informative=3, "
+        "but no conjunctive rules were produced."
+    )
 
 
-def test_should_return_conjunctions_when_individual_with_non_default_n_top_features(
-    explainer_and_data,
+# ---------------------------------------------------------------------------
+# CE-REQ-EXPL-CONJ-PARAM-001 — max_rule_size=1 suppresses multi-feature rules
+# ---------------------------------------------------------------------------
+
+
+def test_should_not_produce_conjunctive_rules_when_max_rule_size_one():
+    """Verify CE-REQ-EXPL-CONJ-PARAM-001: max_rule_size=1 suppresses multi-feature conjunctions.
+
+    Acceptance criteria:
+    - observation.any_has_conjunctive_rules is False.
+    - observation.exception_raised is False.
+    """
+    obs = run_conjunction_tif_scenario(
+        explanation_mode="factual",
+        object_level="collection",
+        max_rule_size=1,
+        n_top_features=5,
+    )
+
+    assert (
+        not obs.exception_raised
+    ), f"CE-REQ-EXPL-CONJ-PARAM-001: unexpected exception {obs.exception_type}"
+    assert not obs.any_has_conjunctive_rules, (
+        "CE-REQ-EXPL-CONJ-PARAM-001: max_rule_size=1 must not produce multi-feature "
+        "conjunction rules, but has_conjunctive_rules was True for at least one item."
+    )
+
+
+@pytest.mark.parametrize(
+    "max_rule_size,expected_conjunctions",
+    [
+        (1, False),
+        (2, True),
+        (3, True),
+    ],
+)
+def test_should_control_conjunction_generation_via_max_rule_size(
+    max_rule_size, expected_conjunctions
 ):
-    """Verify CE-REQ-EXPL-CONJ-001: add_conjunctions with n_top_features=2, max_rule_size=2.
+    """Verify CE-REQ-EXPL-CONJ-RULE-001 and CE-REQ-EXPL-CONJ-PARAM-001 via parametrize.
 
-    Parameter variant: non-default n_top_features limits candidates to 2 features.
+    max_rule_size=1 → no conjunctions; max_rule_size=2 or 3 → conjunctions produced.
     """
-    explainer, X_test = explainer_and_data
-    alternatives = explainer.explore_alternatives(X_test)
-
-    result = alternatives[0].add_conjunctions(n_top_features=2, max_rule_size=2)
+    obs = run_conjunction_tif_scenario(
+        explanation_mode="factual",
+        object_level="collection",
+        max_rule_size=max_rule_size,
+        n_top_features=5,
+    )
 
     assert (
-        result is not None
-    ), "CE-REQ-EXPL-CONJ-001: add_conjunctions(n_top_features=2, max_rule_size=2) must return non-None"
+        not obs.exception_raised
+    ), f"Unexpected exception {obs.exception_type} for max_rule_size={max_rule_size}"
+    assert obs.any_has_conjunctive_rules == expected_conjunctions, (
+        f"max_rule_size={max_rule_size}: expected any_has_conjunctive_rules="
+        f"{expected_conjunctions}, got {obs.any_has_conjunctive_rules}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Additional parameter coverage (n_top_features variant — CE-REQ-EXPL-CONJ-API-001)
+# ---------------------------------------------------------------------------
+
+
+def test_should_not_raise_when_individual_with_non_default_n_top_features():
+    """Verify CE-REQ-EXPL-CONJ-API-001: add_conjunctions with n_top_features=2, max_rule_size=2.
+
+    Acceptance criterion:
+    - observation.exception_raised is False.
+    """
+    obs = run_conjunction_tif_scenario(
+        explanation_mode="alternative",
+        object_level="individual",
+        max_rule_size=2,
+        n_top_features=2,
+    )
+
+    assert not obs.exception_raised, (
+        f"CE-REQ-EXPL-CONJ-API-001: add_conjunctions(n_top_features=2, max_rule_size=2) "
+        f"raised {obs.exception_type}"
+    )

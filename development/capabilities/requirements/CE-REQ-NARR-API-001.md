@@ -1,4 +1,4 @@
-# CE-REQ-NARR-API-001 — Narrative Output API Contract
+# CE-REQ-NARR-API-001 - Narrative Output API Contract
 
 ## Metadata
 
@@ -7,7 +7,10 @@
 | requirement_id | CE-REQ-NARR-API-001 |
 | obligation_type | api_contract |
 | claim_refs | CE-CAP-NARR-001 |
+| adr_refs | ADR-008 |
 | status | active |
+| verification_status | verified |
+| tif_refs | CE-TIF-NARR-001 |
 
 ## Scope
 
@@ -43,6 +46,10 @@ Test ID:
 - `test_should_return_non_empty_string_when_narrative_text_format`
 
 (in `tests/capabilities/test_narrative_contracts.py`)
+
+## Verification targets
+
+- `pytest: tests/capabilities/test_narrative_contracts.py::test_should_return_non_empty_string_when_narrative_text_format`
 
 ## Evidence required
 

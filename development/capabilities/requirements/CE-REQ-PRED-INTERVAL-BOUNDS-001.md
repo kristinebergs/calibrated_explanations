@@ -1,4 +1,4 @@
-# CE-REQ-PRED-INTERVAL-BOUNDS-001 — Conformal Interval Percentile Selection API Contract
+# CE-REQ-PRED-INTERVAL-BOUNDS-001 - Conformal Interval Percentile Selection API Contract
 
 ## Metadata
 
@@ -7,7 +7,10 @@
 | requirement_id | CE-REQ-PRED-INTERVAL-BOUNDS-001 |
 | obligation_type | api_contract |
 | claim_refs | CE-CAP-PRED-001 |
+| adr_refs | ADR-013, ADR-021 |
 | status | active |
+| verification_status | verified |
+| tif_refs | CE-TIF-PRED-001 |
 
 ## Scope
 
@@ -32,7 +35,7 @@ calling `predict(X, uq_interval=True, low_high_percentiles=(lo, hi))` must:
 2. Return the standard `(y_hat, (low, high))` 2-tuple (same shape invariants as
    `CE-REQ-PRED-API-001`: `len(y_hat) == len(X)`, `low` and `high` not `None`).
 3. Return ordered bounds: `low[i] <= high[i]` for all `i`.
-4. Default to `(5, 95)` when the parameter is omitted — i.e., a call without
+4. Default to `(5, 95)` when the parameter is omitted - i.e., a call without
    `low_high_percentiles` produces the same bounds as `low_high_percentiles=(5, 95)`.
 5. Produce narrower or equal bounds when the percentile range is contracted:
    for `(lo2, hi2)` with `lo <= lo2` and `hi2 <= hi`, the resulting bounds satisfy
@@ -74,6 +77,13 @@ Test IDs:
 - `test_should_accept_pos_inf_upper_bound_and_return_constant_ceiling_when_regression`
 
 (in `tests/capabilities/test_prediction_contracts.py`)
+
+## Verification targets
+
+- `pytest: tests/capabilities/test_prediction_contracts.py::test_should_accept_low_high_percentiles_and_return_ordered_bounds_when_regression`
+- `pytest: tests/capabilities/test_prediction_contracts.py::test_should_return_narrower_interval_when_percentiles_are_closer`
+- `pytest: tests/capabilities/test_prediction_contracts.py::test_should_accept_neg_inf_lower_bound_and_return_constant_floor_when_regression`
+- `pytest: tests/capabilities/test_prediction_contracts.py::test_should_accept_pos_inf_upper_bound_and_return_constant_ceiling_when_regression`
 
 ## Evidence required
 

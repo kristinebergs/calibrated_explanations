@@ -3,11 +3,24 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-032
+  - ADR-038
+
 claim_text: >
-  calibrated_explanations supports guarded explanations: passing a GuardedOptions
-  instance to WrapCalibratedExplainer.explain_factual or explore_alternatives restricts
-  explanation output to instances that lie within the support of the calibration data,
-  returning a CalibratedExplanations collection.
+  calibrated_explanations supports in-distribution guarded explanations through
+  WrapCalibratedExplainer, restricting explanation output to instances within the
+  support of the calibration data when GuardedOptions is provided.
+
+atomic_rationale: >
+  This claim maps to one requirement because the only publicly observable outcome
+  of guarded mode through WrapCalibratedExplainer is that the call completes and
+  returns a valid collection. The internal in-distribution filtering mechanism
+  (confidence and n_neighbors thresholds) produces variable output that depends on
+  the calibration set distribution; a separate behavioral requirement for filtering
+  semantics would require statistical data not available through the public API
+  at the api_contract verification level. Filter accuracy is a documented gap
+  deferred to a statistical validation task.
 
 public_api:
   - calibrated_explanations.core.wrap_explainer.WrapCalibratedExplainer.explain_factual

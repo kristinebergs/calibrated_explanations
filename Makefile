@@ -2,9 +2,9 @@
 
 # Run the full unit test suite with the default coverage configuration.
 test:
-	pytest -q
+	pytest -q --cov=src/calibrated_explanations --cov-config=pyproject.toml --cov-report=term-missing --cov-report=xml --cov-fail-under=90
 
-# Local test target (no coverage) kept for quick runs.
+# Explicit local coverage gate.
 test-cov:
 	pytest -q --cov=src --cov-report=xml:coverage.xml --cov-fail-under=90
 
@@ -93,7 +93,7 @@ governance-status:
 	python scripts/quality/build_governance_status_artifact.py --output reports/governance/governance_status.json --validate
 
 # Local mode: runs ruff and mypy, captures their exit codes, then writes the artifact.
-# local_checks_pr will remain "unavailable" — only CI can set it after running the full suite.
+# local_checks_pr will remain "unavailable" - only CI can set it after running the full suite.
 .PHONY: governance-status-local
 governance-status-local:
 	python scripts/quality/build_governance_status_artifact.py --output reports/governance/governance_status.json --validate --run-lint
@@ -111,3 +111,16 @@ local-checks-ci:
 # PR-scope only: lint/type/core-tests + policy scanners.
 local-checks-pr:
 	python scripts/local_checks.py --skip-main
+
+# Validate the capability verification chain without executing TIF scenarios.
+# Safe to run on every PR — does not mutate any files.
+.PHONY: capability-chain-check
+capability-chain-check:
+	python scripts/quality/validate_capability_chain.py --check
+	python scripts/generate_tif_evidence.py --validate-existing
+
+# Regenerate raw evidence by running all TIF scenarios and checking they pass at HEAD.
+# Run explicitly when TIF behavior or acceptance logic changes, and at release closure.
+.PHONY: capability-evidence-refresh
+capability-evidence-refresh:
+	python scripts/generate_tif_evidence.py --check-current

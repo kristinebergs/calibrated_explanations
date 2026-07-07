@@ -1,13 +1,28 @@
-# CE-REQ-PLUGIN-DOC-001 — Plugin Protocol Importability Contract
+# CE-REQ-PLUGIN-DOC-001 - Plugin Protocol Importability Contract
 
 ## Metadata
 
 | Field | Value |
 |---|---|
 | requirement_id | CE-REQ-PLUGIN-DOC-001 |
-| obligation_type | documentation_boundary |
+| obligation_type | api_contract |
 | claim_refs | CE-CAP-PLUGIN-001 |
+| adr_refs | ADR-006, ADR-013, ADR-015, ADR-026, ADR-033 |
 | status | active |
+| verification_status | verified |
+| tif_exemption | static_importability_check |
+| tif_exemption_rationale | Plugin protocol importability is a static module-level check; it does not exercise the WrapCalibratedExplainer workflow and cannot be stimulated through that entry point. |
+
+## TIF exemption
+
+```
+tif_exemption: static_importability_check
+tif_exemption_rationale: >
+  This requirement verifies that plugin protocol classes are importable as static
+  module members. It does not exercise the WrapCalibratedExplainer workflow and
+  cannot be stimulated through that entry point. Behavioral verification of plugins
+  requires custom plugin implementations and is covered separately.
+```
 
 ## Scope
 
@@ -42,6 +57,11 @@ Test ID:
 - `test_should_import_interval_calibrator_plugin_protocol_when_plugins_module_available`
 
 (in `tests/capabilities/test_plugin_contracts.py`)
+
+## Verification targets
+
+- pytest: tests/capabilities/test_plugin_contracts.py::test_should_import_explainer_plugin_protocol_when_plugins_module_available
+- pytest: tests/capabilities/test_plugin_contracts.py::test_should_import_interval_calibrator_plugin_protocol_when_plugins_module_available
 
 ## Evidence required
 

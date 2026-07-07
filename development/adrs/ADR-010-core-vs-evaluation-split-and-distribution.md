@@ -80,6 +80,11 @@ Pending:
 - Optional evaluation workflow that installs `[eval]` and runs benchmarks.
 - Add compatibility checks confirming optional packages do not change core outputs unless explicitly enabled.
 
+
+## Governed claims
+
+- `CE-CAP-DIST-001` — The core package and evaluation tooling remain separately distributed and independently governed.
+
 ## Alternatives Considered
 
 1. Split into multiple pip distributions immediately (core, viz, eval). Deferred to reduce maintenance overhead; extras provide a simpler first step.

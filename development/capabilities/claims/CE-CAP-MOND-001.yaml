@@ -3,37 +3,59 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-013
+  - ADR-039
+  - ADR-040
+
 claim_text: >
-  calibrated_explanations supports Mondrian (class-conditional) calibration: passing
-  a MondrianCategorizer callable to WrapCalibratedExplainer.calibrate produces separate
-  internal calibrators per category, enabling conditional validity guarantees within
-  each Mondrian group.
+  calibrated_explanations supports Mondrian conditional calibration through
+  WrapCalibratedExplainer, enabling conditional outputs within user-defined
+  categories by accepting inline category labels or a callable categorizer at
+  calibration time and enforcing consistent category labels at inference time.
 
 public_api:
   - calibrated_explanations.core.wrap_explainer.WrapCalibratedExplainer.calibrate
+  - calibrated_explanations.core.wrap_explainer.WrapCalibratedExplainer.predict
+  - calibrated_explanations.core.wrap_explainer.WrapCalibratedExplainer.predict_proba
+  - calibrated_explanations.core.wrap_explainer.WrapCalibratedExplainer.explain_factual
+  - calibrated_explanations.core.wrap_explainer.WrapCalibratedExplainer.explore_alternatives
 
 task_types:
   - binary_classification
   - multiclass_classification
+  - regression
+  - probabilistic_regression
 
 requirements:
   - CE-REQ-MOND-API-001
+  - CE-REQ-MOND-CONS-001
+  - CE-REQ-MOND-VAL-001
+  - CE-REQ-MOND-LIFE-001
+  - CE-REQ-MOND-SER-001
 
 verification:
   proves:
     - api_contract
     - calibration_completes
+    - inference_consistency
+    - structural_validation
+    - lifecycle_reset
+    - serialization_visibility
   verification_type: automated
 
 assumptions:
-  - Mondrian conformal prediction provides conditional validity guarantees: coverage
+  - >-
+    Mondrian conformal prediction provides conditional validity guarantees: coverage
     holds within each Mondrian category, not globally. Each category must contain
     sufficient calibration samples; small per-category sets degrade coverage.
-  - The mc parameter must be a callable returning category keys for each calibration
-    instance, or an instance of MondrianCategorizer (from crepes.extras).
-  - This claim does not assert optimal category selection; it asserts that calibrating
-    with a Mondrian categorizer completes without exception and produces a calibrated
-    explainer.
+  - The bins parameter carries category labels aligned one-to-one with the provided
+    instances; it does not carry discretizer bin edges.
+  - The mc parameter must be a callable returning category keys for each instance,
+    or an instance of MondrianCategorizer (from crepes.extras).
+  - This claim verifies public API behavior, consistency checks, and visible
+    persistence behavior. It does not assert optimal category selection or empirical
+    calibration quality within each category.
   - Coverage guarantee per category requires exchangeability within each category;
     cross-category inference is not covered by conditional validity guarantees.
 

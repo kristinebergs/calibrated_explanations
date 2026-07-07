@@ -106,9 +106,10 @@ def test_resolve_strategy_variants(monkeypatch):
     assert strategy.func.__name__ == "_serial_strategy"
 
     config.strategy = "auto"
-    monkeypatch.setattr(executor, "_auto_strategy", lambda **k: "threads")
-    with pytest.warns(DeprecationWarning, match="strategy='auto'"):
-        assert executor.resolve_strategy().func.__name__ == "thread_strategy"
+    from calibrated_explanations.utils.exceptions import ConfigurationError
+
+    with pytest.raises(ConfigurationError, match="strategy.*auto"):
+        executor.resolve_strategy()
 
 
 def test_auto_strategy(monkeypatch):
@@ -762,10 +763,12 @@ def test_emit_reraises_non_exception_baseexception() -> None:
         executor.emit("event", {"k": 1})
 
 
-def test_should_emit_deprecation_when_strategy_auto_and_enabled():
-    """ParallelConfig(strategy='auto') with enabled=True must emit DeprecationWarning (ADR-004, Gap E)."""
+def test_should_raise_when_strategy_auto_and_enabled():
+    """ParallelConfig(strategy='auto') with enabled=True must raise ConfigurationError in v1.0.0."""
+    from calibrated_explanations.utils.exceptions import ConfigurationError
+
     executor = ParallelExecutor(ParallelConfig(enabled=True, strategy="auto"))
-    with pytest.warns(DeprecationWarning, match="strategy='auto'"):
+    with pytest.raises(ConfigurationError, match="strategy.*auto"):
         executor.resolve_strategy(work_items=10)
 
 

@@ -1,5 +1,25 @@
 # Scripts
 
+## TIF evidence
+
+- `generate_tif_evidence.py`: discovers all active TIF specs by globbing
+  `development/capabilities/verification/tif/CE-TIF-*.md`, executes each spec's
+  `build_evidence_payload()` entrypoint, validates the resulting JSON, and writes
+  conforming evidence records to `reports/verification/`. Use at release milestones
+  or after significant changes to a capability area.
+
+  ```bash
+  python scripts/generate_tif_evidence.py                     # run all active TIFs and write evidence
+  python scripts/generate_tif_evidence.py --check-current     # also assert evidence matches HEAD SHA
+  python scripts/generate_tif_evidence.py --validate-existing # validate committed evidence; writes nothing
+  ```
+
+  After a successful run, review the JSON files and write a curated summary to
+  `development/capabilities/evidence/evidence_<area>_v<version>.md`.
+
+  > **`generate_capability_evidence.py` is retired.** It produced EXPL-CONJ-only partial
+  > evidence and exits unconditionally with code 1. Use `generate_tif_evidence.py` instead.
+
 ## Over-testing
 
 - `over_testing/over_testing_report.py`: summarizes per-test coverage counts (via coverage.py contexts) to flag lines or blocks with unusually high test coverage density.

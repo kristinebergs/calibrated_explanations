@@ -1,0 +1,37 @@
+claim_id: CE-CAP-OBS-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-028
+
+claim_text: >
+  Governance and operational observability use visible warnings and structured logging where ADR-governed fallbacks or events occur.
+
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-028 observability compliance
+  is a single cross-cutting policy: every fallback emits UserWarning and an INFO log.
+  Decomposing into per-fallback requirements would create a catalog that duplicates
+  the policy rather than adding distinct testable obligations.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-OBS-GOV-001
+
+verification:
+  proves:
+    - runtime_behavior
+  verification_type: automated_executable_evidence
+assumptions:
+  - This capability is verified by the executable evidence targets named by its requirement.
+  - Metadata linkage checks are drift guards only and do not prove this capability behavior.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

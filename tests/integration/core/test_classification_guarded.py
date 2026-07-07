@@ -345,6 +345,8 @@ def test_binary_conditional_ce(binary_dataset):
         feature_names,
     ) = binary_dataset
     model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    bins_cal = (x_cal[:, 0] >= 0).astype(int)
+    bins_test = (x_test[:, 0] >= 0).astype(int)
     target_labels = ["No", "Yes"]
     cal_exp = initiate_explainer(
         model,
@@ -354,21 +356,21 @@ def test_binary_conditional_ce(binary_dataset):
         categorical_features,
         mode="classification",
         class_labels=target_labels,
-        bins=x_cal[:, 0],
+        bins=bins_cal,
     )
 
     cal_exp.reject_orchestrator.initialize_reject_learner()
-    cal_exp.reject_orchestrator.predict_reject(x_test, bins=x_test[:, 0])
+    cal_exp.reject_orchestrator.predict_reject(x_test, bins=bins_test)
 
     factual_explanation = cal_exp.explain_factual(
-        x_test, bins=x_test[:, 0], guarded_options=GuardedOptions()
+        x_test, bins=bins_test, guarded_options=GuardedOptions()
     )
     factual_explanation.add_conjunctions()
     factual_explanation.plot(show=False)
     factual_explanation[0].plot(show=False, uncertainty=True)
 
     alternative_explanation = cal_exp.explore_alternatives(
-        x_test, bins=x_test[:, 0], guarded_options=GuardedOptions()
+        x_test, bins=bins_test, guarded_options=GuardedOptions()
     )
     alternative_explanation.add_conjunctions()
     alternative_explanation.plot(show=False)
@@ -403,6 +405,8 @@ def test_multiclass_conditional_ce(multiclass_dataset):
         feature_names,
     ) = multiclass_dataset
     model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    bins_cal = (x_cal[:, 0] >= 0).astype(int)
+    bins_test = (x_test[:, 0] >= 0).astype(int)
     cal_exp = initiate_explainer(
         model,
         x_cal,
@@ -410,18 +414,18 @@ def test_multiclass_conditional_ce(multiclass_dataset):
         feature_names,
         categorical_labels,
         mode="classification",
-        bins=x_cal[:, 0],
+        bins=bins_cal,
     )
 
     factual_explanation = cal_exp.explain_factual(
-        x_test, bins=x_test[:, 0], guarded_options=GuardedOptions()
+        x_test, bins=bins_test, guarded_options=GuardedOptions()
     )
     factual_explanation.add_conjunctions()
     factual_explanation.plot(show=False)
     factual_explanation[0].plot(show=False, uncertainty=True)
 
     alternative_explanation = cal_exp.explore_alternatives(
-        x_test, bins=x_test[:, 0], guarded_options=GuardedOptions()
+        x_test, bins=bins_test, guarded_options=GuardedOptions()
     )
     alternative_explanation.add_conjunctions()
     alternative_explanation.plot(show=False)
@@ -533,6 +537,8 @@ def test_binary_conditional_fast_ce(binary_dataset):
         feature_names,
     ) = binary_dataset
     model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    bins_cal = (x_cal[:, 0] >= 0).astype(int)
+    bins_test = (x_test[:, 0] >= 0).astype(int)
     target_labels = ["No", "Yes"]
     cal_exp = initiate_explainer(
         model,
@@ -542,11 +548,11 @@ def test_binary_conditional_fast_ce(binary_dataset):
         categorical_features,
         mode="classification",
         class_labels=target_labels,
-        bins=x_cal[:, 0],
+        bins=bins_cal,
         fast=True,
     )
 
-    fast_explanation = cal_exp.explain_fast(x_test, bins=x_test[:, 0])
+    fast_explanation = cal_exp.explain_fast(x_test, bins=bins_test)
     with pytest.warns(UserWarning):
         fast_explanation.add_conjunctions()
     fast_explanation[:1].plot(show=False)
@@ -577,6 +583,8 @@ def test_multiclass_fast_conditional_ce(multiclass_dataset):
         feature_names,
     ) = multiclass_dataset
     model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    bins_cal = (x_cal[:, 0] >= 0).astype(int)
+    bins_test = (x_test[:, 0] >= 0).astype(int)
     cal_exp = initiate_explainer(
         model,
         x_cal,
@@ -584,11 +592,11 @@ def test_multiclass_fast_conditional_ce(multiclass_dataset):
         feature_names,
         categorical_labels,
         mode="classification",
-        bins=x_cal[:, 0],
+        bins=bins_cal,
         fast=True,
     )
 
-    fast_explanation = cal_exp.explain_fast(x_test, bins=x_test[:, 0])
+    fast_explanation = cal_exp.explain_fast(x_test, bins=bins_test)
     with pytest.warns(UserWarning):
         fast_explanation.add_conjunctions()
     fast_explanation[:1].plot(show=False)

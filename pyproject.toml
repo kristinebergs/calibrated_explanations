@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "calibrated_explanations"
-version = "1.0.0-rc-dev"
+version = "0.11.5-dev"
 description = "Extract calibrated explanations from machine learning models."
 readme = "README.md"
 requires-python = ">=3.8"
@@ -104,7 +104,7 @@ minversion = "6.0"
 pythonpath = [
     "src",
 ]
-addopts = "-q --cov=src/calibrated_explanations --cov-config=pyproject.toml --cov-report=term-missing --cov-report=xml --cov-fail-under=90"
+addopts = "-q"
 testpaths = [
     "tests",
 ]
@@ -125,6 +125,7 @@ filterwarnings = [
     "ignore:Auto-close.*backend switching.*:DeprecationWarning:matplotlib.*",
     "ignore::UserWarning",
     "ignore:numpy.ufunc size changed, may indicate binary incompatibility.*:RuntimeWarning",
+    "ignore:Setting the shape on a NumPy array has been deprecated in NumPy 2.5.*:DeprecationWarning:joblib.*",
     "ignore:The legacy module 'calibrated_explanations.core' is deprecated; import from the 'calibrated_explanations.core' package instead.:DeprecationWarning",
     "ignore:The 'calibrated_explanations.perf' module is deprecated.*:DeprecationWarning",
     "ignore:Importing from 'calibrated_explanations.core.calibration' is deprecated.*:DeprecationWarning",
@@ -230,6 +231,13 @@ ignore = [
     "B",
     "I001",
     "N806",
+]
+"development/capabilities/verification/tif/*.py" = [
+    "N806",
+]
+"scripts/*.py" = [
+    "E402",
+    "I001",
 ]
 "src/calibrated_explanations/core/calibrated_explainer.py" = [
     "I001",

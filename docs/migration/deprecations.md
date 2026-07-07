@@ -188,25 +188,10 @@ All ten now emit `deprecate()` warnings and are assigned to explicit pre-v1.0 re
 
 ### Active deprecations
 
-Symbols listed here still emit warnings. Stop using them — they will be removed on the date shown.
+All active deprecations were removed in 1.0.0. The Active deprecations section is intentionally empty.
 
 | Deprecated symbol | Replacement | Deprecated since | Removal ETA | Notes |
 |---|---|---:|---:|---|
-| `guarded=True` boolean kwarg on `explain_factual` / `explore_alternatives` | `guarded_options=GuardedOptions()` | v0.11.3 | v1.0.0 | Replaced by typed `GuardedOptions` dataclass (ADR-038). |
-| `significance=` kwarg on `explain_factual` / `explore_alternatives` (guarded path) | `guarded_options=GuardedOptions(confidence=1−significance)` | v0.11.3 | v1.0.0 | Numeric value is inverted: `significance=0.1` → `GuardedOptions(confidence=0.9)`. |
-| `n_neighbors=` kwarg on `explain_factual` / `explore_alternatives` (guarded path) | `guarded_options=GuardedOptions(n_neighbors=...)` | v0.11.3 | v1.0.0 | Folded into `GuardedOptions` (ADR-038). |
-| `normalize_guard=` kwarg on `explain_factual` / `explore_alternatives` (guarded path) | `guarded_options=GuardedOptions(normalize=...)` | v0.11.3 | v1.0.0 | Folded into `GuardedOptions` (ADR-038). Field renamed `normalize` in the dataclass. |
-| `merge_adjacent=` kwarg on `explain_factual` / `explore_alternatives` (guarded path) | `guarded_options=GuardedOptions(merge_adjacent=...)` | v0.11.3 | v1.0.0 | Folded into `GuardedOptions` (ADR-038). |
-| `confidence=` kwarg on `predict_reject` / `apply_policy` | `reject_confidence=` | v0.11.3 | v1.0.0 | Renamed to carry the tier qualifier required by ADR-038 §2d and avoid confusion with `GuardedOptions.confidence`. |
-| `normalize=True` / `normalize=False` bool kwarg to `NormalizationStrategy.coerce()` | `normalization=NormalizationStrategy.COHERENCE` / `normalization=NormalizationStrategy.NONE` | v0.11.x | v1.0.0 | Bool passthrough removed; use enum or string value. |
-| `calibrated_explanations.core.reject` module import path | `from calibrated_explanations.core.reject.policy import RejectPolicy, is_policy_enabled` | v0.11.x | v1.0.0 | Module shim; functionality moved to `core.reject.policy`. |
-| `calibrated_explanations.core.explain.explain(...)` function | `CalibratedExplainer.explain_factual(...)` | v0.11.x | v1.0.0 | Legacy explain function shim. |
-| `ExplainerHandle.learner` property | `handle.predict()` | v0.11.3 | v1.0.0 | Returns raw underlying model; bypasses all `PredictBridge` invariants (shape checks, calibration state, trust-model enforcement). Plugin predictions must go through `handle.predict()`. ADR-015 gap 2. |
-| `ParallelConfig(strategy='auto')` with `enabled=True` | Pass an explicit strategy: `'sequential'`, `'threads'`, `'processes'`, or `'joblib'` | v0.11.4 | v1.0.0 | Silent heuristic backend selection violates ADR-004 §Decision ("callers must explicitly pass an executor"). `enabled=False` (the default) is unaffected. ADR-004. |
-| `CalibratedExplanations.legacy_payload(exp)` | `to_json()` for serialization; `_exp_to_domain(exp)` for domain model construction | v0.11.4 | v1.0.0 | Category A remediation wrapper around the internal `_legacy_payload` helper. The serialization chain now goes through `_exp_to_domain` directly (ADR-008 Gap 1); `legacy_payload` has no remaining call sites in the production path. |
-| `VennAbers` schema_version 1 pickle primitive | Re-save state with `WrapCalibratedExplainer.save_state()` | v0.11.4 | v1.0.0 | ADR-031 JSON-safe primitive migration; schema v2 uses field-level JSON data. |
-| `IntervalRegressor` schema_version 1 pickle primitive | Re-save state with `WrapCalibratedExplainer.save_state()` | v0.11.4 | v1.0.0 | ADR-031 JSON-safe primitive migration; schema v2 uses field-level JSON data. |
-| `plugin_meta['plot_kinds']` category vocabulary (`instance`, `collection`, `global`) | Semantic plot kind names (`factual_probabilistic`, `factual_regression`, `alternative_probabilistic`, `alternative_regression`, `global_probabilistic`, `global_regression`) | v0.11.4 | v1.0.0 | ADR-037 semantic metadata vocabulary. `triangular` remains an internal PlotSpec routing kind, not plugin metadata. |
 
 ### Removed deprecations (history)
 
@@ -259,6 +244,21 @@ Symbols listed here have been deleted. Any remaining usage will raise `Attribute
 | `plugins.registry.find_for(model)` | `find_explanation_plugin_for(..., trusted_only=False)` | v0.11.1 | v0.11.3 | List-path API removed; use descriptor-based resolution. |
 | `plugins.registry.find_for_trusted(model)` | `find_explanation_plugin_for(..., trusted_only=True)` | v0.11.1 | v0.11.3 | List-path API removed; use descriptor-based resolution. |
 | `RejectResult` active deprecation warning path in `reject_result_v2_to_legacy()` | `RejectResult` remains stable in v1.0.0; use `RejectResultV2` as opt-in strict schema | v0.11.x | v0.11.3 | Group L resolved via deprecation reset path: removed active warning targeting v1.0.0-rc to comply with ADR-011 finalization exception. |
+| `guarded=True` boolean kwarg on `explain_factual` / `explore_alternatives` | `guarded_options=GuardedOptions()` | v0.11.3 | v0.11.5 | Replaced by typed `GuardedOptions` dataclass (ADR-038). |
+| `significance=` kwarg on `explain_factual` / `explore_alternatives` (guarded path) | `guarded_options=GuardedOptions(confidence=1−significance)` | v0.11.3 | v0.11.5 | Numeric value is inverted: `significance=0.1` → `GuardedOptions(confidence=0.9)`. |
+| `n_neighbors=` kwarg on `explain_factual` / `explore_alternatives` (guarded path) | `guarded_options=GuardedOptions(n_neighbors=...)` | v0.11.3 | v0.11.5 | Folded into `GuardedOptions` (ADR-038). |
+| `normalize_guard=` kwarg on `explain_factual` / `explore_alternatives` (guarded path) | `guarded_options=GuardedOptions(normalize=...)` | v0.11.3 | v0.11.5 | Folded into `GuardedOptions` (ADR-038). Field renamed `normalize` in the dataclass. |
+| `merge_adjacent=` kwarg on `explain_factual` / `explore_alternatives` (guarded path) | `guarded_options=GuardedOptions(merge_adjacent=...)` | v0.11.3 | v0.11.5 | Folded into `GuardedOptions` (ADR-038). |
+| `confidence=` kwarg on `predict_reject` / `apply_policy` | `reject_confidence=` | v0.11.3 | v0.11.5 | Renamed to carry the tier qualifier required by ADR-038 §2d and avoid confusion with `GuardedOptions.confidence`. |
+| `normalize=True` / `normalize=False` bool kwarg to `NormalizationStrategy.coerce()` | `normalization=NormalizationStrategy.COHERENCE` / `normalization=NormalizationStrategy.NONE` | v0.11.x | v0.11.5 | Bool passthrough removed; use enum or string value. |
+| `calibrated_explanations.core.reject` module import path | `from calibrated_explanations.core.reject.policy import RejectPolicy, is_policy_enabled` | v0.11.x | v0.11.5 | Module shim deleted; functionality lives in `core.reject.policy`. |
+| `calibrated_explanations.core.explain.explain(...)` function | `CalibratedExplainer.explain_factual(...)` | v0.11.x | v0.11.5 | Legacy explain function shim removed. |
+| `ExplainerHandle.learner` property | `handle.predict()` | v0.11.3 | v0.11.5 | Returns raw underlying model; bypasses all `PredictBridge` invariants. Plugin predictions must go through `handle.predict()`. ADR-015 gap 2. |
+| `ParallelConfig(strategy='auto')` with `enabled=True` | Pass an explicit strategy: `'sequential'`, `'threads'`, `'processes'`, or `'joblib'` | v0.11.4 | v0.11.5 | Now raises `ConfigurationError`. `enabled=False` (the default) is unaffected. ADR-004. |
+| `CalibratedExplanations.legacy_payload(exp)` | `to_json()` for serialization; `_exp_to_domain(exp)` for domain model construction | v0.11.4 | v0.11.5 | Category A remediation wrapper removed; use the internal `_legacy_payload` helper directly if needed. |
+| `VennAbers` schema_version 1 pickle primitive | Re-save state with `WrapCalibratedExplainer.save_state()` | v0.11.4 | v0.11.5 | ADR-031 JSON-safe primitive migration; schema v2 uses field-level JSON data. Loading v1 now raises `ConfigurationError`. |
+| `IntervalRegressor` schema_version 1 pickle primitive | Re-save state with `WrapCalibratedExplainer.save_state()` | v0.11.4 | v0.11.5 | ADR-031 JSON-safe primitive migration; schema v2 uses field-level JSON data. Loading v1 now raises `ConfigurationError`. |
+| `plugin_meta['plot_kinds']` category vocabulary (`instance`, `collection`, `global`) | Semantic plot kind names (`factual_probabilistic`, `factual_regression`, `alternative_probabilistic`, `alternative_regression`, `global_probabilistic`, `global_regression`) | v0.11.4 | v0.11.5 | ADR-037 semantic metadata vocabulary. Category names removed from `_ALLOWED_PLOT_KINDS`. |
 | `CalibratedExplainer.explain_guarded_factual(...)` | `explainer.explain_factual(..., guarded_options=GuardedOptions())` | v0.11.3 | v0.11.3 | Introduced already-deprecated in Task 13; removed same milestone (ADR-032, ADR-011 finalization exception). |
 | `CalibratedExplainer.explore_guarded_alternatives(...)` | `explainer.explore_alternatives(..., guarded_options=GuardedOptions())` | v0.11.3 | v0.11.3 | Same. |
 | `WrapCalibratedExplainer.explain_guarded_factual(...)` | `wrapper.explain_factual(..., guarded_options=GuardedOptions())` | v0.11.3 | v0.11.3 | Same — wrapper delegates to `explain_factual(guarded_options=...)`. |

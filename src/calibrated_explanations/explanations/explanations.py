@@ -896,25 +896,6 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
         """Public wrapper around internal collection metadata helper."""
         return self._collection_metadata()
 
-    def legacy_payload(self, exp) -> Mapping[str, Any]:
-        """Return the legacy-shaped payload dict for an explanation.
-
-        .. deprecated:: v0.11.4
-            ``legacy_payload`` will be removed in v1.0.0.  Use ``to_json()``
-            for serialization or ``_exp_to_domain(exp)`` for domain model
-            construction.
-        """
-        from ..utils.deprecations import deprecate
-
-        deprecate(
-            "CalibratedExplanations.legacy_payload is deprecated and will be removed in v1.0.0. "
-            "Use to_json() for serialization or _exp_to_domain(exp) for domain model construction.",
-            key="explanations:legacy_payload",
-            stacklevel=2,
-            raise_on_error=False,
-        )
-        return self._legacy_payload(exp)
-
     @property
     def prediction_interval(self) -> List[Tuple[Optional[float], Optional[float]]]:
         """Return the prediction intervals for each explanation.
@@ -1254,6 +1235,17 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
         -------
         CalibratedExplanations
             Returns a self reference, to allow for method chaining.
+
+        Notes
+        -----
+        **Assumption boundary**: Conjunctive rules extend single-feature rules with
+        multi-feature combinations. This API verifies that conjunction generation
+        completes and returns a valid collection. It does not assert that conjunction
+        rules are semantically superior to single-feature rules for any particular
+        task or dataset. Calibration validity of conjunction-rule probabilities
+        depends on the same exchangeability assumptions as the underlying factual
+        explanations. Runtime performance is not guaranteed for large feature spaces
+        or high ``max_rule_size`` values.
         """
         for explanation in self.explanations:
             explanation.add_conjunctions(n_top_features, max_rule_size, **kwargs)
@@ -1456,6 +1448,14 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
         if index is None and custom_plot_style:
             from ..plotting import _render_collection_plot_plugin
 
+            plugin_options = {
+                **kwargs,
+                "rnk_metric": rnk_metric,
+                "rnk_weight": rnk_weight,
+                "uncertainty": uncertainty,
+                "filter_top": filter_top,
+            }
+
             plugin_result = _render_collection_plot_plugin(
                 self,
                 explicit_style=style_override
@@ -1466,7 +1466,7 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
                 save_ext=plugin_save_ext,
                 renderer_override=kwargs.get("renderer"),
                 intent_type="alternative" if self.is_alternative() else "factual",
-                options=kwargs,
+                options=plugin_options,
             )
             if plugin_result is not None:
                 return plugin_result

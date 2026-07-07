@@ -3,10 +3,15 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-008
+  - ADR-015
+  - ADR-026
+
 claim_text: >
   calibrated_explanations produces calibrated factual explanations for individual
-  instances via WrapCalibratedExplainer.explain_factual, returning feature
-  contributions with calibrated probability uncertainty for the predicted class.
+  instances through WrapCalibratedExplainer, providing feature-level contributions
+  grounded in calibrated probability estimates.
 
 public_api:
   - calibrated_explanations.core.wrap_explainer.WrapCalibratedExplainer.explain_factual
@@ -19,6 +24,8 @@ task_types:
 
 requirements:
   - CE-REQ-EXPL-API-001
+  - CE-REQ-EXPL-RETURN-001
+  - CE-REQ-EXPL-DOC-001
 
 verification:
   proves:

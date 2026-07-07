@@ -3,11 +3,25 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-006
+  - ADR-013
+  - ADR-015
+  - ADR-026
+  - ADR-033
+
 claim_text: >
   calibrated_explanations exposes an extensible plugin system through the
-  calibrated_explanations.plugins module: ExplainerPlugin defines the protocol for
-  custom explanation backends, and IntervalCalibratorPlugin defines the protocol for
-  custom interval calibrators, enabling replacement of default internal implementations.
+  calibrated_explanations.plugins module, defining protocols for custom explanation
+  backends and interval calibrators.
+
+atomic_rationale: >
+  This claim maps to one requirement because the verifiable scope at this time is
+  protocol importability (CE-REQ-PLUGIN-DOC-001, documentation_boundary). Full plugin
+  lifecycle verification (registration, dispatch, fallback) requires internal API access
+  not stable for public verification and is deferred as a gap. No separate API contract
+  requirement beyond protocol importability is warranted without a public plugin
+  registration surface.
 
 public_api:
   - calibrated_explanations.plugins.base.ExplainerPlugin
@@ -25,20 +39,13 @@ requirements:
 verification:
   proves:
     - api_contract
-    - protocol_importable
-  verification_type: automated
-
+  verification_type: automated_executable_evidence
 assumptions:
-  - Plugin registration requires access to internal PluginManager state and is subject
-    to API stability constraints documented in CONTRIBUTOR_INSTRUCTIONS.md. Registration
-    patterns are not part of the stable public API surface for end-users.
-  - Protocol conformance is checked at runtime; passing an object that does not
-    implement required methods raises AttributeError at invocation time.
-  - This claim asserts that the plugin protocols are importable and inspectable;
-    it does not assert that custom implementations will behave identically to
-    built-in implementations across all scenarios.
+  - This capability is verified by the executable evidence targets named by its requirement.
+  - Metadata linkage checks are drift guards only and do not prove this capability behavior.
 
 evidence_required:
   - commit_sha
   - package_version
   - test_id
+  - result

@@ -1,6 +1,6 @@
 > **Active scope:** Governing architectural decision for the explanation cache key design and eviction policy. Remains active as long as the cache key contract governs performance-sensitive explain paths; superseded when the caching strategy is revised.
 
-> **Status note (2025-11-29):** Last edited 2025-11-29 · Archive after: v1.0.0 GA · Implementation: Fully completed in v0.10.0 · All ADR-003 gates satisfied per `docs/improvement/adr\ mending/ADR-003/COMPLETION_REPORT.md`.
+> **Status note (2025-11-29):** Last edited 2025-11-29 · Archive after: v1.0.0 GA · Implementation: Fully completed in v0.10.0 · All ADR-003 gates are tracked in `development/current-work/RELEASE_PLAN_status_appendix.md`.
 
 # ADR-003: Caching Key & Eviction Strategy
 
@@ -45,6 +45,11 @@ Adopt a lightweight, opt-in in-process cache with simple, deterministic keys and
 
 - Update README and release notes with configuration tables, tuning guidance, and the support policy for the cache namespace taxonomy.
 - Record STRATEGY_REV identifiers in the ADR appendix and reference them from the release checklist to ensure invalidation discipline.
+
+
+## Governed claims
+
+- `CE-CAP-CACHE-001` — Caching is opt-in, transparent to public APIs, and governed by deterministic key and fallback visibility constraints.
 
 ## Alternatives Considered
 

@@ -3,11 +3,23 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-029
+  - ADR-038
+
 claim_text: >
-  calibrated_explanations supports reject/defer policies: passing a RejectPolicySpec
-  to WrapCalibratedExplainer.explain_factual or explore_alternatives tags each
-  instance's explanation envelope with a rejection status (FLAG, ONLY_REJECTED,
-  ONLY_ACCEPTED) based on the calibrated uncertainty score.
+  calibrated_explanations supports reject/defer policies through WrapCalibratedExplainer,
+  tagging explanation outputs with rejection status based on calibrated uncertainty scores
+  when a RejectPolicySpec is provided.
+
+atomic_rationale: >
+  This claim maps to one requirement because the only observable public-API outcome of
+  reject policy integration is that the call completes and returns a non-None collection
+  of the expected length. The semantic tagging behavior (which instances are flagged vs
+  accepted) depends on the calibration set distribution and NCF scoring, which require
+  a statistical evaluation study beyond the api_contract scope of this verification pass.
+  A separate behavioral requirement for rejection semantics is a documented gap deferred
+  to a statistical validation task.
 
 public_api:
   - calibrated_explanations.core.wrap_explainer.WrapCalibratedExplainer.explain_factual

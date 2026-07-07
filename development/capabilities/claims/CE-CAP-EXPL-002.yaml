@@ -3,10 +3,15 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-008
+  - ADR-015
+  - ADR-026
+
 claim_text: >
-  calibrated_explanations produces calibrated alternative (counterfactual-style)
-  explanations for individual instances via WrapCalibratedExplainer.explore_alternatives,
-  identifying feature changes that would shift the prediction toward an alternative outcome.
+  calibrated_explanations produces calibrated alternative explanations for individual
+  instances through WrapCalibratedExplainer, identifying feature changes that would
+  shift the prediction toward an alternative outcome.
 
 public_api:
   - calibrated_explanations.core.wrap_explainer.WrapCalibratedExplainer.explore_alternatives
@@ -19,6 +24,8 @@ task_types:
 
 requirements:
   - CE-REQ-EXPL-API-002
+  - CE-REQ-EXPL-ALT-RETURN-001
+  - CE-REQ-EXPL-ALT-DOC-001
 
 verification:
   proves:

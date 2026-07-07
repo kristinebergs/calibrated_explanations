@@ -27,7 +27,6 @@ if TYPE_CHECKING:
     from ..explanations.explanations import CalibratedExplanations as CalibratedExplanationsType
 else:
     CalibratedExplanationsType = object
-from ..utils.deprecations import deprecate
 from ..utils.exceptions import ValidationError
 from .base import ExplainerPlugin, PluginMeta, freeze_plugin_config
 from .predict import PredictBridge
@@ -125,27 +124,6 @@ class ExplainerHandle:
         return self._explainer.features_to_ignore
 
     @property
-    def learner(self) -> Any:
-        """Return the underlying learner.
-
-        .. deprecated:: v0.11.3
-            ``ExplainerHandle.learner`` is deprecated and will be removed in v1.0.0.
-            Plugin predictions must go through ``handle.predict()`` to preserve
-            ``PredictBridge`` invariants (shape validation, calibration state checks,
-            and trust-model enforcement).  Direct learner access bypasses all of these
-            guarantees silently.
-        """
-        deprecate(
-            "ExplainerHandle.learner is deprecated and will be removed in v1.0.0. "
-            "Use handle.predict() for all prediction use cases; direct learner "
-            "access bypasses PredictBridge invariants.",
-            key="plugin:ExplainerHandle.learner",
-            stacklevel=3,
-            raise_on_error=False,
-        )
-        return self._explainer.learner
-
-    @property
     def bins(self) -> Any:
         """Return bins configuration."""
         return self._explainer.bins
@@ -224,8 +202,6 @@ class ExplainerHandle:
 
     def __getattr__(self, name: str) -> Any:
         """Delegate attribute access to the underlying explainer."""
-        if name == "learner":
-            return self.learner
         explainer = self.__dict__.get("_explainer")
         if explainer is None:
             raise AttributeError(name)

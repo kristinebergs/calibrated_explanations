@@ -1,8 +1,9 @@
----
+﻿---
 name: ce-adr-consult
 description: >
   Map a proposed change to governing ADRs and constraints before implementation; use
   for ADR applicability and conflict checks.
+model: haiku
 ---
 
 # CE ADR Consult

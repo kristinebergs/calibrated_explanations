@@ -185,6 +185,11 @@ guard, then writes observational timing evidence to
 `reports/anti-pattern-analysis/adr030_ratification_timing.json`. Timing
 evidence is informational only and must not introduce a duration threshold.
 
+
+## Governed claims
+
+- `CE-CAP-TEST-001` — Tests follow the repository quality policy for naming, coverage gates, and justified coverage exemptions.
+
 ## Alternatives Considered
 
 1. **Keep coverage as the only required gate.**

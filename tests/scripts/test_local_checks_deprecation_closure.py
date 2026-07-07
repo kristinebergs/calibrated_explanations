@@ -36,21 +36,17 @@ def write_deprecation_ledger(tmp_path: Path, active_row: str = "") -> None:
 
 
 def test_should_define_deprecation_closure_steps_in_expected_order() -> None:
-    """The lane should encode the Task 5 validation sequence."""
+    """The lane should encode the focused deprecation-closure sequence."""
     steps = local_checks.deprecation_closure_steps()
 
-    assert len(steps) == 4
+    assert len(steps) == 2
     assert steps[0].name == "Focused deprecation closure tests"
     assert steps[1].name == "ADR-030 ratification lane"
-    assert steps[2].name == "PR local checks"
-    assert steps[3].name == "Main local checks"
     assert steps[0].command[0] == local_checks.sys.executable
     assert steps[0].command[1] == "-m"
     assert steps[0].command[2] == "pytest"
     assert steps[0].command[3] == "tests/"
     assert steps[1].command[-1] == "--adr030-ratification"
-    assert steps[2].command == ["make", "local-checks-pr"]
-    assert steps[3].command == ["make", "local-checks"]
 
 
 def test_should_write_reports_when_deprecation_closure_passes(monkeypatch, tmp_path: Path) -> None:
@@ -82,12 +78,10 @@ def test_should_write_reports_when_deprecation_closure_passes(monkeypatch, tmp_p
     assert calls == [
         "Focused deprecation closure tests",
         "ADR-030 ratification lane",
-        "PR local checks",
-        "Main local checks",
     ]
     assert timing["schema_version"] == 1
     assert timing["generated_at"] == "2026-05-14T00:00:00+00:00"
-    assert [step["exit_code"] for step in timing["steps"]] == [0, 0, 0, 0, 0]
+    assert [step["exit_code"] for step in timing["steps"]] == [0, 0, 0]
 
 
 def test_should_fail_before_running_commands_when_active_deprecations_remain(

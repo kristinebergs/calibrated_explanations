@@ -70,14 +70,14 @@ def test_plot_plugin_with_valid_plot_kinds_accepted():
     assert set(meta["plot_kinds"]) == {"factual_probabilistic", "global_regression"}
 
 
-def test_plot_plugin_with_category_plot_kinds_warns():
-    """Declaring legacy category plot_kinds remains transitional but warns."""
+def test_plot_plugin_with_category_plot_kinds_raises():
+    """Declaring legacy category plot_kinds raises ValidationError in v1.0.0."""
     from calibrated_explanations.plugins.base import validate_plugin_meta
+    from calibrated_explanations.utils.exceptions import ValidationError
 
     meta = _minimal_plot_meta(plot_kinds=["instance", "global"])
-    with pytest.warns(DeprecationWarning, match="category vocabulary"):
+    with pytest.raises(ValidationError, match="invalid values"):
         validate_plugin_meta(meta)
-    assert set(meta["plot_kinds"]) == {"instance", "global"}
 
 
 def test_plot_plugin_with_valid_plot_modes_accepted():

@@ -26,6 +26,7 @@ from time import sleep
 from types import MappingProxyType
 from typing import TYPE_CHECKING, Any, Callable, Dict, Mapping
 
+import numpy as np
 from crepes.extras import MondrianCategorizer
 
 from ..api.params import (
@@ -40,6 +41,11 @@ from ..utils.exceptions import (
     ValidationError,
 )
 from .calibrated_explainer import CalibratedExplainer  # circular during split
+from .prediction_helpers import (
+    _apply_conditional_categorizer,
+    _normalize_conditional_bins,
+    resolve_conditional_bins,
+)
 from .validation import validate_inputs_matrix, validate_model
 
 if TYPE_CHECKING:  # pragma: no cover - import only for type checking
@@ -77,6 +83,7 @@ _KNOWN_PUBLIC_KWARGS: frozenset[str] = frozenset(
         "preprocessor_metadata",
         "reject_confidence",
         "reject_policy",
+        "reuse_conditional",
         "seed",
         "show",
         "style_override",
@@ -326,6 +333,7 @@ class WrapCalibratedExplainer:
         x_calibration: Any,
         y_calibration: Any,
         mc: Callable[[Any], Any] | MondrianCategorizer | None = None,
+        reuse_conditional: bool = False,
         **kwargs: Any,
     ) -> WrapCalibratedExplainer:
         """Calibrate the wrapper using calibration data and create an explainer.
@@ -338,6 +346,9 @@ class WrapCalibratedExplainer:
             Calibration targets corresponding to ``x_calibration``.
         mc : callable or MondrianCategorizer, optional
             Optional Mondrian categories helper. Defaults to ``None``.
+        reuse_conditional : bool, default=False
+            Reuse the previously configured Mondrian categorizer for this
+            calibration. Mutually exclusive with ``bins`` and ``mc``.
         **kwargs
             Forwarded to :class:`.CalibratedExplainer.__init__` for advanced
             configuration (e.g. ``mode``, ``feature_names``, ``bins``).
@@ -368,10 +379,9 @@ class WrapCalibratedExplainer:
         self._assert_fitted("The WrapCalibratedExplainer must be fitted before calibration.")
         self.calibrated = False
 
-        if mc is not None:
-            self.mc = mc
         # Normalize kwargs at the public boundary; warn and strip alias keys only
         kwargs = self._normalize_public_kwargs(kwargs)
+        reuse_conditional = bool(kwargs.pop("reuse_conditional", reuse_conditional))
         validate_param_combination(kwargs)
         # Lightweight validation (does not alter behavior)
         validate_model(self.learner)
@@ -389,7 +399,42 @@ class WrapCalibratedExplainer:
             with suppress(Exception):  # pragma: no cover - defensive
                 _ = self._pre_transform(x_calibration, stage="calibrate_check")
         validate_inputs_matrix(x_cal_local, y_calibration, require_y=True, allow_nan=False)
-        kwargs["bins"] = self._get_bins(x_cal_local, **kwargs)
+        supplied = {
+            "bins": kwargs.get("bins") is not None,
+            "mc": mc is not None,
+            "reuse_conditional": reuse_conditional,
+        }
+        if sum(supplied.values()) > 1:
+            provided = [name for name, present in supplied.items() if present]
+            raise ValidationError(
+                "Specify exactly one conditional calibration channel: bins, mc, or reuse_conditional.",
+                details={
+                    "provided": provided,
+                    "requirement": "one conditional channel per calibrate call",
+                },
+            )
+        if reuse_conditional:
+            if self.mc is None:
+                raise ValidationError(
+                    "reuse_conditional=True requires a stored Mondrian categorizer; "
+                    "inline bins cannot transfer to a new calibration set, so pass fresh bins=.",
+                    details={"requirement": "stored mc required for reuse_conditional"},
+                )
+            mc = self.mc
+        if mc is not None:
+            self.mc = mc
+            derived_bins = _apply_conditional_categorizer(mc, x_cal_local)
+            kwargs["bins"] = _normalize_conditional_bins(
+                derived_bins, n_samples=len(np.asarray(x_cal_local))
+            )
+        elif kwargs.get("bins") is not None:
+            self.mc = None
+            kwargs["bins"] = _normalize_conditional_bins(
+                kwargs["bins"], n_samples=len(np.asarray(x_cal_local))
+            )
+        else:
+            self.mc = None
+            kwargs["bins"] = None
         if preprocessor_metadata is not None:
             kwargs.setdefault("preprocessor_metadata", preprocessor_metadata)
         self._logger.info("Calibrating with %s samples", getattr(x_calibration, "shape", ["?"])[0])
@@ -466,6 +511,17 @@ class WrapCalibratedExplainer:
         CalibratedExplanations or mapping
             Explanation collection produced by the underlying explainer.
 
+        Notes
+        -----
+        **Assumption boundary**: This method verifies the API contract — that the
+        call completes and returns a valid explanation collection. It does not
+        guarantee the statistical validity of calibrated feature attributions for
+        any particular instance. The calibration validity depends on the
+        exchangeability assumption: the calibration set must be representative of
+        the test distribution. Feature attribution magnitudes reflect calibrated
+        probability shifts, not causal importances or ground-truth attribution
+        correctness.
+
         See Also
         --------
         :meth:`CalibratedExplainer.explain_factual`
@@ -496,10 +552,19 @@ class WrapCalibratedExplainer:
     def explore_alternatives(self, x: Any, **kwargs: Any) -> Any:
         """Generate alternative explanations for the test data.
 
+        Notes
+        -----
+        **Assumption boundary**: Alternative explanations describe feature changes
+        that would shift the predicted probability toward an alternative outcome.
+        They do not guarantee that the described feature changes are physically
+        achievable, distributionally feasible, or actionable in a new model
+        deployment. The exchangeability assumption applies: results depend on the
+        calibration set being representative of the test distribution.
+
         See Also
         --------
-        :meth:`.CalibratedExplainer.explore_alternatives` : Refer to the docstring for explore_alternatives in CalibratedExplainer for more details.
-
+        :meth:`.CalibratedExplainer.explore_alternatives` : Refer to the docstring
+            for explore_alternatives in CalibratedExplainer for more details.
         """
         assert (
             self._assert_fitted(
@@ -585,7 +650,8 @@ class WrapCalibratedExplainer:
         kwargs = self._normalize_public_kwargs(kwargs)
         validate_inputs_matrix(x_local, allow_nan=True)
         validate_param_combination(kwargs)
-        kwargs["bins"] = self._get_bins(x_local, **kwargs)
+        if calibrated:
+            kwargs["bins"] = self._get_bins(x_local, **kwargs)
         assert (
             self._assert_calibrated(
                 "The WrapCalibratedExplainer must be calibrated to get calibrated predictions."
@@ -644,7 +710,8 @@ class WrapCalibratedExplainer:
         kwargs = self._normalize_public_kwargs(kwargs)
         validate_inputs_matrix(x_local, allow_nan=True)
         validate_param_combination(kwargs)
-        kwargs["bins"] = self._get_bins(x_local, **kwargs)
+        if calibrated:
+            kwargs["bins"] = self._get_bins(x_local, **kwargs)
         assert (
             self._assert_calibrated(
                 "The WrapCalibratedExplainer must be calibrated to get calibrated probabilities."
@@ -753,22 +820,14 @@ class WrapCalibratedExplainer:
 
     def _get_bins(self, x: Any, **kwargs: Any) -> Any:
         """Derive bin assignments from the configured Mondrian categorizer."""
-        if isinstance(self.mc, MondrianCategorizer):
-            return self.mc.apply(x)
-        if self.mc is not None:
-            return self.mc(x)
-        bins = kwargs.get("bins")
-        if bins is not None:
-            return bins
-        # Fallback to explainer bins for Mondrian mode
-        if (
-            hasattr(self, "explainer")
-            and self.explainer
-            and hasattr(self.explainer, "bins")
-            and self.explainer.is_mondrian()
-        ):
-            return self.explainer.bins
-        return None
+        return resolve_conditional_bins(
+            x,
+            kwargs.get("bins"),
+            mc=self.mc,
+            calibration_bins=(
+                getattr(self.explainer, "bins", None) if self.explainer is not None else None
+            ),
+        )
 
     @property
     def runtime_telemetry(self) -> Mapping[str, Any]:
@@ -1490,6 +1549,17 @@ class WrapCalibratedExplainer:
                 details={"path": str(target), "reason": str(exc)},
             ) from exc
 
+    def _warn_dropping_mondrian_categorizer(self, *, operation: str) -> None:
+        """Warn and log when persistence drops a configured Mondrian categorizer."""
+        if self.mc is None:
+            return
+        message = (
+            f"{operation} drops the configured Mondrian categorizer (mc). "
+            "Loaded conditional wrappers require explicit bins= at inference."
+        )
+        self._logger.info(message)
+        _warnings.warn(message, UserWarning, stacklevel=3)
+
     @classmethod
     def load_state(cls, path_or_fileobj: Any) -> WrapCalibratedExplainer:
         """Load wrapper state from an ADR-031 persisted artifact."""
@@ -1676,6 +1746,7 @@ class WrapCalibratedExplainer:
         state = self.__dict__.copy()
 
         # Exclude mc as it may contain unpicklable objects like RNG in mappingproxy
+        self._warn_dropping_mondrian_categorizer(operation="Pickle/state persistence")
         state["mc"] = None
 
         # Convert any types.MappingProxyType (mappingproxy) instances to plain

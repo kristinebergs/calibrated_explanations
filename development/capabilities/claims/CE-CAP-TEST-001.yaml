@@ -1,0 +1,38 @@
+claim_id: CE-CAP-TEST-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-023
+  - ADR-030
+
+claim_text: >
+  Tests follow the repository quality policy for naming, coverage gates, and justified coverage exemptions.
+
+atomic_rationale: >
+  This governance claim maps to one requirement because test quality compliance under
+  ADR-023 and ADR-030 is a single quality gate: naming convention, coverage threshold,
+  and exemption documentation. These are verifiable as a unified static policy check
+  rather than decomposable independent behavioral requirements.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-TEST-GOV-001
+
+verification:
+  proves:
+    - quality_gate
+  verification_type: automated_executable_evidence
+assumptions:
+  - This capability is verified by the executable evidence targets named by its requirement.
+  - Metadata linkage checks are drift guards only and do not prove this capability behavior.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

@@ -1,0 +1,38 @@
+claim_id: CE-CAP-LEGACY-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-020
+
+claim_text: >
+  Legacy user APIs remain stable within the documented major-version compatibility boundary.
+
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-020 legacy API stability covers
+  a documented compatibility surface (lifecycle methods, prediction signatures, collection APIs)
+  as a single stability contract. Each individual method is part of the same compatibility
+  guarantee; creating separate requirements per method would fragment the ADR-020 boundary
+  rather than add testable obligations.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-LEGACY-GOV-001
+
+verification:
+  proves:
+    - api_contract
+  verification_type: automated_executable_evidence
+assumptions:
+  - This capability is verified by the executable evidence targets named by its requirement.
+  - Metadata linkage checks are drift guards only and do not prove this capability behavior.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

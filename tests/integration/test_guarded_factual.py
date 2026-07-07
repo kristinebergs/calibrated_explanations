@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import contextlib
-
-
 import pytest
 from sklearn.datasets import make_classification
 from sklearn.tree import DecisionTreeClassifier
@@ -44,21 +41,6 @@ def test_should_complete_without_error_when_guarded_options_replaces_legacy_kwar
         # Guard may raise domain errors (e.g. not enough calibration neighbours) — that is fine.
         # What we must NOT get is a TypeError from wrong parameter wiring.
         assert not isinstance(exc, TypeError), f"Unexpected TypeError: {exc}"
-
-
-def test_should_emit_deprecation_warning_when_guarded_true_is_used():
-    with pytest.warns(DeprecationWarning, match="guarded=True"), contextlib.suppress(Exception):
-        _wrapper.explain_factual(X_test, guarded=True)
-
-
-def test_should_emit_deprecation_warning_when_significance_kwarg_is_used():
-    with pytest.warns(DeprecationWarning), contextlib.suppress(Exception):
-        _wrapper.explain_factual(X_test, guarded=True, significance=0.05)
-
-
-def test_should_emit_deprecation_warning_when_guarded_true_used_in_explore_alternatives():
-    with pytest.warns(DeprecationWarning, match="guarded=True"), contextlib.suppress(Exception):
-        _wrapper.explore_alternatives(X_test, guarded=True)
 
 
 def test_should_complete_without_error_when_guarded_options_used_in_explore_alternatives():

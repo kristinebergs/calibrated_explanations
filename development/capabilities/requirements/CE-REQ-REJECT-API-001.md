@@ -1,4 +1,4 @@
-# CE-REQ-REJECT-API-001 — Reject Policy API Contract
+# CE-REQ-REJECT-API-001 - Reject Policy API Contract
 
 ## Metadata
 
@@ -7,7 +7,10 @@
 | requirement_id | CE-REQ-REJECT-API-001 |
 | obligation_type | api_contract |
 | claim_refs | CE-CAP-REJECT-001 |
+| adr_refs | ADR-029, ADR-038 |
 | status | active |
+| verification_status | verified |
+| tif_refs | CE-TIF-REJECT-001 |
 
 ## Scope
 
@@ -43,6 +46,10 @@ Test ID:
 - `test_should_return_explanations_when_reject_policy_flag_provided`
 
 (in `tests/capabilities/test_reject_policy_contracts.py`)
+
+## Verification targets
+
+- `pytest: tests/capabilities/test_reject_policy_contracts.py::test_should_return_explanations_when_reject_policy_flag_provided`
 
 ## Evidence required
 

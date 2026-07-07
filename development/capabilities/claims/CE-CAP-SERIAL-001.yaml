@@ -1,0 +1,38 @@
+claim_id: CE-CAP-SERIAL-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-031
+
+claim_text: >
+  Calibrator and explainer persistence use versioned primitive state and fail fast on incompatible schema versions.
+
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-031 serialization compliance
+  is a single contract: versioned state with incompatibility rejection. The save/load
+  symmetry and version validation are two aspects of the same serialization contract
+  and cannot be independently proven without the full round-trip test that CE-REQ-SERIAL-GOV-001
+  already defines.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-SERIAL-GOV-001
+
+verification:
+  proves:
+    - serialization_contract
+  verification_type: automated_executable_evidence
+assumptions:
+  - This capability is verified by the executable evidence targets named by its requirement.
+  - Metadata linkage checks are drift guards only and do not prove this capability behavior.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

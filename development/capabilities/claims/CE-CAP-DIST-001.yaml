@@ -1,0 +1,37 @@
+claim_id: CE-CAP-DIST-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-010
+
+claim_text: >
+  The core package and evaluation tooling remain separately distributed and independently governed.
+
+atomic_rationale: >
+  This governance claim maps to one requirement because distribution boundary compliance
+  is governed by a single ADR-010 policy check on the import graph and extras flags.
+  Decomposing into additional requirements would require separate ADR-010 policy checks
+  that do not add testable value beyond the single static policy enforcement already defined.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-DIST-GOV-001
+
+verification:
+  proves:
+    - quality_gate
+  verification_type: automated_executable_evidence
+assumptions:
+  - This capability is verified by the executable evidence targets named by its requirement.
+  - Metadata linkage checks are drift guards only and do not prove this capability behavior.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

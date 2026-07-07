@@ -3,11 +3,22 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-008
+
 claim_text: >
   calibrated_explanations generates human-readable natural language narratives for
-  factual and alternative explanations via CalibratedExplanations.to_narrative(),
-  returning non-None output (string, DataFrame, HTML, or dict) suitable for consumption
-  by downstream text pipelines.
+  factual and alternative explanations through CalibratedExplanations.to_narrative(),
+  returning non-None output suitable for downstream text pipelines.
+
+atomic_rationale: >
+  This claim maps to one requirement because the verifiable public-API outcome at
+  the api_contract level is that to_narrative() returns non-None output. Format-
+  specific contracts (DataFrame, HTML, dict variants) each require pandas or Jinja2
+  and are not verified at the api_contract level; they are documented assumption
+  boundaries. Narrative quality and regulatory suitability are explicitly out of
+  scope for automated testing. No additional requirements are warranted for this
+  verification pass beyond CE-REQ-NARR-API-001.
 
 public_api:
   - calibrated_explanations.explanations.explanations.CalibratedExplanations.to_narrative

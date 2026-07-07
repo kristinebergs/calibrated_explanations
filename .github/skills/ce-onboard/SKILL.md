@@ -1,21 +1,9 @@
 ---
 name: ce-onboard
 description: >
-  Read-only session primer for CE-first invariants, key files, and skill routing at session start.
+  Read-only session primer for CE-first invariants, key files, and skill routing at
+  session start.
 ---
-
-## Inputs
-
-- **`content`** (text, required): The input relevant to this skill. See instructions for details.
-
-## Output Format
-
-Format: `markdown`
-
-Required sections:
-- output
-
-# Ce Onboard — Core Instructions
 
 # CE Onboard
 
@@ -60,16 +48,12 @@ intervals from any model.
 
 | File | What it tells you |
 |---|---|
-| `CONTRIBUTOR_INSTRUCTIONS.md` | Canonical CE-First rules **(authoritative — read this first)** |
+| `CONTRIBUTOR_INSTRUCTIONS.md` | Canonical CE-First rules (authoritative) |
 | `development/current-work/RELEASE_PLAN_v1.md` | Current milestone + outstanding gates |
 | `development/adrs/` | All architectural decisions (ADRs 001–033) |
 | `QUICK_API.md` | Public API surface cheat-sheet |
+| `src/calibrated_explanations/ce_agent_utils.py` | CE-First runtime helpers |
 | `tests/README.md` | Test structure and coverage requirements |
-| `src/calibrated_explanations/ce_agent_utils.py` | Secondary agent helpers **(not the public contract — helpers only; always check if they are still canonical before use)** |
-
-> **CE-First reminder**: `WrapCalibratedExplainer` and its `fit → calibrate → explain/predict`
-> lifecycle are the public contract. `ce_agent_utils` wraps that contract for convenience;
-> it does not replace it. When a helper and the public API diverge, the public API wins.
 
 ---
 
@@ -118,6 +102,11 @@ intervals from any model.
 | Author or revise RTD pages | `ce-rtd-writer` |
 | Implement serialization | `ce-serializer-impl` |
 | Audit serialization coverage | `ce-serialization-audit` |
+| Analyze standards compliance gaps | `ce-standards-gap-analyzer` |
+| Author a capability claim (CE-CAP-*.yaml) | `ce-claim-author` |
+| Write requirements from a claim (CE-REQ-*.md) | `ce-requirements-author` |
+| Author a TIF spec and Python scenario | `ce-tif-author` |
+| Link test evidence to TIFs and requirements | `ce-evidence-linker` |
 | Audit skills against Claude authoring guidance | `ce-skill-audit` |
 | Create/refactor skills and templates | `ce-skill-creator` |
 | Sync skill registries after skill changes | `ce-skill-registry-sync` |
@@ -138,7 +127,7 @@ src/calibrated_explanations/
 ├── calibration/    # Venn-Abers and conformal calibration logic
 ├── viz/            # PlotSpec IR + matplotlib adapter (ADR-007, ADR-016, ADR-023)
 ├── utils/          # Shared helpers, deprecation, logging
-└── ce_agent_utils.py  # Secondary agent helpers (not the public contract)
+└── ce_agent_utils.py  # CE-first pipeline helpers for agents
 ```
 
 **Rule**: Code in `core/` must not import from `plugins/`. Plugins import from `core/`, never the reverse.

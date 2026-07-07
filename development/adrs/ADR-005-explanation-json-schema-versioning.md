@@ -122,6 +122,11 @@ must come with:
   elementwise for vector predictions as well as scalars.
 - Envelope validation is **out of scope** for v1.0.0.
 
+
+## Governed claims
+
+- `CE-CAP-SCHEMA-001` — Explanation payloads use a versioned CE-first schema contract with explicit metadata and governed extension surfaces.
+
 ## Alternatives Considered
 
 1. **Full envelope now** — Rejected for v1.0.0 because it is not implemented in the

@@ -84,6 +84,11 @@ Defined `RejectPolicy` members (implemented in `core.reject.policy`):
 ### Visualization
 - If visualization is revisited, should it be a dedicated plugin or an overlay?
 
+
+## Governed claims
+
+- `CE-CAP-REJECT-001` — calibrated_explanations supports reject/defer policies: passing a RejectPolicySpec   to WrapCalibratedExplainer.explain_factual or explore_alternatives tags each   instance's explanation envelope with a rejection status (FLAG, ONLY_REJECTED,   ONLY_ACCEPTED) based on the calibrated uncertainty score.
+
 ## Alternatives Considered
 
 ### 1) Invocation model alternatives
@@ -208,7 +213,7 @@ Defined `RejectPolicy` members (implemented in `core.reject.policy`):
 		- Operational rule: Selecting any non-`NONE` `RejectPolicy` MUST implicitly enable the reject orchestration (equivalent to `reject=True`) for the affected call(s) or explainer-level default. In practice this means that supplying `reject_policy != RejectPolicy.NONE` (per-call or via explainer default) triggers `RejectOrchestrator` initialization and evaluation even if the legacy `reject` flag was `False`.
 6. Implement a default built-in reject strategy (the current behaviour) that preserves existing semantics and is registered under the orchestrator's registry as `builtin.default`.
 7. Add CI tests that exercise each `RejectPolicy` member, ensuring return schemas and interactions with existing explanation consumers remain backward compatible when `NONE` is used.
-8. Update documentation and examples: `docs/improvement/` release plan, add `docs/reject.md`, and user-facing examples demonstrating the common policies.
+8. Update documentation and examples under the current `development/` planning structure and user-facing docs (for example, `docs/practitioner/advanced/reject-policy.md`) demonstrating the common policies.
 9. Defer visualization integration until a separate ADR or plugin is proposed.
 
 ## Verification checklist (recommended additions)

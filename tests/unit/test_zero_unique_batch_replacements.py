@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
-import warnings
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -91,20 +90,13 @@ def test_viz_package_requires_matplotlib_for_render(monkeypatch: pytest.MonkeyPa
         _ = viz_pkg.not_exported
 
 
-def test_core_reject_shim_package_import_warns() -> None:
+def test_core_reject_shim_file_is_removed() -> None:
+    """core/reject.py shim was removed in v1.0.0; importing it must raise ImportError."""
     shim_path = Path("src/calibrated_explanations/core/reject.py").resolve()
-    spec = importlib.util.spec_from_file_location(
-        "calibrated_explanations.core.reject_compat_tmp",
-        shim_path,
+    assert not shim_path.exists(), (
+        f"core/reject.py shim was scheduled for removal in v1.0.0 but still exists at {shim_path}. "
+        "Delete the file."
     )
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always", DeprecationWarning)
-        spec.loader.exec_module(module)
-    assert module.RejectPolicy is not None
-    assert any(isinstance(item.message, DeprecationWarning) for item in caught)
 
 
 def test_plotting_config_helpers_and_style_chain(
@@ -187,25 +179,12 @@ def test_base_explain_executor_abstract_method_bodies_are_callable() -> None:
     assert base_mod.BaseExplainExecutor.priority.fget(object()) is None
 
 
-def test_core_reject_shim_re_raises_when_absolute_fallback_import_fails(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_core_reject_shim_flat_file_does_not_exist() -> None:
+    """core/reject.py shim (flat file) must not exist in v1.0.0; core/reject/ package is canonical."""
     shim_path = Path("src/calibrated_explanations/core/reject.py").resolve()
-    spec = importlib.util.spec_from_file_location("ce_reject_fallback_fail_tmp", shim_path)
-    assert spec is not None
-    assert spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-
-    real_import = __import__
-
-    def guarded_import(name, *args, **kwargs):
-        if name == "calibrated_explanations.core.reject.policy":
-            raise ImportError("simulated fallback failure")
-        return real_import(name, *args, **kwargs)
-
-    monkeypatch.setattr("builtins.__import__", guarded_import)
-    with pytest.raises(ImportError, match="simulated fallback failure"):
-        spec.loader.exec_module(module)
+    assert (
+        not shim_path.exists()
+    ), f"core/reject.py shim was removed in v1.0.0 but still exists: {shim_path}"
 
 
 def test_plot_probabilistic_resolves_explainer_then_fails_without_matplotlib(

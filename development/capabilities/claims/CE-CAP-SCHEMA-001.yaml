@@ -1,0 +1,38 @@
+claim_id: CE-CAP-SCHEMA-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-005
+  - ADR-008
+
+claim_text: >
+  Explanation payloads use a versioned CE-first schema contract with explicit metadata and governed extension surfaces.
+
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-005 payload schema compliance
+  is a single schema governance check: version field presence, metadata completeness, and
+  extension surface documentation. Schema validation is a single obligation that does not
+  decompose into independent behavioral requirements without additional ADR scope.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-SCHEMA-GOV-001
+
+verification:
+  proves:
+    - payload_schema
+  verification_type: automated_executable_evidence
+assumptions:
+  - This capability is verified by the executable evidence targets named by its requirement.
+  - Metadata linkage checks are drift guards only and do not prove this capability behavior.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

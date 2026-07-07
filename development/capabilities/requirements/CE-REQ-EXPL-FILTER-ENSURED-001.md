@@ -1,4 +1,4 @@
-# CE-REQ-EXPL-FILTER-ENSURED-001 — Ensured-Explanations Filter API Contract
+# CE-REQ-EXPL-FILTER-ENSURED-001 - Ensured-Explanations Filter API Contract
 
 ## Metadata
 
@@ -7,19 +7,22 @@
 | requirement_id | CE-REQ-EXPL-FILTER-ENSURED-001 |
 | obligation_type | api_contract |
 | claim_refs | CE-CAP-EXPL-FILTER-001 |
+| adr_refs | ADR-027 |
 | status | active |
+| verification_status | verified |
+| tif_refs | CE-TIF-FILTER-001 |
 | applicable_on | collection (AlternativeExplanations) and individual (AlternativeExplanation) |
 
 ## Scope
 
 Public API:
 - `AlternativeExplanations.ensured_explanations(include_potential, copy)` (collection)
-- `AlternativeExplanations.ensured(...)` (alias — delegator, same contract)
+- `AlternativeExplanations.ensured(...)` (alias - delegator, same contract)
 - `AlternativeExplanation.ensured_explanations(include_potential, copy)` (individual)
-- `AlternativeExplanation.ensured(...)` (alias — delegator, same contract)
+- `AlternativeExplanation.ensured(...)` (alias - delegator, same contract)
 
 Ensured-explanations are rules where the **calibrated probability interval does not
-straddle the decision boundary** — the outcome under the rule is unambiguously assigned.
+straddle the decision boundary** - the outcome under the rule is unambiguously assigned.
 
 Note: this is a distinct filter method from the `only_ensured` parameter on
 super/semi/counter. It returns rules that are ensured regardless of their rule type.
@@ -45,13 +48,13 @@ Applicable workflow: fit-calibrate-explore_alternatives-ensured_explanations.
 
 **Default parameters (include_potential=True):**
 
-Collection: `alternatives.ensured_explanations()` → non-None, `len == len(X_test)`.
+Collection: `alternatives.ensured_explanations()` Ã¢â€ â€™ non-None, `len == len(X_test)`.
 
-Individual: `alternatives[0].ensured_explanations()` → non-None.
+Individual: `alternatives[0].ensured_explanations()` Ã¢â€ â€™ non-None.
 
 **With include_potential=False:**
 
-Collection: `alternatives.ensured_explanations(include_potential=False)` → non-None,
+Collection: `alternatives.ensured_explanations(include_potential=False)` Ã¢â€ â€™ non-None,
 `len == len(X_test)`.
 
 **Alias check:** `alternatives.ensured()` produces a result equal in structure to `alternatives.ensured_explanations()`.
@@ -67,6 +70,12 @@ Test IDs:
 - `test_should_return_ensured_explanations_when_alias_ensured_used`
 
 (in `tests/capabilities/test_filter_contracts.py`)
+
+## Verification targets
+
+- `pytest: tests/capabilities/test_filter_contracts.py::test_should_return_ensured_explanations_when_include_potential_false_collection`
+- `pytest: tests/capabilities/test_filter_contracts.py::test_should_return_ensured_explanations_when_individual_explanation`
+- `pytest: tests/capabilities/test_filter_contracts.py::test_should_return_ensured_explanations_when_alias_ensured_used`
 
 ## Evidence required
 

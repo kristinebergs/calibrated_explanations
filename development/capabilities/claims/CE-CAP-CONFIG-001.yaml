@@ -1,0 +1,39 @@
+claim_id: CE-CAP-CONFIG-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-034
+  - ADR-038
+
+claim_text: >
+  Runtime and call-time configuration use governed tiers, centralized reads, and suffix conventions for Config, Spec, and Options objects.
+
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-034 configuration management
+  is a single static policy: all runtime configuration goes through ConfigManager. The
+  three suffix conventions (Config, Spec, Options) are naming conventions, not independent
+  behavioral requirements. Decomposing would produce nominal requirements without adding
+  testable obligations beyond the existing static policy check.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-CONFIG-GOV-001
+
+verification:
+  proves:
+    - static_policy
+  verification_type: automated_executable_evidence
+assumptions:
+  - This capability is verified by the executable evidence targets named by its requirement.
+  - Metadata linkage checks are drift guards only and do not prove this capability behavior.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

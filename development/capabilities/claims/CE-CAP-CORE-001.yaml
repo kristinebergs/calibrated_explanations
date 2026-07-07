@@ -1,0 +1,37 @@
+claim_id: CE-CAP-CORE-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-001
+
+claim_text: >
+  Core package boundaries preserve stable separation between core, calibration, explanations, schema, plugins, cache, and parallel services.
+
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-001 boundary compliance is a
+  single static policy: no cross-sibling imports in core. The boundary check is verifiable
+  as a unified import-graph test. Decomposing per-sibling would create redundant checks
+  for the same policy applied to different package pairs.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-CORE-BOUNDARY-001
+
+verification:
+  proves:
+    - static_policy
+  verification_type: automated_executable_evidence
+assumptions:
+  - This capability is verified by the executable evidence targets named by its requirement.
+  - Metadata linkage checks are drift guards only and do not prove this capability behavior.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

@@ -46,7 +46,7 @@ explainer.fit(x_proper, y_proper)
 
 # Auto-bin by the model's predicted confidence on the calibration set
 mc = MondrianCategorizer()
-mc.fit(x_cal, f=explainer.learner.predict_proba, no_bins=5)
+mc.fit(x_cal, f=lambda X: explainer.learner.predict_proba(X)[:, 1], no_bins=5)
 
 explainer.calibrate(x_cal, y_cal, mc=mc, feature_names=feature_names)
 
@@ -55,7 +55,7 @@ explanations = explainer.explain_factual(x_test)
 predictions  = explainer.predict(x_test)
 ```
 
-### `MondrianCategorizer` constructor options
+### `MondrianCategorizer` setup options
 
 ```python
 # Auto-bin a callable on x_cal
@@ -66,9 +66,11 @@ mc.fit(x_cal, f=callable_returning_scores, no_bins=5)
 mc = MondrianCategorizer()
 mc.fit(x_cal[:, feature_idx])
 
-# Explicit bin boundaries (e.g., percentiles of age)
-mc = MondrianCategorizer(bins=[0, 25, 50, 75, 100])
-mc.fit(x_cal[:, age_idx])
+# Explicit category labels should use inline bins instead of MondrianCategorizer
+age_group_cal = np.digitize(x_cal[:, age_idx], bins=[25, 50, 75])
+age_group_test = np.digitize(x_test[:, age_idx], bins=[25, 50, 75])
+explainer.calibrate(x_cal, y_cal, bins=age_group_cal)
+explanations = explainer.explain_factual(x_test, bins=age_group_test)
 ```
 
 ---
@@ -141,7 +143,8 @@ explainer_global.calibrate(x_cal, y_cal)
 # Mondrian calibration (per group)
 explainer_mondrian = WrapCalibratedExplainer(model)
 explainer_mondrian.fit(x_proper, y_proper)
-mc = MondrianCategorizer(); mc.fit(x_cal, f=explainer_mondrian.learner.predict_proba, no_bins=5)
+mc = MondrianCategorizer()
+mc.fit(x_cal, f=lambda X: explainer_mondrian.learner.predict_proba(X)[:, 1], no_bins=5)
 explainer_mondrian.calibrate(x_cal, y_cal, mc=mc)
 
 # Compare interval widths per group
@@ -154,7 +157,7 @@ for gid in np.unique(group_test):
     ]))
     mondrian_w = float(np.mean([
         e.prediction["high"] - e.prediction["low"]
-        for e, m in zip(explainer_mondrian.explain_factual(x_test[mask], bins=group_test[mask]), [True]*mask.sum())
+        for e, m in zip(explainer_mondrian.explain_factual(x_test[mask]), [True]*mask.sum())
         if m
     ]))
     print(f"Group {gid}: global={global_w:.3f}  mondrian={mondrian_w:.3f}")

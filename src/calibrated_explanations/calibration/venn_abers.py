@@ -9,7 +9,6 @@ integrated with the calibrated explanations toolkit.
 Part of ADR-001: Core Decomposition Boundaries (Stage 1a).
 """
 
-import base64
 import hashlib
 import pickle  # nosec B403 - deserialization is restricted to trusted, checksum-validated state
 import warnings
@@ -20,7 +19,6 @@ import venn_abers as va
 
 from ..core.prediction.interval_summary import IntervalSummary, coerce_interval_summary
 from ..utils import convert_targets_to_numeric
-from ..utils.deprecations import deprecate
 from ..utils.exceptions import ConfigurationError
 from .normalization_strategy import NormalizationStrategy, coerce_normalization_strategy
 
@@ -418,57 +416,13 @@ class VennAbers:
         schema_version = payload.get("schema_version")
         if schema_version == 2:
             return cls._from_primitive_v2(payload)
-        if schema_version != 1:
-            raise ConfigurationError(
-                "Unsupported VennAbers schema_version. Supported versions: [1, 2].",
-                details={"schema_version": schema_version, "supported_versions": [1, 2]},
-            )
-        deprecate(
-            "VennAbers state at schema_version 1 uses pickle serialization and will not load "
-            "in v1.0.0. Re-save your WrapCalibratedExplainer state to upgrade.",
-            key="venn_abers_primitive_v1",
-            stacklevel=3,
-            raise_on_error=False,
+        raise ConfigurationError(
+            "Unsupported VennAbers schema_version. Only schema_version 2 is supported in "
+            "v1.0.0. Schema_version 1 (pickle) was removed. To migrate, load your state "
+            "with calibrated-explanations v0.11.x and re-save with "
+            "WrapCalibratedExplainer.save_state().",
+            details={"schema_version": schema_version, "supported_versions": [2]},
         )
-        calibrator_type = payload.get("calibrator_type")
-        if calibrator_type != "venn_abers":
-            raise ConfigurationError(
-                "Invalid calibrator_type for VennAbers payload.",
-                details={"calibrator_type": calibrator_type, "expected": "venn_abers"},
-            )
-        payload_section = payload.get("payload")
-        if not isinstance(payload_section, Mapping):
-            raise ConfigurationError(
-                "VennAbers primitive payload is missing 'payload' mapping.",
-                details={"field": "payload"},
-            )
-        pickle_b64 = payload_section.get("pickle_b64")
-        if not isinstance(pickle_b64, str):
-            raise ConfigurationError(
-                "VennAbers primitive payload is missing 'pickle_b64'.",
-                details={"field": "payload.pickle_b64"},
-            )
-        payload_bytes = base64.b64decode(pickle_b64.encode("ascii"))
-        checksums = payload.get("checksums")
-        if not isinstance(checksums, Mapping):
-            raise ConfigurationError(
-                "VennAbers primitive payload is missing checksum metadata.",
-                details={"field": "checksums"},
-            )
-        expected_sha = checksums.get("sha256")
-        actual_sha = hashlib.sha256(payload_bytes).hexdigest()
-        if not isinstance(expected_sha, str) or expected_sha != actual_sha:
-            raise ConfigurationError(
-                "VennAbers primitive checksum validation failed.",
-                details={"expected_sha256": expected_sha, "actual_sha256": actual_sha},
-            )
-        restored = pickle.loads(payload_bytes)  # noqa: S301  # nosec B301 - trusted, checksum-validated payload
-        if not isinstance(restored, cls):
-            raise ConfigurationError(
-                "VennAbers primitive payload restored unexpected object type.",
-                details={"restored_type": type(restored).__name__},
-            )
-        return restored
 
     @classmethod
     def _from_primitive_v2(cls, payload: Mapping[str, object]) -> "VennAbers":

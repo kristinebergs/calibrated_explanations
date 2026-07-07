@@ -1,4 +1,4 @@
-# CE-REQ-EXPL-FILTER-COUNTER-001 — Counter-Explanations Filter API Contract
+# CE-REQ-EXPL-FILTER-COUNTER-001 - Counter-Explanations Filter API Contract
 
 ## Metadata
 
@@ -7,16 +7,19 @@
 | requirement_id | CE-REQ-EXPL-FILTER-COUNTER-001 |
 | obligation_type | api_contract |
 | claim_refs | CE-CAP-EXPL-FILTER-001 |
+| adr_refs | ADR-027 |
 | status | active |
+| verification_status | verified |
+| tif_refs | CE-TIF-FILTER-001 |
 | applicable_on | collection (AlternativeExplanations) and individual (AlternativeExplanation) |
 
 ## Scope
 
 Public API:
 - `AlternativeExplanations.counter_explanations(only_ensured, include_potential, copy)` (collection)
-- `AlternativeExplanations.counter(...)` (alias — delegator, same contract)
+- `AlternativeExplanations.counter(...)` (alias - delegator, same contract)
 - `AlternativeExplanation.counter_explanations(only_ensured, include_potential, copy)` (individual)
-- `AlternativeExplanation.counter(...)` (alias — delegator, same contract)
+- `AlternativeExplanation.counter(...)` (alias - delegator, same contract)
 
 Counter-explanations are rules that do **not support** the predicted class (supporting the opposite class or outcome).
 
@@ -41,13 +44,13 @@ Applicable workflow: fit-calibrate-explore_alternatives-counter_explanations.
 
 **Default parameters (only_ensured=False, include_potential=True):**
 
-Collection: `alternatives.counter_explanations()` → non-None, `len == len(X_test)`.
+Collection: `alternatives.counter_explanations()` Ã¢â€ â€™ non-None, `len == len(X_test)`.
 
-Individual: `alternatives[0].counter_explanations()` → non-None.
+Individual: `alternatives[0].counter_explanations()` Ã¢â€ â€™ non-None.
 
 **With only_ensured=True:**
 
-Collection: `alternatives.counter_explanations(only_ensured=True)` → non-None, `len == len(X_test)`.
+Collection: `alternatives.counter_explanations(only_ensured=True)` Ã¢â€ â€™ non-None, `len == len(X_test)`.
 
 **Alias check:** `alternatives.counter()` produces a result equal in structure to `alternatives.counter_explanations()`.
 
@@ -62,6 +65,13 @@ Test IDs:
 - `test_should_return_counter_explanations_when_alias_counter_used`
 
 (in `tests/capabilities/test_filter_contracts.py`)
+
+## Verification targets
+
+- `pytest: tests/capabilities/test_filter_contracts.py::test_should_return_counter_explanations_when_default_params_collection`
+- `pytest: tests/capabilities/test_filter_contracts.py::test_should_return_counter_explanations_when_only_ensured_true_collection`
+- `pytest: tests/capabilities/test_filter_contracts.py::test_should_return_counter_explanations_when_individual_explanation`
+- `pytest: tests/capabilities/test_filter_contracts.py::test_should_return_counter_explanations_when_alias_counter_used`
 
 ## Evidence required
 

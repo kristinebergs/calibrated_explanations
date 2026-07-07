@@ -62,12 +62,10 @@ class NormalizationStrategy(Enum):
 
 
 def coerce_normalization_strategy(value: Any) -> NormalizationStrategy:
-    """Return a validated NormalizationStrategy, defaulting to SIMPLEX.
+    """Return a validated NormalizationStrategy, defaulting to SCALE.
 
-    Accepts a ``NormalizationStrategy`` member, its string value
-    (case-insensitive), or a legacy bool (``True`` → COHERENCE with a
-    deprecation warning, ``False`` → NONE with a deprecation warning).
-    Any unrecognised value falls back to SCALE.
+    Accepts a ``NormalizationStrategy`` member or its string value
+    (case-insensitive). Any unrecognised value falls back to SCALE.
 
     Parameters
     ----------
@@ -81,29 +79,6 @@ def coerce_normalization_strategy(value: Any) -> NormalizationStrategy:
     """
     if isinstance(value, NormalizationStrategy):
         return value
-    if isinstance(value, bool):
-        from calibrated_explanations.utils.deprecations import (
-            deprecate,  # pylint: disable=import-outside-toplevel
-        )
-
-        if value:
-            deprecate(
-                "Passing normalize=True is deprecated and will be removed in v1.0.0. "
-                "Use normalization=NormalizationStrategy.COHERENCE (or 'coherence') instead. "
-                "The new default is NormalizationStrategy.SIMPLEX.",
-                key="normalize_true_bool",
-                stacklevel=3,
-                raise_on_error=False,
-            )
-            return NormalizationStrategy.COHERENCE
-        deprecate(
-            "Passing normalize=False is deprecated and will be removed in v1.0.0. "
-            "Use normalization=NormalizationStrategy.NONE (or 'none') instead.",
-            key="normalize_false_bool",
-            stacklevel=3,
-            raise_on_error=False,
-        )
-        return NormalizationStrategy.NONE
     if isinstance(value, str):
         try:
             return NormalizationStrategy(value.lower())

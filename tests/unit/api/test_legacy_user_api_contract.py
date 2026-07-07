@@ -70,10 +70,10 @@ def test_calibrated_explainer_factories_support_expected_keywords():
         assert "low_high_percentiles" in params
         assert "bins" in params
         assert "features_to_ignore" in params
-        # guarded is a keyword-only policy flag added in v0.11.3
-        assert "guarded" in params
-        # features_to_ignore must come before guarded in the signature
-        assert params.index("features_to_ignore") < params.index("guarded")
+        # guarded_options is the keyword-only policy parameter in v1.0.0 (replaced guarded=True)
+        assert "guarded_options" in params
+        # features_to_ignore must come before guarded_options in the signature
+        assert params.index("features_to_ignore") < params.index("guarded_options")
 
 
 def test_explanation_collection_api_is_stable():

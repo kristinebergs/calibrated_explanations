@@ -3,11 +3,14 @@ claim_type: capability
 owner: calibrated_explanations
 status: current
 
+adr_links:
+  - ADR-013
+  - ADR-021
+
 claim_text: >
-  calibrated_explanations returns calibrated uncertainty intervals for predictions
-  via WrapCalibratedExplainer.predict with uq_interval=True (or predict_proba with
-  uq_interval=True for classification). The returned low and high bounds represent
-  calibrated uncertainty around the point prediction.
+  calibrated_explanations provides calibrated uncertainty prediction intervals
+  through WrapCalibratedExplainer, returning lower and upper bounds alongside
+  point predictions for supported task types.
 
 public_api:
   - calibrated_explanations.core.wrap_explainer.WrapCalibratedExplainer.predict

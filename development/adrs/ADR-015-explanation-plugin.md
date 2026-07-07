@@ -366,6 +366,13 @@ custom containers; it is the plugin author’s responsibility to ensure
 downstream tooling can consume those results.
 No mandatory JSON contract is imposed by the plugin interface.
 
+
+## Governed claims
+
+- `CE-CAP-PLUGIN-001` — calibrated_explanations exposes an extensible plugin system through the   calibrated_explanations.plugins module: ExplainerPlugin defines the protocol for   custom explanation backends, and IntervalCalibratorPlugin defines the protocol for   custom interval calibrators, enabling replacement of default internal implementations.
+- `CE-CAP-EXPL-001` — calibrated_explanations produces calibrated factual explanations for individual   instances via WrapCalibratedExplainer.explain_factual, returning feature   contributions with calibrated probability uncertainty for the predicted class.
+- `CE-CAP-EXPL-002` — calibrated_explanations produces calibrated alternative (counterfactual-style)   explanations for individual instances via WrapCalibratedExplainer.explore_alternatives,   identifying feature changes that would shift the prediction toward an alternative outcome.
+
 ## Consequences
 
 - **Backward compatibility:** Public APIs and explanation outputs remain

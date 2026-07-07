@@ -326,7 +326,7 @@ def _build_perf_factory(cfg: Any) -> _ConfigPerfFactory:
 
     parallel_cfg = ParallelConfig(
         enabled=getattr(cfg, "perf_parallel_enabled", False),
-        strategy=getattr(cfg, "perf_parallel_backend", "auto"),
+        strategy=getattr(cfg, "perf_parallel_backend", "sequential"),
         max_workers=getattr(cfg, "perf_parallel_workers", None),
         min_batch_size=getattr(cfg, "perf_parallel_min_batch", 8),
         min_instances_for_parallel=getattr(cfg, "perf_parallel_min_instances", None),

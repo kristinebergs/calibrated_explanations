@@ -19,27 +19,7 @@ from .orchestrator import ExplanationOrchestrator
 from .parallel_instance import InstanceParallelExplainExecutor
 from .sequential import SequentialExplainExecutor
 
-
-def explain(*args, **kwargs):
-    """Forward calls to the legacy explain implementation (deprecated)."""
-    from calibrated_explanations.utils.deprecations import (
-        deprecate,  # pylint: disable=import-outside-toplevel
-    )
-
-    deprecate(
-        "calibrated_explanations.core.explain.explain is deprecated and will be removed in v1.0.0; "
-        "use CalibratedExplainer.explain_factual instead.",
-        key="core.explain.explain",
-        stacklevel=2,
-        raise_on_error=False,
-    )
-    from ._legacy_explain import explain as _legacy_explain
-
-    return _legacy_explain(*args, **kwargs)
-
-
 __all__ = [
-    "explain",
     "legacy_explain",
     "discretize",
     "rule_boundaries",

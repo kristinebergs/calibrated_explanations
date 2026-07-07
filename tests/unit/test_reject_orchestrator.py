@@ -107,10 +107,3 @@ def test_should_accept_reject_confidence_kwarg_when_passed_to_predict_reject():
     x = np.array([[1.0, 2.0], [3.0, 4.0]])
     rejected, _err, _rate = orch.predict_reject(x, reject_confidence=0.80)
     assert rejected.shape == (2,)
-
-
-def test_should_emit_deprecation_warning_when_confidence_kwarg_used_in_predict_reject():
-    orch = make_patched_orchestrator()
-    x = np.array([[1.0, 2.0]])
-    with pytest.warns(DeprecationWarning, match="confidence="):
-        orch.predict_reject(x, confidence=0.80)

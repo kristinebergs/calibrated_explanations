@@ -1,0 +1,38 @@
+claim_id: CE-CAP-PREPROC-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-009
+
+claim_text: >
+  Wrapper preprocessing learns and reuses deterministic feature mappings while keeping the core numeric and preserving provenance boundaries.
+
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-009 preprocessor compliance
+  covers a single integration point: the calibration-to-inference mapping pipeline. The
+  preprocessing contract is verified by integration tests through the wrapper public
+  workflow. No separate API contract, schema, or error behavior requirement is warranted
+  without a new ADR extension specifically scoping those dimensions.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-PREPROC-GOV-001
+
+verification:
+  proves:
+    - runtime_behavior
+  verification_type: automated_executable_evidence
+assumptions:
+  - This capability is verified by the executable evidence targets named by its requirement.
+  - Metadata linkage checks are drift guards only and do not prove this capability behavior.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

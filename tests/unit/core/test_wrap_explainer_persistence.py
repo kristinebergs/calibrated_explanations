@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+import pickle
+import warnings
 from pathlib import Path
 from typing import Any
 
@@ -52,6 +54,56 @@ def test_save_and_load_state_roundtrip_classification(tmp_path: Path) -> None:
     wrapper.save_state(state_dir)
     restored = WrapCalibratedExplainer.load_state(state_dir)
     reloaded = restored.predict_proba(x_test, uq_interval=True)
+
+    assert_payload_close(baseline, reloaded)
+
+
+def test_should_pickle_silently_when_conditional_mc_is_absent(tmp_path: Path) -> None:
+    """Wrappers without mc should serialize without fallback warnings."""
+    x, y = make_classification(
+        n_samples=64,
+        n_features=4,
+        n_informative=3,
+        n_redundant=0,
+        random_state=17,
+    )
+    wrapper = WrapCalibratedExplainer(RandomForestClassifier(n_estimators=12, random_state=6))
+    wrapper.fit(x[:32], y[:32])
+    wrapper.calibrate(x[32:48], y[32:48], bins=(x[32:48, 0] >= 0).astype(int))
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        pickle_payload = pickle.dumps(wrapper)
+        wrapper.save_state(tmp_path / "silent_state")
+
+    assert pickle_payload
+    assert caught == []
+
+
+def test_should_preserve_predictions_when_reloaded_with_same_bins(tmp_path: Path) -> None:
+    """Explicit conditional bins should round-trip through persistence unchanged."""
+    x, y = make_classification(
+        n_samples=96,
+        n_features=5,
+        n_informative=4,
+        n_redundant=0,
+        random_state=21,
+    )
+    x_train, y_train = x[:48], y[:48]
+    x_cal, y_cal = x[48:72], y[48:72]
+    x_test = x[72:84]
+    bins_cal = (x_cal[:, 0] >= 0).astype(int)
+    bins_test = (x_test[:, 0] >= 0).astype(int)
+
+    wrapper = WrapCalibratedExplainer(RandomForestClassifier(n_estimators=18, random_state=8))
+    wrapper.fit(x_train, y_train)
+    wrapper.calibrate(x_cal, y_cal, bins=bins_cal)
+    baseline = wrapper.predict_proba(x_test, bins=bins_test)
+
+    state_dir = tmp_path / "explicit_bins_state"
+    wrapper.save_state(state_dir)
+    restored = WrapCalibratedExplainer.load_state(state_dir)
+    reloaded = restored.predict_proba(x_test, bins=bins_test)
 
     assert_payload_close(baseline, reloaded)
 

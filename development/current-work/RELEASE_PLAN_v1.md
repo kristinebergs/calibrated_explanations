@@ -34,7 +34,7 @@ Detailed ADR/Standard status tables, gap inventories, and historical compliance 
 ### Control snapshot
 
 - **Current released version:** v0.11.4
-- **Active detailed milestone:** v1.0.0-rc
+- **Active detailed milestone:** v0.11.5 (inserted 2026-07-07 before v1.0.0-rc)
 - **Next milestone:** v1.0.0-rc
 - **Status appendix:** `development/current-work/RELEASE_PLAN_status_appendix.md`
 
@@ -46,7 +46,7 @@ A milestone cannot close while any of the following remains open:
 - Failing CI gates.
 - Stale or broken docs/examples.
 - Unresolved ADR or standards contradictions.
-- Any active deprecation scheduled to survive into v1.0.0.
+- Any active deprecation in the RC ledger; no active deprecation may survive into v1.0.0.
 - Open high-severity runtime bug.
 - Incomplete milestone scope.
 
@@ -63,7 +63,7 @@ A milestone cannot close while any of the following remains open:
   - public API contract frozen;
   - CI gates green;
   - docs/examples current and passing;
-  - zero active deprecations scheduled to survive into v1.0.0;
+  - zero active deprecations in the RC ledger;
   - no unresolved ADR or standards contradiction;
   - no open high-severity runtime bug;
   - release artifacts built and installation-smoke-tested.
@@ -73,11 +73,11 @@ A milestone cannot close while any of the following remains open:
 ### Active control items
 
 - **Milestone execution control**
-  - **Status:** Active milestone is v0.11.4; `development/current-work/v0.11.4_plan.md` is the maintained detailed control surface.
-  - **Next action:** Finish v0.11.4 closure validation, then promote v1.0.0-rc at the next milestone boundary.
+  - **Status:** Active milestone is v0.11.5 (inserted 2026-07-07 between v0.11.4 and v1.0.0-rc); `development/current-work/v0.11.5_plan.md` is the maintained detailed control surface. `development/current-work/v1.0.0-rc_plan.md` remains baselined and resumes unchanged after v0.11.5 closes.
+  - **Next action:** Execute v0.11.5: release the already-implemented RC Task 0 deprecation-closure work currently unreleased on main, and implement ADR-039 conditional (Mondrian) calibration remediation as fail-fast bug fixes with zero new deprecation cycles. Then re-enter v1.0.0-rc validation and freeze.
 - **Future milestone discipline**
-  - **Status:** v1.0.0-rc planning remains bounded to validation/freeze work; v0.11.4 carries the remaining pre-RC implementation closures.
-  - **Next action:** Re-baseline RC status only after v0.11.4 implementation closure is verified.
+  - **Status:** v1.0.0-rc is validation-and-freeze only; all pre-RC implementation work closes in v0.11.5 (replanned 2026-07-07 from v0.11.4 to carry ADR-039 conditional-calibration remediation and the already-finished RC deprecation-closure work). Next planned GA is v1.0.0.
+  - **Next action:** After all v1.0.0-rc gates pass, promote to v1.0.0 GA and close the release series.
 - **Boundary-update policy**
   - **Status:** Governance/planning docs are updated at milestone boundaries, not on every PR.
   - **Next action:** Apply batched plan-grooming updates at milestone close/open checkpoints to keep process overhead low.
@@ -125,7 +125,7 @@ Gap-by-gap severity tables now live only in `development/current-work/RELEASE_PL
 
 **ADR-010 - Optional Dependency Split:** Completed; core-only vs extras parity checks are in place. No open appendix gaps.
 
-**ADR-011 - Deprecation and Migration Policy:** Completed (2026-06-15). The two-minor default remains normal policy; all active deprecations are filed with v1.0.0 removal ETAs under the binding finalization exception. All three 2026-06-11 reopened gaps closed: (1) guarded wrappers removed in v0.11.3 via finalization exception; (2) active-deprecations ledger rebuilt with 9 correctly filed rows, `make deprecation-closure` passes (0 blocking); (3) raw `DeprecationWarning` sites in `normalization_strategy.py`, `core/reject.py`, `core/explain/__init__.py`, and `core/calibrated_explainer.py` all use `deprecate()` helper. No open appendix gaps.
+**ADR-011 - Deprecation and Migration Policy:** Completed (2026-06-15). The two-minor default remains normal policy; the v1.0.0 RC/GA gate is stricter: `make deprecation-closure` must prove the Active deprecations ledger is empty and no active deprecation may survive into v1.0.0. All three 2026-06-11 reopened gaps closed: (1) guarded wrappers removed in v0.11.3 via finalization exception; (2) active-deprecations ledger rebuilt for pre-RC cleanup evidence; RC must re-run `make deprecation-closure` and obtain zero active rows; (3) raw `DeprecationWarning` sites in `normalization_strategy.py`, `core/reject.py`, `core/explain/__init__.py`, and `core/calibrated_explainer.py` all use `deprecate()` helper. No open appendix gaps.
 
 **ADR-012 - Documentation & Gallery Build Policy:** Accepted; gallery-tooling decision closed (nbconvert, 2026-06-02). Re-evidenced 2026-06-11: notebook execution exists (nightly advisory driver with timeouts; `nbsphinx_execute="always"` on non-RTD builds). Gap 1 closed (v0.11.4): docs HTML/linkcheck CI job wired via `docs-build` job in `ci-nightly.yml` calling `reusable-build-docs.yml`. Gap 2 (per-example runtime ceiling enforcement) remains advisory-only; blocking enforcement is a release-branch obligation. Target: v1.0.0-rc.
 
@@ -155,7 +155,7 @@ Gap-by-gap severity tables now live only in `development/current-work/RELEASE_PL
 
 **ADR-028 - Logging and Governance Observability:** Completed (2026-06-18); warning-policy closure holds, operational loggers are in accepted domains, and `configure_logging()` is implemented. No open appendix gaps.
 
-**ADR-029 - Reject Integration Strategy:** Accepted (2026-01-06); policy enum, strategy registry, and reject envelope direction documented in ADR-029. `RejectResult` → `RejectResultV2` public-API migration: an active `deprecate()` call is present in `explanations/reject.py`; under ADR-011 finalization exception all active deprecations must be closed in v0.11.x. Migration or deprecation reset (removing the active warning and deferring to post-v1.0) must be resolved in v0.11.3 Task 5 (Group L). RC does not implement this; RC only verifies the deprecation ledger is empty.
+**ADR-029 - Reject Integration Strategy:** Accepted (2026-01-06); policy enum, strategy registry, and reject envelope direction documented in ADR-029. `RejectResult` → `RejectResultV2` public-API migration: the active warning path was reset in v0.11.3 Group L, keeping `RejectResult` stable for v1.0.0 and deferring any future migration to a fresh post-v1 ADR-011 cycle. RC must verify the deprecation ledger is empty; it must not carry a v1.0.0-targeted active deprecation or perform planned GA-time removals.
 
 **ADR-030 - Test Quality Priorities and Enforcement:** Accepted; v0.11.0 delivered full detector extension and CI check-mode enforcement (assertion + determinism checks). Zero-tolerance ratification (marker hygiene, mutation testing policy) targets v0.11.3.
 
@@ -172,6 +172,10 @@ Gap-by-gap severity tables now live only in `development/current-work/RELEASE_PL
 **ADR-037 - Visualization Extension and Rendering Governance:** Completed (2026-06-18); v0.11.4 migrated plugin metadata to six semantic plot kinds, deprecated category vocabulary, and documented `triangular` as internal routing. No open appendix gaps.
 
 **ADR-038 - Call-time Configuration Taxonomy and Naming Conventions:** Accepted with RC graduation item only (2026-06-18); v0.11.4 closed plugin taxonomy policy drift, warning allowlist drift, and unknown wrapper-kwarg visibility. Remaining item: `**kwargs` graduation gate for v1.0.0-rc.
+
+**ADR-039 - Conditional Calibration and Explanation Semantics:** Accepted (2026-07-07); full implementation targeted at v0.11.5 (bins/mc channel exclusivity, fail-fast inference consistency, lifecycle reset with `reuse_conditional` opt-in, `mc` serialization visibility, conditional documentation corrections). No deprecation cycles introduced; remediation ships as fail-fast bug fixes to keep the RC ledger empty. Canonical implementation contract: `development/current-work/v0.11.5_plan.md`.
+
+**ADR-040 - Capability Verification Framework and Requirements-as-Code Governance:** Accepted (2026-07-07); ratifies the already-implemented cross-capability verification framework (claims → requirements → TIF interfaces → tests/gates → evidence) with canonical locations, requirements-as-code fields, TIF public-API rules, evidence semantics, and assumption boundaries. Release gates: `make capability-chain-check` (structural, per-PR safe) and `make capability-evidence-refresh` (release boundary, waivable only with owner and follow-up). v0.11.5 ratifies the framework and extends the Mondrian chain under it (ADR-039 D6); Mondrian is one application, not the framework boundary. Ratification task: v0.11.5 plan Task 6A.
 
 **Standard-001 - Nomenclature Standardization:** Completed; nomenclature guardrails and transitional shim removals are closed. No open appendix gaps.
 
@@ -201,6 +205,7 @@ Gap-by-gap severity tables now live only in `development/current-work/RELEASE_PL
 | v0.11.2 | Gap audit quick-win docs updates only; no doc-build changes. | Minor maintenance only. | No new coverage work planned. | No new naming work; enforcement maintained. | ConfigManager completion (ADR-034 Phase B), ADR governance sweep, governance dashboard artifact, LIME/SHAP v0.11.2 removal phase (Task 21 execution), deep memory audit (retention/leak fixes), PlotSpec default-promotion follow-up decision (ADR-036/ADR-037), ADR-035 conformance gap remediation, and packaging metadata maturity correction. |
 | v0.11.3 | Minimal docs-build changes; Standard-002 numpydoc gap closure. | Close WrapCalibratedExplainer numpydoc blocks (Standard-002). | No new coverage work planned. | Final transitional shim removal (Standard-001). | RC readiness: Standard-001 shim closure, Standard-002 gap, ADR-030 zero-tolerance ratification, OSS perf harness (stretch), RejectResult→V2 migration (Group L, ADR-011 finalization), configuration management contract closure (Task 10), RC upgrade checklist + safe-defaults guide (Task 11). All implementation work that was previously in v1.0.0-rc is now in this milestone. |
 | v0.11.4 | ADR-012 release-branch docs hardening plus plugin-contract migration notes. | No broad code-doc initiative; targeted ADR/STD documentation closure only. | No broad coverage initiative; targeted tests added for ADR-031, ADR-038, plugins, logging, CI, and persistence. | No broad naming initiative. | Pre-RC ADR gap closure: Tasks 1-19 closed or explicitly deferred. Major closures include ADR-004, ADR-008, ADR-012, ADR-013, ADR-015, ADR-021, ADR-026, ADR-027, ADR-028/STD-005, ADR-031, ADR-033, ADR-037, ADR-038 hardening, ADR-030/005/006 fixes, documentation migration, capability scaffold, and nightly parity-reference determinism. |
+| v0.11.5 | Conditional/Mondrian documentation corrected (mondrian playbook, EU compliance playbooks, agent guide, task API comparison). | Targeted numpydoc corrections for `bins`/`mc` semantics only. | Targeted regression tests for the six ADR-039 defect classes; no broad initiative. | No naming work (`reuse_conditional` naming reviewed under ADR-038). | ADR-039 conditional calibration hardening: bins/mc channel exclusivity, fail-fast inference consistency, lifecycle reset with opt-in reuse, serialization visibility. Also ships the already-implemented RC Task 0 deprecation closure (ledger attribution updated to v0.11.5). |
 | v1.0.0 | Docs maintenance review; parity checks remain blocking. | Continuous improvement cadence; badge and quarterly reviews. | Waiver backlog should be zero; mutation/fuzzing exploration optional. | Final shim removals verified post-tag; legacy API guard tests green. | Stability declaration: RC contract freeze confirmed, production staging signed off, post-release maintenance cadences scheduled, and packaging classifier promoted to `Development Status :: 5 - Production/Stable` at GA cutover. |
 
 ### v0.6.x (stabilisation patches)
@@ -615,6 +620,63 @@ Release gate: Plugin registries enforce trust and protocol policies, extras inst
 | Unfrozen nested context fields / rule-level semantics | ADR-026 gap 1/3 | 6/9 | **Closed v0.11.4:** nested freezing verified; rule-level validation and trusted built-in exemption documented |
 | Docs HTML/linkcheck CI job wired (nightly advisory) | ADR-012 Gap 1 | - | **Closed v0.11.4:** `docs-build` job added to `ci-nightly.yml`; release-branch strict docs workflow added in Task 16 |
 
+**Milestone closure — 2026-06-19:** v0.11.4 is complete. All 19 tasks implemented and verified (7 items explicitly deferred to post-v1.0 or v1.0.0-rc assessment). Key closures: ADR-004 `strategy="auto"` deprecation and v1.0.0 removal ledger row; ADR-006 checksum trust-elevation bypass closed and keyed trust controls retained; ADR-008 domain-authoritative serialization boundary, typed `CalibrationDescriptor`/`ModelDescriptor` descriptors, and multiclass `class_index` preservation; ADR-012 docs HTML/linkcheck CI job wired via `docs-build` in `ci-nightly.yml` and release-branch strict docs workflow; ADR-013 runtime output validation, frozen-context replacement, and pre-plugin migration guidance; ADR-015 `ExplainerHandle.learner` deprecation and broad delegation documented; ADR-021 calibrated interval semantics verified; ADR-026 rule-level batch validation and trusted built-in monitor exemption; ADR-027 non-strict feature-filter events reclassified to `DEBUG`; ADR-028/STD-005 `configure_logging()` and operational logger domain compliance closed; ADR-031 calibrator primitives migrated to JSON-safe schema v2 with v1 migration warnings and round-trip tests; ADR-033 `data_modalities` fail-closed enforcement (ValidationError on missing key); ADR-037 plugin metadata migrated to six semantic plot kinds with `triangular` documented as internal routing; ADR-038 plugin taxonomy policy and warning allowlist drift closed; documentation migration to canonical `development/` map; capability test scaffold; and nightly parity-reference determinism (scoped scikit-learn version overlay). Remaining-scope table records 7 explicitly deferred items (ADR-008 core-pipeline authority, ADR-038 `**kwargs` graduation, ADR-029 lifecycle hooks, ADR-034 sensitive-value redaction and `export_effective()` schema contract, ADR-035 branch-protection flip). Gates: `make local-checks-pr` ✅, `make deprecation-closure` ✅ (11 active v1.0.0 permitted, 0 blocking), `python scripts/quality/check_warning_policy.py` ✅ (0 UNCLASSIFIED), `2155 passed, 2 skipped`, coverage `90.02%`. Version tagged: `0.11.4`. Next: v0.11.5 (inserted 2026-07-07), then v1.0.0-rc.
+
+### v0.11.5 (conditional calibration hardening — ADR-039; capability verification framework ratification — ADR-040)
+
+> **Replanning note (2026-07-07):** This milestone was inserted between v0.11.4 and
+> v1.0.0-rc. Rationale: the ADR-039 conditional-calibration defects (empirically
+> confirmed silent-correctness failures in a fairness-critical path) require planned
+> implementation work that the RC posture prohibits, and tagging v1.0.0 with those
+> defects frozen into the API contract — then breaking behavior post-1.0 — is worse
+> than one additional pre-RC release. The milestone also releases the v1.0.0-rc
+> Task 0 deprecation-closure work already implemented on main after v0.11.4.
+> Detailed control surface: `development/current-work/v0.11.5_plan.md`.
+
+1. Ratify ADR-039 (Conditional Calibration and Explanation Semantics), including the
+   D4 `reuse_conditional` opt-in amendment; Draft → Accepted.
+2. Implement ADR-039 D2/D3: single shared bins-resolution helper replacing the three
+   duplicated fallback sites; `bins` XOR `mc` channel exclusivity at `calibrate`;
+   fail-fast `ValidationError`/`ConfigurationError` replacing (a) the
+   calibration-bins fallback at inference, (b) the silent ignore of test bins on
+   globally calibrated explainers, (c) silent zero-probabilities for unseen bin
+   labels; bins length validation at the public entry boundary.
+3. Implement ADR-039 D4: per-calibration conditional state (re-calibration without
+   `bins`/`mc` resets to global) with explicit `calibrate(..., reuse_conditional=True)`
+   opt-in for reusing a stored `mc`.
+4. Implement ADR-039 D5: `UserWarning` + INFO log when pickling/`save_state` drops a
+   configured `mc`; loaded conditional wrappers require explicit `bins` with a clear
+   error instead of post-load `IndexError`.
+5. Correct conditional documentation (ADR-039 D7): `docs/practitioner/playbooks/mondrian-calibration.md`,
+   `docs/practitioner/playbooks/eu-ai-act-compliance.md`,
+   `docs/practitioner/playbooks/eu-data-liability-compliance.md`,
+   `docs/get-started/ce_first_agent_guide.md`, `docs/practitioner/task_api_comparison.md`,
+   and the `ce-mondrian-conditional` skill (all currently teach bins-only-at-explain,
+   categorizer-as-`bins`, or invalid `MondrianCategorizer` constructor calls).
+6. Extend the Mondrian capability chain (ADR-039 D6): broaden `CE-CAP-MOND-001` (or add
+   companion claims) to inline-`bins` calibration, regression task types, and the
+   inference-consistency contract; add requirements/TIF coverage and regression tests
+   for each defect class (failing before, passing after).
+7. Release bookkeeping for the carried RC work: `docs/migration/deprecations.md`
+   history rows for the 15 removed symbols updated from `Removed in: 1.0.0` to
+   `Removed in: v0.11.5` (the version in which users actually lose access);
+   `docs/upgrade/v1.0.0-upgrade-checklist.md` aligned.
+8. Ratify ADR-040 (Capability Verification Framework and Requirements-as-Code
+   Governance): align release governance and framework documentation with the
+   already-implemented capability verification chain, run `make
+   capability-chain-check`, and run `make capability-evidence-refresh` at release
+   closure (or record an explicit waiver with owner and follow-up). Position the
+   Mondrian chain extension (item 6) as one application of the framework, not the
+   framework itself. Detailed steps: v0.11.5 plan Task 6A.
+
+Release gate: ADR-039 Accepted; all six empirically confirmed conditional defect
+classes covered by regression tests; zero new active-deprecation rows (`make
+deprecation-closure` remains green — v0.11.5 introduces no new deprecation cycles);
+conditional docs corrected and consistent with implementation; deprecation ledger
+history attribution updated to v0.11.5; CHANGELOG migration notes present for every
+ADR-039 behavior change; ADR-040 Accepted with `make capability-chain-check`
+passing and `make capability-evidence-refresh` run at release closure or explicitly
+waived; `make local-checks-pr` passes.
 
 ### v1.0.0-rc (release candidate readiness)
 
@@ -636,7 +698,7 @@ Release gate: Plugin registries enforce trust and protocol policies, extras inst
   ADR-034 deferred items → resolved without RC work: sensitive-value redaction declared out of scope for v1.0.0; export schema versioning already implemented (ResolvedConfigSnapshot.schema_version).
 -->
 
-> **RC posture:** v1.0.0-rc is a validation and freeze milestone only. No implementation work is permitted here. If a release-blocking defect requires a code fix, the fix is considered an emergency patch, not a planned RC task.
+> **RC posture:** v1.0.0-rc is validation/freeze by default. Planned implementation is prohibited except for explicitly listed RC-blocking API-finalization/governance-closure items already targeted at RC. The only currently allowed planned implementation item is ADR-038 `**kwargs` graduation for `explain_factual` / `explore_alternatives` (including `WrapCalibratedExplainer` delegator alignment, focused tests, docs, and status synchronization). No unrelated feature work, performance work, broad refactoring, or post-v1 scope may be pulled into RC. Any other code change during RC is an emergency release-blocking patch, not a planned task.
 
 1. Confirm Explanation Schema v1 is content-complete and frozen (any schema gaps
    must be resolved in v0.11.3 before RC); publish the compatibility statement
@@ -658,7 +720,7 @@ Release gate: Plugin registries enforce trust and protocol policies, extras inst
    `Development Status :: 4 - Beta` and publish RC release notes stating the
    public API is frozen except for release-blocking defects.
 
-Release gate: Explanation Schema v1 frozen and compatibility statement published; wrap interface and exception taxonomy compatibility confirmed against v0.6.x; caching/parallel staging validation signed off and telemetry verified against v0.11.3 documentation; Standard-002 ≥90% verified; upgrade checklist present, accurate, and reviewed; deprecation ledger is empty (zero active deprecations; verified as closed by v0.11.3); RC package metadata is `Development Status :: 4 - Beta`; RC release notes state the public API freeze posture.
+Release gate: Explanation Schema v1 frozen and compatibility statement published; wrap interface and exception taxonomy compatibility confirmed against v0.6.x; caching/parallel staging validation signed off and telemetry verified against v0.11.3 documentation; Standard-002 ≥90% verified; upgrade checklist present, accurate, and reviewed; deprecation ledger is empty (zero active deprecations, proven by `make deprecation-closure` during RC); RC package metadata is `Development Status :: 4 - Beta`; RC release notes state the public API freeze posture.
 ### v1.0.0 (stability declaration)
 
 <!-- Removed item #6 (Ratify ADR-030): moved to v0.11.3 so ratification informs RC readiness. -->
@@ -672,8 +734,7 @@ Release gate: Explanation Schema v1 frozen and compatibility statement published
    caching and parallelisation guidance.
 4. Confirm that staging validation signed off at v1.0.0-rc remains valid — no new
    staging runs are performed at GA unless a release-blocking defect was patched
-   after RC cut. Confirm zero active deprecations (verified by v0.11.3 Task 5
-   Group L resolution and the empty deprecation ledger gate at RC).
+   after RC cut. Confirm zero active deprecations (verified by the empty deprecation ledger gate at RC; GA must not perform planned deprecation removals).
 5. Confirm Standard-001/Standard-002 guardrails remain enforced post-tag, monitor the
    caching/parallel telemetry dashboards, and schedule maintenance cadences
    (coverage/docstring audits, performance regression sweeps) for the first

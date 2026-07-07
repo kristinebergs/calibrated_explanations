@@ -1,0 +1,37 @@
+claim_id: CE-CAP-VALID-001
+claim_type: capability
+owner: calibrated_explanations
+status: current
+adr_links:
+  - ADR-002
+
+claim_text: >
+  Public validation failures use the CE exception taxonomy rather than ad-hoc generic exceptions where ADR-002 scope applies.
+
+atomic_rationale: >
+  This governance claim maps to one requirement because ADR-002 exception taxonomy
+  compliance is a single static policy check: no bare ValueError/Exception at the
+  public boundary. Decomposing per-exception type would produce a catalog of the same
+  static policy applied to different error paths.
+
+public_api: []
+
+task_types:
+  - governance
+
+requirements:
+  - CE-REQ-VALID-EXCEPTION-001
+
+verification:
+  proves:
+    - static_policy
+  verification_type: automated_executable_evidence
+assumptions:
+  - This capability is verified by the executable evidence targets named by its requirement.
+  - Metadata linkage checks are drift guards only and do not prove this capability behavior.
+
+evidence_required:
+  - commit_sha
+  - package_version
+  - test_id
+  - result

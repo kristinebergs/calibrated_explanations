@@ -55,6 +55,11 @@ semantics while allowing future migrations.
      (probability bounds, interval ordering, and monotonicity expectations).
    - Mapping primitives must remain JSON-safe and deterministic per ADR-009.
 
+
+## Governed claims
+
+- `CE-CAP-SERIAL-001` — Calibrator and explainer persistence use versioned primitive state and fail fast on incompatible schema versions.
+
 ## Consequences
 
 Positive:

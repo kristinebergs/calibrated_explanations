@@ -77,15 +77,13 @@ def test_venn_abers_roundtrip_predictions_match() -> None:
     )
 
 
-def test_venn_abers_from_primitive_v1_emits_deprecation_warning() -> None:
-    """VennAbers schema v1 pickle primitives remain loadable but warn."""
+def test_venn_abers_from_primitive_v1_raises_configuration_error() -> None:
+    """VennAbers schema v1 pickle primitives raise ConfigurationError in v1.0.0."""
     wrapper, _ = _classification_wrapper()
     calibrator = wrapper.explainer.interval_learner
 
-    with pytest.warns(DeprecationWarning, match="schema_version 1"):
-        restored = VennAbers.from_primitive(_v1_primitive(calibrator, "venn_abers"))
-
-    assert isinstance(restored, VennAbers)
+    with pytest.raises(ConfigurationError, match="schema_version"):
+        VennAbers.from_primitive(_v1_primitive(calibrator, "venn_abers"))
 
 
 def test_venn_abers_from_primitive_unsupported_version_raises() -> None:
@@ -149,15 +147,13 @@ def test_interval_regressor_roundtrip_predictions_match() -> None:
     )
 
 
-def test_interval_regressor_from_primitive_v1_emits_deprecation_warning() -> None:
-    """IntervalRegressor schema v1 pickle primitives remain loadable but warn."""
+def test_interval_regressor_from_primitive_v1_raises_configuration_error() -> None:
+    """IntervalRegressor schema v1 pickle primitives raise ConfigurationError in v1.0.0."""
     wrapper, _, _ = _regression_wrapper()
     calibrator = wrapper.explainer.interval_learner
 
-    with pytest.warns(DeprecationWarning, match="schema_version 1"):
-        restored = IntervalRegressor.from_primitive(_v1_primitive(calibrator, "interval_regressor"))
-
-    assert isinstance(restored, IntervalRegressor)
+    with pytest.raises(ConfigurationError, match="schema_version"):
+        IntervalRegressor.from_primitive(_v1_primitive(calibrator, "interval_regressor"))
 
 
 def test_interval_regressor_from_primitive_unsupported_version_raises() -> None:

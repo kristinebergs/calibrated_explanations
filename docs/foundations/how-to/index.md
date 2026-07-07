@@ -8,6 +8,7 @@ Practical recipes for integrating calibrated explanations into production.
 integrate_with_pipelines
 configure_telemetry
 configure_runtime
+conditional_calibration
 safe-defaults
 export_explanations
 to_narrative

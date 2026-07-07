@@ -3,6 +3,30 @@
 
 ## [Unreleased]
 
+- **ADR-038 RC graduation planning:** v1.0.0-rc remains validation/freeze by default, but now explicitly allows only one planned implementation item: closing the ADR-038 `**kwargs` graduation gate for `explain_factual` / `explore_alternatives` and aligned `WrapCalibratedExplainer` delegators. The RC deprecation gate is strict: `make deprecation-closure` must prove zero active deprecations, not merely zero blocking deprecations, before tagging RC.
+- **ADR-039 (Accepted): Conditional (Mondrian) calibration and explanation semantics.** Accepted ADR codifying the `bins`/`mc` contract through `calibrate`, `predict`, and explain paths: channel exclusivity and precedence, calibrate/inference consistency requirements, unseen-label and length validation, lifecycle reset on re-calibration (with an explicit `reuse_conditional` opt-in to stay conditional), and `mc` serialization visibility. The defect inventory motivating the contract and its remediation tasks live in `development/current-work/v0.11.5_plan.md`.
+- **ADR-040 (Accepted): Capability verification framework and requirements-as-code governance.** Ratifies the capability verification framework already implemented across the CE capability surface: capability claims, requirements-as-code, TIF (Test Interface Framework) public-API verification interfaces, capability-contract tests, and raw/curated evidence records with explicit assumption boundaries. The active TIF registry spans explanations, conjunctions, filtering, guarded explanations, Mondrian conditional calibration, narratives, prediction, classification, probabilistic regression, reject policies, and visualization. The v0.11.5 Mondrian capability-chain extension (ADR-039 D6) is one application of this framework, not its scope. Release gates: `make capability-chain-check` (structural) and `make capability-evidence-refresh` (release boundary).
+- **v0.11.5 replanning:** Inserted a v0.11.5 milestone between v0.11.4 and v1.0.0-rc (`development/current-work/v0.11.5_plan.md`). v0.11.5 ships the already-implemented RC Task 0 deprecation-closure work (ledger attribution moves to `Removed in: v0.11.5`) and the full ADR-039 conditional-calibration remediation as fail-fast bug fixes with zero new deprecation cycles, so the v1.0.0 API freeze is not built on known silent-correctness defects. v1.0.0-rc remains validation/freeze and resumes unchanged after v0.11.5 closes.
+
+### Added
+
+- **ADR-039:** Added `WrapCalibratedExplainer.calibrate(..., reuse_conditional=True)` to explicitly reuse a stored Mondrian categorizer on a new calibration set.
+- Added `docs/foundations/how-to/conditional_calibration.md` as the canonical conditional/Mondrian calibration how-to.
+
+### Fixed
+
+- **ADR-039:** Conditional inference now fails fast when inline `bins=` calibration is used without inference-time `bins=`, when `bins=` is supplied after global calibration, when explicit `bins=` conflicts with stored `mc=`, when labels are outside the calibration vocabulary, or when bin-label lengths do not match the input sample count.
+- **ADR-039:** Recalibrating without `bins=` or `mc=` now resets conditional state to global calibration. Use `reuse_conditional=True` to opt into reusing a stored categorizer.
+- **ADR-039:** Pickle and `save_state()` now emit `UserWarning` plus INFO logging when dropping a configured `mc`; loaded conditional wrappers require explicit `bins=` instead of failing later in calibrator internals.
+- Corrected conditional calibration examples across practitioner playbooks, the CE-first agent guide, task API comparison, classification task docs, and the `ce-mondrian-conditional` skill.
+
+### Removed
+
+- Carried RC deprecation-closure removals now ship in v0.11.5: guarded legacy kwargs (`guarded=True`, `significance=`, `n_neighbors=`, `normalize_guard=`, `merge_adjacent=`), `confidence=` reject aliases, boolean `NormalizationStrategy.coerce()` aliases, `calibrated_explanations.core.reject` module shim, `calibrated_explanations.core.explain.explain(...)`, `ExplainerHandle.learner`, `ParallelConfig(strategy="auto")` with `enabled=True`, `CalibratedExplanations.legacy_payload(exp)`, schema v1 pickle primitive loaders for `VennAbers` and `IntervalRegressor`, and legacy plugin `plot_kinds` category vocabulary.
+
+### Bug fixes
+- **ADR-037: Fixed collection-level plot plugin ranking option forwarding.** `CalibratedExplanations.plot()` now forwards explicit `rnk_metric`, `rnk_weight`, `uncertainty`, and `filter_top` values to collection plugin `options` for custom styles, so plugin-rendered collection plots apply caller-selected ranking instead of silently falling back to plugin defaults.
+
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v0.11.4...main)
 
 ## [v0.11.4](https://github.com/Moffran/calibrated_explanations/releases/tag/v0.11.4) - 2026-06-19

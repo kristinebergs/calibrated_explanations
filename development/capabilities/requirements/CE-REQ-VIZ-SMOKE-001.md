@@ -1,4 +1,4 @@
-# CE-REQ-VIZ-SMOKE-001 — Visualization Smoke Test Contract
+# CE-REQ-VIZ-SMOKE-001 - Visualization Smoke Test Contract
 
 ## Metadata
 
@@ -7,7 +7,10 @@
 | requirement_id | CE-REQ-VIZ-SMOKE-001 |
 | obligation_type | empirical_smoke |
 | claim_refs | CE-CAP-VIZ-001 |
+| adr_refs | ADR-023, ADR-036, ADR-037 |
 | status | active |
+| verification_status | verified |
+| tif_refs | CE-TIF-VIZ-001 |
 
 ## Scope
 
@@ -41,6 +44,10 @@ Test ID:
 - `test_should_not_raise_when_plot_called_with_agg_backend`
 
 (in `tests/capabilities/test_visualization_contracts.py`)
+
+## Verification targets
+
+- `pytest: tests/capabilities/test_visualization_contracts.py::test_should_not_raise_when_plot_called_with_agg_backend`
 
 ## Evidence required
 

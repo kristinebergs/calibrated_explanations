@@ -35,7 +35,7 @@ uncertainty-aware information.
 framework. Built on Venn-Abers calibration and conformal prediction, it delivers
 three complementary outputs: (1) **factual rule tables** — human-readable per-instance
 feature attributions with statistically valid uncertainty intervals, (2)
-**counterfactual alternatives** — minimal actionable changes that would flip or shift
+**(counterfactual) alternatives** — minimal actionable changes that would flip or shift
 the prediction, and (3) **calibrated probability intervals** — empirically valid
 coverage-guarantee bounds that can be used to trigger human oversight when uncertainty
 is unacceptably high. These outputs map directly onto the transparency, documentation,
@@ -166,6 +166,8 @@ import numpy as np
 # e.g., derived from a protected demographic attribute
 group_labels_cal = x_cal[:, protected_feature_idx]
 group_labels_test = X_query[:, protected_feature_idx]
+
+explainer.calibrate(x_cal, y_cal, bins=group_labels_cal)
 
 # Mondrian-calibrated factual explanation — separate intervals per group
 factual = explainer.explain_factual(X_query, bins=group_labels_test)
@@ -468,7 +470,7 @@ final decision, the probability and interval, and the alternative rules.
 | Article | Obligation summary | CE feature / method | Status |
 |---|---|---|---|
 | Art. 9 | Identify and quantify AI system risks throughout lifecycle | `predict_proba(uq_interval=True)` — interval width as risk indicator | **Covered** |
-| Art. 10 | Examine training data for bias; ensure representativeness across groups | `explain_factual(bins=group_labels)` — Mondrian per-group intervals | **Covered** |
+| Art. 10 | Examine training data for bias; ensure representativeness across groups | `calibrate(..., bins=group_labels_cal)` then `explain_factual(..., bins=group_labels_test)` - Mondrian per-group intervals | **Covered** |
 | Art. 11 + Annex IV | Produce technical documentation including accuracy and traceability | `as_json()` — serialisable explanation payload; calibration configuration | **Covered** |
 | Art. 12 | Log events: input data, result, date/time — for defined retention period | `as_json()` appended to audit log with timestamp and record ID | **Partially covered** — log infrastructure and retention policy must be provided by deployer |
 | Art. 13 | Transparent operation; deployer can interpret system outputs | `explain_factual()` — `print_rules()` human-readable rule table | **Covered** |

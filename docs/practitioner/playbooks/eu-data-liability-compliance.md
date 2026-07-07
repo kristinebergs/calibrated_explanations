@@ -617,7 +617,10 @@ evidence documentation.
 ```python
 import numpy as np
 
+group_labels_cal = user_segment_labels_cal
 group_labels = user_segment_labels   # e.g., age group, region, platform tenure
+
+explainer.calibrate(x_cal, y_cal, bins=group_labels_cal)
 
 probs, (low, high) = explainer.predict_proba(
     X_users, uq_interval=True, bins=group_labels
@@ -655,11 +658,12 @@ a particular disadvantage without objective justification (Art. 2(1)(b) in each)
 
 Mondrian conditional calibration provides the primary analytical tool:
 
-- **Per-group prediction distributions:** `predict_proba(bins=group_labels)` reveals
+- **Per-group prediction distributions:** `calibrate(..., bins=group_labels_cal)`
+  followed by `predict_proba(..., bins=group_labels)` reveals
   whether predicted probabilities are systematically different across groups.
 - **Per-group uncertainty:** Wider intervals for a protected group indicate reduced
   reliability -- a direct quantitative indicator of indirect adverse impact.
-- **Per-group feature importance:** `explain_factual(bins=group_labels)` identifies
+- **Per-group feature importance:** `explain_factual(..., bins=group_labels)` identifies
   whether different features drive predictions across groups, the first step in
   detecting proxy discrimination.
 
@@ -669,8 +673,15 @@ Mondrian conditional calibration provides the primary analytical tool:
 import numpy as np
 from scipy import stats
 
+protected_labels_cal = x_cal[:, protected_feature_idx]
 protected_labels = x_val[:, protected_feature_idx]
-probs, (low, high) = explainer.predict_proba(x_val, uq_interval=True)
+
+explainer.calibrate(x_cal, y_cal, bins=protected_labels_cal)
+probs, (low, high) = explainer.predict_proba(
+    x_val,
+    uq_interval=True,
+    bins=protected_labels,
+)
 
 # Step 1: Compare outcome distributions across protected groups
 for group in np.unique(protected_labels):
