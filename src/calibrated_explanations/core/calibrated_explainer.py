@@ -2089,11 +2089,13 @@ class CalibratedExplainer:
         from ..api.params import (
             canonicalize_kwargs,
             reject_removed_aliases,
+            reject_removed_reject_kwargs,
             validate_param_combination,
         )
 
         # reject removed aliases and normalize kwargs
         reject_removed_aliases(kwargs)
+        reject_removed_reject_kwargs(kwargs)
         kwargs = canonicalize_kwargs(kwargs)
         validate_param_combination(kwargs)
         if "interval_summary" not in kwargs or kwargs["interval_summary"] is None:
@@ -2167,10 +2169,7 @@ class CalibratedExplainer:
 
         # Reject policy active: use orchestrator to apply policy and return RejectResult envelope
         bins_arg = kwargs.pop("bins", None)
-        _old_conf = kwargs.pop("confidence", None)
-        confidence_arg = kwargs.pop(
-            "reject_confidence", _old_conf if _old_conf is not None else 0.95
-        )
+        confidence_arg = kwargs.pop("reject_confidence", 0.95)
         rr = self.reject_orchestrator.apply_policy(
             policy,
             x,
@@ -2300,20 +2299,19 @@ class CalibratedExplainer:
         from ..api.params import (
             canonicalize_kwargs,
             reject_removed_aliases,
+            reject_removed_reject_kwargs,
             validate_param_combination,
         )
 
         # reject removed aliases and normalize kwargs
         reject_removed_aliases(kwargs)
+        reject_removed_reject_kwargs(kwargs)
         kwargs = canonicalize_kwargs(kwargs)
         validate_param_combination(kwargs)
 
         # Inject default interval_summary if not provided
         kwargs.setdefault("interval_summary", self.interval_summary)
-        _old_conf = kwargs.pop("confidence", None)
-        confidence_arg = kwargs.pop(
-            "reject_confidence", _old_conf if _old_conf is not None else 0.95
-        )
+        confidence_arg = kwargs.pop("reject_confidence", 0.95)
 
         # Resolve reject policy (per-call override else explainer default)
         from .reject.policy import RejectPolicy as _RejectPolicy

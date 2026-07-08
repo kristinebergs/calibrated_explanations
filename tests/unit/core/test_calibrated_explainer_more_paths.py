@@ -330,6 +330,32 @@ def test_invalid_confidence_rejected_across_predict_and_explain(bad_confidence):
         )
 
 
+def test_removed_reject_confidence_alias_rejected_across_predict_and_predict_proba():
+    dataset = make_binary_dataset()
+    (
+        x_prop_train,
+        y_prop_train,
+        x_cal,
+        y_cal,
+        x_test,
+        _y_test,
+        _,
+        _,
+        categorical_features,
+        feature_names,
+    ) = dataset
+
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    cal_exp = initiate_explainer(
+        model, x_cal, y_cal, feature_names, categorical_features, mode="classification"
+    )
+
+    with pytest.raises(ConfigurationError, match="reject_confidence"):
+        cal_exp.predict(x_test[:3], reject_policy=RejectPolicy.FLAG, confidence=0.5)
+    with pytest.raises(ConfigurationError, match="reject_confidence"):
+        cal_exp.predict_proba(x_test[:3], reject_policy=RejectPolicy.FLAG, confidence=0.5)
+
+
 def test_reject_context_uses_source_indices_for_only_accepted(monkeypatch):
     dataset = make_binary_dataset()
     (

@@ -9,6 +9,11 @@
 
 - Split local verification into `make quick`, `make local-checks-task TASK=<n>`, `make local-checks-pr`, `make local-checks-full`, and `make local-checks-release`, and clarified `local-checks-ci` / `ci-local-runblocks` as workflow run-block smoke rather than full CI parity. Release-plan task closure should now use the task-focused profile instead of defaulting to PR-scope checks.
 
+### Fixed
+
+- Fail-fast closure of the silent guarded-kwarg sink: `guarded=`, `significance=`, `n_neighbors=`, `normalize_guard=`, and `merge_adjacent=` (removed in v0.11.5) now raise `ConfigurationError` with `GuardedOptions` migration guidance from `CalibratedExplainer.explain_factual` / `explore_alternatives` and the `WrapCalibratedExplainer` delegators, instead of being silently swallowed by the `**kwargs` sink. `_KNOWN_PUBLIC_KWARGS` no longer allowlists `guarded`, `n_neighbors`, or `merge_adjacent`.
+- Fail-fast reject-policy kwarg validation now closes the silent `predict_reject` / `apply_policy` sink: removed `confidence=` now raises with `reject_confidence=` migration guidance, reject-kwarg typos no longer vanish silently, and the wrapper/core reject-policy prediction paths reject the removed alias consistently.
+
 ## [v0.11.5](https://github.com/Moffran/calibrated_explanations/releases/tag/v0.11.5) - 2026-07-07
 
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v0.11.4...v0.11.5)

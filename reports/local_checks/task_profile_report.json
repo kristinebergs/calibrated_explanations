@@ -1,15 +1,15 @@
 {
   "commands_run": [
-    "python -m ruff check src/calibrated_explanations/api/params.py src/calibrated_explanations/core/calibrated_explainer.py src/calibrated_explanations/core/wrap_explainer.py tests/unit/core/test_calibrated_explainer_more_paths.py tests/unit/core/test_wrap_explainer_core.py tests/integration/core/test_guarded_audit_integration.py tests/unit/core/explain/test_guarded_audit.py",
-    "python -m ruff format --check src/calibrated_explanations/api/params.py src/calibrated_explanations/core/calibrated_explainer.py src/calibrated_explanations/core/wrap_explainer.py tests/unit/core/test_calibrated_explainer_more_paths.py tests/unit/core/test_wrap_explainer_core.py tests/integration/core/test_guarded_audit_integration.py tests/unit/core/explain/test_guarded_audit.py",
+    "python -m ruff check tests/unit/test_reject_orchestrator.py tests/unit/test_reject_prediction_api.py tests/unit/core/test_calibrated_explainer_predict_reject.py tests/unit/core/test_reject_orchestrator_resilience.py",
+    "python -m ruff format --check tests/unit/test_reject_orchestrator.py tests/unit/test_reject_prediction_api.py tests/unit/core/test_calibrated_explainer_predict_reject.py tests/unit/core/test_reject_orchestrator_resilience.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python -m pytest -q tests/unit/core/test_calibrated_explainer_more_paths.py tests/unit/core/test_wrap_explainer_core.py -o addopts= --no-cov"
+    "python -m pytest -q tests/unit/test_reject_orchestrator.py tests/unit/test_reject_prediction_api.py tests/unit/core/test_calibrated_explainer_predict_reject.py tests/unit/core/test_reject_orchestrator_resilience.py -o addopts= --no-cov"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-08T08:10:36.722162+00:00",
+  "generated_at": "2026-07-08T08:40:29.588327+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -51,5 +51,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 2
+  "task_id": 3
 }

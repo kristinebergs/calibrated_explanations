@@ -36,6 +36,10 @@ REMOVED_GUARDED_KWARG_MAP: dict[str, str] = {
     "merge_adjacent": "guarded_options=GuardedOptions(merge_adjacent=...)",
 }
 
+REMOVED_REJECT_KWARG_MAP: dict[str, str] = {
+    "confidence": "reject_confidence",
+}
+
 # Kept for API compatibility; no active alias mapping remains after v0.11.0.
 ALIAS_MAP: dict[str, str] = {}
 
@@ -101,6 +105,27 @@ def reject_removed_guarded_kwargs(kwargs: dict[str, Any]) -> None:
     )
 
 
+def reject_removed_reject_kwargs(kwargs: dict[str, Any]) -> None:
+    """Reject reject-policy kwargs removed in v0.11.5 with migration guidance."""
+    used = {
+        name: replacement
+        for name, replacement in REMOVED_REJECT_KWARG_MAP.items()
+        if name in kwargs
+    }
+    if not used:
+        return
+    formatted = ", ".join(f"'{name}' -> '{replacement}'" for name, replacement in used.items())
+    raise ConfigurationError(
+        "Reject-policy keyword arguments were removed in v0.11.5. "
+        f"Use canonical names instead: {formatted}.",
+        details={
+            "removed_kwargs": list(used.keys()),
+            "replacements": used,
+            "removed_in": "v0.11.5",
+        },
+    )
+
+
 def validate_param_combination(kwargs: dict[str, Any]) -> None:
     """Perform basic consistency checks for parameter combinations (ADR-002).
 
@@ -135,8 +160,10 @@ __all__ = [
     "ALIAS_MAP",
     "REMOVED_ALIAS_MAP",
     "REMOVED_GUARDED_KWARG_MAP",
+    "REMOVED_REJECT_KWARG_MAP",
     "canonicalize_kwargs",
     "reject_removed_guarded_kwargs",
+    "reject_removed_reject_kwargs",
     "reject_removed_aliases",
     "validate_param_combination",
 ]

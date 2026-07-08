@@ -15,6 +15,7 @@ import numpy as np
 from crepes import ConformalClassifier
 from crepes.extras import hinge
 
+from ...api.params import reject_removed_reject_kwargs
 from ...explanations.reject import (
     RejectContractWarning,
     RejectDecisionArtifact,
@@ -113,6 +114,23 @@ def validate_reject_w(w: Any) -> float:
             details={"w": value},
         )
     return value
+
+
+def reject_unknown_reject_kwargs(
+    kwargs: dict[str, Any], *, allowed: tuple[str, ...] = (), surface: str
+) -> None:
+    """Reject unexpected public kwargs on reject-policy entry points."""
+    unknown = sorted(name for name in kwargs if name not in allowed)
+    if not unknown:
+        return
+    raise ConfigurationError(
+        f"{surface} received unknown keyword arguments: {unknown}.",
+        details={
+            "surface": surface,
+            "unknown_kwargs": unknown,
+            "allowed_kwargs": list(allowed),
+        },
+    )
 
 
 def _thresholds_equal(lhs: Any, rhs: Any) -> bool:
@@ -2046,6 +2064,8 @@ class RejectOrchestrator:
             predictions that are incorrect, and ``reject_rate`` is the fraction of
             instances rejected.
         """
+        reject_removed_reject_kwargs(kwargs)
+        reject_unknown_reject_kwargs(kwargs, surface="predict_reject")
         breakdown = self.predict_reject_breakdown(
             x, bins=bins, confidence=reject_confidence, threshold=threshold
         )
@@ -2083,8 +2103,27 @@ class RejectOrchestrator:
         Returns
         -------
         RejectResult
-            Envelope with `prediction`, `explanation`, `rejected`, `policy`, and `metadata`.
+            Envelope with `prediction`, `explanation`, `rejected`, `policy`, and metadata.
         """
+        reject_removed_reject_kwargs(kwargs)
+        if explain_fn is None:
+            reject_unknown_reject_kwargs(
+                kwargs,
+                allowed=(
+                    "strategy",
+                    "result_schema",
+                    "interval_summary",
+                    "include_prediction_set",
+                    "include_prediction_payload",
+                    "novelty_estimator",
+                    "novelty_weight",
+                    "ambiguity_estimator",
+                    "_precomputed_breakdown",
+                    "_metadata_overrides",
+                    "_reject_raise",
+                ),
+                surface="apply_policy",
+            )
         confidence = validate_reject_confidence(reject_confidence)
         # Allow callers to select a strategy identifier via the `strategy` kwarg.
         # By default, resolve to `builtin.default` which preserves legacy semantics.

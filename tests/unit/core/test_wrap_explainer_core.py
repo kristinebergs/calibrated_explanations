@@ -104,6 +104,16 @@ def test_should_raise_configuration_error_when_removed_guarded_kwarg_is_normaliz
     assert replacement in message
 
 
+def test_should_raise_configuration_error_when_removed_reject_confidence_alias_is_normalized():
+    w = WrapCalibratedExplainer(learner=SimpleNamespace(fitted=True))
+
+    with pytest.raises(ConfigurationError) as exc_info:
+        w.normalize_public_kwargs({"confidence": 0.5})
+    message = str(exc_info.value)
+    assert "removed in v0.11.5" in message
+    assert "reject_confidence" in message
+
+
 @pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives", "explain_fast"])
 @pytest.mark.parametrize(
     ("removed_kwarg", "value", "replacement"),
@@ -154,5 +164,5 @@ def test_should_raise_configuration_error_when_removed_guarded_kwargs_are_passed
 
 
 def test_known_public_kwargs_should_not_reintroduce_removed_guarded_names():
-    removed_names = {"guarded", "n_neighbors", "merge_adjacent"}
+    removed_names = {"confidence", "guarded", "n_neighbors", "merge_adjacent"}
     assert removed_names.isdisjoint(_KNOWN_PUBLIC_KWARGS)
