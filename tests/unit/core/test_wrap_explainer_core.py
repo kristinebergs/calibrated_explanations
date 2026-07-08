@@ -3,7 +3,12 @@ from types import SimpleNamespace
 
 import pytest
 
-from calibrated_explanations.core.wrap_explainer import WrapCalibratedExplainer
+from tests.helpers.dataset_utils import make_binary_dataset
+from tests.helpers.model_utils import get_classification_model
+from calibrated_explanations.core.wrap_explainer import (
+    WrapCalibratedExplainer,
+    _KNOWN_PUBLIC_KWARGS,
+)
 from calibrated_explanations.utils.exceptions import ConfigurationError
 
 
@@ -75,3 +80,79 @@ def test_normalize_public_kwargs_and_import_mapping_stash(monkeypatch):
     with pytest.warns(UserWarning):
         w.import_preprocessor_mapping(mapping)
     # We do not introspect private stash attributes; only ensure a warning was raised.
+
+
+@pytest.mark.parametrize(
+    ("removed_kwarg", "value", "replacement"),
+    [
+        ("guarded", True, "guarded_options=GuardedOptions()"),
+        ("significance", 0.1, "GuardedOptions(confidence=1-significance)"),
+        ("n_neighbors", 5, "GuardedOptions(n_neighbors=...)"),
+        ("normalize_guard", True, "GuardedOptions(normalize=...)"),
+        ("merge_adjacent", True, "GuardedOptions(merge_adjacent=...)"),
+    ],
+)
+def test_should_raise_configuration_error_when_removed_guarded_kwarg_is_normalized(
+    removed_kwarg, value, replacement
+):
+    w = WrapCalibratedExplainer(learner=SimpleNamespace(fitted=True))
+
+    with pytest.raises(ConfigurationError) as exc_info:
+        w.normalize_public_kwargs({removed_kwarg: value})
+    message = str(exc_info.value)
+    assert "removed in v0.11.5" in message
+    assert replacement in message
+
+
+@pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives", "explain_fast"])
+@pytest.mark.parametrize(
+    ("removed_kwarg", "value", "replacement"),
+    [
+        ("guarded", True, "guarded_options=GuardedOptions()"),
+        ("significance", 0.1, "GuardedOptions(confidence=1-significance)"),
+        ("n_neighbors", 5, "GuardedOptions(n_neighbors=...)"),
+        ("normalize_guard", True, "GuardedOptions(normalize=...)"),
+        ("merge_adjacent", True, "GuardedOptions(merge_adjacent=...)"),
+    ],
+)
+def test_should_raise_configuration_error_when_removed_guarded_kwargs_are_passed_through_wrapper_delegation(
+    method_name, removed_kwarg, value, replacement
+):
+    dataset = make_binary_dataset()
+    (
+        x_prop_train,
+        y_prop_train,
+        x_cal,
+        y_cal,
+        x_test,
+        _y_test,
+        _,
+        _,
+        categorical_features,
+        feature_names,
+    ) = dataset
+
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    wrapper = WrapCalibratedExplainer(model)
+    wrapper.fit(x_prop_train, y_prop_train)
+    wrapper.calibrate(
+        x_cal,
+        y_cal,
+        mode="classification",
+        feature_names=feature_names,
+        categorical_features=categorical_features,
+    )
+
+    method = getattr(wrapper, method_name)
+
+    with pytest.raises(ConfigurationError) as exc_info:
+        method(x_test[:2], **{removed_kwarg: value})
+    message = str(exc_info.value)
+    assert "removed in v0.11.5" in message
+    assert "GuardedOptions" in message
+    assert replacement in message
+
+
+def test_known_public_kwargs_should_not_reintroduce_removed_guarded_names():
+    removed_names = {"guarded", "n_neighbors", "merge_adjacent"}
+    assert removed_names.isdisjoint(_KNOWN_PUBLIC_KWARGS)

@@ -319,9 +319,7 @@ def test_guarded_audit__merge_fails_rerenders_original_bins():
     # will typically fail; individual bins at their own representative may still pass.
     result = explainer.explain_factual(
         x_cal[:2],
-        guarded_options=GuardedOptions(confidence=0.05),
-        merge_adjacent=True,
-        n_neighbors=3,
+        guarded_options=GuardedOptions(confidence=0.05, merge_adjacent=True, n_neighbors=3),
     )
     audit = result.get_guarded_audit()
     all_records = [r for inst in audit["instances"] for r in inst["intervals"]]

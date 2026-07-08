@@ -6,7 +6,7 @@ from tests.helpers.model_utils import get_classification_model, get_regression_m
 from tests.helpers.dataset_utils import make_binary_dataset, make_regression_dataset
 from tests.helpers.explainer_utils import initiate_explainer
 from calibrated_explanations.explanations.reject import RejectResult, RejectPolicy
-from calibrated_explanations.utils.exceptions import ValidationError
+from calibrated_explanations.utils.exceptions import ConfigurationError, ValidationError
 
 
 def test_predict_skip_reject_internal_returns_prediction():
@@ -193,6 +193,50 @@ def test_invalid_explicit_policy_fails_fast_across_predict_and_explain():
 
     with pytest.raises(ValidationError, match="Unknown reject policy string"):
         cal_exp.explain_factual(x_test[:2], reject_policy="not-a-policy")
+
+
+@pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives"])
+@pytest.mark.parametrize(
+    ("removed_kwarg", "value", "replacement"),
+    [
+        ("guarded", True, "guarded_options=GuardedOptions()"),
+        ("significance", 0.1, "GuardedOptions(confidence=1-significance)"),
+        ("n_neighbors", 5, "GuardedOptions(n_neighbors=...)"),
+        ("normalize_guard", True, "GuardedOptions(normalize=...)"),
+        ("merge_adjacent", True, "GuardedOptions(merge_adjacent=...)"),
+    ],
+)
+def test_should_fail_fast_when_removed_guarded_kwargs_are_passed_to_core_explain_apis(
+    method_name, removed_kwarg, value, replacement
+):
+    dataset = make_binary_dataset()
+    (
+        x_prop_train,
+        y_prop_train,
+        x_cal,
+        y_cal,
+        x_test,
+        _y_test,
+        _,
+        _,
+        categorical_features,
+        feature_names,
+    ) = dataset
+
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    cal_exp = initiate_explainer(
+        model, x_cal, y_cal, feature_names, categorical_features, mode="classification"
+    )
+
+    method = getattr(cal_exp, method_name)
+    kwargs = {removed_kwarg: value}
+
+    with pytest.raises(ConfigurationError) as exc_info:
+        method(x_test[:2], **kwargs)
+    message = str(exc_info.value)
+    assert "removed in v0.11.5" in message
+    assert "GuardedOptions" in message
+    assert replacement in message
 
 
 def test_reject_confidence_forwarded_across_explain_and_guarded_paths(monkeypatch):

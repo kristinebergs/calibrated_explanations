@@ -28,6 +28,14 @@ REMOVED_ALIAS_MAP: dict[str, str] = {
     "n_jobs": "parallel_workers",
 }
 
+REMOVED_GUARDED_KWARG_MAP: dict[str, str] = {
+    "guarded": "guarded_options=GuardedOptions()",
+    "significance": "guarded_options=GuardedOptions(confidence=1-significance)",
+    "n_neighbors": "guarded_options=GuardedOptions(n_neighbors=...)",
+    "normalize_guard": "guarded_options=GuardedOptions(normalize=...)",
+    "merge_adjacent": "guarded_options=GuardedOptions(merge_adjacent=...)",
+}
+
 # Kept for API compatibility; no active alias mapping remains after v0.11.0.
 ALIAS_MAP: dict[str, str] = {}
 
@@ -72,6 +80,27 @@ def reject_removed_aliases(kwargs: dict[str, Any]) -> None:
     )
 
 
+def reject_removed_guarded_kwargs(kwargs: dict[str, Any]) -> None:
+    """Reject guarded kwargs removed in v0.11.5 with actionable migration guidance."""
+    used = {
+        name: replacement
+        for name, replacement in REMOVED_GUARDED_KWARG_MAP.items()
+        if name in kwargs
+    }
+    if not used:
+        return
+    formatted = ", ".join(f"'{name}' -> '{replacement}'" for name, replacement in used.items())
+    raise ConfigurationError(
+        "Guarded keyword arguments were removed in v0.11.5. "
+        f"Use GuardedOptions instead: {formatted}.",
+        details={
+            "removed_kwargs": list(used.keys()),
+            "replacements": used,
+            "removed_in": "v0.11.5",
+        },
+    )
+
+
 def validate_param_combination(kwargs: dict[str, Any]) -> None:
     """Perform basic consistency checks for parameter combinations (ADR-002).
 
@@ -105,7 +134,9 @@ def validate_param_combination(kwargs: dict[str, Any]) -> None:
 __all__ = [
     "ALIAS_MAP",
     "REMOVED_ALIAS_MAP",
+    "REMOVED_GUARDED_KWARG_MAP",
     "canonicalize_kwargs",
+    "reject_removed_guarded_kwargs",
     "reject_removed_aliases",
     "validate_param_combination",
 ]

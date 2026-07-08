@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from ..explanations import AlternativeExplanations, CalibratedExplanations
     from ..plugins.manager import PluginManager
 
+from ..api.params import reject_removed_guarded_kwargs
+
 try:
     import tomllib as _tomllib
 except ModuleNotFoundError:  # pragma: no cover - fallback for <3.11
@@ -1508,6 +1510,7 @@ class CalibratedExplainer:
             When ``reject_policy`` is non-``None``, returns
             :class:`~calibrated_explanations.explanations.reject.RejectCalibratedExplanations`.
         """
+        reject_removed_guarded_kwargs(kwargs)
         bins = resolve_conditional_bins(x, bins, calibration_bins=self.bins)
         if guarded_options is not None:
             if not _use_plugin and kwargs.get("verbose", False):
@@ -1620,6 +1623,7 @@ class CalibratedExplainer:
         When ``guarded_options`` is non-``None``, per-instance explanations are
         :class:`~calibrated_explanations.explanations.guarded_explanation.GuardedAlternativeExplanation`.
         """
+        reject_removed_guarded_kwargs(kwargs)
         bins = resolve_conditional_bins(x, bins, calibration_bins=self.bins)
         if guarded_options is not None:
             if not _use_plugin and kwargs.get("verbose", False):

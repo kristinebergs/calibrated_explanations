@@ -31,6 +31,7 @@ from crepes.extras import MondrianCategorizer
 
 from ..api.params import (
     reject_removed_aliases,
+    reject_removed_guarded_kwargs,
     validate_param_combination,
 )
 from ..utils import check_is_fitted, safe_isinstance  # noqa: F401
@@ -66,16 +67,13 @@ _KNOWN_PUBLIC_KWARGS: frozenset[str] = frozenset(
         "fast",
         "feature",
         "feature_names",
-        "guarded",
         "guarded_options",
         "include_reject_details",
         "interval_summary",
         "low_high_percentiles",
         "mc",
-        "merge_adjacent",
         "mode",
         "multi_labels_enabled",
-        "n_neighbors",
         "normalize",
         "normalization",
         "output_interval",
@@ -896,6 +894,7 @@ class WrapCalibratedExplainer:
             return {}
         original = dict(kwargs)
         reject_removed_aliases(original)
+        reject_removed_guarded_kwargs(original)
         base = dict(original)
         unknown = sorted(set(base) - _KNOWN_PUBLIC_KWARGS)
         if unknown:
