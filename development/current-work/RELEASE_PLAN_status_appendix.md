@@ -49,7 +49,7 @@ This appendix isolates detailed status material from `development/current-work/R
 | ADR-035 | Accepted with accepted operational constraint | v0.11.3 re-evaluation complete (2026-06-02): advisory-to-required branch-protection flip is platform-governed; recorded as accepted operational constraint in ADR-035 §v0.11.3 Re-evaluation Record; no in-repo work remains |
 | ADR-036 | Closed (2026-06-13) | §5 validation boundary implemented in Task 15: `validate_plot_artifact()` (public, `plotting.py:308`) called at both build/render boundary points (`plotting.py:387`, `:439`). Artifacts that fail `validate_plotspec` raise `ValidationError` before renderer invocation. 3 dedicated boundary tests in `test_plot_plugin_validation_boundary.py` pass. |
 | ADR-037 | Completed (2026-06-18) | §4 extension metadata validated. v0.11.4 Task 19 migrated plot metadata to six semantic PlotSpec kind names, deprecated category vocabulary, and documented `triangular` as internal routing; no open appendix gaps remain. |
-| ADR-038 | Accepted with RC graduation item only (2026-06-18) | Task 17 delivered `GuardedOptions`/`reject_confidence`/taxonomy; Gap 2 closed-by-policy; Gap 3 closed. v0.11.4 Task 15 added UserWarning visibility for unknown wrapper kwargs. Remaining item: `**kwargs` graduation gate (v1.0.0-rc). |
+| ADR-038 | Accepted with RC graduation item only (2026-07-08) | Task 17 delivered `GuardedOptions`/`reject_confidence`/taxonomy; Gap 2 closed-by-policy; Gap 3 closed. v0.11.6 Task 5 (2026-07-08) closed D3 (unknown-kwarg policy: fail-fast `ConfigurationError`, superseding v0.11.4 Task 15's `UserWarning`) and D4 (multi-label spelling confirmed compliant, no alias found). Remaining item: `**kwargs` graduation gate (v1.0.0-rc). |
 | ADR-040 | Accepted (2026-07-07) | Governs capability claims, requirements-as-code, TIF interfaces, tests/gates, and evidence semantics. Framework is cross-capability and already implemented; v0.11.5 ratifies the existing chain and adds release-boundary checks (`capability-chain-check`, `capability-evidence-refresh`). |
 | ADR-021 | Completed (2026-06-18) | v0.11.4 Task 17 added rule-level feature-weight interval tests in `test_invariant_consistency.py`; no open appendix gaps remain. |
 | ADR-031 | Completed (2026-06-18) | v0.11.4 Task 14 migrated `VennAbers` and `IntervalRegressor` primitives to JSON-safe schema v2, kept v1 pickle migration warnings, and added direct primitive/persistence tests; no open appendix gaps remain. |
@@ -434,9 +434,46 @@ ADR-038 accepted 2026-06-12; v0.11.3 Task 17 delivered `GuardedOptions`, `reject
 
 | Rank | Gap | Violation | Scope | Unified severity | Notes |
 | ---: | --- | ---: | ---: | ---: | --- |
-| 1 | `**kwargs` graduation gate on `explain_factual` / `explore_alternatives` | 3 | 2 | 6 | `CalibratedExplainer.explain_factual` and `explore_alternatives` (and their `WrapCalibratedExplainer` thin delegators) carry `**kwargs` marked `[EXPERIMENTAL]` per ADR-038 §3. ADR-038 §3 graduation gate: these must be replaced with explicit typed arguments before the methods exit experimental status. Target: v1.0.0-rc. |
+| 1 | `**kwargs` graduation gate on `explain_factual` / `explore_alternatives` | 3 | 2 | 6 | `CalibratedExplainer.explain_factual` and `explore_alternatives` (and their `WrapCalibratedExplainer` thin delegators) carry `**kwargs` marked `[EXPERIMENTAL]` per ADR-038 §3. ADR-038 §3 graduation gate: these must be replaced with explicit typed arguments before the methods exit experimental status. Target: v1.0.0-rc (unchanged by v0.11.6 Task 5; that milestone closes D3/D4 only, not this graduation gate). |
 **Compliance verification (2026-06-18):** `_normalize_public_kwargs` now emits a
 `UserWarning` for unknown public kwargs while preserving compatibility forwarding.
+
+**D3 resolution — unknown-kwarg policy is fail-fast (2026-07-08, v0.11.6 Task 5):**
+Superseding the 2026-06-18 verification above, `_normalize_public_kwargs`
+(`core/wrap_explainer.py`) now raises `ConfigurationError` via the shared
+`reject_unknown_public_kwargs()` helper (`api/params.py`) instead of warning; this
+mirrors the fail-fast pattern Task 3 already established for
+`reject_unknown_reject_kwargs()` on `predict_reject`/`apply_policy`. **CHANGELOG
+requirement:** this is a behavior reversal of the 2026-06-18/v0.11.4-Task-15 warn
+behavior and must be documented as such under `## [Unreleased]`, not silently
+folded into a generic bug-fix line.
+
+The Task 5 audit of every name in `_KNOWN_PUBLIC_KWARGS` (required before flipping
+to fail-fast, since raising on a name that was actually live would be a regression)
+found 9 real, documented/notebook-used parameters missing from the allow-list —
+`categorical_labels`, `class_labels`, `features_to_ignore`, `oob`, `factual_plugin`,
+`alternative_plugin`, `fast_plugin`, `interval_plugin`, `fast_interval_plugin`,
+`plot_style` — previously masked by the warn-and-forward behavior. These are added
+in the same change (`core/wrap_explainer.py`); regression tests added in
+`tests/unit/core/test_wrap_explainer_core.py`
+(`test_normalize_public_kwargs_accepts_documented_names`). A genuinely dead
+`perturb=True` kwarg (no consumer anywhere in `src/`) found in
+`tests/integration/core/test_wrap_regression.py::test_wrap_regression_fast_ce` was
+removed from the test call; it never affected behavior. No other dead names were
+found in `_KNOWN_PUBLIC_KWARGS`.
+
+**D4 resolution — multi-label spelling confirmed (2026-07-08, v0.11.6 Task 5):**
+Repo-wide search (`src/`, `tests/`) found `multi_labels_enabled` as the only
+spelling in use; no alias (`multi_label`, `multilabel`, etc.) exists. No code
+change required; D4 is compliant as-is.
+
+Gap 1 (graduation gate) is unaffected by this resolution: `multi_labels_enabled`
+and `interval_summary` on `explain_factual`/`explore_alternatives` remain
+`[EXPERIMENTAL]`-tagged `**kwargs` passthroughs per the ADR-038 §3 exception
+(explicit marker present; unknown args documented as silently ignored to the
+plugin boundary — condition 2(b) of the exception, not condition 2(a)/fail-fast,
+since that boundary forwards arbitrary plugin-defined keys and is not a closed
+enumerable set like `_KNOWN_PUBLIC_KWARGS`).
 
 ## Standards status appendix (unified severity tables)
 

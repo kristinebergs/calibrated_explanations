@@ -1,15 +1,9 @@
 {
   "commands_run": [
-    "python -m ruff check tests/unit/core/test_venn_abers.py tests/unit/core/test_calibrated_explainer_runtime_helpers.py",
-    "python -m ruff format --check tests/unit/core/test_venn_abers.py tests/unit/core/test_calibrated_explainer_runtime_helpers.py",
-    "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
-    "python scripts/quality/check_import_graph.py",
-    "python scripts/quality/check_adr002_compliance.py",
-    "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python -m pytest -q tests/unit/core/test_venn_abers.py tests/unit/core/test_calibrated_explainer_runtime_helpers.py -o addopts= --no-cov"
+    "python -m ruff check src/calibrated_explanations/core/calibrated_explainer.py src/calibrated_explanations/core/wrap_explainer.py tests/unit/core/test_calibrated_explainer_more_paths.py tests/unit/core/test_wrap_explainer_core.py"
   ],
-  "exit_status": 0,
-  "generated_at": "2026-07-08T11:28:53.814705+00:00",
+  "exit_status": 1,
+  "generated_at": "2026-07-08T18:13:01.152658+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -51,5 +45,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 4
+  "task_id": 5
 }

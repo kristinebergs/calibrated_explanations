@@ -28,7 +28,14 @@ if TYPE_CHECKING:
     from ..explanations import AlternativeExplanations, CalibratedExplanations
     from ..plugins.manager import PluginManager
 
-from ..api.params import reject_removed_guarded_kwargs
+from ..api.params import (
+    reject_cross_surface_kwargs,
+    reject_removed_aliases,
+    reject_removed_guarded_kwargs,
+    reject_removed_normalization_kwarg,
+    reject_removed_reject_kwargs,
+    reject_unknown_public_kwargs,
+)
 
 try:
     import tomllib as _tomllib
@@ -58,6 +65,139 @@ from .prediction_helpers import resolve_conditional_bins
 # - api.params (canonicalize_kwargs, etc.) - lazy in param handling
 # - plugins (IntervalCalibratorContext, PluginManager, LegacyPredictBridge) - lazy in __init__
 # - utils.discretizers (EntropyDiscretizer, RegressorDiscretizer) - lazy in validation
+
+# ADR-038 5C: extends the D3/5A/5B fail-fast policy (previously WrapCalibratedExplainer
+# only) to CalibratedExplainer itself, so direct users of this class (bypassing the
+# wrapper) get the same protection. __init__/predict/predict_proba are closed
+# surfaces (any unrecognized name raises via reject_unknown_public_kwargs).
+# explain_factual/explore_alternatives retain the ADR-038 §3 experimental
+# plugin-forwarding exception: a name genuinely unknown anywhere is treated as
+# plugin-defined and passed through; only names known on one of the *closed*
+# surfaces below but not valid here are rejected (reject_cross_surface_kwargs).
+# explain_fast has no **kwargs at all (already fully typed) and needs no set.
+
+# These allow-lists are the single source of truth for kwargs accepted on each
+# CalibratedExplainer surface. WrapCalibratedExplainer derives its own per-method
+# gates from them (v0.11.6 Task 5D) -- never redefine the same surface in both
+# modules, or the two gates will drift apart (a name accepted here must also be
+# accepted by the wrapper).
+
+# Explicit formal parameters of CalibratedExplainer.__init__ (besides
+# learner/x_cal/y_cal). They never reach __init__'s **kwargs, but callers that
+# forward a kwargs dict (WrapCalibratedExplainer.calibrate) accept them by name,
+# and the cross-surface check needs them as "known elsewhere". Kept in sync with
+# the signature by tests/unit/core/test_parameter_surface_contracts.py.
+_INIT_EXPLICIT_PARAMS: frozenset[str] = frozenset(
+    {
+        "mode",
+        "feature_names",
+        "categorical_features",
+        "categorical_labels",
+        "class_labels",
+        "bins",
+        "difficulty_estimator",
+    }
+)
+
+# used by: CalibratedExplainer.__init__ only.
+_INIT_KWARGS: frozenset[str] = frozenset(
+    {
+        "perf_cache",
+        "perf_parallel",
+        "preprocessor_metadata",
+        "predict_function",
+        "suppress_crepes_errors",
+        "oob",
+        "seed",
+        "sample_percentiles",
+        "verbose",
+        "interval_summary",
+        "fast",
+        "noise_type",
+        "scale_factor",
+        "severity",
+        "condition_source",
+        "features_to_ignore",
+        "reject",
+        "default_reject_policy",
+        "factual_plugin",
+        "alternative_plugin",
+        "fast_plugin",
+        "interval_plugin",
+        "fast_interval_plugin",
+        "plot_style",
+    }
+)
+
+# used by: CalibratedExplainer.predict only. uq_interval/calibrated are already
+# explicit named parameters and never reach **kwargs. "_ce_skip_reject" is an
+# internal escape hatch used by core/explain/orchestrator.py; "show"/
+# "style_override" are stripped defensively before validation (see predict()),
+# not allow-listed, since plot()'s kwargs flow into predict() via plot_global().
+_PREDICT_KWARGS: frozenset[str] = frozenset(
+    {
+        "threshold",
+        "low_high_percentiles",
+        "bins",
+        "classes",
+        "feature",
+        "reject_policy",
+        "reject_confidence",
+        "interval_summary",
+        "_ce_skip_reject",
+    }
+)
+
+# used by: CalibratedExplainer.predict_proba only. uq_interval/calibrated/
+# threshold are already explicit named parameters and never reach **kwargs.
+_PREDICT_PROBA_KWARGS: frozenset[str] = frozenset(
+    {
+        "bins",
+        "reject_policy",
+        "reject_confidence",
+        "interval_summary",
+        "normalization",
+        "_ce_skip_reject",
+    }
+)
+
+# used by: explain_factual() and explore_alternatives() (identical surface).
+# guarded_options/reject_policy/_use_plugin are already explicit named
+# parameters and never reach **kwargs; listed here only for readers.
+_EXPLAIN_KWARGS: frozenset[str] = frozenset(
+    {
+        "threshold",
+        "low_high_percentiles",
+        "bins",
+        "features_to_ignore",
+        "guarded_options",
+        "reject_policy",
+        "reject_confidence",  # active only when reject_policy is set
+        "multi_labels_enabled",  # EXPERIMENTAL, ADR-038 §3
+        "interval_summary",  # EXPERIMENTAL, ADR-038 §3
+        "verbose",
+    }
+)
+
+# Reference set for the explain_factual/explore_alternatives cross-surface check:
+# names known on a *closed* CalibratedExplainer surface. A name in this set but
+# not in _EXPLAIN_KWARGS is cross-method contamination and is rejected; a name
+# in neither is treated as plugin-defined and passed through untouched (ADR-038
+# §3 exception). Includes __init__/predict/predict_proba's own explicit formal
+# parameter names (mode, feature_names, ...) even though those never reach
+# **kwargs on their own methods -- they still need to be recognized as
+# "known elsewhere" so e.g. explain_factual(x, mode="regression") is rejected
+# instead of silently treated as a plugin-forwarded key.
+_CLOSED_SURFACE_KWARGS: frozenset[str] = (
+    _INIT_KWARGS
+    | _PREDICT_KWARGS
+    | _PREDICT_PROBA_KWARGS
+    | _INIT_EXPLICIT_PARAMS
+    | {
+        "uq_interval",
+        "calibrated",
+    }
+)
 
 
 class CalibratedExplainer:
@@ -126,6 +266,14 @@ class CalibratedExplainer:
             import logging
             logging.getLogger("calibrated_explanations").setLevel(logging.INFO)
         """
+        reject_removed_aliases(kwargs)
+        reject_removed_guarded_kwargs(kwargs)
+        reject_removed_reject_kwargs(kwargs)
+        reject_removed_normalization_kwarg(kwargs)
+        reject_unknown_public_kwargs(
+            kwargs, allowed=_INIT_KWARGS, surface="CalibratedExplainer.__init__"
+        )
+
         perf_cache = kwargs.pop("perf_cache", None)
         perf_parallel = kwargs.pop("perf_parallel", None)
 
@@ -1510,7 +1658,16 @@ class CalibratedExplainer:
             When ``reject_policy`` is non-``None``, returns
             :class:`~calibrated_explanations.explanations.reject.RejectCalibratedExplanations`.
         """
+        reject_removed_aliases(kwargs)
         reject_removed_guarded_kwargs(kwargs)
+        reject_removed_reject_kwargs(kwargs)
+        reject_removed_normalization_kwarg(kwargs)
+        reject_cross_surface_kwargs(
+            kwargs,
+            allowed=_EXPLAIN_KWARGS,
+            closed_surface_names=_CLOSED_SURFACE_KWARGS,
+            surface="CalibratedExplainer.explain_factual",
+        )
         bins = resolve_conditional_bins(x, bins, calibration_bins=self.bins)
         if guarded_options is not None:
             if not _use_plugin and kwargs.get("verbose", False):
@@ -1623,7 +1780,16 @@ class CalibratedExplainer:
         When ``guarded_options`` is non-``None``, per-instance explanations are
         :class:`~calibrated_explanations.explanations.guarded_explanation.GuardedAlternativeExplanation`.
         """
+        reject_removed_aliases(kwargs)
         reject_removed_guarded_kwargs(kwargs)
+        reject_removed_reject_kwargs(kwargs)
+        reject_removed_normalization_kwarg(kwargs)
+        reject_cross_surface_kwargs(
+            kwargs,
+            allowed=_EXPLAIN_KWARGS,
+            closed_surface_names=_CLOSED_SURFACE_KWARGS,
+            surface="CalibratedExplainer.explore_alternatives",
+        )
         bins = resolve_conditional_bins(x, bins, calibration_bins=self.bins)
         if guarded_options is not None:
             if not _use_plugin and kwargs.get("verbose", False):
@@ -2078,6 +2244,11 @@ class CalibratedExplainer:
         -----
         The `threshold` and `low_high_percentiles` parameters are only used for regression tasks.
         """
+        # strip plotting-only keys that callers may pass (plot()'s kwargs flow into
+        # predict() via plotting.plot_global(); see ADR-038 5C)
+        kwargs.pop("show", None)
+        kwargs.pop("style_override", None)
+
         from .prediction_helpers import (  # pylint: disable=import-outside-toplevel
             handle_uncalibrated_regression_prediction,
             handle_uncalibrated_classification_prediction,
@@ -2095,7 +2266,12 @@ class CalibratedExplainer:
 
         # reject removed aliases and normalize kwargs
         reject_removed_aliases(kwargs)
+        reject_removed_guarded_kwargs(kwargs)
         reject_removed_reject_kwargs(kwargs)
+        reject_removed_normalization_kwarg(kwargs)
+        reject_unknown_public_kwargs(
+            kwargs, allowed=_PREDICT_KWARGS, surface="CalibratedExplainer.predict"
+        )
         kwargs = canonicalize_kwargs(kwargs)
         validate_param_combination(kwargs)
         if "interval_summary" not in kwargs or kwargs["interval_summary"] is None:
@@ -2305,7 +2481,12 @@ class CalibratedExplainer:
 
         # reject removed aliases and normalize kwargs
         reject_removed_aliases(kwargs)
+        reject_removed_guarded_kwargs(kwargs)
         reject_removed_reject_kwargs(kwargs)
+        reject_removed_normalization_kwarg(kwargs)
+        reject_unknown_public_kwargs(
+            kwargs, allowed=_PREDICT_PROBA_KWARGS, surface="CalibratedExplainer.predict_proba"
+        )
         kwargs = canonicalize_kwargs(kwargs)
         validate_param_combination(kwargs)
 

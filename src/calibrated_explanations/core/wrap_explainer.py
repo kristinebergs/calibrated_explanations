@@ -32,17 +32,37 @@ from crepes.extras import MondrianCategorizer
 from ..api.params import (
     reject_removed_aliases,
     reject_removed_guarded_kwargs,
+    reject_removed_normalization_kwarg,
     reject_removed_reject_kwargs,
+    reject_unknown_public_kwargs,
     validate_param_combination,
 )
 from ..utils import check_is_fitted, safe_isinstance  # noqa: F401
 from ..utils.exceptions import (
+    ConfigurationError,
     DataShapeError,
     IncompatibleStateError,
     NotFittedError,
     ValidationError,
 )
-from .calibrated_explainer import CalibratedExplainer  # circular during split
+from .calibrated_explainer import (  # circular during split
+    _EXPLAIN_KWARGS as _CE_EXPLAIN_KWARGS,
+)
+from .calibrated_explainer import (
+    _INIT_EXPLICIT_PARAMS as _CE_INIT_EXPLICIT_PARAMS,
+)
+from .calibrated_explainer import (
+    _INIT_KWARGS as _CE_INIT_KWARGS,
+)
+from .calibrated_explainer import (
+    _PREDICT_KWARGS as _CE_PREDICT_KWARGS,
+)
+from .calibrated_explainer import (
+    _PREDICT_PROBA_KWARGS as _CE_PREDICT_PROBA_KWARGS,
+)
+from .calibrated_explainer import (
+    CalibratedExplainer,
+)
 from .prediction_helpers import (
     _apply_conditional_categorizer,
     _normalize_conditional_bins,
@@ -53,43 +73,62 @@ from .validation import validate_inputs_matrix, validate_model
 if TYPE_CHECKING:  # pragma: no cover - import only for type checking
     from calibrated_explanations.api.config import ExplainerConfig
 
-_KNOWN_PUBLIC_KWARGS: frozenset[str] = frozenset(
+# ADR-038 D3/5A/5B history: unknown public kwargs used to be warned about and
+# forwarded (v0.11.4 Task 15); v0.11.6 Task 5 made every gated method fail fast
+# against a per-method allow-list. See ADR-038's 2026-07-08 Addenda and
+# development/current-work/v0.11.6_plan.md (Tasks 5/5A/5B/5C/5D) for the full
+# rationale, including which historical names were dropped and why.
+#
+# Task 5D invariant: every per-method set below is *derived* from the
+# CalibratedExplainer allow-lists (the single source of truth in
+# calibrated_explainer.py) so the two gates cannot drift apart. Anything
+# CalibratedExplainer accepts on a surface must also be accepted by the
+# wrapper's corresponding method; the wrapper only subtracts
+# "_ce_skip_reject" (internal orchestrator escape hatch, not public API) and
+# adds names the wrapper itself consumes. Enforced by
+# tests/unit/core/test_parameter_surface_contracts.py.
+
+# used by: calibrate() only (session/construction-time configuration).
+# Everything CalibratedExplainer.__init__ accepts -- via **kwargs or as an
+# explicit formal parameter -- plus the wrapper-only "reuse_conditional".
+# perf_cache/perf_parallel are forwarded with kwargs.setdefault() in
+# calibrate(), so a call-time value wins over the wrapper attribute.
+_CALIBRATE_KWARGS: frozenset[str] = (
+    _CE_INIT_KWARGS | _CE_INIT_EXPLICIT_PARAMS | frozenset({"reuse_conditional"})
+)
+
+# used by: explain_factual() and explore_alternatives() (identical kwarg surface
+# at the CalibratedExplainer level; threshold/low_high_percentiles/bins/
+# features_to_ignore/guarded_options bind explicit formals there).
+_EXPLAIN_KWARGS: frozenset[str] = _CE_EXPLAIN_KWARGS
+
+# used by: explain_fast() only. CalibratedExplainer.explain_fast has no **kwargs
+# at all -- these mirror its fully explicit signature exactly (checked by the
+# parameter-surface contract tests).
+_EXPLAIN_FAST_KWARGS: frozenset[str] = frozenset(
     {
         "bins",
-        "categorical_features",
-        "classes",
-        "condition",
-        "condition_label",
-        "condition_labels",
-        "condition_source",
-        "default_reject_policy",
-        "difficulty_estimator",
-        "fast",
-        "feature",
-        "feature_names",
-        "guarded_options",
-        "include_reject_details",
-        "interval_summary",
-        "low_high_percentiles",
-        "mc",
-        "mode",
-        "multi_labels_enabled",
-        "normalize",
-        "normalization",
-        "output_interval",
-        "predict_function",
-        "preprocessor_metadata",
-        "reject_confidence",
-        "reject_policy",
-        "reuse_conditional",
-        "seed",
-        "show",
-        "style_override",
         "threshold",
-        "uq_interval",
-        "verbose",
-        "y_threshold",
+        "low_high_percentiles",
+        "reject_policy",
     }
+)
+
+# used by: predict() only. uq_interval/calibrated/reject_policy are explicit
+# named parameters here (reject_policy stays in the derived set harmlessly --
+# the explicit formal always captures it before **kwargs).
+_PREDICT_KWARGS: frozenset[str] = _CE_PREDICT_KWARGS - frozenset({"_ce_skip_reject"})
+
+# used by: predict_proba() only. uq_interval/calibrated/threshold/reject_policy
+# are explicit named parameters here.
+_PREDICT_PROBA_KWARGS: frozenset[str] = _CE_PREDICT_PROBA_KWARGS - frozenset({"_ce_skip_reject"})
+
+_KNOWN_PUBLIC_KWARGS: frozenset[str] = (
+    _CALIBRATE_KWARGS
+    | _EXPLAIN_KWARGS
+    | _EXPLAIN_FAST_KWARGS
+    | _PREDICT_KWARGS
+    | _PREDICT_PROBA_KWARGS
 )
 
 
@@ -195,6 +234,11 @@ class WrapCalibratedExplainer:
     def preprocessor(self, value: Any) -> None:
         """Set the preprocessor."""
         self._preprocessor = value
+
+    @property
+    def mondrian_categorizer(self) -> Callable[[Any], Any] | MondrianCategorizer | None:
+        """Descriptive alias for :attr:`mc` (ADR-038 5B); read-only."""
+        return self.mc
 
     # internal wiring for config
     @classmethod
@@ -332,6 +376,8 @@ class WrapCalibratedExplainer:
         y_calibration: Any,
         mc: Callable[[Any], Any] | MondrianCategorizer | None = None,
         reuse_conditional: bool = False,
+        *,
+        mondrian_categorizer: Callable[[Any], Any] | MondrianCategorizer | None = None,
         **kwargs: Any,
     ) -> WrapCalibratedExplainer:
         """Calibrate the wrapper using calibration data and create an explainer.
@@ -347,9 +393,16 @@ class WrapCalibratedExplainer:
         reuse_conditional : bool, default=False
             Reuse the previously configured Mondrian categorizer for this
             calibration. Mutually exclusive with ``bins`` and ``mc``.
+        mondrian_categorizer : callable or MondrianCategorizer, optional
+            Descriptive alias for ``mc`` (ADR-038 5B). Resolves to the same value;
+            specifying both ``mc`` and ``mondrian_categorizer`` raises
+            ``ConfigurationError``.
         **kwargs
             Forwarded to :class:`.CalibratedExplainer.__init__` for advanced
-            configuration (e.g. ``mode``, ``feature_names``, ``bins``).
+            configuration (e.g. ``mode``, ``feature_names``, ``bins``). Every
+            name accepted by :class:`.CalibratedExplainer.__init__` is accepted
+            here; for ``perf_cache``/``perf_parallel`` a call-time value
+            overrides the wrapper-level attribute.
 
         Returns
         -------
@@ -361,6 +414,8 @@ class WrapCalibratedExplainer:
         ------
         NotFittedError
             If the underlying learner has not been fitted via :meth:`fit`.
+        ConfigurationError
+            If both ``mc`` and ``mondrian_categorizer`` are specified.
 
         Examples
         --------
@@ -375,10 +430,20 @@ class WrapCalibratedExplainer:
         on the underlying learner.
         """
         self._assert_fitted("The WrapCalibratedExplainer must be fitted before calibration.")
-        self.calibrated = False
+
+        if mondrian_categorizer is not None:
+            if mc is not None:
+                raise ConfigurationError(
+                    "Specify either mc= or mondrian_categorizer=, not both; they are"
+                    " aliases for the same parameter.",
+                    details={"conflict": ("mc", "mondrian_categorizer")},
+                )
+            mc = mondrian_categorizer
 
         # Normalize kwargs at the public boundary; warn and strip alias keys only
-        kwargs = self._normalize_public_kwargs(kwargs)
+        kwargs = self._normalize_public_kwargs(
+            kwargs, allowed=_CALIBRATE_KWARGS, surface="WrapCalibratedExplainer.calibrate"
+        )
         reuse_conditional = bool(kwargs.pop("reuse_conditional", reuse_conditional))
         validate_param_combination(kwargs)
         # Lightweight validation (does not alter behavior)
@@ -437,40 +502,23 @@ class WrapCalibratedExplainer:
             kwargs.setdefault("preprocessor_metadata", preprocessor_metadata)
         self._logger.info("Calibrating with %s samples", getattr(x_calibration, "shape", ["?"])[0])
 
-        # Allow passing a default reject policy from the wrapper into the explainer
-        if "default_reject_policy" in kwargs:
-            # pass-through to CalibratedExplainer
-            pass
+        # A call-time value wins over the wrapper-level performance attributes.
+        kwargs.setdefault("perf_cache", getattr(self, "perf_cache", None))
+        kwargs.setdefault("perf_parallel", getattr(self, "_perf_parallel", None))
+        if "mode" not in kwargs:
+            kwargs["mode"] = (
+                "classification" if "predict_proba" in dir(self.learner) else "regression"
+            )
 
-        if "mode" in kwargs:
-            self.explainer = CalibratedExplainer(
-                self.learner,
-                x_cal_local,
-                y_calibration,
-                perf_cache=getattr(self, "perf_cache", None),
-                perf_parallel=getattr(self, "_perf_parallel", None),
-                **kwargs,
-            )
-        elif "predict_proba" in dir(self.learner):
-            self.explainer = CalibratedExplainer(
-                self.learner,
-                x_cal_local,
-                y_calibration,
-                mode="classification",
-                perf_cache=getattr(self, "perf_cache", None),
-                perf_parallel=getattr(self, "_perf_parallel", None),
-                **kwargs,
-            )
-        else:
-            self.explainer = CalibratedExplainer(
-                self.learner,
-                x_cal_local,
-                y_calibration,
-                mode="regression",
-                perf_cache=getattr(self, "perf_cache", None),
-                perf_parallel=getattr(self, "_perf_parallel", None),
-                **kwargs,
-            )
+        # Only invalidate the previous calibration once every validation gate has
+        # passed; a rejected calibrate() call must not discard a working explainer.
+        self.calibrated = False
+        self.explainer = CalibratedExplainer(
+            self.learner,
+            x_cal_local,
+            y_calibration,
+            **kwargs,
+        )
         # Propagate internal feature filter config to explainer when available
         if self.explainer is not None and hasattr(self, "_feature_filter_config"):
             self.explainer.feature_filter_config = self._feature_filter_config
@@ -535,7 +583,9 @@ class WrapCalibratedExplainer:
         )
         # Optional preprocessing
         x_local = self._maybe_preprocess_for_inference(x)
-        kwargs = self._normalize_public_kwargs(kwargs)
+        kwargs = self._normalize_public_kwargs(
+            kwargs, allowed=_EXPLAIN_KWARGS, surface="WrapCalibratedExplainer.explain_factual"
+        )
         # If constructed via _from_config, prefer cfg defaults when absent
         cfg = getattr(self, "_cfg", None)
         if cfg is not None:
@@ -573,7 +623,9 @@ class WrapCalibratedExplainer:
             is not None
         )
         x_local = self._maybe_preprocess_for_inference(x)
-        kwargs = self._normalize_public_kwargs(kwargs)
+        kwargs = self._normalize_public_kwargs(
+            kwargs, allowed=_EXPLAIN_KWARGS, surface="WrapCalibratedExplainer.explore_alternatives"
+        )
         cfg = getattr(self, "_cfg", None)
         if cfg is not None:
             kwargs.setdefault("threshold", cfg.threshold)
@@ -599,7 +651,9 @@ class WrapCalibratedExplainer:
             is not None
         )
         x_local = self._maybe_preprocess_for_inference(x)
-        kwargs = self._normalize_public_kwargs(kwargs)
+        kwargs = self._normalize_public_kwargs(
+            kwargs, allowed=_EXPLAIN_FAST_KWARGS, surface="WrapCalibratedExplainer.explain_fast"
+        )
         # Apply config defaults when available and not explicitly provided
         cfg = getattr(self, "_cfg", None)
         if cfg is not None:
@@ -645,7 +699,9 @@ class WrapCalibratedExplainer:
 
         # Optional preprocessing for inference consistency
         x_local = self._maybe_preprocess_for_inference(x)
-        kwargs = self._normalize_public_kwargs(kwargs)
+        kwargs = self._normalize_public_kwargs(
+            kwargs, allowed=_PREDICT_KWARGS, surface="WrapCalibratedExplainer.predict"
+        )
         validate_inputs_matrix(x_local, allow_nan=True)
         validate_param_combination(kwargs)
         if calibrated:
@@ -705,7 +761,9 @@ class WrapCalibratedExplainer:
 
         # Optional preprocessing for inference consistency
         x_local = self._maybe_preprocess_for_inference(x)
-        kwargs = self._normalize_public_kwargs(kwargs)
+        kwargs = self._normalize_public_kwargs(
+            kwargs, allowed=_PREDICT_PROBA_KWARGS, surface="WrapCalibratedExplainer.predict_proba"
+        )
         validate_inputs_matrix(x_local, allow_nan=True)
         validate_param_combination(kwargs)
         if calibrated:
@@ -887,27 +945,45 @@ class WrapCalibratedExplainer:
         return self
 
     def _normalize_public_kwargs(
-        self, kwargs: dict[str, Any], allowed: "set[str] | None" = None
+        self,
+        kwargs: dict[str, Any],
+        allowed: "frozenset[str] | set[str] | None" = None,
+        *,
+        surface: str | None = None,
     ) -> dict[str, Any]:
-        """Normalize public kwargs and reject removed aliases."""
+        """Normalize public kwargs; reject removed aliases, unknown names, and
+        (when ``allowed`` is given) names that are known on another method but
+        not valid for this one (ADR-038 5B).
+
+        Unrecognized keys raise ``ConfigurationError`` (ADR-038 D3, fail-fast).
+        """
         if not kwargs:
             return {}
         original = dict(kwargs)
         reject_removed_aliases(original)
         reject_removed_guarded_kwargs(original)
         reject_removed_reject_kwargs(original)
+        reject_removed_normalization_kwarg(original)
         base = dict(original)
-        unknown = sorted(set(base) - _KNOWN_PUBLIC_KWARGS)
-        if unknown:
-            _warnings.warn(
-                "WrapCalibratedExplainer received unknown keyword arguments: "
-                f"{unknown}. These will be forwarded for compatibility but may be ignored.",
-                UserWarning,
-                stacklevel=3,
-            )
+        reject_unknown_public_kwargs(
+            base,
+            allowed=_KNOWN_PUBLIC_KWARGS,
+            surface=surface or "WrapCalibratedExplainer",
+        )
         if allowed is None:
             return base
-        return {k: v for k, v in base.items() if k in allowed}
+        out_of_scope = sorted(set(base) - allowed)
+        if out_of_scope:
+            raise ConfigurationError(
+                f"{surface or 'WrapCalibratedExplainer'} received keyword arguments that"
+                f" are recognized on another method but not valid here: {out_of_scope}.",
+                details={
+                    "surface": surface or "WrapCalibratedExplainer",
+                    "out_of_scope_kwargs": out_of_scope,
+                    "allowed_kwargs": sorted(allowed),
+                },
+            )
+        return base
 
     def _normalize_auto_encode_flag(self) -> str:
         """Return the auto_encode configuration as a telemetry-friendly literal."""

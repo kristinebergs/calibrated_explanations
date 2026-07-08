@@ -568,3 +568,143 @@ def test_reject_metadata_contract_present_across_predict_proba_and_explain():
     assert required.issubset((pred.metadata or {}).keys())
     assert required.issubset((proba.metadata or {}).keys())
     assert required.issubset(expl.metadata.keys())
+
+
+# --- ADR-038 5C: fail-fast kwarg validation extended to CalibratedExplainer directly ---
+
+
+def _classification_explainer():
+    dataset = make_binary_dataset()
+    (
+        x_prop_train,
+        y_prop_train,
+        x_cal,
+        y_cal,
+        x_test,
+        _y_test,
+        _,
+        _,
+        categorical_features,
+        feature_names,
+    ) = dataset
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    cal_exp = initiate_explainer(
+        model, x_cal, y_cal, feature_names, categorical_features, mode="classification"
+    )
+    return cal_exp, x_test
+
+
+def test_should_raise_configuration_error_when_init_receives_unknown_kwarg():
+    dataset = make_binary_dataset()
+    (x_prop_train, y_prop_train, x_cal, y_cal, _, _, _, _, categorical_features, feature_names) = (
+        dataset
+    )
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    with pytest.raises(ConfigurationError, match="unknown keyword arguments"):
+        initiate_explainer(
+            model,
+            x_cal,
+            y_cal,
+            feature_names,
+            categorical_features,
+            mode="classification",
+            totally_bogus_kwarg=5,
+        )
+
+
+@pytest.mark.parametrize(
+    ("method_name", "kwarg_name", "kwarg_value"),
+    [
+        ("predict", "guarded_options", object()),
+        ("predict", "mode", "regression"),
+        ("predict", "feature_names", ["a"]),
+        ("predict_proba", "low_high_percentiles", (5, 95)),
+        ("predict_proba", "classes", [0, 1]),
+        ("predict_proba", "feature", 0),
+    ],
+)
+def test_should_raise_configuration_error_for_cross_method_kwargs_on_closed_surfaces(
+    method_name, kwarg_name, kwarg_value
+):
+    """ADR-038 5C: predict/predict_proba are closed surfaces (no experimental
+    exception); a name known elsewhere but not here must raise."""
+    cal_exp, x_test = _classification_explainer()
+    method = getattr(cal_exp, method_name)
+    with pytest.raises(ConfigurationError, match="unknown keyword arguments"):
+        method(x_test[:2], **{kwarg_name: kwarg_value})
+
+
+@pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives"])
+@pytest.mark.parametrize(
+    ("kwarg_name", "kwarg_value"),
+    [
+        ("mode", "regression"),
+        ("feature_names", ["a"]),
+        ("categorical_features", [0]),
+        ("oob", True),
+        ("seed", 1),
+    ],
+)
+def test_should_raise_configuration_error_for_cross_surface_kwargs_on_explain_methods(
+    method_name, kwarg_name, kwarg_value
+):
+    """ADR-038 5C: explain_factual/explore_alternatives keep the ADR-038 §3
+    experimental plugin-forwarding exception, but a name known on a *closed*
+    surface (__init__/predict/predict_proba) must still be rejected here."""
+    cal_exp, x_test = _classification_explainer()
+    method = getattr(cal_exp, method_name)
+    with pytest.raises(ConfigurationError, match="not valid here"):
+        method(x_test[:2], **{kwarg_name: kwarg_value})
+
+
+@pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives"])
+def test_explain_methods_still_forward_genuinely_unknown_kwargs_to_plugin(method_name):
+    """ADR-038 5C: a name unknown on every CalibratedExplainer surface is treated
+    as plugin-defined and must NOT raise (preserves the §3 exception)."""
+    cal_exp, x_test = _classification_explainer()
+    method = getattr(cal_exp, method_name)
+    # Should not raise; the unrecognized key is forwarded toward the plugin.
+    method(x_test[:2], some_plugin_specific_key=123)
+
+
+def test_should_raise_configuration_error_when_removed_normalize_alias_passed_to_predict_proba():
+    """ADR-038 5C: normalize= was previously not checked at all on
+    CalibratedExplainer.predict_proba; it must now fail fast like every other
+    removed alias."""
+    cal_exp, x_test = _classification_explainer()
+    with pytest.raises(ConfigurationError, match="removed in v0.11.5"):
+        cal_exp.predict_proba(x_test[:2], normalize=True)
+
+
+def test_should_raise_configuration_error_when_removed_guarded_kwarg_passed_to_predict():
+    """ADR-038 5C: predict()/predict_proba() previously did not check removed
+    guarded kwargs at all."""
+    cal_exp, x_test = _classification_explainer()
+    with pytest.raises(ConfigurationError, match="removed in v0.11.5"):
+        cal_exp.predict(x_test[:2], guarded=True)
+
+
+def test_should_raise_configuration_error_when_removed_alias_passed_to_explain_factual():
+    """ADR-038 5C: explain_factual()/explore_alternatives() previously only
+    checked removed guarded kwargs, not removed aliases or reject kwargs."""
+    cal_exp, x_test = _classification_explainer()
+    with pytest.raises(ConfigurationError, match="removed in v0.11.0"):
+        cal_exp.explain_factual(x_test[:2], alpha=(1, 99))
+    with pytest.raises(ConfigurationError, match="removed in v0.11.5"):
+        cal_exp.explore_alternatives(x_test[:2], confidence=0.9)
+
+
+def test_ce_skip_reject_still_works_on_predict_and_predict_proba():
+    """ADR-038 5C: _ce_skip_reject is a real internal escape hatch used by
+    core/explain/orchestrator.py and must remain allowed."""
+    cal_exp, x_test = _classification_explainer()
+    cal_exp.predict(x_test[:2], _ce_skip_reject=True)
+    cal_exp.predict_proba(x_test[:2], _ce_skip_reject=True)
+
+
+def test_plot_still_works_after_5c_predict_kwarg_scoping():
+    """ADR-038 5C: plot()'s kwargs (style_override always re-injected, show=
+    when passed) flow into predict()/predict_proba() via plotting.plot_global();
+    predict() must strip them defensively like predict_proba() already does."""
+    cal_exp, x_test = _classification_explainer()
+    cal_exp.plot(x_test[:1], show=False)

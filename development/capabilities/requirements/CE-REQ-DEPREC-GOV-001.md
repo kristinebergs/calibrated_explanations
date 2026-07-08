@@ -35,7 +35,7 @@ Automated pytest tests for the local deprecation closure gate.
 
 - pytest: tests/scripts/test_local_checks_deprecation_closure.py::test_should_define_deprecation_closure_steps_in_expected_order
 - pytest: tests/scripts/test_local_checks_deprecation_closure.py::test_should_write_reports_when_deprecation_closure_passes
-- pytest: tests/scripts/test_local_checks_deprecation_closure.py::test_should_fail_before_running_commands_when_active_deprecations_remain
+- pytest: tests/scripts/test_local_checks_deprecation_closure.py::test_should_report_active_deprecation_rows_as_blocking_when_eta_targets_v1_0_0
 
 ## Evidence required
 

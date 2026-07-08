@@ -622,13 +622,19 @@ def plot_global(explainer, x, y=None, threshold=None, **kwargs):
         return
     # Otherwise require matplotlib to proceed with plotting
     _require_matplotlib()
+    # Only forward prediction-relevant kwargs; plot-only keys (show, path,
+    # save_ext, style, style_override, use_legacy, renderer, ...) would be
+    # rejected by the fail-fast kwarg gates on predict/predict_proba (ADR-038).
+    prediction_kwargs = {
+        key: kwargs[key] for key in ("bins", "low_high_percentiles") if key in kwargs
+    }
     is_regularized = True
     if "predict_proba" not in dir(explainer.learner) and threshold is None:
-        predict, (low, high) = explainer.predict(x, uq_interval=True, **kwargs)
+        predict, (low, high) = explainer.predict(x, uq_interval=True, **prediction_kwargs)
         is_regularized = False
     else:
         proba, (low, high) = explainer.predict_proba(
-            x, uq_interval=True, threshold=threshold, **kwargs
+            x, uq_interval=True, threshold=threshold, bins=kwargs.get("bins")
         )
     uncertainty = np.array(high - low)
 

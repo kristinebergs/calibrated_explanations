@@ -40,6 +40,10 @@ REMOVED_REJECT_KWARG_MAP: dict[str, str] = {
     "confidence": "reject_confidence",
 }
 
+REMOVED_NORMALIZATION_KWARG_MAP: dict[str, str] = {
+    "normalize": "normalization=NormalizationStrategy.<MEMBER>",
+}
+
 # Kept for API compatibility; no active alias mapping remains after v0.11.0.
 ALIAS_MAP: dict[str, str] = {}
 
@@ -126,6 +130,84 @@ def reject_removed_reject_kwargs(kwargs: dict[str, Any]) -> None:
     )
 
 
+def reject_removed_normalization_kwarg(kwargs: dict[str, Any]) -> None:
+    """Reject the legacy ``normalize=`` bool passthrough removed in v0.11.5.
+
+    ``normalize=`` looked like a synonym of the live ``normalization=`` parameter
+    but was actually a removed alias: any presence raises, regardless of value.
+    Previously this was only caught deep inside ``VennAbers.predict_proba`` via
+    ``ValidationError``, well past the public wrapper boundary; catching it here
+    gives a `ConfigurationError` consistent with every other removed alias (ADR-038
+    5B).
+    """
+    used = {
+        name: replacement
+        for name, replacement in REMOVED_NORMALIZATION_KWARG_MAP.items()
+        if name in kwargs
+    }
+    if not used:
+        return
+    formatted = ", ".join(f"'{name}' -> '{replacement}'" for name, replacement in used.items())
+    raise ConfigurationError(
+        "The legacy `normalize=` bool passthrough was removed in v0.11.5. "
+        f"Use canonical names instead: {formatted}.",
+        details={
+            "removed_kwargs": list(used.keys()),
+            "replacements": used,
+            "removed_in": "v0.11.5",
+        },
+    )
+
+
+def reject_unknown_public_kwargs(
+    kwargs: dict[str, Any], *, allowed: frozenset[str] | set[str], surface: str
+) -> None:
+    """Reject unrecognized public keyword arguments (ADR-038 D3: fail-fast).
+
+    Replaces the pre-v0.11.6 behavior of warning and silently forwarding
+    unknown public kwargs; see ``development/current-work/v0.11.6_plan.md``
+    (D3 resolution) for the CHANGELOG-documented reversal from v0.11.4 Task 15.
+    """
+    unknown = sorted(set(kwargs) - allowed)
+    if not unknown:
+        return
+    raise ConfigurationError(
+        f"{surface} received unknown keyword arguments: {unknown}.",
+        details={"surface": surface, "unknown_kwargs": unknown},
+    )
+
+
+def reject_cross_surface_kwargs(
+    kwargs: dict[str, Any],
+    *,
+    allowed: frozenset[str] | set[str],
+    closed_surface_names: frozenset[str] | set[str],
+    surface: str,
+) -> None:
+    """Reject kwargs known on another closed surface but not valid here (ADR-038 5C).
+
+    For experimental plugin-forwarding surfaces (ADR-038 §3 exception), a name
+    genuinely unknown anywhere is treated as plugin-defined and passed through
+    silently. Only names that are recognized on a *closed* surface (e.g.
+    ``CalibratedExplainer.__init__``/``predict``/``predict_proba``) but not valid
+    on this experimental surface are rejected -- this preserves the plugin
+    extensibility the §3 exception grants while still closing the cross-method
+    silent-no-op class of bug (ADR-038 5B/5C).
+    """
+    out_of_scope = sorted((set(kwargs) & closed_surface_names) - allowed)
+    if not out_of_scope:
+        return
+    raise ConfigurationError(
+        f"{surface} received keyword arguments that are recognized on another"
+        f" method but not valid here: {out_of_scope}.",
+        details={
+            "surface": surface,
+            "out_of_scope_kwargs": out_of_scope,
+            "allowed_kwargs": sorted(allowed),
+        },
+    )
+
+
 def validate_param_combination(kwargs: dict[str, Any]) -> None:
     """Perform basic consistency checks for parameter combinations (ADR-002).
 
@@ -161,10 +243,14 @@ __all__ = [
     "REMOVED_ALIAS_MAP",
     "REMOVED_GUARDED_KWARG_MAP",
     "REMOVED_REJECT_KWARG_MAP",
+    "REMOVED_NORMALIZATION_KWARG_MAP",
     "canonicalize_kwargs",
     "reject_removed_guarded_kwargs",
     "reject_removed_reject_kwargs",
     "reject_removed_aliases",
+    "reject_removed_normalization_kwarg",
+    "reject_unknown_public_kwargs",
+    "reject_cross_surface_kwargs",
     "validate_param_combination",
 ]
 

@@ -1,0 +1,402 @@
+"""Parameter-surface contract tests (ADR-038, v0.11.6 Task 5D).
+
+Guards the single-source-of-truth relationship between the
+``CalibratedExplainer`` kwarg allow-lists and the ``WrapCalibratedExplainer``
+per-method gates:
+
+1. Structural contracts: every name accepted on a ``CalibratedExplainer``
+   surface must also be accepted by the wrapper's corresponding method (minus
+   the internal ``_ce_skip_reject`` escape hatch), and the explicit-formal
+   reference sets must stay in sync with the actual signatures.
+2. Acceptance matrices: every allow-listed public parameter is exercised
+   end-to-end with a benign value, so a name that stops being consumed (or
+   starts being rejected) fails a test instead of drifting silently.
+3. Regressions for the Task 5D bug round: ``reject_confidence`` on the wrapper
+   explain methods, ``interval_summary`` on ``wrap.predict``, the
+   ``CalibratedExplainer.__init__`` kwargs blocked at ``calibrate()``, the
+   legacy global plot path, calibration-state preservation on rejected
+   ``calibrate()`` calls, and per-method error surfaces.
+"""
+
+from __future__ import annotations
+
+import inspect
+
+import numpy as np
+import pytest
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+
+from calibrated_explanations.calibration.normalization_strategy import NormalizationStrategy
+from calibrated_explanations.core.calibrated_explainer import (
+    CalibratedExplainer,
+    _EXPLAIN_KWARGS as CE_EXPLAIN_KWARGS,
+    _INIT_EXPLICIT_PARAMS as CE_INIT_EXPLICIT_PARAMS,
+    _INIT_KWARGS as CE_INIT_KWARGS,
+    _PREDICT_KWARGS as CE_PREDICT_KWARGS,
+    _PREDICT_PROBA_KWARGS as CE_PREDICT_PROBA_KWARGS,
+)
+from calibrated_explanations.core.reject.policy import RejectPolicy
+from calibrated_explanations.core.wrap_explainer import (
+    WrapCalibratedExplainer,
+    _CALIBRATE_KWARGS as WRAP_CALIBRATE_KWARGS,
+    _EXPLAIN_FAST_KWARGS as WRAP_EXPLAIN_FAST_KWARGS,
+    _EXPLAIN_KWARGS as WRAP_EXPLAIN_KWARGS,
+    _PREDICT_KWARGS as WRAP_PREDICT_KWARGS,
+    _PREDICT_PROBA_KWARGS as WRAP_PREDICT_PROBA_KWARGS,
+)
+from calibrated_explanations.utils.exceptions import ConfigurationError
+
+
+@pytest.fixture(scope="module")
+def data():
+    rng = np.random.default_rng(0)
+    x = rng.normal(size=(120, 4))
+    y_cls = (x[:, 0] + x[:, 1] > 0).astype(int)
+    y_reg = x[:, 0] * 2 + rng.normal(scale=0.1, size=120)
+    return x, y_cls, y_reg
+
+
+def _fitted_classification_wrapper(data):
+    x, y_cls, _ = data
+    wrapper = WrapCalibratedExplainer(RandomForestClassifier(n_estimators=10, random_state=0))
+    wrapper.fit(x[:60], y_cls[:60])
+    return wrapper
+
+
+@pytest.fixture(scope="module")
+def cls_wrapper(data):
+    x, y_cls, _ = data
+    wrapper = _fitted_classification_wrapper(data)
+    wrapper.calibrate(x[60:100], y_cls[60:100])
+    return wrapper, x[100:]
+
+
+@pytest.fixture(scope="module")
+def reg_wrapper(data):
+    x, _, y_reg = data
+    wrapper = WrapCalibratedExplainer(RandomForestRegressor(n_estimators=10, random_state=0))
+    wrapper.fit(x[:60], y_reg[:60])
+    wrapper.calibrate(x[60:100], y_reg[60:100])
+    return wrapper, x[100:]
+
+
+@pytest.fixture(scope="module")
+def fast_cls_wrapper(data):
+    x, y_cls, _ = data
+    wrapper = _fitted_classification_wrapper(data)
+    wrapper.calibrate(x[60:100], y_cls[60:100], fast=True)
+    return wrapper, x[100:]
+
+
+# ---------------------------------------------------------------------------
+# 1. Structural contracts: wrapper gates derive from CalibratedExplainer's
+# ---------------------------------------------------------------------------
+
+
+def test_wrap_calibrate_accepts_everything_explainer_init_accepts():
+    """Anything CalibratedExplainer.__init__ accepts (via **kwargs or explicit
+    formals) must pass the wrapper's calibrate() gate."""
+    assert CE_INIT_KWARGS <= WRAP_CALIBRATE_KWARGS
+    assert CE_INIT_EXPLICIT_PARAMS <= WRAP_CALIBRATE_KWARGS
+
+
+@pytest.mark.parametrize(
+    ("wrap_set", "explainer_set"),
+    [
+        (WRAP_PREDICT_KWARGS, CE_PREDICT_KWARGS),
+        (WRAP_PREDICT_PROBA_KWARGS, CE_PREDICT_PROBA_KWARGS),
+        (WRAP_EXPLAIN_KWARGS, CE_EXPLAIN_KWARGS),
+    ],
+    ids=["predict", "predict_proba", "explain"],
+)
+def test_wrap_gate_accepts_everything_explainer_accepts(wrap_set, explainer_set):
+    """The wrapper may only subtract the internal _ce_skip_reject escape hatch
+    from the CalibratedExplainer surface it forwards to."""
+    assert explainer_set - {"_ce_skip_reject"} <= wrap_set
+
+
+def test_init_explicit_params_match_signature():
+    """_INIT_EXPLICIT_PARAMS is a reference set for signature formals; it must
+    track CalibratedExplainer.__init__'s actual explicit parameters."""
+    sig = inspect.signature(CalibratedExplainer.__init__)
+    formals = {
+        name
+        for name, param in sig.parameters.items()
+        if param.kind in (param.POSITIONAL_OR_KEYWORD, param.KEYWORD_ONLY)
+    } - {"self", "learner", "x_cal", "y_cal"}
+    assert formals == CE_INIT_EXPLICIT_PARAMS
+
+
+def test_wrap_explain_fast_kwargs_match_explainer_signature():
+    """CalibratedExplainer.explain_fast has no **kwargs; the wrapper's gate
+    must mirror its explicit signature exactly."""
+    sig = inspect.signature(CalibratedExplainer.explain_fast)
+    formals = {
+        name
+        for name, param in sig.parameters.items()
+        if param.kind in (param.POSITIONAL_OR_KEYWORD, param.KEYWORD_ONLY)
+    } - {"self", "x", "_use_plugin"}
+    assert formals == WRAP_EXPLAIN_FAST_KWARGS
+
+
+@pytest.mark.parametrize(
+    "method",
+    [CalibratedExplainer.explain_factual, CalibratedExplainer.explore_alternatives],
+    ids=["explain_factual", "explore_alternatives"],
+)
+def test_explain_kwargs_cover_explain_signatures(method):
+    """Every explicit formal of the explain methods must be allow-listed, so a
+    signature promotion cannot silently open a gap in the gates."""
+    sig = inspect.signature(method)
+    formals = {
+        name
+        for name, param in sig.parameters.items()
+        if param.kind in (param.POSITIONAL_OR_KEYWORD, param.KEYWORD_ONLY)
+    } - {"self", "x", "_use_plugin"}
+    assert formals <= CE_EXPLAIN_KWARGS
+
+
+# ---------------------------------------------------------------------------
+# 2. Acceptance matrices: every allow-listed name works end-to-end
+# ---------------------------------------------------------------------------
+
+# Benign values per calibrate() parameter. The completeness assertions below
+# force this map to be extended whenever a new name is allow-listed.
+_CALIBRATE_VALUES = {
+    "alternative_plugin": None,
+    "bins": None,
+    "categorical_features": [0],
+    "categorical_labels": None,
+    "class_labels": None,
+    "condition_source": "prediction",
+    "default_reject_policy": RejectPolicy.NONE,
+    "difficulty_estimator": None,
+    "factual_plugin": None,
+    "fast": False,
+    "fast_interval_plugin": None,
+    "fast_plugin": None,
+    "feature_names": None,
+    "features_to_ignore": [],
+    "interval_plugin": None,
+    "interval_summary": "mean",
+    "mode": "classification",
+    "noise_type": "uniform",
+    "oob": False,
+    "perf_cache": None,
+    "perf_parallel": None,
+    "plot_style": None,
+    "predict_function": None,
+    "preprocessor_metadata": None,
+    "reject": False,
+    "reuse_conditional": False,
+    "sample_percentiles": [25, 50, 75],
+    "scale_factor": 5,
+    "seed": 42,
+    "severity": 1,
+    "suppress_crepes_errors": False,
+    "verbose": False,
+}
+
+_EXPLAIN_VALUES = {
+    "bins": None,
+    "features_to_ignore": [],
+    "guarded_options": None,
+    "interval_summary": None,
+    "low_high_percentiles": (5, 95),
+    "multi_labels_enabled": False,
+    "reject_confidence": 0.9,
+    "reject_policy": None,
+    "threshold": None,
+    "verbose": False,
+}
+
+_EXPLAIN_FAST_VALUES = {
+    "bins": None,
+    "low_high_percentiles": (5, 95),
+    "reject_policy": None,
+    "threshold": None,
+}
+
+_PREDICT_VALUES = {
+    "bins": None,
+    "classes": None,
+    "feature": None,
+    "interval_summary": "mean",
+    "low_high_percentiles": (5, 95),
+    "reject_confidence": 0.9,
+    "reject_policy": None,
+    "threshold": None,
+}
+
+_PREDICT_PROBA_VALUES = {
+    "bins": None,
+    "interval_summary": "mean",
+    "normalization": NormalizationStrategy.SCALE,
+    "reject_confidence": 0.9,
+    "reject_policy": None,
+}
+
+
+def test_acceptance_matrices_cover_every_allow_listed_name():
+    """Adding a name to any wrapper gate requires adding a benign value here,
+    so new parameters cannot land without an end-to-end acceptance test."""
+    assert set(_CALIBRATE_VALUES) == set(WRAP_CALIBRATE_KWARGS)
+    assert set(_EXPLAIN_VALUES) == set(WRAP_EXPLAIN_KWARGS)
+    assert set(_EXPLAIN_FAST_VALUES) == set(WRAP_EXPLAIN_FAST_KWARGS)
+    assert set(_PREDICT_VALUES) == set(WRAP_PREDICT_KWARGS)
+    assert set(_PREDICT_PROBA_VALUES) == set(WRAP_PREDICT_PROBA_KWARGS)
+
+
+@pytest.mark.parametrize(("name", "value"), sorted(_CALIBRATE_VALUES.items()))
+def test_calibrate_accepts_every_allow_listed_kwarg(data, name, value):
+    x, y_cls, _ = data
+    wrapper = _fitted_classification_wrapper(data)
+    wrapper.calibrate(x[60:100], y_cls[60:100], **{name: value})
+    assert wrapper.calibrated
+
+
+@pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives"])
+@pytest.mark.parametrize(("name", "value"), sorted(_EXPLAIN_VALUES.items()))
+def test_explain_methods_accept_every_allow_listed_kwarg(cls_wrapper, method_name, name, value):
+    wrapper, x_test = cls_wrapper
+    result = getattr(wrapper, method_name)(x_test[:2], **{name: value})
+    assert result is not None
+
+
+@pytest.mark.parametrize(("name", "value"), sorted(_EXPLAIN_FAST_VALUES.items()))
+def test_explain_fast_accepts_every_allow_listed_kwarg(fast_cls_wrapper, name, value):
+    wrapper, x_test = fast_cls_wrapper
+    result = wrapper.explain_fast(x_test[:2], **{name: value})
+    assert result is not None
+
+
+@pytest.mark.parametrize(("name", "value"), sorted(_PREDICT_VALUES.items()))
+def test_predict_accepts_every_allow_listed_kwarg(cls_wrapper, name, value):
+    wrapper, x_test = cls_wrapper
+    result = wrapper.predict(x_test[:2], **{name: value})
+    assert result is not None
+
+
+@pytest.mark.parametrize(("name", "value"), sorted(_PREDICT_PROBA_VALUES.items()))
+def test_predict_proba_accepts_every_allow_listed_kwarg(cls_wrapper, name, value):
+    wrapper, x_test = cls_wrapper
+    result = wrapper.predict_proba(x_test[:2], **{name: value})
+    assert result is not None
+
+
+# ---------------------------------------------------------------------------
+# 3. Task 5D bug regressions
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives"])
+def test_reject_confidence_accepted_with_reject_policy_on_wrap_explain(cls_wrapper, method_name):
+    """Bug 5D-2: reject_confidence is valid on the explain methods whenever
+    reject_policy is set (proven at the CalibratedExplainer level in 5C); the
+    wrapper gate must not reject it."""
+    wrapper, x_test = cls_wrapper
+    result = getattr(wrapper, method_name)(x_test[:2], reject_policy="flag", reject_confidence=0.8)
+    assert result is not None
+
+
+def test_interval_summary_accepted_on_wrap_predict(cls_wrapper):
+    """Bug 5D-3: CalibratedExplainer.predict consumes interval_summary, so the
+    wrapper's predict() gate must accept it (predict_proba already did)."""
+    wrapper, x_test = cls_wrapper
+    wrapper.predict(x_test[:2], interval_summary="mean")
+
+
+def test_calibrate_accepts_fast_mode_tuning_kwargs(data):
+    """Bug 5D-4: fast=True is allowed at calibrate(), so its tuning knobs
+    (noise_type/scale_factor/severity) must be too."""
+    x, y_cls, _ = data
+    wrapper = _fitted_classification_wrapper(data)
+    wrapper.calibrate(
+        x[60:100],
+        y_cls[60:100],
+        fast=True,
+        noise_type="uniform",
+        scale_factor=3,
+        severity=1,
+    )
+    assert wrapper.calibrated
+
+
+def test_rejected_calibrate_preserves_previous_calibration(data):
+    """Bug 5D-5: a calibrate() call rejected by the kwargs gates must not
+    discard a previously successful calibration."""
+    x, y_cls, _ = data
+    wrapper = _fitted_classification_wrapper(data)
+    wrapper.calibrate(x[60:100], y_cls[60:100])
+    assert wrapper.calibrated
+
+    with pytest.raises(ConfigurationError, match="unknown keyword arguments"):
+        wrapper.calibrate(x[60:100], y_cls[60:100], not_a_parameter=1)
+    assert wrapper.calibrated
+
+    with pytest.raises(ConfigurationError, match="not valid here"):
+        wrapper.calibrate(x[60:100], y_cls[60:100], threshold=0.5)
+    assert wrapper.calibrated
+
+    # And the surviving explainer still works end-to-end.
+    assert wrapper.predict(x[100:102]) is not None
+
+
+def test_unknown_kwarg_error_names_the_rejecting_method(data):
+    """Bug 5D-6: genuinely unknown names must report the per-method surface,
+    not just the class name."""
+    x, y_cls, _ = data
+    wrapper = _fitted_classification_wrapper(data)
+    with pytest.raises(
+        ConfigurationError, match=r"WrapCalibratedExplainer\.calibrate received unknown"
+    ):
+        wrapper.calibrate(x[60:100], y_cls[60:100], not_a_parameter=1)
+
+
+@pytest.mark.viz
+class TestLegacyGlobalPlotKwargForwarding:
+    """Bug 5D-1: the legacy plot_global forwarded its entire kwargs dict into
+    predict/predict_proba, which the fail-fast gates now reject. Exercise the
+    legacy path for real (show=True under Agg) -- with show=False and
+    matplotlib unloaded the legacy path silently no-ops, which is exactly how
+    the break slipped past the 5C verification."""
+
+    @pytest.fixture(autouse=True)
+    def _agg_backend(self, monkeypatch):
+        matplotlib = pytest.importorskip("matplotlib")
+        matplotlib.use("Agg", force=True)
+        from calibrated_explanations.viz import _matplotlib_compat as compat
+        from calibrated_explanations.viz._matplotlib_compat import (
+            _require_matplotlib as require_matplotlib,
+        )
+
+        require_matplotlib()
+        monkeypatch.setattr(compat.plt, "show", lambda *args, **kwargs: None)
+        yield
+        compat.plt.close("all")
+
+    def test_classification_use_legacy(self, cls_wrapper):
+        wrapper, x_test = cls_wrapper
+        wrapper.plot(x_test[:2], show=True, use_legacy=True)
+
+    def test_regression_use_legacy(self, reg_wrapper):
+        wrapper, x_test = reg_wrapper
+        wrapper.plot(x_test[:2], show=True, use_legacy=True)
+
+    def test_regression_thresholded_use_legacy(self, reg_wrapper):
+        wrapper, x_test = reg_wrapper
+        wrapper.plot(x_test[:2], threshold=0.0, show=True, use_legacy=True)
+
+    def test_regression_low_high_percentiles_use_legacy(self, reg_wrapper):
+        wrapper, x_test = reg_wrapper
+        wrapper.plot(x_test[:2], show=True, use_legacy=True, low_high_percentiles=(10, 90))
+
+    def test_plot_only_kwargs_do_not_reach_prediction_gates(self, cls_wrapper, tmp_path):
+        wrapper, x_test = cls_wrapper
+        wrapper.plot(
+            x_test[:2],
+            show=True,
+            use_legacy=True,
+            path=str(tmp_path),
+            save_ext=[],
+        )
