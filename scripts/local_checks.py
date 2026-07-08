@@ -1091,7 +1091,11 @@ def _task_specific_lint_targets(task: int) -> list[str]:
             "src/calibrated_explanations/calibration/venn_abers.py",
             "tests/unit/core/test_venn_abers.py",
         ],
-        7: [],
+        7: [
+            "scripts/local_checks.py",
+            "scripts/quality/check_agent_instruction_consistency.py",
+            "tests/scripts/test_local_checks_profiles.py",
+        ],
         8: [
             "tests/unit/core/test_calibrated_explainer_runtime_helpers.py",
             "tests/unit/core/test_reject.py",

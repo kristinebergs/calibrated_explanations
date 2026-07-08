@@ -33,8 +33,8 @@ or explanation output.
     ```
     `GuardedOptions` fields: `confidence` (default 0.9), `n_neighbors`, `normalize`,
     `merge_adjacent`. Do NOT use the REMOVED methods `explain_guarded_factual(X)` /
-    `explore_guarded_alternatives(X)` (deleted v0.11.3) or the deprecated `guarded=True`
-    boolean kwarg (emits `DeprecationWarning`; removed in v1.0.0).
+    `explore_guarded_alternatives(X)` (deleted v0.11.3) or the removed `guarded=True`
+    boolean kwarg (removed in v0.11.5; raises `ConfigurationError` as of v0.11.6).
 6. **Calibrated by default** – Do not return uncalibrated outputs unless explicitly
    requested.
 7. **Conjunctions** – `explanations.add_conjunctions(...)` or

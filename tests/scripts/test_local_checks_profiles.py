@@ -78,6 +78,54 @@ def test_should_include_quick_steps_and_task_mapping_for_task_profile() -> None:
     assert any(item["gate"] == "release_bookkeeping" for item in plan.skipped_heavy_gates)
 
 
+def test_should_scope_task_7_lint_targets_to_instruction_verification_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Task 7 should route narrow lint targets through the public task-profile entrypoint."""
+    captured: dict[str, object] = {}
+
+    def fake_build_profile_plan(
+        profile: str,
+        *,
+        task: int | None,
+        mypy_targets: list[str],
+        lint_targets: list[str],
+        pre_commit_available: bool,
+    ) -> local_checks.ProfilePlan:
+        captured["profile"] = profile
+        captured["task"] = task
+        captured["lint_targets"] = lint_targets
+        return local_checks.ProfilePlan(
+            profile=profile, task=task, steps=[], skipped_heavy_gates=[]
+        )
+
+    monkeypatch.setattr(local_checks, "build_profile_plan", fake_build_profile_plan)
+    monkeypatch.setattr(local_checks, "run_profile_plan", lambda *args, **kwargs: 0)
+    monkeypatch.setattr(local_checks, "_pytest_supports_no_cov", lambda: True)
+    monkeypatch.setattr(local_checks.shutil, "which", lambda name: "tool")
+    monkeypatch.setattr(
+        local_checks.subprocess,
+        "call",
+        lambda *args, **kwargs: 0,
+    )
+    monkeypatch.setattr(
+        local_checks.sys,
+        "argv",
+        ["local_checks.py", "--profile", "task", "--task", "7"],
+    )
+
+    rc = local_checks.main()
+
+    assert rc == 0
+    assert captured["profile"] == "task"
+    assert captured["task"] == 7
+    assert captured["lint_targets"] == [
+        "scripts/local_checks.py",
+        "scripts/quality/check_agent_instruction_consistency.py",
+        "tests/scripts/test_local_checks_profiles.py",
+    ]
+
+
 def test_should_include_pr_gates_without_heavy_optional_work() -> None:
     """The PR profile should keep blocking PR checks and skip heavy release-only work."""
     plan = local_checks.build_profile_plan(
