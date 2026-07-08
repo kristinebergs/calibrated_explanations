@@ -9,9 +9,12 @@ integrated with the calibrated explanations toolkit.
 Part of ADR-001: Core Decomposition Boundaries (Stage 1a).
 """
 
+from __future__ import annotations
+
 import hashlib
 import pickle  # nosec B403 - deserialization is restricted to trusted, checksum-validated state
 import warnings
+from contextlib import contextmanager
 from typing import Any, Mapping
 
 import numpy as np
@@ -21,6 +24,14 @@ from ..core.prediction.interval_summary import IntervalSummary, coerce_interval_
 from ..utils import convert_targets_to_numeric
 from ..utils.exceptions import ConfigurationError
 from .normalization_strategy import NormalizationStrategy, coerce_normalization_strategy
+
+
+@contextmanager
+def _ignore_runtime_warnings():
+    """Suppress RuntimeWarning only within the current Venn-Abers call scope."""
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        yield
 
 
 class VennAbers:
@@ -112,43 +123,42 @@ class VennAbers:
     def _fit_va(self) -> None:
         """Fit underlying Venn-Abers models from stored calibration arrays."""
         cprobs = np.asarray(self.cprobs)
-        warnings.filterwarnings("ignore", category=RuntimeWarning)
-        if self.is_mondrian():
-            self.va = {}
-            if self.is_multiclass():
+        with _ignore_runtime_warnings():
+            if self.is_mondrian():
+                self.va = {}
+                if self.is_multiclass():
+                    tmp_probs = np.zeros((cprobs.shape[0], 2))
+                    for c in np.unique(self.ctargets):
+                        self.va[c] = {}
+                        tmp_probs[:, 0] = 1 - cprobs[:, c]
+                        tmp_probs[:, 1] = cprobs[:, c]
+                        for b in np.unique(self.bins):
+                            va_class_bin = va.VennAbers()
+                            va_class_bin.fit(
+                                tmp_probs[self.bins == b, :],
+                                np.multiply(c == self.ctargets[self.bins == b], 1),
+                                precision=4,
+                            )
+                            self.va[c][b] = va_class_bin
+                else:
+                    for b in np.unique(self.bins):
+                        va_bin = va.VennAbers()
+                        va_bin.fit(
+                            cprobs[self.bins == b, :], self.ctargets[self.bins == b], precision=4
+                        )
+                        self.va[b] = va_bin
+            elif self.is_multiclass():
+                self.va = {}
                 tmp_probs = np.zeros((cprobs.shape[0], 2))
                 for c in np.unique(self.ctargets):
-                    self.va[c] = {}
                     tmp_probs[:, 0] = 1 - cprobs[:, c]
                     tmp_probs[:, 1] = cprobs[:, c]
-                    for b in np.unique(self.bins):
-                        va_class_bin = va.VennAbers()
-                        va_class_bin.fit(
-                            tmp_probs[self.bins == b, :],
-                            np.multiply(c == self.ctargets[self.bins == b], 1),
-                            precision=4,
-                        )
-                        self.va[c][b] = va_class_bin
+                    va_class = va.VennAbers()
+                    va_class.fit(tmp_probs, np.multiply(c == self.ctargets, 1), precision=4)
+                    self.va[c] = va_class
             else:
-                for b in np.unique(self.bins):
-                    va_bin = va.VennAbers()
-                    va_bin.fit(
-                        cprobs[self.bins == b, :], self.ctargets[self.bins == b], precision=4
-                    )
-                    self.va[b] = va_bin
-        elif self.is_multiclass():
-            self.va = {}
-            tmp_probs = np.zeros((cprobs.shape[0], 2))
-            for c in np.unique(self.ctargets):
-                tmp_probs[:, 0] = 1 - cprobs[:, c]
-                tmp_probs[:, 1] = cprobs[:, c]
-                va_class = va.VennAbers()
-                va_class.fit(tmp_probs, np.multiply(c == self.ctargets, 1), precision=4)
-                self.va[c] = va_class
-        else:
-            self.va = va.VennAbers()
-            self.va.fit(cprobs, self.ctargets, precision=4)
-        warnings.filterwarnings("default", category=RuntimeWarning)
+                self.va = va.VennAbers()
+                self.va.fit(cprobs, self.ctargets, precision=4)
 
     def _predict_proba_with_difficulty(self, x, bins=None):
         """Augment raw probabilities with optional difficulty adjustments."""
@@ -252,110 +262,113 @@ class VennAbers:
             is not a recognised ``NormalizationStrategy`` member/string. If
             ``interval_summary`` is set to an unrecognised value.
         """
-        warnings.filterwarnings("ignore", category=RuntimeWarning)
-        # Legacy bool `normalize=` passthrough was removed in v0.11.5; any non-None
-        # value (including False) now fails fast via coerce_normalization_strategy
-        # instead of silently resolving to SCALE.
-        if normalize is not None:
-            normalization = coerce_normalization_strategy(normalize)
-        else:
-            normalization = coerce_normalization_strategy(normalization)
-        tprobs = self._predict_proba_with_difficulty(x, bins=bins)
-        p0p1 = np.zeros((tprobs.shape[0], 2))
-        va_proba = np.zeros(tprobs.shape)
-        interval_summary = coerce_interval_summary(interval_summary)
+        with _ignore_runtime_warnings():
+            # Legacy bool `normalize=` passthrough was removed in v0.11.5; any non-None
+            # value (including False) now fails fast via coerce_normalization_strategy
+            # instead of silently resolving to SCALE.
+            if normalize is not None:
+                normalization = coerce_normalization_strategy(normalize)
+            else:
+                normalization = coerce_normalization_strategy(normalization)
+            tprobs = self._predict_proba_with_difficulty(x, bins=bins)
+            p0p1 = np.zeros((tprobs.shape[0], 2))
+            va_proba = np.zeros(tprobs.shape)
+            interval_summary = coerce_interval_summary(interval_summary)
 
-        if self.is_multiclass():
-            low, high = np.zeros(tprobs.shape), np.zeros(tprobs.shape)
-            tmp_probs = np.zeros((tprobs.shape[0], 2))
-            for c, va_class in self.va.items():
-                tmp_probs[:, 0] = 1 - tprobs[:, c]
-                tmp_probs[:, 1] = tprobs[:, c]
-                if self.is_mondrian():
-                    if bins is None:
-                        raise ConfigurationError(
-                            "Mondrian calibration: bins must be provided if Mondrian.",
-                            details={"context": "predict_proba", "requirement": "bins parameter"},
-                        )
-                    for b, va_class_bin in va_class.items():
-                        p0p1[bins == b, :] = va_class_bin.predict_proba(tmp_probs[bins == b, :])[1]
-                else:
-                    p0p1 = va_class.predict_proba(tmp_probs)[1]
-                low[:, c], high[:, c] = p0p1[:, 0], p0p1[:, 1]
-                va_proba[:, c] = self._select_interval_summary(
-                    low[:, c], high[:, c], interval_summary
-                )
-
-            _simplex_summaries = (IntervalSummary.MEAN, IntervalSummary.REGULARIZED_MEAN)
-
-            if normalization is NormalizationStrategy.COHERENCE:
-                # Enforce h_c + sum_{k≠c} l_k = 1 for all c by preserving lower bounds and
-                # setting h_c := 1 - S_low + l_c.  Mathematical side-effect: all interval
-                # widths become equal (D = 1 - S_low), erasing the per-class difficulty signal.
-                s_low = low.sum(axis=1, keepdims=True)
-                high = np.clip(1.0 - s_low + low, low, 1.0)
-                for c in range(tprobs.shape[1]):
+            if self.is_multiclass():
+                low, high = np.zeros(tprobs.shape), np.zeros(tprobs.shape)
+                tmp_probs = np.zeros((tprobs.shape[0], 2))
+                for c, va_class in self.va.items():
+                    tmp_probs[:, 0] = 1 - tprobs[:, c]
+                    tmp_probs[:, 1] = tprobs[:, c]
+                    if self.is_mondrian():
+                        if bins is None:
+                            raise ConfigurationError(
+                                "Mondrian calibration: bins must be provided if Mondrian.",
+                                details={
+                                    "context": "predict_proba",
+                                    "requirement": "bins parameter",
+                                },
+                            )
+                        for b, va_class_bin in va_class.items():
+                            p0p1[bins == b, :] = va_class_bin.predict_proba(
+                                tmp_probs[bins == b, :]
+                            )[1]
+                    else:
+                        p0p1 = va_class.predict_proba(tmp_probs)[1]
+                    low[:, c], high[:, c] = p0p1[:, 0], p0p1[:, 1]
                     va_proba[:, c] = self._select_interval_summary(
                         low[:, c], high[:, c], interval_summary
                     )
-                if interval_summary in _simplex_summaries:
+
+                _simplex_summaries = (IntervalSummary.MEAN, IntervalSummary.REGULARIZED_MEAN)
+
+                if normalization is NormalizationStrategy.COHERENCE:
+                    # Enforce h_c + sum_{k≠c} l_k = 1 for all c by preserving lower bounds and
+                    # setting h_c := 1 - S_low + l_c.  Mathematical side-effect: all interval
+                    # widths become equal (D = 1 - S_low), erasing the per-class difficulty signal.
+                    s_low = low.sum(axis=1, keepdims=True)
+                    high = np.clip(1.0 - s_low + low, low, 1.0)
+                    for c in range(tprobs.shape[1]):
+                        va_proba[:, c] = self._select_interval_summary(
+                            low[:, c], high[:, c], interval_summary
+                        )
+                    if interval_summary in _simplex_summaries:
+                        row_sums = va_proba.sum(axis=1, keepdims=True)
+                        safe_row_sums = np.where(row_sums == 0, 1.0, row_sums)
+                        va_proba = va_proba / safe_row_sums
+
+                elif normalization is NormalizationStrategy.SIMPLEX:
+                    # Preserve raw VA bounds; normalize only point estimates to sum to 1.
+                    # Interval widths retain the per-class calibrator uncertainty signal.
+                    if interval_summary in _simplex_summaries:
+                        row_sums = va_proba.sum(axis=1, keepdims=True)
+                        safe_row_sums = np.where(row_sums == 0, 1.0, row_sums)
+                        va_proba = va_proba / safe_row_sums
+
+                elif normalization is NormalizationStrategy.SCALE:
+                    # Scale both bounds and point estimates uniformly by 1/S (S = Σ_c p_c).
+                    # Point estimates sum to 1; relative width ordering across classes is preserved.
                     row_sums = va_proba.sum(axis=1, keepdims=True)
                     safe_row_sums = np.where(row_sums == 0, 1.0, row_sums)
+                    low = low / safe_row_sums
+                    high = high / safe_row_sums
                     va_proba = va_proba / safe_row_sums
 
-            elif normalization is NormalizationStrategy.SIMPLEX:
-                # Preserve raw VA bounds; normalize only point estimates to sum to 1.
-                # Interval widths retain the per-class calibrator uncertainty signal.
-                if interval_summary in _simplex_summaries:
-                    row_sums = va_proba.sum(axis=1, keepdims=True)
-                    safe_row_sums = np.where(row_sums == 0, 1.0, row_sums)
-                    va_proba = va_proba / safe_row_sums
-
-            elif normalization is NormalizationStrategy.SCALE:
-                # Scale both bounds and point estimates uniformly by 1/S (S = Σ_c p_c).
-                # Point estimates sum to 1; relative width ordering across classes is preserved.
-                row_sums = va_proba.sum(axis=1, keepdims=True)
-                safe_row_sums = np.where(row_sums == 0, 1.0, row_sums)
-                low = low / safe_row_sums
-                high = high / safe_row_sums
-                va_proba = va_proba / safe_row_sums
-
-            # NormalizationStrategy.NONE: return raw outputs unchanged.
-            if classes is not None:
-                if type(classes) not in (list, np.ndarray):
-                    classes = [classes]
+                # NormalizationStrategy.NONE: return raw outputs unchanged.
+                if classes is not None:
+                    if type(classes) not in (list, np.ndarray):
+                        classes = [classes]
+                    if output_interval:
+                        return (
+                            np.asarray(va_proba),
+                            np.array([low[i, c] for i, c in enumerate(classes)]),
+                            np.array([high[i, c] for i, c in enumerate(classes)]),
+                            classes,
+                        )
+                    return np.asarray(va_proba), classes
+                classes = np.argmax(va_proba, axis=1)
                 if output_interval:
-                    return (
-                        np.asarray(va_proba),
-                        np.array([low[i, c] for i, c in enumerate(classes)]),
-                        np.array([high[i, c] for i, c in enumerate(classes)]),
-                        classes,
-                    )
+                    return np.asarray(va_proba), low, high, classes
                 return np.asarray(va_proba), classes
-            classes = np.argmax(va_proba, axis=1)
-            if output_interval:
-                return np.asarray(va_proba), low, high, classes
-            return np.asarray(va_proba), classes
 
-        if self.is_mondrian():
-            if bins is None:
-                raise ConfigurationError(
-                    "Mondrian calibration: bins must be provided if Mondrian.",
-                    details={"context": "predict_proba", "requirement": "bins parameter"},
-                )
-            for b, va_bin in self.va.items():
-                p0p1[bins == b, :] = va_bin.predict_proba(tprobs[bins == b, :])[1]
-        else:
-            _, p0p1 = self.va.predict_proba(tprobs)
-        low, high = p0p1[:, 0], p0p1[:, 1]
-        tmp = self._select_interval_summary(low, high, interval_summary)
-        va_proba[:, 0] = 1 - tmp
-        va_proba[:, 1] = tmp
-        # binary
-        warnings.filterwarnings("default", category=RuntimeWarning)
-        if output_interval:
-            return np.asarray(va_proba), low, high
-        return np.asarray(va_proba)
+            if self.is_mondrian():
+                if bins is None:
+                    raise ConfigurationError(
+                        "Mondrian calibration: bins must be provided if Mondrian.",
+                        details={"context": "predict_proba", "requirement": "bins parameter"},
+                    )
+                for b, va_bin in self.va.items():
+                    p0p1[bins == b, :] = va_bin.predict_proba(tprobs[bins == b, :])[1]
+            else:
+                _, p0p1 = self.va.predict_proba(tprobs)
+            low, high = p0p1[:, 0], p0p1[:, 1]
+            tmp = self._select_interval_summary(low, high, interval_summary)
+            va_proba[:, 0] = 1 - tmp
+            va_proba[:, 1] = tmp
+            if output_interval:
+                return np.asarray(va_proba), low, high
+            return np.asarray(va_proba)
 
     @staticmethod
     def _select_interval_summary(low, high, summary: IntervalSummary):

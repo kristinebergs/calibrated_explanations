@@ -31,9 +31,8 @@ from ..difficulty_estimator_helpers import validate_difficulty_estimator_provena
 from .policy import RejectPolicy
 
 # Module-level flag: emit the 100% ambiguity UserWarning at most once per process.
-# Python's __warningregistry__ deduplication is unreliable here because venn_abers.py
-# calls warnings.filterwarnings() globally (not inside catch_warnings()), which
-# increments _filters_version and clears all registries every time calibration runs.
+# This keeps the contract stable regardless of caller-level warning filters or
+# repeated reject-policy execution inside the same interpreter session.
 _AMBIGUITY_WARNING_ISSUED = False
 _VALID_NCF = frozenset({"default", "ensured"})
 _DIFFICULTY_STRATEGIES = frozenset(
@@ -1958,11 +1957,8 @@ class RejectOrchestrator:
         reject_rate = 0.0 if num_instances == 0 else float(np.mean(rejected))
 
         # Warn when the score distribution has been flattened so severely that every
-        # instance becomes an ambiguous multi-label prediction set.  The module-level
-        # flag gates the UserWarning to one emission per process: Python's normal
-        # __warningregistry__ deduplication is unreliable here because venn_abers.py
-        # calls warnings.filterwarnings() globally (not inside catch_warnings()), which
-        # increments _filters_version and clears all registries on every calibration run.
+        # instance becomes an ambiguous multi-label prediction set. The module-level
+        # flag keeps the UserWarning to one emission per process.
         if num_instances > 0 and float(np.mean(ambiguity)) >= 1.0:
             global _AMBIGUITY_WARNING_ISSUED
             _msg = (
