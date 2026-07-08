@@ -23,7 +23,7 @@ Load `references/pypi_release_guide.md` for the full release procedure.
 Before starting the release process:
 
 1. Confirm all tasks in `development/current-work/vX.Y.Z_plan.md` are completed.
-2. Confirm CI is green on `main`: `make ci-local-new`.
+2. Confirm release-local validation is green: `make local-checks-release`. Use `make ci-local-runblocks` only if you also need workflow run-block smoke coverage locally.
 3. Confirm the user has PyPI credentials configured.
 
 ## Release workflow

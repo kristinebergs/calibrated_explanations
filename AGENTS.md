@@ -34,7 +34,7 @@ Use this structure for all implementation tasks to get consistent, reviewable ou
 Task:
 - Goal: <what to build or fix>
 - Constraints: CE-first only; no custom wrapper classes; keep public API stable unless requested.
-- Validation: run `make test` and summarize failures.
+- Validation: use task-proportional verification (`make quick` for quick fixes, `make local-checks-task TASK=<n>` for release-plan tasks, `make local-checks-pr` for PR readiness) and summarize failures.
 - Deliverables: patch + concise rationale + migration notes if API changed.
 ```
 
@@ -76,8 +76,11 @@ Then ask Codex to:
 ## 5. Validation path (Codex-specific)
 
 Default validation order:
-1. `make local-checks-pr` (fast required checks)
-2. `make local-checks` only when changes touch main-branch gates (coverage/perf/over-testing)
+1. `make quick` during active editing and for small fixes
+2. `make local-checks-task TASK=<n>` before closing a release-plan task
+3. `make local-checks-pr` before opening or updating a PR
+4. `make local-checks-full` only when changes touch main-branch gates or a maintainer asks for final local validation
+5. `make local-checks-release` only during release preparation
 
 If a command is unavailable in the current shell, run the equivalent Python entrypoint and report it.
 

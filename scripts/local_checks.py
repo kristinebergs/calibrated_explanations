@@ -1,12 +1,14 @@
-"""Run stacked CI checks in the current local environment.
+"""Run local verification profiles in the current environment.
 
-This runner mirrors the command-level checks from CI workflows but deliberately
-skips environment/bootstrap steps (no virtualenv creation, no pip install).
+This runner preserves focused standalone lanes (ADR-030 ratification,
+deprecation closure, workflow run-block smoke) and adds explicit local
+verification profiles for quick, task, PR, full, and release validation.
 """
 
 from __future__ import annotations
 
 import argparse
+from contextlib import suppress
 import json
 import os
 import platform
@@ -27,6 +29,16 @@ class Step:
     name: str
     command: list[str]
     optional: bool = False
+
+
+@dataclass(frozen=True)
+class ProfilePlan:
+    """A concrete local-check execution plan for one profile."""
+
+    profile: str
+    steps: list[Step]
+    skipped_heavy_gates: list[dict[str, str]]
+    task: int | None = None
 
 
 def _python_cmd(*args: str) -> list[str]:
@@ -57,17 +69,28 @@ def _run_step(step: Step) -> int:
     env.setdefault("PRE_COMMIT_HOME", str(Path(".cache/pre-commit").resolve()))
     if "coverage" in step.name.lower():
         env.setdefault("COVERAGE_FILE", f".coverage.local_checks.{os.getpid()}")
-    if step.name in {"Core tests (no viz/no cov)", "Core tests with coverage"}:
+    if step.name in {
+        "Core tests (no viz/no cov)",
+        "Core tests with coverage",
+        "Unit tests (fast/no viz/no slow/no cov)",
+        "All non-viz tests (no coverage)",
+    }:
         env.pop("CE_DEPRECATIONS", None)
     try:
         if _is_pre_commit_step(step):
-            result = subprocess.run(step.command, check=False, env=env, capture_output=True, text=True)
+            result = subprocess.run(  # noqa: S603
+                step.command,
+                check=False,
+                env=env,
+                capture_output=True,
+                text=True,
+            )
             if result.stdout:
                 print(result.stdout, end="" if result.stdout.endswith("\n") else "\n")
             if result.stderr:
                 print(result.stderr, end="" if result.stderr.endswith("\n") else "\n")
         else:
-            result = subprocess.run(step.command, check=False, env=env)
+            result = subprocess.run(step.command, check=False, env=env)  # noqa: S603
     except FileNotFoundError as exc:
         if step.optional:
             print(f"Step skipped (optional command unavailable): {step.name} ({exc})")
@@ -76,42 +99,17 @@ def _run_step(step: Step) -> int:
         return 127
     if result.returncode == 0:
         return 0
-    # Pre-commit may fail due to network fetch issues in restricted/offline
-    # environments. Keep that case non-fatal so local stacks can still run.
     if _is_pre_commit_step(step):
         combined = f"{getattr(result, 'stdout', '')}\n{getattr(result, 'stderr', '')}"
         if _is_network_fetch_failure(combined):
-            print("Pre-commit could not fetch hook repos (offline/network-restricted). Continuing with stacked checks.")
+            print(
+                "Pre-commit could not fetch hook repos (offline/network-restricted). Continuing with stacked checks."
+            )
             return 0
     if step.optional:
         print(f"Step failed but is advisory/optional: {step.name} (rc={result.returncode})")
         return 0
     return result.returncode
-
-
-def _run_micro_benchmark() -> int:
-    print("\n[Micro benchmark]")
-    print(f"$ {sys.executable} scripts/perf/micro_bench_perf.py > tests/benchmarks/micro_current.json")
-    env = dict(os.environ)
-    env.setdefault("PRE_COMMIT_HOME", str(Path(".cache/pre-commit").resolve()))
-    output = subprocess.run(
-        _python_cmd("scripts/perf/micro_bench_perf.py"),
-        check=False,
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-    Path("tests/benchmarks").mkdir(parents=True, exist_ok=True)
-    Path("tests/benchmarks/micro_current.json").write_text(
-        output.stdout,
-        encoding="utf-8",
-        newline="\n",
-    )
-    if output.returncode != 0:
-        if output.stderr:
-            print(output.stderr)
-        return output.returncode
-    return 0
 
 
 def _venv_python(venv_path: Path) -> Path:
@@ -124,14 +122,15 @@ def _venv_python(venv_path: Path) -> Path:
 def _run_timed_command(command: list[str]) -> tuple[int, int]:
     """Run a command and return ``(returncode, elapsed_seconds)``."""
     start = time.monotonic()
-    result = subprocess.run(command, check=False)
+    result = subprocess.run(command, check=False)  # noqa: S603
     elapsed = int(round(time.monotonic() - start))
     return result.returncode, elapsed
 
 
 def _run_uv_install_smoke() -> int:
     """Reproduce the CI uv install smoke and timing lane locally."""
-    if shutil.which("uv") is None:
+    uv_binary = shutil.which("uv")
+    if uv_binary is None:
         print("ERROR: uv not found. Install uv before running the optional uv install smoke.")
         return 127
 
@@ -147,8 +146,8 @@ def _run_uv_install_smoke() -> int:
     timing_report.parent.mkdir(parents=True, exist_ok=True)
 
     for venv_path in (pip_venv, uv_venv):
-        rc = subprocess.run(
-            ["uv", "venv", "--python", smoke_python, "--seed", str(venv_path)],
+        rc = subprocess.run(  # noqa: S603
+            [uv_binary, "venv", "--python", smoke_python, "--seed", str(venv_path)],
             check=False,
         ).returncode
         if rc != 0:
@@ -176,7 +175,7 @@ def _run_uv_install_smoke() -> int:
 
     uv_rc, uv_seconds = _run_timed_command(
         [
-            "uv",
+            uv_binary,
             "pip",
             "install",
             "--python",
@@ -191,7 +190,7 @@ def _run_uv_install_smoke() -> int:
     if uv_rc != 0:
         return uv_rc
 
-    smoke = subprocess.run(
+    smoke = subprocess.run(  # noqa: S603
         [
             str(uv_python),
             "-c",
@@ -302,7 +301,9 @@ def _command_text(command: list[str]) -> str:
     return " ".join(display_command)
 
 
-def _write_adr030_timing_report(records: list[dict[str, object]], started_at: float, output_path: Path) -> None:
+def _write_adr030_timing_report(
+    records: list[dict[str, object]], started_at: float, output_path: Path
+) -> None:
     """Write the focused ADR-030 ratification timing report."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
@@ -313,7 +314,9 @@ def _write_adr030_timing_report(records: list[dict[str, object]], started_at: fl
         "steps": records,
         "total_elapsed_seconds": round(time.monotonic() - started_at, 3),
     }
-    output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    output_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+    )
 
 
 def _active_deprecation_rows(ledger_path: Path) -> list[dict[str, str]]:
@@ -364,7 +367,9 @@ def _write_active_deprecations_report(rows: list[dict[str, str]], output_path: P
         "blocking_rows_count": len(rows),
         "blocking_symbols": [r["deprecated_symbol"] for r in rows],
     }
-    output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    output_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+    )
     if rows:
         print("ERROR: Active deprecations remain in docs/migration/deprecations.md:")
         for row in rows:
@@ -388,7 +393,9 @@ def _write_deprecation_closure_timing_report(
         "steps": records,
         "total_elapsed_seconds": round(time.monotonic() - started_at, 3),
     }
-    output_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    output_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+    )
 
 
 def deprecation_closure_steps() -> list[Step]:
@@ -406,12 +413,11 @@ def deprecation_closure_steps() -> list[Step]:
                 "--no-cov",
             ),
         ),
-        Step("ADR-030 ratification lane", _python_cmd("scripts/local_checks.py", "--adr030-ratification")),
+        Step(
+            "ADR-030 ratification lane",
+            _python_cmd("scripts/local_checks.py", "--adr030-ratification"),
+        ),
     ]
-        # Avoid invoking top-level make targets here (they run the full
-        # verification stack and can be extremely time-consuming). The
-        # deprecation-closure lane should be focused and not re-run the
-        # entire PR/main local-check sequences.
 
 
 def run_deprecation_closure() -> int:
@@ -504,28 +510,735 @@ def _is_network_fetch_failure(stderr: str) -> bool:
         return True
     if "failed to connect to github.com" in text:
         return True
-    if "could not connect to server" in text:
-        return True
-    return False
+    return "could not connect to server" in text
 
 
 def _pytest_supports_no_cov() -> bool:
     """Return True if pytest supports the --no-cov option."""
-    result = subprocess.run([sys.executable, "-m", "pytest", "--help"], check=False, capture_output=True, text=True)
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "--help"], check=False, capture_output=True, text=True
+    )
     return "--no-cov" in (result.stdout or "")
 
 
+def _changed_python_targets() -> list[str]:
+    """Return changed Python files for fast lint/format checks.
+
+    Falls back to broad repo paths when git metadata is unavailable or when no
+    changed Python files are detected.
+    """
+    default_targets = ["src", "tests", "scripts"]
+    git = shutil.which("git")
+    if git is None:
+        return default_targets
+
+    commands = [
+        [git, "diff", "--name-only", "--relative", "HEAD", "--", "src", "tests", "scripts"],
+        [git, "ls-files", "--others", "--exclude-standard", "--", "src", "tests", "scripts"],
+    ]
+    changed: list[str] = []
+    for command in commands:
+        result = subprocess.run(command, check=False, capture_output=True, text=True)  # noqa: S603
+        if result.returncode != 0:
+            return default_targets
+        for line in (result.stdout or "").splitlines():
+            path = line.strip()
+            if path.endswith(".py") and path not in changed:
+                changed.append(path)
+    return changed or default_targets
+
+
+def _ruff_check_command(*paths: str) -> list[str]:
+    """Return the Ruff lint command for the provided paths."""
+    return _python_cmd("-m", "ruff", "check", *paths)
+
+
+def _ruff_format_check_command(*paths: str) -> list[str]:
+    """Return the Ruff format-check command for the provided paths."""
+    return _python_cmd("-m", "ruff", "format", "--check", *paths)
+
+
+def _pytest_no_cov_command(*args: str) -> list[str]:
+    """Return a pytest command and add ``--no-cov`` when supported."""
+    command = [sys.executable, "-m", "pytest", *args]
+    if _pytest_supports_no_cov():
+        command.append("--no-cov")
+    return command
+
+
+def _quick_pytest_command() -> list[str]:
+    """Return the inner-loop pytest command."""
+    return _pytest_no_cov_command(
+        "-q",
+        "tests/unit",
+        "-m",
+        "not viz and not slow",
+        "--maxfail=1",
+        "-o",
+        "addopts=",
+    )
+
+
+def _all_non_viz_pytest_command() -> list[str]:
+    """Return the PR-scope pytest command."""
+    return _pytest_no_cov_command("-q", "-m", "not viz", "-o", "addopts=")
+
+
+def _quick_steps(mypy_targets: list[str], lint_targets: list[str]) -> list[Step]:
+    """Return the inner-loop verification steps."""
+    steps = [
+        Step("Ruff check", _ruff_check_command(*lint_targets)),
+        Step("Ruff format check", _ruff_format_check_command(*lint_targets)),
+    ]
+    if mypy_targets:
+        steps.append(
+            Step(
+                "Mypy (Phase 1B scope)",
+                _python_cmd("-m", "mypy", *mypy_targets, "--config-file", "pyproject.toml"),
+            )
+        )
+    steps.extend(
+        [
+            Step("ADR-001 boundary check", _python_cmd("scripts/quality/check_import_graph.py")),
+            Step(
+                "ADR-002 compliance check",
+                _python_cmd("scripts/quality/check_adr002_compliance.py"),
+            ),
+            Step("Unit tests (fast/no viz/no slow/no cov)", _quick_pytest_command()),
+        ]
+    )
+    return steps
+
+
+def _pr_steps(
+    mypy_targets: list[str], lint_targets: list[str], *, pre_commit_available: bool
+) -> list[Step]:
+    """Return the PR-scope verification steps."""
+    steps = list(_quick_steps(mypy_targets, lint_targets))
+    steps.extend(
+        [
+            Step(
+                "Docstring coverage",
+                _python_cmd("scripts/quality/check_docstring_coverage.py", "--fail-under", "94.0"),
+            ),
+            Step(
+                "STD-005 logger domain enforcement",
+                _python_cmd(
+                    "scripts/quality/check_logging_domains.py",
+                    "--root",
+                    "src/calibrated_explanations",
+                    "--report",
+                    "reports/quality/logging_domain_report.json",
+                ),
+            ),
+            Step(
+                "STD-001 nomenclature enforcement",
+                _python_cmd(
+                    "scripts/quality/check_std001_nomenclature.py",
+                    "--root",
+                    "src/calibrated_explanations",
+                    "--report",
+                    "reports/nomenclature_violation_inventory.json",
+                    "--check",
+                ),
+            ),
+            Step(
+                "Parameter naming CI guard (removed aliases)",
+                _python_cmd(
+                    "scripts/quality/check_parameter_naming.py",
+                    "--root",
+                    "src/calibrated_explanations",
+                    "--check",
+                ),
+            ),
+            Step(
+                "Capability-chain validator",
+                _python_cmd("scripts/quality/validate_capability_chain.py", "--check"),
+            ),
+            Step(
+                "Raw evidence structural validation",
+                _python_cmd("scripts/generate_tif_evidence.py", "--validate-existing"),
+            ),
+            Step(
+                "Private-member scan",
+                _python_cmd(
+                    "scripts/anti-pattern-analysis/scan_private_usage.py", "tests", "--check"
+                ),
+            ),
+            Step(
+                "ADR-030 anti-pattern detector",
+                _python_cmd(
+                    "scripts/anti-pattern-analysis/detect_test_anti_patterns.py",
+                    "--tests-dir",
+                    "tests",
+                    "--check",
+                    "--output",
+                    "reports/anti-pattern-analysis/test_anti_pattern_report.csv",
+                    "--report",
+                    "reports/anti-pattern-analysis/test_quality_report.json",
+                    "--baseline",
+                    ".github/test-quality-baseline.json",
+                ),
+            ),
+            Step(
+                "ADR-030 test-helper export guard",
+                _python_cmd(
+                    "scripts/quality/check_no_test_helper_exports.py",
+                    "--root",
+                    "src/calibrated_explanations",
+                    "--report",
+                    "reports/anti-pattern-analysis/test_helper_wrapper_report.json",
+                ),
+            ),
+            Step(
+                "ADR-006 trust-mutation primitive guard",
+                _python_cmd(
+                    "scripts/quality/check_trust_mutation_primitive.py",
+                    "--root",
+                    "src/calibrated_explanations",
+                    "--report",
+                    "reports/trust_mutation_inventory.json",
+                    "--check",
+                ),
+            ),
+            Step(
+                "ADR-034 ConfigManager usage guard",
+                _python_cmd(
+                    "scripts/quality/check_config_manager_usage.py",
+                    "--root",
+                    "src/calibrated_explanations",
+                    "--scope",
+                    "runtime",
+                    "--report",
+                    "reports/quality/config_manager_usage_report.json",
+                    "--check",
+                ),
+            ),
+            Step(
+                "ADR-030 marker hygiene",
+                _python_cmd(
+                    "scripts/quality/check_marker_hygiene.py",
+                    "--check",
+                    "--report",
+                    "reports/marker-hygiene/marker_hygiene_report.json",
+                    "--baseline",
+                    ".github/marker-hygiene-baseline.json",
+                ),
+            ),
+            Step(
+                "Generated report local-path guard",
+                _python_cmd(
+                    "scripts/quality/check_no_local_paths_in_reports.py",
+                    "--check",
+                    "--report",
+                    "reports/quality/no_local_paths_report.json",
+                ),
+            ),
+            Step("All non-viz tests (no coverage)", _all_non_viz_pytest_command()),
+        ]
+    )
+    if pre_commit_available:
+        steps.append(Step("Pre-commit", ["pre-commit", "run", "--all-files"]))
+    return steps
+
+
+def _full_steps(
+    mypy_targets: list[str], lint_targets: list[str], *, pre_commit_available: bool
+) -> list[Step]:
+    """Return the heavier main/full verification steps."""
+    steps = list(_pr_steps(mypy_targets, lint_targets, pre_commit_available=pre_commit_available))
+    steps.extend(
+        [
+            Step(
+                "Docs build (HTML)",
+                [sys.executable, "-m", "sphinx", "-b", "html", "docs", "docs/_build/html"],
+            ),
+            Step(
+                "Core tests with coverage",
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "-o",
+                    "addopts=",
+                    "--cov=src/calibrated_explanations",
+                    "--cov-config=pyproject.toml",
+                    "--cov-report=xml:coverage.xml",
+                    "--cov-context=test",
+                    "--cov-fail-under=90",
+                ],
+            ),
+            Step(
+                "Per-module coverage gates",
+                _python_cmd("scripts/quality/check_coverage_gates.py", "coverage.xml"),
+            ),
+            Step("Micro benchmark", _python_cmd("scripts/perf/micro_bench_perf.py")),
+            Step(
+                "Perf thresholds",
+                _python_cmd(
+                    "scripts/perf/check_perf_micro.py",
+                    "tests/benchmarks/micro_current.json",
+                    "tests/benchmarks/perf_thresholds.json",
+                ),
+            ),
+            Step(
+                "Over-testing coverage contexts",
+                [
+                    sys.executable,
+                    "-m",
+                    "pytest",
+                    "-q",
+                    "-o",
+                    "addopts=",
+                    "--cov=src/calibrated_explanations",
+                    "--cov-config=pyproject.toml",
+                    "--cov-context=test",
+                    "--no-cov-on-fail",
+                ],
+            ),
+            Step(
+                "Over-testing report",
+                _python_cmd(
+                    "scripts/over_testing/over_testing_report.py",
+                    "--require-multiple-contexts",
+                    "--output-lines",
+                    "reports/over_testing/line_coverage_counts.csv",
+                    "--output-blocks",
+                    "reports/over_testing/block_coverage_counts.csv",
+                    "--output-summary",
+                    "reports/over_testing/summary.json",
+                    "--output-metadata",
+                    "reports/over_testing/metadata.json",
+                ),
+            ),
+            Step(
+                "Redundant tests report",
+                _python_cmd("scripts/over_testing/detect_redundant_tests.py"),
+            ),
+        ]
+    )
+    return steps
+
+
+def _release_steps(
+    mypy_targets: list[str], lint_targets: list[str], *, pre_commit_available: bool
+) -> list[Step]:
+    """Return the release-oriented verification steps."""
+    steps = list(_full_steps(mypy_targets, lint_targets, pre_commit_available=pre_commit_available))
+    steps.extend(
+        [
+            Step(
+                "Dependency audit",
+                [
+                    "pip-audit",
+                    "-r",
+                    "requirements.txt",
+                    "-r",
+                    "docs/requirements-doc.txt",
+                    "--ignore-vuln",
+                    "GHSA-xm59-rqc7-hhvf",
+                ],
+            ),
+            Step(
+                "Notebook audit",
+                _python_cmd(
+                    "scripts/quality/audit_notebook_api.py",
+                    "notebooks",
+                    "--json",
+                    "artifacts/notebook_audit.json",
+                ),
+            ),
+            Step(
+                "Notebook execution report",
+                _python_cmd(
+                    "scripts/docs/run_notebooks.py",
+                    "--mode",
+                    "advisory",
+                    "--output",
+                    "reports/docs/notebook_execution_report.json",
+                ),
+            ),
+            Step(
+                "Strict docs build",
+                [sys.executable, "-m", "sphinx", "-W", "--keep-going", "docs", "docs/_build/html"],
+            ),
+            Step(
+                "Docs linkcheck",
+                [
+                    sys.executable,
+                    "-m",
+                    "sphinx",
+                    "-b",
+                    "linkcheck",
+                    "-D",
+                    "nbsphinx_execute=never",
+                    "docs",
+                    "docs/_build/linkcheck",
+                ],
+            ),
+            Step(
+                "Warning policy",
+                _python_cmd(
+                    "scripts/quality/check_warning_policy.py",
+                    "--check",
+                    "--report",
+                    "reports/quality/warning_policy.json",
+                ),
+            ),
+            Step(
+                "Deprecation closure",
+                _python_cmd("scripts/local_checks.py", "--deprecation-closure"),
+            ),
+            Step(
+                "Capability evidence refresh",
+                _python_cmd("scripts/generate_tif_evidence.py", "--check-current"),
+            ),
+            Step("Public API snapshot", _python_cmd("scripts/quality/snapshot_public_api.py")),
+        ]
+    )
+    return steps
+
+
+def _common_skipped_heavy_gates() -> list[dict[str, str]]:
+    """Return the heavy gates excluded from quick/task/pr by default."""
+    return [
+        {"gate": "coverage", "reason": "Reserved for full/release validation."},
+        {"gate": "docs_html", "reason": "Reserved for full/release validation."},
+        {"gate": "docs_linkcheck", "reason": "Reserved for release validation."},
+        {"gate": "notebook_audit", "reason": "Reserved for release validation."},
+        {"gate": "notebook_execution", "reason": "Reserved for release validation."},
+        {"gate": "dependency_audit", "reason": "Reserved for release validation."},
+        {"gate": "performance", "reason": "Reserved for full/release validation."},
+        {"gate": "capability_evidence_refresh", "reason": "Reserved for release validation."},
+        {"gate": "release_bookkeeping", "reason": "Reserved for release validation."},
+    ]
+
+
+def _task_specific_steps(task: int) -> list[Step]:
+    """Return the focused validation steps for a v0.11.6 task."""
+    task_steps: dict[int, list[Step]] = {
+        1: [
+            Step(
+                "Task 1 focused tests",
+                _pytest_no_cov_command(
+                    "-q", "tests/scripts/test_local_checks_deprecation_closure.py", "-o", "addopts="
+                ),
+            ),
+            Step(
+                "Task 1 deprecation closure gate",
+                _python_cmd("scripts/local_checks.py", "--deprecation-closure"),
+            ),
+        ],
+        2: [
+            Step(
+                "Task 2 guarded-kwarg regressions",
+                _pytest_no_cov_command(
+                    "-q",
+                    "tests/unit/core/test_calibrated_explainer_more_paths.py",
+                    "tests/unit/core/test_wrap_explainer_core.py",
+                    "-o",
+                    "addopts=",
+                ),
+            ),
+        ],
+        3: [
+            Step(
+                "Task 3 reject-kwarg regressions",
+                _pytest_no_cov_command(
+                    "-q",
+                    "tests/unit/test_reject_orchestrator.py",
+                    "tests/unit/test_reject_prediction_api.py",
+                    "tests/unit/core/test_calibrated_explainer_predict_reject.py",
+                    "tests/unit/core/test_reject_orchestrator_resilience.py",
+                    "-o",
+                    "addopts=",
+                ),
+            ),
+        ],
+        4: [
+            Step(
+                "Task 4 coercer regressions",
+                _pytest_no_cov_command(
+                    "-q",
+                    "tests/unit/core/test_venn_abers.py",
+                    "tests/unit/core/test_calibrated_explainer_runtime_helpers.py",
+                    "-o",
+                    "addopts=",
+                ),
+            ),
+        ],
+        5: [
+            Step(
+                "Task 5 ADR-038 surface tests",
+                _pytest_no_cov_command(
+                    "-q",
+                    "tests/unit/core/test_wrap_explainer_core.py",
+                    "tests/unit/core/test_calibrated_explainer_more_paths.py",
+                    "-o",
+                    "addopts=",
+                ),
+            ),
+            Step(
+                "Task 5 public API snapshot", _python_cmd("scripts/quality/snapshot_public_api.py")
+            ),
+        ],
+        6: [
+            Step(
+                "Task 6 warning-scope regressions",
+                _pytest_no_cov_command(
+                    "-q", "tests/unit/core/test_venn_abers.py", "-o", "addopts="
+                ),
+            ),
+            Step(
+                "Task 6 warning policy",
+                _python_cmd(
+                    "scripts/quality/check_warning_policy.py",
+                    "--check",
+                    "--report",
+                    "reports/quality/warning_policy.json",
+                ),
+            ),
+        ],
+        7: [
+            Step(
+                "Task 7 instruction consistency",
+                _python_cmd("scripts/quality/check_agent_instruction_consistency.py"),
+            ),
+            Step(
+                "Task 7 strict docs build",
+                [sys.executable, "-m", "sphinx", "-W", "--keep-going", "docs", "docs/_build/html"],
+            ),
+        ],
+        8: [
+            Step(
+                "Task 8 ncf alias regressions",
+                _pytest_no_cov_command(
+                    "-q",
+                    "tests/unit/core/test_reject.py",
+                    "tests/unit/core/test_reject_ncf_redteam.py",
+                    "-o",
+                    "addopts=",
+                ),
+            ),
+            Step(
+                "Task 8 targeted Ruff check",
+                _ruff_check_command(
+                    "src", "tests/unit/core/test_calibrated_explainer_runtime_helpers.py"
+                ),
+            ),
+        ],
+        9: [
+            Step(
+                "Task 9 local-check profile tests",
+                _pytest_no_cov_command(
+                    "-q",
+                    "tests/scripts/test_local_checks_adr030_ratification.py",
+                    "tests/scripts/test_local_checks_deprecation_closure.py",
+                    "tests/scripts/test_local_checks_profiles.py",
+                    "-o",
+                    "addopts=",
+                ),
+            ),
+            Step(
+                "Task 9 ADR-030 ratification",
+                _python_cmd("scripts/local_checks.py", "--adr030-ratification"),
+            ),
+            Step(
+                "Task 9 instruction consistency",
+                _python_cmd("scripts/quality/check_agent_instruction_consistency.py"),
+            ),
+        ],
+    }
+    if task not in task_steps:
+        raise ValueError(f"Unsupported task profile mapping: {task}")
+    return task_steps[task]
+
+
+def _task_specific_lint_targets(task: int) -> list[str]:
+    """Return lint/format targets scoped to one v0.11.6 task."""
+    task_targets: dict[int, list[str]] = {
+        1: [
+            "scripts/local_checks.py",
+            "tests/scripts/test_local_checks_deprecation_closure.py",
+        ],
+        2: [
+            "src/calibrated_explanations/api/params.py",
+            "src/calibrated_explanations/core/calibrated_explainer.py",
+            "src/calibrated_explanations/core/wrap_explainer.py",
+            "tests/unit/core/test_calibrated_explainer_more_paths.py",
+            "tests/unit/core/test_wrap_explainer_core.py",
+            "tests/integration/core/test_guarded_audit_integration.py",
+            "tests/unit/core/explain/test_guarded_audit.py",
+        ],
+        3: [
+            "tests/unit/test_reject_orchestrator.py",
+            "tests/unit/test_reject_prediction_api.py",
+            "tests/unit/core/test_calibrated_explainer_predict_reject.py",
+            "tests/unit/core/test_reject_orchestrator_resilience.py",
+        ],
+        4: [
+            "tests/unit/core/test_venn_abers.py",
+            "tests/unit/core/test_calibrated_explainer_runtime_helpers.py",
+        ],
+        5: [
+            "src/calibrated_explanations/core/calibrated_explainer.py",
+            "src/calibrated_explanations/core/wrap_explainer.py",
+            "tests/unit/core/test_calibrated_explainer_more_paths.py",
+            "tests/unit/core/test_wrap_explainer_core.py",
+        ],
+        6: [
+            "src/calibrated_explanations/calibration/venn_abers.py",
+            "tests/unit/core/test_venn_abers.py",
+        ],
+        7: [],
+        8: [
+            "tests/unit/core/test_calibrated_explainer_runtime_helpers.py",
+            "tests/unit/core/test_reject.py",
+            "tests/unit/core/test_reject_ncf_redteam.py",
+        ],
+        9: [
+            "scripts/local_checks.py",
+            "tests/scripts/test_local_checks_adr030_ratification.py",
+            "tests/scripts/test_local_checks_deprecation_closure.py",
+            "tests/scripts/test_local_checks_profiles.py",
+            "tests/unit/core/test_calibrated_explainer_runtime_helpers.py",
+        ],
+    }
+    if task not in task_targets:
+        raise ValueError(f"Unsupported task profile mapping: {task}")
+    return task_targets[task] or _changed_python_targets()
+
+
+def build_profile_plan(
+    profile: str,
+    *,
+    task: int | None,
+    mypy_targets: list[str],
+    lint_targets: list[str],
+    pre_commit_available: bool,
+) -> ProfilePlan:
+    """Build the local-check step plan for the requested profile."""
+    skipped_heavy = _common_skipped_heavy_gates()
+    if profile == "quick":
+        return ProfilePlan(
+            profile="quick",
+            steps=_quick_steps(mypy_targets, lint_targets),
+            skipped_heavy_gates=skipped_heavy,
+        )
+    if profile == "task":
+        if task is None:
+            raise ValueError("The task profile requires --task / TASK=<n>.")
+        task_skips = [
+            entry for entry in skipped_heavy if not (task == 7 and entry["gate"] == "docs_html")
+        ]
+        return ProfilePlan(
+            profile="task",
+            task=task,
+            steps=[*_quick_steps(mypy_targets, lint_targets), *_task_specific_steps(task)],
+            skipped_heavy_gates=task_skips,
+        )
+    if profile == "pr":
+        return ProfilePlan(
+            profile="pr",
+            steps=_pr_steps(mypy_targets, lint_targets, pre_commit_available=pre_commit_available),
+            skipped_heavy_gates=skipped_heavy,
+        )
+    if profile == "full":
+        return ProfilePlan(
+            profile="full",
+            steps=_full_steps(
+                mypy_targets, lint_targets, pre_commit_available=pre_commit_available
+            ),
+            skipped_heavy_gates=[],
+        )
+    if profile == "release":
+        return ProfilePlan(
+            profile="release",
+            steps=_release_steps(
+                mypy_targets, lint_targets, pre_commit_available=pre_commit_available
+            ),
+            skipped_heavy_gates=[],
+        )
+    raise ValueError(f"Unknown profile: {profile}")
+
+
+def _write_task_profile_report(
+    plan: ProfilePlan,
+    *,
+    commands_run: list[str],
+    exit_status: int,
+    output_path: Path,
+    requested_paths: list[str] | None = None,
+) -> None:
+    """Write the machine-readable task-profile execution report."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": 1,
+        "generated_at": _utc_now_iso(),
+        "selected_profile": plan.profile,
+        "task_id": plan.task,
+        "commands_run": commands_run,
+        "skipped_heavy_gates": plan.skipped_heavy_gates,
+        "requested_paths": requested_paths or [],
+        "exit_status": exit_status,
+    }
+    output_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+    )
+
+
+def run_profile_plan(
+    plan: ProfilePlan,
+    *,
+    task_report_path: Path | None = None,
+    requested_paths: list[str] | None = None,
+) -> int:
+    """Run a planned profile and optionally persist a task-profile report."""
+    commands_run: list[str] = []
+    exit_status = 0
+    for step in plan.steps:
+        commands_run.append(_command_text(step.command))
+        rc = _run_step(step)
+        if rc != 0:
+            exit_status = rc
+            break
+    if task_report_path is not None:
+        _write_task_profile_report(
+            plan,
+            commands_run=commands_run,
+            exit_status=exit_status,
+            output_path=task_report_path,
+            requested_paths=requested_paths,
+        )
+    return exit_status
+
+
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run CI-equivalent checks locally in current env.")
+    parser = argparse.ArgumentParser(
+        description="Run local verification profiles in the current environment."
+    )
+    parser.add_argument(
+        "--profile",
+        choices=("quick", "task", "pr", "full", "release"),
+        help="Verification profile to run. Defaults to 'full' unless --skip-main is used.",
+    )
+    parser.add_argument("--task", type=int, help="Focused v0.11.6 task id for --profile task.")
+    parser.add_argument(
+        "--paths",
+        nargs="*",
+        default=None,
+        help="Optional changed-path hints for task-focused reporting/routing.",
+    )
     parser.add_argument(
         "--skip-main",
         action="store_true",
-        help="Run PR checks only (skip main-branch checks such as coverage/perf/over-testing).",
+        help="Compatibility alias for --profile pr.",
     )
     parser.add_argument(
         "--ci-parity",
         action="store_true",
-        help="Run docs/linkcheck in strict CI parity mode (make linkcheck fatal).",
+        help="Run the local workflow run-block smoke runner (not an exact GitHub Actions emulator).",
     )
     parser.add_argument(
         "--uv-install-smoke",
@@ -551,508 +1264,69 @@ def main() -> int:
     if args.deprecation_closure:
         return run_deprecation_closure()
 
-    # CI-parity mode: dynamically read CI workflows and run them locally.
     if args.ci_parity:
-        print("CI parity mode: delegating to scripts/run_ci_locally.py (dynamic workflow runner)")
-        # Prefer bash to emulate GitHub Actions Linux runners; fall back to pwsh on Windows.
+        print("Run-block smoke mode: delegating to scripts/run_ci_locally.py")
         shell_arg = "bash"
         if os.name == "nt":
             shell_arg = "bash"
-        # Pre-clean any stale coverage database files which can cause sqlite schema
-        # errors when pytest-cov writes coverage data from parallel runs.
-        try:
-            for cov in Path('.').glob('.coverage*'):
-                try:
+        with suppress(Exception):
+            for cov in Path(".").glob(".coverage*"):
+                with suppress(Exception):
                     cov.unlink()
-                except Exception:
-                    pass
-        except Exception:
-            pass
-        rc = subprocess.call([sys.executable, "scripts/run_ci_locally.py", "--shell", shell_arg])
-        return rc
+        return subprocess.call([sys.executable, "scripts/run_ci_locally.py", "--shell", shell_arg])  # noqa: S603
 
-    mypy_available = shutil.which("mypy") is not None or subprocess.call(
-        [sys.executable, "-m", "mypy", "--version"],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    ) == 0
+    selected_profile = args.profile or ("pr" if args.skip_main else "full")
+    mypy_available = (
+        shutil.which("mypy") is not None
+        or subprocess.call(
+            [sys.executable, "-m", "mypy", "--version"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        == 0
+    )
     if not mypy_available:
         print("ERROR: mypy not found in current environment.")
         return 2
+
     pre_commit_available = shutil.which("pre-commit") is not None
-    if not pre_commit_available:
-        print("WARNING: pre-commit not found in current environment; skipping pre-commit step.")
+    if selected_profile in {"pr", "full", "release"} and not pre_commit_available:
+        print("WARNING: pre-commit not found in current environment; skipping the pre-commit step.")
+
+    if not _pytest_supports_no_cov():
+        print("WARNING: pytest-cov/--no-cov unavailable; running pytest commands without --no-cov.")
 
     mypy_targets = _mypy_targets()
     if not mypy_targets:
         print("No mypy target files found; skipping mypy step.")
+    lint_targets = (
+        _task_specific_lint_targets(args.task)
+        if selected_profile == "task" and args.task is not None
+        else _changed_python_targets()
+    )
 
-    nbqa_available = shutil.which("nbqa") is not None
-    pydocstyle_available = shutil.which("pydocstyle") is not None
-    if not nbqa_available:
-        print("WARNING: nbqa not found in current environment; skipping notebook naming lint step.")
-    if not pydocstyle_available:
-        print("WARNING: pydocstyle not found in current environment; skipping pydocstyle step.")
-
-    core_test_command = [sys.executable, "-m", "pytest", "-q", "-m", "not viz", "-o", "addopts="]
-    if _pytest_supports_no_cov():
-        core_test_command.append("--no-cov")
-    else:
-        print("WARNING: pytest-cov/--no-cov unavailable; running core tests without --no-cov.")
-
-    pr_steps: list[Step] = [
-        Step("Ruff naming", _python_cmd("-m", "ruff", "check", "--select", "N")),
-        Step(
-            "Docstring coverage",
-            _python_cmd("scripts/quality/check_docstring_coverage.py", "--fail-under", "94.0"),
-        ),
-        Step("ADR-001 boundary check", _python_cmd("scripts/quality/check_import_graph.py")),
-        Step("ADR-002 compliance check", _python_cmd("scripts/quality/check_adr002_compliance.py")),
-        Step(
-            "ADR-028 governance event schema check",
-            _python_cmd("scripts/quality/check_governance_event_schema.py"),
-        ),
-        Step(
-            "Governance status artifact (aggregation)",
-            _python_cmd(
-                "scripts/quality/build_governance_status_artifact.py",
-                "--output",
-                "reports/governance/governance_status.json",
-                "--validate",
-                "--run-lint",
-            ),
-        ),
-        Step(
-            "STD-005 logger domain enforcement",
-            _python_cmd(
-                "scripts/quality/check_logging_domains.py",
-                "--root",
-                "src/calibrated_explanations",
-                "--report",
-                "reports/quality/logging_domain_report.json",
-            ),
-        ),
-        Step(
-            "STD-001 nomenclature enforcement",
-            _python_cmd(
-                "scripts/quality/check_std001_nomenclature.py",
-                "--root",
-                "src/calibrated_explanations",
-                "--report",
-                "reports/nomenclature_violation_inventory.json",
-                "--check",
-            ),
-        ),
-        Step(
-            "Parameter naming CI guard (removed aliases)",
-            _python_cmd(
-                "scripts/quality/check_parameter_naming.py",
-                "--root",
-                "src/calibrated_explanations",
-                "--check",
-            ),
-        ),
-        Step(
-            "Agent instruction consistency",
-            _python_cmd("scripts/quality/check_agent_instruction_consistency.py"),
-        ),
-        Step(
-            "CI policy workflow validation (advisory, includes full-SHA pinning, reusable exemption)",
-            _python_cmd(
-                "scripts/quality/validate_ci_policy.py",
-                "--base-sha",
-                "HEAD~1",
-                "--head-sha",
-                "HEAD",
-                "--advisory",
-            ),
-            optional=True,
-        ),
-        Step("Core tests (no viz/no cov)", core_test_command),
-        Step(
-            "Capability-chain validator",
-            _python_cmd("scripts/quality/validate_capability_chain.py", "--check"),
-        ),
-        Step(
-            "Raw evidence structural validation",
-            _python_cmd("scripts/generate_tif_evidence.py", "--validate-existing"),
-        ),
-        Step("Private-member scan", _python_cmd("scripts/anti-pattern-analysis/scan_private_usage.py", "tests", "--check")),
-        Step(
-            "ADR-030 anti-pattern detector",
-            _python_cmd(
-                "scripts/anti-pattern-analysis/detect_test_anti_patterns.py",
-                "--tests-dir",
-                "tests",
-                "--check",
-                "--output",
-                "reports/anti-pattern-analysis/test_anti_pattern_report.csv",
-                "--report",
-                "reports/anti-pattern-analysis/test_quality_report.json",
-                "--baseline",
-                ".github/test-quality-baseline.json",
-            ),
-        ),
-        Step(
-            "ADR-030 test-helper export guard",
-            _python_cmd(
-                "scripts/quality/check_no_test_helper_exports.py",
-                "--root",
-                "src/calibrated_explanations",
-                "--report",
-                "reports/anti-pattern-analysis/test_helper_wrapper_report.json",
-            ),
-        ),
-        Step(
-            "ADR-006 trust-mutation primitive guard",
-            _python_cmd(
-                "scripts/quality/check_trust_mutation_primitive.py",
-                "--root",
-                "src/calibrated_explanations",
-                "--report",
-                "reports/trust_mutation_inventory.json",
-                "--check",
-            ),
-        ),
-        Step(
-            "ADR-034 ConfigManager usage guard",
-            _python_cmd(
-                "scripts/quality/check_config_manager_usage.py",
-                "--root",
-                "src/calibrated_explanations",
-                "--scope",
-                "runtime",
-                "--report",
-                "reports/quality/config_manager_usage_report.json",
-                "--check",
-            ),
-        ),
-        Step(
-            "ADR-030 marker hygiene",
-            _python_cmd(
-                "scripts/quality/check_marker_hygiene.py",
-                "--check",
-                "--report",
-                "reports/marker-hygiene/marker_hygiene_report.json",
-                "--baseline",
-                ".github/marker-hygiene-baseline.json",
-            ),
-        ),
-        Step(
-            "Generated report local-path guard",
-            _python_cmd(
-                "scripts/quality/check_no_local_paths_in_reports.py",
-                "--check",
-                "--report",
-                "reports/quality/no_local_paths_report.json",
-            ),
-        ),
-    ]
-
-    if pre_commit_available:
-        pr_steps.insert(0, Step("Pre-commit", ["pre-commit", "run", "--all-files"]))
-    if nbqa_available:
-        pr_steps.insert(2 if pre_commit_available else 1, Step("Notebook naming lint", _python_cmd("-m", "nbqa", "ruff", "notebooks", "--select", "N")))
-    if pydocstyle_available:
-        insert_at = 3 if pre_commit_available and nbqa_available else 2 if (pre_commit_available or nbqa_available) else 1
-        pr_steps.insert(insert_at, Step("Pydocstyle", _python_cmd("-m", "pydocstyle", "src", "tests")))
-
-    if mypy_targets:
-        pr_steps.insert(
-            6,
-            Step(
-                "Mypy (Phase 1B scope)",
-                _python_cmd("-m", "mypy", *mypy_targets, "--config-file", "pyproject.toml"),
-            ),
+    try:
+        plan = build_profile_plan(
+            selected_profile,
+            task=args.task,
+            mypy_targets=mypy_targets,
+            lint_targets=lint_targets,
+            pre_commit_available=pre_commit_available,
         )
+    except ValueError as exc:
+        print(f"ERROR: {exc}")
+        return 2
 
-    # Additional PR-scoped CI checks mirrored from workflows
-    deprecation_test_args = [sys.executable, "-m", "pytest", "tests/unit", "-m", "not viz", "-q", "--maxfail=1"]
-    if _pytest_supports_no_cov():
-        deprecation_test_args.append("--no-cov")
-
-    optional_pr_steps: list[Step] = [
-            # Deprecation-sensitive tests (treat deprecations as errors)
-            Step(
-                "Deprecation-sensitive tests",
-                _python_cmd(
-                    "-c",
-                    (
-                        "import os,sys,subprocess;"
-                        "os.environ.setdefault('CE_DEPRECATIONS','error');"
-                        f"sys.exit(subprocess.call({deprecation_test_args!r}))"
-                    ),
-                ),
-                optional=True,
-            ),
-            # Dependency audit (pip-audit) — advisory locally
-            Step(
-                "Dependency audit",
-                [
-                    "pip-audit",
-                    "-r",
-                    "requirements.txt",
-                    "-r",
-                    "docs/requirements-doc.txt",
-                    "--ignore-vuln",
-                    "GHSA-xm59-rqc7-hhvf",
-                ],
-                optional=True,
-            ),
-            # Notebook audit (advisory locally)
-            Step(
-                "Notebook audit",
-                _python_cmd("scripts/quality/audit_notebook_api.py", "notebooks", "--json", "artifacts/notebook_audit.json"),
-                optional=True,
-            ),
-            # Notebook execution report (advisory locally — mirrors nightly CI job)
-            # Requires calibrated_explanations[notebooks,viz].
-            Step(
-                "Notebook execution report",
-                _python_cmd(
-                    "scripts/docs/run_notebooks.py",
-                    "--mode",
-                    "advisory",
-                    "--output",
-                    "reports/docs/notebook_execution_report.json",
-                ),
-                optional=True,
-            ),
-            # Docs build (advisory locally)
-            Step(
-                "Docs build (HTML)",
-                [sys.executable, "-m", "sphinx", "-b", "html", "docs", "docs/_build/html"],
-                optional=not args.ci_parity,
-            ),
-            Step(
-                "Docs linkcheck",
-                [
-                    sys.executable, "-m", "sphinx",
-                    "-b",
-                    "linkcheck",
-                    "-D",
-                    "nbsphinx_execute=never",
-                    "docs",
-                    "docs/_build/linkcheck",
-                ],
-                optional=not args.ci_parity,
-            ),
-        ]
-    if Path("tests/examples").exists():
-        optional_pr_steps.append(
-            Step(
-                "Examples smoke",
-                [sys.executable, "-m", "pytest", "-q", "tests/examples"],
-                optional=True,
-            )
-        )
-    pr_steps.extend(optional_pr_steps)
-
-    main_steps: list[Step] = [
-        # Mirror the dependency audit and docs/notebook checks present on CI
-        Step(
-            "Dependency audit (main)",
-            [
-                "pip-audit",
-                "-r",
-                "requirements.txt",
-                "-r",
-                "docs/requirements-doc.txt",
-                "--ignore-vuln",
-                "GHSA-xm59-rqc7-hhvf",
-            ],
-            optional=True,
-        ),
-        Step(
-            "Notebook audit (main)",
-            _python_cmd("scripts/quality/audit_notebook_api.py", "notebooks", "--json", "artifacts/notebook_audit.json"),
-            optional=True,
-        ),
-        Step(
-            "Docs build (main)",
-            [sys.executable, "-m", "sphinx", "-b", "html", "docs", "docs/_build/html"],
-            optional=True,
-        ),
-        Step(
-            "Core tests with coverage",
-            [
-                sys.executable, "-m", "pytest",
-                "-q",
-                "-o",
-                "addopts=",
-                "--cov=src/calibrated_explanations",
-                "--cov-config=pyproject.toml",
-                "--cov-report=xml:coverage.xml",
-                "--cov-context=test",
-                "--cov-fail-under=90",
-            ],
-        ),
-        Step("Per-module coverage gates", _python_cmd("scripts/quality/check_coverage_gates.py", "coverage.xml")),
-        Step(
-            "Perf thresholds",
-            _python_cmd(
-                "scripts/perf/check_perf_micro.py",
-                "tests/benchmarks/micro_current.json",
-                "tests/benchmarks/perf_thresholds.json",
-            ),
-        ),
-        Step(
-            "Private-member scan (main)",
-            _python_cmd("scripts/anti-pattern-analysis/scan_private_usage.py", "tests", "--check"),
-        ),
-        Step(
-            "ADR-030 anti-pattern detector (main)",
-            _python_cmd(
-                "scripts/anti-pattern-analysis/detect_test_anti_patterns.py",
-                "--tests-dir",
-                "tests",
-                "--check",
-                "--output",
-                "reports/anti-pattern-analysis/test_anti_pattern_report.csv",
-                "--report",
-                "reports/anti-pattern-analysis/test_quality_report.json",
-                "--baseline",
-                ".github/test-quality-baseline.json",
-            ),
-        ),
-        Step(
-            "ADR-030 test-helper export guard (main)",
-            _python_cmd(
-                "scripts/quality/check_no_test_helper_exports.py",
-                "--root",
-                "src/calibrated_explanations",
-                "--report",
-                "reports/anti-pattern-analysis/test_helper_wrapper_report.json",
-            ),
-        ),
-        Step(
-            "ADR-006 trust-mutation primitive guard (main)",
-            _python_cmd(
-                "scripts/quality/check_trust_mutation_primitive.py",
-                "--root",
-                "src/calibrated_explanations",
-                "--report",
-                "reports/trust_mutation_inventory.json",
-                "--check",
-            ),
-        ),
-        Step(
-            "ADR-030 marker hygiene (main)",
-            _python_cmd(
-                "scripts/quality/check_marker_hygiene.py",
-                "--check",
-                "--report",
-                "reports/marker-hygiene/marker_hygiene_report.json",
-                "--baseline",
-                ".github/marker-hygiene-baseline.json",
-            ),
-        ),
-        Step(
-            "Generated report local-path guard (main)",
-            _python_cmd(
-                "scripts/quality/check_no_local_paths_in_reports.py",
-                "--check",
-                "--report",
-                "reports/quality/no_local_paths_report.json",
-            ),
-        ),
-        Step(
-            "ADR-028 governance event schema check (main)",
-            _python_cmd("scripts/quality/check_governance_event_schema.py"),
-        ),
-        Step(
-            "Governance status artifact (aggregation, main)",
-            _python_cmd(
-                "scripts/quality/build_governance_status_artifact.py",
-                "--output",
-                "reports/governance/governance_status.json",
-                "--validate",
-            ),
-        ),
-        Step(
-            "STD-005 logger domain enforcement (main)",
-            _python_cmd(
-                "scripts/quality/check_logging_domains.py",
-                "--root",
-                "src/calibrated_explanations",
-                "--report",
-                "reports/quality/logging_domain_report.json",
-            ),
-        ),
-        Step(
-            "STD-001 nomenclature enforcement (main)",
-            _python_cmd(
-                "scripts/quality/check_std001_nomenclature.py",
-                "--root",
-                "src/calibrated_explanations",
-                "--report",
-                "reports/nomenclature_violation_inventory.json",
-                "--check",
-            ),
-        ),
-        Step(
-            "Over-testing coverage contexts",
-            [
-                sys.executable, "-m", "pytest",
-                "-q",
-                "-o",
-                "addopts=",
-                "--cov=src/calibrated_explanations",
-                "--cov-config=pyproject.toml",
-                "--cov-context=test",
-                "--no-cov-on-fail",
-            ],
-            optional=True,
-        ),
-        Step(
-            "Over-testing report",
-            _python_cmd(
-                "scripts/over_testing/over_testing_report.py",
-                "--require-multiple-contexts",
-                "--output-lines",
-                "reports/over_testing/line_coverage_counts.csv",
-                "--output-blocks",
-                "reports/over_testing/block_coverage_counts.csv",
-                "--output-summary",
-                "reports/over_testing/summary.json",
-                "--output-metadata",
-                "reports/over_testing/metadata.json",
-            ),
-            optional=True,
-        ),
-        Step("Redundant tests report", _python_cmd("scripts/over_testing/detect_redundant_tests.py"), optional=True),
-    ]
-
-    for step in pr_steps:
-        rc = _run_step(step)
-        if rc != 0:
-            return rc
-
-    if args.skip_main:
-        if pre_commit_available:
-            final_precommit = Step("Pre-commit (final verification)", ["pre-commit", "run", "--all-files"])
-            rc = _run_step(final_precommit)
-            if rc != 0:
-                return rc
-        print("\nLocal checks completed (PR scope).")
-        return 0
-
-    rc = _run_micro_benchmark()
+    task_report_path = (
+        Path("reports/local_checks/task_profile_report.json")
+        if selected_profile == "task"
+        else None
+    )
+    rc = run_profile_plan(plan, task_report_path=task_report_path, requested_paths=args.paths)
     if rc != 0:
         return rc
 
-    for step in main_steps:
-        rc = _run_step(step)
-        if rc != 0:
-            return rc
-
-    if pre_commit_available:
-        final_precommit = Step("Pre-commit (final verification)", ["pre-commit", "run", "--all-files"])
-        rc = _run_step(final_precommit)
-        if rc != 0:
-            return rc
-
-    print("\nLocal checks completed (PR + main scope).")
+    print(f"\nLocal checks completed ({selected_profile} profile).")
     return 0
 
 

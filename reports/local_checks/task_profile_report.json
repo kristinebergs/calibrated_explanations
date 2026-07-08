@@ -1,0 +1,57 @@
+{
+  "commands_run": [
+    "python -m ruff check scripts/local_checks.py tests/scripts/test_local_checks_adr030_ratification.py tests/scripts/test_local_checks_deprecation_closure.py tests/scripts/test_local_checks_profiles.py tests/unit/core/test_calibrated_explainer_runtime_helpers.py",
+    "python -m ruff format --check scripts/local_checks.py tests/scripts/test_local_checks_adr030_ratification.py tests/scripts/test_local_checks_deprecation_closure.py tests/scripts/test_local_checks_profiles.py tests/unit/core/test_calibrated_explainer_runtime_helpers.py",
+    "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
+    "python scripts/quality/check_import_graph.py",
+    "python scripts/quality/check_adr002_compliance.py",
+    "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
+    "python -m pytest -q tests/scripts/test_local_checks_adr030_ratification.py tests/scripts/test_local_checks_deprecation_closure.py tests/scripts/test_local_checks_profiles.py -o addopts= --no-cov",
+    "python scripts/local_checks.py --adr030-ratification",
+    "python scripts/quality/check_agent_instruction_consistency.py"
+  ],
+  "exit_status": 0,
+  "generated_at": "2026-07-08T07:15:12.288807+00:00",
+  "requested_paths": [],
+  "schema_version": 1,
+  "selected_profile": "task",
+  "skipped_heavy_gates": [
+    {
+      "gate": "coverage",
+      "reason": "Reserved for full/release validation."
+    },
+    {
+      "gate": "docs_html",
+      "reason": "Reserved for full/release validation."
+    },
+    {
+      "gate": "docs_linkcheck",
+      "reason": "Reserved for release validation."
+    },
+    {
+      "gate": "notebook_audit",
+      "reason": "Reserved for release validation."
+    },
+    {
+      "gate": "notebook_execution",
+      "reason": "Reserved for release validation."
+    },
+    {
+      "gate": "dependency_audit",
+      "reason": "Reserved for release validation."
+    },
+    {
+      "gate": "performance",
+      "reason": "Reserved for full/release validation."
+    },
+    {
+      "gate": "capability_evidence_refresh",
+      "reason": "Reserved for release validation."
+    },
+    {
+      "gate": "release_bookkeeping",
+      "reason": "Reserved for release validation."
+    }
+  ],
+  "task_id": 9
+}

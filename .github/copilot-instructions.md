@@ -21,8 +21,13 @@
 
 ## 2. Development Workflow
 - **Build & Test:**
-  - Run tests: `make test` or `pytest`.
-  - Run local CI: `make ci-local` (runs linting, type checking, and tests).
+  - Inner loop: `make quick`.
+  - Release-task closure: `make local-checks-task TASK=<n>`.
+  - PR preflight: `make local-checks-pr`.
+  - Merge/final local gate: `make local-checks-full`.
+  - Release prep: `make local-checks-release`.
+  - Workflow run-block smoke only: `make ci-local-runblocks`.
+  - Run tests directly when needed: `make test` or `pytest`.
   - **Strict Gates:** The project enforces high standards for coverage (90%+), docstrings, and linting.
 - **Release Process:**
   - Follow `development/current-work/RELEASE_PLAN_v1.md`.

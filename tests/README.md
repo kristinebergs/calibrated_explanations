@@ -47,6 +47,7 @@ Local CI parity requirement
 --------------------------
 
 When CI workflows are extended or new checks are added under `.github/workflows/`, update `scripts/local_checks.py` and the `make local-checks` target so contributors can reproduce CI checks locally. Mark heavy or scheduled checks as advisory/optional in the local runner to avoid slowing common developer loops.
+When CI workflows are extended or new checks are added under `.github/workflows/`, update `scripts/local_checks.py` and the Makefile profile routing (`quick`, `local-checks-task`, `local-checks-pr`, `local-checks-full`, `local-checks-release`) so contributors can reproduce the intended local verification tier. Heavy, scheduled, or release-only checks must live in `full` or `release`; do not silently add them to `quick`, `task`, or `pr`.
 
 ## Fallback Chain Enforcement (MANDATORY)
 

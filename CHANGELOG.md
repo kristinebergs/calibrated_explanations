@@ -5,6 +5,10 @@
 
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v0.11.5...main)
 
+### Changed
+
+- Split local verification into `make quick`, `make local-checks-task TASK=<n>`, `make local-checks-pr`, `make local-checks-full`, and `make local-checks-release`, and clarified `local-checks-ci` / `ci-local-runblocks` as workflow run-block smoke rather than full CI parity. Release-plan task closure should now use the task-focused profile instead of defaulting to PR-scope checks.
+
 ## [v0.11.5](https://github.com/Moffran/calibrated_explanations/releases/tag/v0.11.5) - 2026-07-07
 
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v0.11.4...v0.11.5)

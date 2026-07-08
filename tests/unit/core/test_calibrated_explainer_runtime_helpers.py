@@ -23,9 +23,10 @@ def stub_explainer(explainer_factory, mode: str = "classification") -> Calibrate
     explainer.plugin_manager.interval_preferred_identifier = {"default": None, "fast": None}
     explainer.plugin_manager.telemetry_interval_sources = {"default": None, "fast": None}
     explainer.plugin_manager.interval_context_metadata = {"default": {}, "fast": {}}
-    explainer.plugin_manager.explanation_plugin_overrides = {
-        key: None for key in ("factual", "alternative", "fast")
-    }
+    explainer.plugin_manager.explanation_plugin_overrides = dict.fromkeys(
+        ("factual", "alternative", "fast"),
+        None,
+    )
     explainer.pyproject_explanations = {}
     explainer.pyproject_intervals = {}
     explainer.pyproject_plots = {}

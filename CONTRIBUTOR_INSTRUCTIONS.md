@@ -295,7 +295,7 @@ Every fallback must be visible to users. No silent fallbacks.
 | `development/standards/test-quality-method/` | ADR-030 quality method tooling — canonical location |
 | `tests/README.md` | Authoritative test guidance |
 | `CHANGELOG.md` | Changelog; update under `## [Unreleased]` for every change |
-| `Makefile` | Entry points: `make test`, `make ci-local` |
+| `Makefile` | Entry points: `make quick`, `make local-checks-task`, `make local-checks-pr`, `make local-checks-full`, `make local-checks-release`, `make ci-local-runblocks` |
 
 Removed legacy docs locations: docs/improvement/ and docs/standards/ were fully
 removed after migration to `development/`. Do not recreate them or add new
@@ -419,12 +419,20 @@ python -m pytest --version  # must be present
 ### Routine local validation
 
 ```bash
-# Fast PR-scope checks (lint + type-check + core tests + policy scanners)
-# This is the primary local validation path — run before every commit.
+# Inner-loop checks while editing
+make quick
+
+# Focused release-task verification before marking a task complete
+make local-checks-task TASK=<n>
+
+# Blocking PR-scope preflight before opening/updating a PR
 make local-checks-pr
 
-# Full local CI including main-branch gates (coverage, perf, over-testing)
-make local-checks
+# Heavy local gate for merge-readiness or maintainer-requested final validation
+make local-checks-full
+
+# Release-boundary local validation only
+make local-checks-release
 
 # Run tests only
 make test
@@ -454,8 +462,9 @@ make governance-status-local
 set it after the full test suite passes. The `schema_checks` fields are
 populated from local report files and reflect the last time those scripts ran.
 
-`make local-checks-pr` calls `make governance-status-local` internally,
-so after a full local checks run the artifact will have real ruff/mypy results.
+`make quick`, `make local-checks-task`, and `make local-checks-pr` do not
+populate this artifact automatically. Run `make governance-status-local`
+whenever you need fresh local `ruff`/`mypy` results recorded in the artifact.
 
 Before any implementation work:
 1. Read `development/README.md` to identify the current development map and

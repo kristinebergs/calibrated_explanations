@@ -40,6 +40,11 @@ ci-local-dry-run:
 ci-local:
 	python scripts/run_ci_locally.py
 
+# Run the workflow run-block smoke helper (executes local `run:` blocks only).
+.PHONY: ci-local-runblocks
+ci-local-runblocks:
+	python scripts/local_checks.py --ci-parity
+
 # Run only the new CI entrypoints (keeps legacy duplicates out of the run).
 .PHONY: ci-local-new
 ci-local-new:
@@ -98,22 +103,37 @@ governance-status:
 governance-status-local:
 	python scripts/quality/build_governance_status_artifact.py --output reports/governance/governance_status.json --validate --run-lint
 
-# Run stacked CI-equivalent checks in the current Python environment,
-# including `pre-commit run --all-files` (no install/bootstrap steps).
-.PHONY: local-checks local-checks-pr
-local-checks:
-	python scripts/local_checks.py
+# Run local verification profiles in the current Python environment.
+.PHONY: quick local-checks local-checks-quick local-checks-task local-checks-pr local-checks-full local-checks-release local-checks-ci
+quick:
+	python scripts/local_checks.py --profile quick
 
-.PHONY: local-checks-ci
+local-checks-quick:
+	python scripts/local_checks.py --profile quick
+
+local-checks-task:
+	python scripts/local_checks.py --profile task --task $(TASK)
+
+local-checks:
+	# Compatibility alias: this is the heavy local gate, not a routine inner-loop command.
+	python scripts/local_checks.py --profile full
+
+local-checks-full:
+	python scripts/local_checks.py --profile full
+
 local-checks-ci:
+	# Compatibility alias for workflow run-block smoke; not full GitHub Actions parity.
 	python scripts/local_checks.py --ci-parity
 
-# PR-scope only: lint/type/core-tests + policy scanners.
+# PR-scope only: quick checks + blocking PR gates.
 local-checks-pr:
-	python scripts/local_checks.py --skip-main
+	python scripts/local_checks.py --profile pr
+
+local-checks-release:
+	python scripts/local_checks.py --profile release
 
 # Validate the capability verification chain without executing TIF scenarios.
-# Safe to run on every PR — does not mutate any files.
+# Safe to run on every PR - does not mutate any files.
 .PHONY: capability-chain-check
 capability-chain-check:
 	python scripts/quality/validate_capability_chain.py --check
