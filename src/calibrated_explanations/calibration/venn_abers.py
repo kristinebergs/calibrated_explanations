@@ -233,9 +233,10 @@ class VennAbers:
                 - ``NormalizationStrategy.NONE`` (``"none"``): return raw, un-normalized VA
                   outputs.  Useful for diagnostics.
 
-            normalize (bool, optional): Deprecated. Use ``normalization`` instead.
-                ``True`` maps to ``NormalizationStrategy.COHERENCE``; ``False`` maps to
-                ``NormalizationStrategy.NONE``.
+            normalize (bool, optional): Removed in v0.11.5. The legacy bool passthrough
+                is no longer accepted: passing ``True`` or ``False`` now raises
+                ``ValidationError``. Use ``normalization=NormalizationStrategy.<MEMBER>``
+                instead.
 
         Returns
         -------
@@ -243,9 +244,18 @@ class VennAbers:
             If output_interval is true, the VennAbers intervals are also returned:
                 low (n_test_samples,): Lower bounds of the VennAbers interval for each test sample.
                 high (n_test_samples,): Upper bounds of the VennAbers interval for each test sample.
+
+        Raises
+        ------
+        ValidationError
+            If ``normalize`` is set (bool passthrough is removed) or ``normalization``
+            is not a recognised ``NormalizationStrategy`` member/string. If
+            ``interval_summary`` is set to an unrecognised value.
         """
         warnings.filterwarnings("ignore", category=RuntimeWarning)
-        # Resolve normalization strategy: legacy bool `normalize` takes precedence when set.
+        # Legacy bool `normalize=` passthrough was removed in v0.11.5; any non-None
+        # value (including False) now fails fast via coerce_normalization_strategy
+        # instead of silently resolving to SCALE.
         if normalize is not None:
             normalization = coerce_normalization_strategy(normalize)
         else:
