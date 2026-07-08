@@ -378,7 +378,7 @@ def _write_deprecation_closure_timing_report(
     started_at: float,
     output_path: Path,
 ) -> None:
-    """Write the v1.0.0-rc deprecation-closure timing report."""
+    """Write the pre-v1.0 deprecation-closure timing report."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     payload = {
         "schema_version": 1,
@@ -392,7 +392,7 @@ def _write_deprecation_closure_timing_report(
 
 
 def deprecation_closure_steps() -> list[Step]:
-    """Return the v1.0.0-rc deprecation-closure validation sequence."""
+    """Return the pre-v1.0 deprecation-closure validation sequence."""
     return [
         Step(
             "Focused deprecation closure tests",
@@ -415,7 +415,7 @@ def deprecation_closure_steps() -> list[Step]:
 
 
 def run_deprecation_closure() -> int:
-    """Run the v1.0.0-rc deprecation-closure lane and emit timing evidence."""
+    """Run the pre-v1.0 deprecation-closure lane and emit timing evidence."""
     ledger_report = Path("reports/deprecations/active_deprecations_check.json")
     timing_report = Path("reports/deprecations/deprecation_closure_timing.json")
     records: list[dict[str, object]] = []
@@ -540,7 +540,7 @@ def main() -> int:
     parser.add_argument(
         "--deprecation-closure",
         action="store_true",
-        help="Run the v1.0.0-rc deprecation-closure lane and timing report.",
+        help="Run the pre-v1.0 deprecation-closure lane and timing report.",
     )
     args = parser.parse_args()
 
