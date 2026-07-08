@@ -7,7 +7,7 @@ It is based on the paper "Calibrated Explanations: with Uncertainty Information 
 by Helena Löfström et al.
 """
 
-__version__ = "v1.0.0-rc-dev"
+__version__ = "v0.11.6-dev"
 
 import copyreg
 import importlib

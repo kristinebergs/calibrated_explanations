@@ -206,6 +206,7 @@ Gap-by-gap severity tables now live only in `development/current-work/RELEASE_PL
 | v0.11.3 | Minimal docs-build changes; Standard-002 numpydoc gap closure. | Close WrapCalibratedExplainer numpydoc blocks (Standard-002). | No new coverage work planned. | Final transitional shim removal (Standard-001). | RC readiness: Standard-001 shim closure, Standard-002 gap, ADR-030 zero-tolerance ratification, OSS perf harness (stretch), RejectResult→V2 migration (Group L, ADR-011 finalization), configuration management contract closure (Task 10), RC upgrade checklist + safe-defaults guide (Task 11). All implementation work that was previously in v1.0.0-rc is now in this milestone. |
 | v0.11.4 | ADR-012 release-branch docs hardening plus plugin-contract migration notes. | No broad code-doc initiative; targeted ADR/STD documentation closure only. | No broad coverage initiative; targeted tests added for ADR-031, ADR-038, plugins, logging, CI, and persistence. | No broad naming initiative. | Pre-RC ADR gap closure: Tasks 1-19 closed or explicitly deferred. Major closures include ADR-004, ADR-008, ADR-012, ADR-013, ADR-015, ADR-021, ADR-026, ADR-027, ADR-028/STD-005, ADR-031, ADR-033, ADR-037, ADR-038 hardening, ADR-030/005/006 fixes, documentation migration, capability scaffold, and nightly parity-reference determinism. |
 | v0.11.5 | Conditional/Mondrian documentation corrected (mondrian playbook, EU compliance playbooks, agent guide, task API comparison). | Targeted numpydoc corrections for `bins`/`mc` semantics only. | Targeted regression tests for the six ADR-039 defect classes; no broad initiative. | No naming work (`reuse_conditional` naming reviewed under ADR-038). | ADR-039 conditional calibration hardening: bins/mc channel exclusivity, fail-fast inference consistency, lifecycle reset with opt-in reuse, serialization visibility. Also ships the already-implemented RC Task 0 deprecation closure (ledger attribution updated to v0.11.5). |
+| v0.11.6 | CONTRIBUTOR_INSTRUCTIONS.md and parameter-reference.md corrected to post-removal API state; experimental-kwarg tags in API docs. | Docstring corrections for `normalize=`/kwarg seams only. | Regression tests per silent-correctness defect class (bug-list Findings 1–5); unknown-kwarg policy tests; corrected-gate test. | No broad naming work; `multi_labels_enabled` spelling resolution (ADR-038 D4). | Deprecation enforcement and ADR-038 API graduation: corrected deprecation-closure gate; fail-fast for silently swallowed removed kwargs (`guarded=`, `significance=`, `n_neighbors=`, `normalize_guard=`, `merge_adjacent=`, `confidence=`, bool `normalize=`); coercer fallback resolution; `**kwargs` graduation and unknown-kwarg policy; `venn_abers.py` warnings scoping; `ncf="entropy"` alias decision. Carries all former v1.0.0-rc Task 0/0b implementation. |
 | v1.0.0 | Docs maintenance review; parity checks remain blocking. | Continuous improvement cadence; badge and quarterly reviews. | Waiver backlog should be zero; mutation/fuzzing exploration optional. | Final shim removals verified post-tag; legacy API guard tests green. | Stability declaration: RC contract freeze confirmed, production staging signed off, post-release maintenance cadences scheduled, and packaging classifier promoted to `Development Status :: 5 - Production/Stable` at GA cutover. |
 
 ### v0.6.x (stabilisation patches)
@@ -678,6 +679,49 @@ ADR-039 behavior change; ADR-040 Accepted with `make capability-chain-check`
 passing and `make capability-evidence-refresh` run at release closure or explicitly
 waived; `make local-checks-pr` passes.
 
+### v0.11.6 (deprecation enforcement and ADR-038 API graduation)
+
+> **Replanning note (2026-07-08):** This milestone was inserted between v0.11.5 and
+> v1.0.0-rc. Rationale: the 2026-07-08 pre-RC bug hunt
+> (`development/current-work/bug-list.md`) confirmed a cluster of silent-correctness
+> defects around the v0.11.5 kwarg removals — every "removed" keyword argument is
+> silently swallowed instead of raising, and `guarded=True` silently returns an
+> unguarded explanation. Closing these, together with the deprecation-closure gate
+> fix and the ADR-038 `**kwargs` graduation, is planned implementation work the RC
+> posture prohibits (same rationale as the v0.11.5 insertion). It also gives users
+> one normal release with the fail-fast behavior before the RC API freeze.
+> Detailed control surface: `development/current-work/v0.11.6_plan.md`.
+
+1. Fix the deprecation-closure gate so it fails on any active deprecation row
+   regardless of removal ETA (RC decision D6); add a synthetic-row regression test.
+2. Enforce fail-fast for the removed guarded kwargs (`guarded=`, `significance=`,
+   `n_neighbors=`, `normalize_guard=`, `merge_adjacent=`) on every public entry path,
+   with `GuardedOptions` migration guidance (bug-list Finding 1).
+3. Close the `predict_reject`/`apply_policy` bare-`**kwargs` sink: unrecognized and
+   removed kwargs (including `confidence=`) fail fast (bug-list Finding 2).
+4. Resolve the silent-fallback coercers (`coerce_normalization_strategy`,
+   `coerce_interval_summary`): raise or warn+log per the fallback-visibility policy;
+   correct the `VennAbers.predict_proba` `normalize=` docstring (bug-list Findings 3–4).
+5. Close ADR-038 public API graduation (RC decisions D3/D4): audit all public
+   `**kwargs` surfaces, promote stable parameters, tag experimental ones, resolve
+   `multi_labels_enabled` spelling, implement and test the unknown-kwarg policy,
+   close the ADR-038 gap rows.
+6. Scope the four `warnings.filterwarnings()` global mutations in
+   `calibration/venn_abers.py` (bug-list Finding 5).
+7. Correct `CONTRIBUTOR_INSTRUCTIONS.md` and
+   `docs/foundations/concepts/parameter-reference.md` to the post-removal API state
+   (bug-list Findings 7–8).
+8. Decide and implement the `ncf="entropy"` silent-alias disposition (warn, raise, or
+   formal exemption) so the RC deprecation gate output is trustworthy evidence; clear
+   known lint debt (ruff C420).
+
+Release gate: corrected deprecation-closure gate merged with regression test and
+exits 0 on the empty active ledger; all bug-list Finding 1–3 repros raise instead of
+silently passing, each covered by a regression test; ADR-038 gap rows closed with the
+unknown-kwarg policy and D4 spelling resolution recorded; no new deprecation cycles
+opened (`make deprecation-closure` green throughout); CHANGELOG migration notes
+present for every behavior change; `make local-checks` passes.
+
 ### v1.0.0-rc (release candidate readiness)
 
 <!-- Removed items (evidence in parentheses):
@@ -698,7 +742,7 @@ waived; `make local-checks-pr` passes.
   ADR-034 deferred items → resolved without RC work: sensitive-value redaction declared out of scope for v1.0.0; export schema versioning already implemented (ResolvedConfigSnapshot.schema_version).
 -->
 
-> **RC posture:** v1.0.0-rc is validation/freeze by default. Planned implementation is prohibited except for explicitly listed RC-blocking API-finalization/governance-closure items already targeted at RC. The only currently allowed planned implementation item is ADR-038 `**kwargs` graduation for `explain_factual` / `explore_alternatives` (including `WrapCalibratedExplainer` delegator alignment, focused tests, docs, and status synchronization). No unrelated feature work, performance work, broad refactoring, or post-v1 scope may be pulled into RC. Any other code change during RC is an emergency release-blocking patch, not a planned task.
+> **RC posture:** v1.0.0-rc is validation/freeze only. Planned implementation is prohibited with no exceptions: the previously allowed ADR-038 `**kwargs` graduation item moved to v0.11.6 (2026-07-08 re-baseline), together with the deprecation-closure gate fix and the silent kwarg-sink closures. No feature work, performance work, broad refactoring, or post-v1 scope may be pulled into RC. Any code change during RC is an emergency release-blocking patch, not a planned task.
 
 1. Confirm Explanation Schema v1 is content-complete and frozen (any schema gaps
    must be resolved in v0.11.3 before RC); publish the compatibility statement
@@ -720,7 +764,7 @@ waived; `make local-checks-pr` passes.
    `Development Status :: 4 - Beta` and publish RC release notes stating the
    public API is frozen except for release-blocking defects.
 
-Release gate: Explanation Schema v1 frozen and compatibility statement published; wrap interface and exception taxonomy compatibility confirmed against v0.6.x; caching/parallel staging validation signed off and telemetry verified against v0.11.3 documentation; Standard-002 ≥90% verified; upgrade checklist present, accurate, and reviewed; deprecation ledger is empty (zero active deprecations, proven by `make deprecation-closure` during RC); RC package metadata is `Development Status :: 4 - Beta`; RC release notes state the public API freeze posture.
+Release gate: Explanation Schema v1 frozen and compatibility statement published; wrap interface and exception taxonomy compatibility confirmed against v0.6.x; caching/parallel staging validation signed off and telemetry verified against v0.11.3 documentation; Standard-002 ≥90% verified; upgrade checklist present, accurate, and reviewed; deprecation ledger is empty (zero active deprecations, proven during RC by the `make deprecation-closure` gate corrected in v0.11.6); RC package metadata is `Development Status :: 4 - Beta`; RC release notes state the public API freeze posture.
 ### v1.0.0 (stability declaration)
 
 <!-- Removed item #6 (Ratify ADR-030): moved to v0.11.3 so ratification informs RC readiness. -->
