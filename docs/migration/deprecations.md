@@ -288,7 +288,7 @@ Reject NCF user-facing inputs are now limited to `default` and `ensured`.
 
 - `ncf="default"`: task-dependent internal score (`hinge` for binary + thresholded regression, `margin` for multiclass).
 - `ncf="ensured"`: `score = (1 - w) * interval_width + w * default_score`.
-- Legacy `ncf="entropy"` remains accepted and is silently normalized to `ncf="default"`.
+- Legacy `ncf="entropy"` is no longer accepted and now raises `ValidationError`; use `ncf="default"` instead.
 - Explicit `ncf="hinge"` and `ncf="margin"` are no longer accepted and now raise `ValidationError`.
 
 ### Default `condition_source` changed to `"prediction"` (v0.11.0)

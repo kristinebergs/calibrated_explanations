@@ -87,7 +87,7 @@ Public NCF values are:
 - `ensured`: blended score
   `score = (1 - w) * interval_width + w * default_score`.
 
-Legacy `ncf="entropy"` is silently mapped to `ncf="default"` for compatibility.
+Legacy `ncf="entropy"` is no longer accepted; use `ncf="default"` instead.
 Explicit `ncf="hinge"` and `ncf="margin"` are no longer supported.
 
 The `w` parameter is operational only for `ensured`; for `default` it is accepted but ignored.
@@ -149,7 +149,7 @@ Reject-aware wrapped collections expose two denominator scopes:
 
 `RejectPolicySpec` supports canonical user-facing NCF values (`default`, `ensured`)
 and is fully round-trippable via `to_dict()` / `from_dict()`. Legacy `entropy`
-payloads are normalized to `default` on read.
+payloads are no longer accepted on read; use `default` instead.
 For custom runtime callables, initialize the reject learner directly rather than
 encoding callables in policy specs.
 

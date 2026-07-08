@@ -352,17 +352,21 @@ def test_policy_spec_eq_policy_and_notimplemented_paths():
 def test_policy_spec_w_normalization_non_ensured_and_ensured_sensitivity():
     default_a = RejectPolicySpec.flag(ncf="default", w=0.1)
     default_b = RejectPolicySpec.flag(ncf="default", w=0.9)
-    entropy_a = RejectPolicySpec.flag(ncf="entropy", w=0.2)  # legacy compat -> default
-    entropy_b = RejectPolicySpec.flag(ncf="entropy", w=0.8)  # legacy compat -> default
     assert default_a == default_b
-    assert entropy_a == entropy_b
     assert hash(default_a) == hash(default_b)
-    assert hash(entropy_a) == hash(entropy_b)
 
     ensured_a = RejectPolicySpec.flag(ncf="ensured", w=0.2)
     ensured_b = RejectPolicySpec.flag(ncf="ensured", w=0.8)
     assert ensured_a != ensured_b
     assert hash(ensured_a) != hash(ensured_b)
+
+
+def test_policy_spec_entropy_input_rejected_with_default_migration_guidance():
+    with pytest.raises(
+        ValueError,
+        match="Legacy ncf value 'entropy' is no longer supported; use ncf='default' instead.",
+    ):
+        _ = RejectPolicySpec.flag(ncf="entropy", w=0.2)
 
 
 def test_policy_spec_callable_serialization_rejected():
