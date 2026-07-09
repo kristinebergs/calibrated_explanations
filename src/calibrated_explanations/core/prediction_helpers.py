@@ -335,6 +335,7 @@ def format_classification_prediction(
     high: np.ndarray,
     new_classes: Optional[np.ndarray],
     is_multiclass_val: bool,
+    original_class_values: Optional[np.ndarray] = None,
     label_map: Optional[dict] = None,
     class_labels: Optional[np.ndarray] = None,
     uq_interval: bool = False,
@@ -353,6 +354,8 @@ def format_classification_prediction(
         Predicted class indices or None.
     is_multiclass_val : bool
         Whether this is a multiclass problem.
+    original_class_values : np.ndarray, optional
+        Original class labels in encoded-index order for dtype-preserving decoding.
     label_map : dict, optional
         Mapping from numeric class indices to labels.
     class_labels : array-like, optional
@@ -372,7 +375,13 @@ def format_classification_prediction(
     # indices to human-readable labels. Be defensive: new_classes can already
     # contain labels (strings) or numeric indices. Also allow dict-style
     # mappings.
-    if label_map is not None or class_labels is not None:
+    if original_class_values is not None:
+        arr_nc = np.asarray(new_classes)
+        if np.issubdtype(arr_nc.dtype, np.integer):
+            new_classes = np.asarray(original_class_values)[arr_nc.astype(int, copy=False)]
+        else:
+            new_classes = np.asarray(new_classes)
+    elif label_map is not None or class_labels is not None:
         # Prefer explicit mapping function when label_map provided
         if label_map is not None:
             inverse_map = {

@@ -414,8 +414,10 @@ class CalibratedExplainer:
         self._feature_names = list(feature_names)
 
         if mode == "classification":
+            original_class_values = np.unique(np.asarray(self.y_cal))
             self.y_cal_numeric, self.label_map = convert_targets_to_numeric(self.y_cal)
             self.y_cal = self.y_cal_numeric  # save to _y_cal to avoid append
+            self.original_class_values = np.asarray(original_class_values)
             if self.label_map is not None:
                 if self.class_labels is None:
                     self.class_labels = {
@@ -444,6 +446,7 @@ class CalibratedExplainer:
         else:
             self.label_map = None
             self.class_labels = None
+            self.original_class_values = None
 
         self.discretizer: Any = None
         self.discretized_X_cal: Optional[np.ndarray] = None
@@ -2382,6 +2385,7 @@ class CalibratedExplainer:
                 high,
                 new_classes,
                 self.is_multiclass(),
+                original_class_values=self.original_class_values,
                 label_map=self.label_map,
                 class_labels=self.class_labels,
                 uq_interval=uq_interval,
@@ -2435,6 +2439,7 @@ class CalibratedExplainer:
                         high,
                         new_classes,
                         self.is_multiclass(),
+                        original_class_values=self.original_class_values,
                         label_map=self.label_map,
                         class_labels=self.class_labels,
                         uq_interval=uq_interval,

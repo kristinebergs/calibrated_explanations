@@ -91,6 +91,20 @@ def _assert_predictions_stay_within_training_labels(
     assert observed <= expected
 
 
+def _assert_prediction_dtype_matches_label_space(
+    predictions: np.ndarray, label_space: tuple[object, ...]
+) -> None:
+    expected_dtype = np.asarray(label_space).dtype
+    observed_dtype = np.asarray(predictions).dtype
+
+    if np.issubdtype(expected_dtype, np.bool_) or np.issubdtype(expected_dtype, np.integer):
+        assert observed_dtype == expected_dtype
+        return
+
+    round_tripped = np.asarray(predictions).astype(expected_dtype, copy=False)
+    np.testing.assert_array_equal(round_tripped, np.asarray(predictions))
+
+
 @pytest.mark.parametrize(
     "label_space",
     [
@@ -120,6 +134,8 @@ def test_should_return_only_seen_training_labels_from_core_predict_and_reject_en
     )
     _assert_predictions_stay_within_training_labels(plain_predictions, label_space)
     _assert_predictions_stay_within_training_labels(reject_result.prediction, label_space)
+    _assert_prediction_dtype_matches_label_space(plain_predictions, label_space)
+    _assert_prediction_dtype_matches_label_space(reject_result.prediction, label_space)
     np.testing.assert_array_equal(
         _canonicalize_predictions_for_label_space(plain_predictions, label_space),
         np.asarray(expected_predictions, dtype=object),
@@ -128,6 +144,8 @@ def test_should_return_only_seen_training_labels_from_core_predict_and_reject_en
         _canonicalize_predictions_for_label_space(reject_result.prediction, label_space),
         _canonicalize_predictions_for_label_space(plain_predictions, label_space),
     )
+    observed_test_labels = np.asarray(expected_predictions[: len(plain_predictions)])
+    np.testing.assert_array_equal(plain_predictions == observed_test_labels, np.ones(8, dtype=bool))
 
 
 @pytest.mark.parametrize(
@@ -159,6 +177,8 @@ def test_should_return_only_seen_training_labels_from_wrapper_predict_and_reject
     )
     _assert_predictions_stay_within_training_labels(plain_predictions, label_space)
     _assert_predictions_stay_within_training_labels(reject_result.prediction, label_space)
+    _assert_prediction_dtype_matches_label_space(plain_predictions, label_space)
+    _assert_prediction_dtype_matches_label_space(reject_result.prediction, label_space)
     np.testing.assert_array_equal(
         _canonicalize_predictions_for_label_space(plain_predictions, label_space),
         np.asarray(expected_predictions, dtype=object),
@@ -167,6 +187,8 @@ def test_should_return_only_seen_training_labels_from_wrapper_predict_and_reject
         _canonicalize_predictions_for_label_space(reject_result.prediction, label_space),
         _canonicalize_predictions_for_label_space(plain_predictions, label_space),
     )
+    observed_test_labels = np.asarray(expected_predictions[: len(plain_predictions)])
+    np.testing.assert_array_equal(plain_predictions == observed_test_labels, np.ones(8, dtype=bool))
 
 
 @pytest.mark.parametrize(
