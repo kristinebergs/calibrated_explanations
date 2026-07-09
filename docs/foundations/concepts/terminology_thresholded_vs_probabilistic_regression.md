@@ -82,7 +82,7 @@ va = VennAbers(None, (self.ce.y_cal[cal_va] <= y_threshold).astype(int), ...)
 | --- | --- |
 | `development/adrs/ADR-021-calibrated-interval-semantics.md` | Architecture semantics |
 | `development/adrs/ADR-013-interval-calibrator-plugin-strategy.md` | Plugin strategy terminology |
-| `development/current-work/legacy_user_api_contract.md` | Historical contract references |
+| `development/finished-work/legacy_user_api_contract.md` | Historical contract references |
 | `docs/foundations/governance/optional_telemetry.md` | Technical telemetry context |
 
 ### 2.3 Code usage patterns

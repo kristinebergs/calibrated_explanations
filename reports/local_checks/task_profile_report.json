@@ -6,10 +6,11 @@
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python scripts/quality/check_forbidden_doc_patterns.py --check stale-notebook-warnings"
+    "python scripts/quality/check_forbidden_doc_patterns.py --check dead-legacy-contract-path",
+    "python scripts/quality/check_agent_instruction_consistency.py"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-09T12:20:15.791306+00:00",
+  "generated_at": "2026-07-09T12:38:26.054714+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -51,5 +52,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 17
+  "task_id": 18
 }
