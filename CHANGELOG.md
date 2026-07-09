@@ -13,6 +13,7 @@
 
 ### Fixed
 
+- `ce_agent_utils.explain_and_narrate(..., narrative_format=...)` and `explain_and_summarize(..., narrative_format=...)` no longer emit a runtime `DeprecationWarning`. The removed legacy alias now raises `ConfigurationError` with `expertise_level=` migration guidance instead, so the v0.11.6 zero-active-deprecations gate is true at runtime as well as in the markdown ledger.
 - `to_narrative(format=...)` no longer fails silently. The unsupported `format=` keyword now raises `ConfigurationError` on single-explanation, collection, and multiclass narrative APIs with guidance to use `output_format=` and `expertise_level=` instead, and the CE-first docs now show the supported narrative call forms.
 - Built wheel and sdist artifacts now include the repository `LICENSE` text again, and Task 11 adds a packaging smoke check that builds release artifacts and fails when the wheel or sdist omits the license file or the wheel metadata drops the `License-File` entry.
 - Classification calibration now fails fast when `y_cal` contains only one unique class. `WrapCalibratedExplainer.calibrate(...)` and direct `CalibratedExplainer(...)` construction raise `ValidationError` with a stable details payload instead of accepting a single-class calibration slice that could leave `class_labels` incoherent with probability columns.
