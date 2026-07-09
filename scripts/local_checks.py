@@ -48,6 +48,11 @@ def _python_cmd(*args: str) -> list[str]:
     return [sys.executable, *args]
 
 
+def _is_python_build_module_step(command: list[str]) -> bool:
+    """Return True when a step invokes the PyPA ``build`` module."""
+    return len(command) >= 3 and command[0] == sys.executable and command[1:3] == ["-m", "build"]
+
+
 def _is_pre_commit_step(step: Step) -> bool:
     if not step.command:
         return False
@@ -65,7 +70,16 @@ def _mypy_targets() -> list[str]:
 
 
 def _run_step(step: Step) -> int:
-    cmd_text = " ".join(step.command)
+    repo_root = Path.cwd()
+    command = list(step.command)
+    run_cwd: Path | None = None
+    if _is_python_build_module_step(command):
+        # Avoid importing the repository's top-level ``build/`` directory as a namespace
+        # package instead of the installed PyPA ``build`` tool.
+        if len(command) == 3:
+            command.append(str(repo_root))
+        run_cwd = Path(tempfile.mkdtemp(prefix="ce-local-check-build-"))
+    cmd_text = " ".join(command)
     print(f"\n[{step.name}]")
     print(f"$ {cmd_text}")
     env = dict(os.environ)
@@ -82,9 +96,10 @@ def _run_step(step: Step) -> int:
     try:
         if _is_pre_commit_step(step):
             result = subprocess.run(  # noqa: S603
-                step.command,
+                command,
                 check=False,
                 env=env,
+                cwd=run_cwd,
                 capture_output=True,
                 text=True,
             )
@@ -93,7 +108,7 @@ def _run_step(step: Step) -> int:
             if result.stderr:
                 print(result.stderr, end="" if result.stderr.endswith("\n") else "\n")
         else:
-            result = subprocess.run(step.command, check=False, env=env)  # noqa: S603
+            result = subprocess.run(command, check=False, env=env, cwd=run_cwd)  # noqa: S603
     except FileNotFoundError as exc:
         if step.optional:
             print(f"Step skipped (optional command unavailable): {step.name} ({exc})")

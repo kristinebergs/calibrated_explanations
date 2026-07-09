@@ -10,6 +10,18 @@
   "wheel_license_metadata": [
     "LICENSE"
   ],
+  "wheel_required_members": [
+    "calibrated_explanations/py.typed",
+    "calibrated_explanations/schemas/v1/plotspec_schema.json",
+    "calibrated_explanations/templates/explain_template.yaml",
+    "calibrated_explanations/utils/configurations/plot_config.ini"
+  ],
+  "sdist_required_members": [
+    "calibrated_explanations-0.11.6.dev0/src/calibrated_explanations/py.typed",
+    "calibrated_explanations-0.11.6.dev0/src/calibrated_explanations/schemas/v1/plotspec_schema.json",
+    "calibrated_explanations-0.11.6.dev0/src/calibrated_explanations/templates/explain_template.yaml",
+    "calibrated_explanations-0.11.6.dev0/src/calibrated_explanations/utils/configurations/plot_config.ini"
+  ],
   "status": "pass",
   "errors": []
 }

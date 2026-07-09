@@ -16,6 +16,7 @@ def _write_wheel(
     *,
     include_license_member: bool,
     license_metadata: list[str] | None,
+    package_members: list[str] | None = None,
 ) -> Path:
     wheel_path = dist_dir / "calibrated_explanations-0.11.6.dev0-py3-none-any.whl"
     metadata = Message()
@@ -39,10 +40,17 @@ def _write_wheel(
                 "calibrated_explanations-0.11.6.dev0.dist-info/licenses/LICENSE",
                 "BSD 3-Clause License\n",
             )
+        for member in package_members or []:
+            archive.writestr(member, "placeholder\n")
     return wheel_path
 
 
-def _write_sdist(dist_dir: Path, *, include_license_member: bool) -> Path:
+def _write_sdist(
+    dist_dir: Path,
+    *,
+    include_license_member: bool,
+    package_members: list[str] | None = None,
+) -> Path:
     sdist_path = dist_dir / "calibrated_explanations-0.11.6.dev0.tar.gz"
     with tarfile.open(sdist_path, "w:gz") as archive:
         package_dir = dist_dir / "package"
@@ -54,15 +62,38 @@ def _write_sdist(dist_dir: Path, *, include_license_member: bool) -> Path:
             license_path = package_dir / "LICENSE"
             license_path.write_text("BSD 3-Clause License\n", encoding="utf-8")
             archive.add(license_path, arcname="calibrated_explanations-0.11.6.dev0/LICENSE")
+        for member in package_members or []:
+            member_path = package_dir / member
+            member_path.parent.mkdir(parents=True, exist_ok=True)
+            member_path.write_text("placeholder\n", encoding="utf-8")
+            archive.add(
+                member_path,
+                arcname=f"calibrated_explanations-0.11.6.dev0/src/{member}",
+            )
     return sdist_path
 
 
 def test_should_report_pass_when_wheel_and_sdist_include_license(tmp_path: Path) -> None:
     """The checker should pass when both artifacts carry the license text and metadata."""
+    required_members = [
+        "calibrated_explanations/py.typed",
+        "calibrated_explanations/schemas/v1/plotspec_schema.json",
+        "calibrated_explanations/templates/explain_template.yaml",
+        "calibrated_explanations/utils/configurations/plot_config.ini",
+    ]
     dist_dir = tmp_path / "dist"
     dist_dir.mkdir()
-    _write_wheel(dist_dir, include_license_member=True, license_metadata=["LICENSE"])
-    _write_sdist(dist_dir, include_license_member=True)
+    _write_wheel(
+        dist_dir,
+        include_license_member=True,
+        license_metadata=["LICENSE"],
+        package_members=required_members,
+    )
+    _write_sdist(
+        dist_dir,
+        include_license_member=True,
+        package_members=required_members,
+    )
 
     result = inspect_packaging_artifacts(dist_dir)
 
@@ -71,6 +102,8 @@ def test_should_report_pass_when_wheel_and_sdist_include_license(tmp_path: Path)
     assert result.wheel_license_members
     assert result.sdist_license_members
     assert result.wheel_license_metadata == ["LICENSE"]
+    assert sorted(result.wheel_required_members) == sorted(required_members)
+    assert len(result.sdist_required_members) == len(required_members)
 
 
 def test_should_report_fail_when_artifacts_omit_license(tmp_path: Path) -> None:
@@ -86,6 +119,7 @@ def test_should_report_fail_when_artifacts_omit_license(tmp_path: Path) -> None:
     assert any("Wheel artifact" in error for error in result.errors)
     assert any("Sdist artifact" in error for error in result.errors)
     assert any("Wheel METADATA" in error for error in result.errors)
+    assert any("required package data" in error for error in result.errors)
 
 
 def test_should_write_report_and_exit_zero_when_check_passes(tmp_path: Path, monkeypatch) -> None:
@@ -93,8 +127,23 @@ def test_should_write_report_and_exit_zero_when_check_passes(tmp_path: Path, mon
     dist_dir = tmp_path / "dist"
     report_path = tmp_path / "reports" / "packaging.json"
     dist_dir.mkdir()
-    _write_wheel(dist_dir, include_license_member=True, license_metadata=["LICENSE"])
-    _write_sdist(dist_dir, include_license_member=True)
+    required_members = [
+        "calibrated_explanations/py.typed",
+        "calibrated_explanations/schemas/v1/plotspec_schema.json",
+        "calibrated_explanations/templates/explain_template.yaml",
+        "calibrated_explanations/utils/configurations/plot_config.ini",
+    ]
+    _write_wheel(
+        dist_dir,
+        include_license_member=True,
+        license_metadata=["LICENSE"],
+        package_members=required_members,
+    )
+    _write_sdist(
+        dist_dir,
+        include_license_member=True,
+        package_members=required_members,
+    )
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
         "sys.argv",
@@ -113,3 +162,4 @@ def test_should_write_report_and_exit_zero_when_check_passes(tmp_path: Path, mon
     assert rc == 0
     assert payload["status"] == "pass"
     assert payload["wheel_license_metadata"] == ["LICENSE"]
+    assert sorted(payload["wheel_required_members"]) == sorted(required_members)

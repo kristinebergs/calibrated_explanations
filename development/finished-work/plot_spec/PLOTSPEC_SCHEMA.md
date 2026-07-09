@@ -1,4 +1,4 @@
-> **Finished:** Informal schema documentation for the PlotSpec JSON contract. PlotSpec promoted to default in v0.11.3. The canonical JSON schema is at `development/schemas/plotspec_schema.json`.
+> **Finished:** Informal schema documentation for the PlotSpec JSON contract. PlotSpec promoted to default in v0.11.3. The canonical packaged JSON schema is at `src/calibrated_explanations/schemas/v1/plotspec_schema.json`.
 
 PlotSpec JSON schema (informal)
 ================================

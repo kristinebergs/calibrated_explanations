@@ -52,6 +52,7 @@ notebooks = [
     "matplotlib",
 ]
 dev = [
+    "build",
     "matplotlib",
     "pytest",
     "pytest-cov",
@@ -185,8 +186,10 @@ where = [
 calibrated_explanations = [
     "py.typed",
     "schemas/*.json",
+    "schemas/v1/*.json",
     "templates/*.json",
     "templates/*.yaml",
+    "utils/configurations/*.ini",
 ]
 
 [tool.calibrated_explanations.plugins]

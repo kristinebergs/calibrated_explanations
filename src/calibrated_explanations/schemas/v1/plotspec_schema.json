@@ -27,7 +27,7 @@
       "properties": {
         "kind": {
           "type": "string",
-          "enum": ["factual_probabilistic", "factual_regression", "alternative_probabilistic", "triangular", "global_probabilistic", "global_regression"],
+          "enum": ["factual_probabilistic", "factual_regression", "alternative_probabilistic", "alternative_regression", "triangular", "global_probabilistic", "global_regression"],
           "description": "Plot kind identifier."
         },
         "mode": {
@@ -35,10 +35,18 @@
           "enum": ["classification", "regression"],
           "description": "Prediction mode."
         },
+        "style": {
+          "type": ["string", "null"],
+          "description": "Optional style identifier for the rendered artifact."
+        },
+        "uncertainty": {
+          "type": ["boolean", "null"],
+          "description": "Whether the plot carries uncertainty interval content."
+        },
         "feature_order": {
           "type": ["array", "null"],
-          "items": {"type": "string"},
-          "description": "Optional order of features."
+          "items": {"type": "integer"},
+          "description": "Optional display order of features by index."
         },
         "header": {
           "type": ["object", "null"],
@@ -76,7 +84,11 @@
               "weight": {"type": "number"},
               "low": {"type": ["number", "null"]},
               "high": {"type": ["number", "null"]},
-              "instance_value": {}
+              "instance_value": {},
+              "segments": {"type": ["array", "null"]},
+              "line": {"type": ["number", "null"]},
+              "line_color": {"type": ["string", "null"]},
+              "line_alpha": {"type": ["number", "null"]}
             }
           }
         },
@@ -99,8 +111,15 @@
             "low": {"type": "array", "items": {"type": "number"}},
             "high": {"type": "array", "items": {"type": "number"}},
             "uncertainty": {"type": "array", "items": {"type": "number"}},
-            "y_test": {"type": ["array", "null"], "items": {}}
+            "y_test": {"type": ["array", "null"], "items": {}},
+            "threshold": {},
+            "class_labels": {},
+            "is_regularized": {"type": ["boolean", "null"]}
           }
+        },
+        "axis_hints": {
+          "type": ["object", "null"],
+          "description": "Optional axis-range or tick hints emitted by builders."
         },
         "save_behavior": {
           "type": ["object", "null"],
@@ -120,7 +139,9 @@
             "rendering_seed": {"type": ["integer", "null"]}
           }
         }
-      }
+      },
+      "additionalProperties": true
     }
-  }
+  },
+  "additionalProperties": true
 }

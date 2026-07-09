@@ -24,8 +24,18 @@ class ArtifactCheckResult:
     wheel_license_members: list[str]
     sdist_license_members: list[str]
     wheel_license_metadata: list[str]
+    wheel_required_members: list[str]
+    sdist_required_members: list[str]
     status: str
     errors: list[str]
+
+
+REQUIRED_PACKAGE_MEMBERS = [
+    "calibrated_explanations/py.typed",
+    "calibrated_explanations/schemas/v1/plotspec_schema.json",
+    "calibrated_explanations/templates/explain_template.yaml",
+    "calibrated_explanations/utils/configurations/plot_config.ini",
+]
 
 
 def _latest_artifact(dist_dir: Path, suffix: str) -> Path:
@@ -42,26 +52,34 @@ def _is_license_name(member_name: str) -> bool:
     return Path(member_name).name.upper() == "LICENSE"
 
 
-def _inspect_wheel(wheel_path: Path) -> tuple[list[str], list[str]]:
+def _inspect_wheel(wheel_path: Path) -> tuple[list[str], list[str], list[str]]:
     with zipfile.ZipFile(wheel_path) as archive:
         members = archive.namelist()
         license_members = [name for name in members if _is_license_name(name)]
         metadata_name = next(name for name in members if name.endswith(".dist-info/METADATA"))
         metadata = message_from_bytes(archive.read(metadata_name))
-    return license_members, metadata.get_all("License-File") or []
+    required_members = [name for name in REQUIRED_PACKAGE_MEMBERS if name in members]
+    return license_members, metadata.get_all("License-File") or [], required_members
 
 
-def _inspect_sdist(sdist_path: Path) -> list[str]:
+def _inspect_sdist(sdist_path: Path) -> tuple[list[str], list[str]]:
     with tarfile.open(sdist_path, "r:gz") as archive:
-        return [name for name in archive.getnames() if _is_license_name(name)]
+        members = archive.getnames()
+    required_suffixes = [f"src/{name}" for name in REQUIRED_PACKAGE_MEMBERS]
+    required_members = [
+        name for name in members if any(name.endswith(suffix) for suffix in required_suffixes)
+    ]
+    return [name for name in members if _is_license_name(name)], required_members
 
 
 def inspect_packaging_artifacts(dist_dir: Path) -> ArtifactCheckResult:
     """Inspect the newest wheel and sdist artifacts in ``dist_dir``."""
     wheel_path = _latest_artifact(dist_dir, ".whl")
     sdist_path = _latest_artifact(dist_dir, ".tar.gz")
-    wheel_license_members, wheel_license_metadata = _inspect_wheel(wheel_path)
-    sdist_license_members = _inspect_sdist(sdist_path)
+    wheel_license_members, wheel_license_metadata, wheel_required_members = _inspect_wheel(
+        wheel_path
+    )
+    sdist_license_members, sdist_required_members = _inspect_sdist(sdist_path)
     errors: list[str] = []
 
     if not wheel_license_members:
@@ -70,6 +88,28 @@ def inspect_packaging_artifacts(dist_dir: Path) -> ArtifactCheckResult:
         errors.append("Sdist artifact does not contain a LICENSE file.")
     if not any(_is_license_name(value) for value in wheel_license_metadata):
         errors.append("Wheel METADATA does not expose License-File: LICENSE.")
+    missing_wheel_members = [
+        name for name in REQUIRED_PACKAGE_MEMBERS if name not in wheel_required_members
+    ]
+    if missing_wheel_members:
+        errors.append(
+            "Wheel artifact is missing required package data: "
+            + ", ".join(sorted(missing_wheel_members))
+        )
+    missing_sdist_members = [
+        name
+        for name in REQUIRED_PACKAGE_MEMBERS
+        if f"src/{name}"
+        not in [
+            member.split("/", 1)[1] if "/" in member else member
+            for member in sdist_required_members
+        ]
+    ]
+    if missing_sdist_members:
+        errors.append(
+            "Sdist artifact is missing required package data: "
+            + ", ".join(sorted(missing_sdist_members))
+        )
 
     return ArtifactCheckResult(
         wheel_path=str(wheel_path),
@@ -77,6 +117,8 @@ def inspect_packaging_artifacts(dist_dir: Path) -> ArtifactCheckResult:
         wheel_license_members=wheel_license_members,
         sdist_license_members=sdist_license_members,
         wheel_license_metadata=wheel_license_metadata,
+        wheel_required_members=wheel_required_members,
+        sdist_required_members=sdist_required_members,
         status="pass" if not errors else "fail",
         errors=errors,
     )
@@ -121,6 +163,8 @@ def main() -> int:
     print(f"Wheel LICENSE entries: {', '.join(result.wheel_license_members)}")
     print(f"Sdist LICENSE entries: {', '.join(result.sdist_license_members)}")
     print(f"Wheel License-File metadata: {', '.join(result.wheel_license_metadata)}")
+    print(f"Wheel required package data: {', '.join(result.wheel_required_members)}")
+    print(f"Sdist required package data: {', '.join(result.sdist_required_members)}")
     return 0
 
 
