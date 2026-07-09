@@ -230,7 +230,10 @@ def test_additional_coverage(monkeypatch: pytest.MonkeyPatch, mock_learner, mock
     assert explainer.categorical_features == [0]
 
     # numeric y_cal without class_labels
-    explainer = CalibratedExplainer(mock_learner, x_cal, np.array([0, 1]), mode="classification")
+    numeric_x_cal = np.array([[1, 2], [3, 4]])
+    explainer = CalibratedExplainer(
+        mock_learner, numeric_x_cal, np.array([0, 1]), mode="classification"
+    )
     assert explainer.class_labels == {0: "0", 1: "1"}
 
     # properties

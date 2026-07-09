@@ -53,6 +53,7 @@ from ..utils.exceptions import (
     DataShapeError,
     ValidationError,
 )
+from .validation import validate_inputs_matrix
 from .prediction.interval_summary import IntervalSummary, coerce_interval_summary
 from .prediction_helpers import resolve_conditional_bins
 
@@ -291,6 +292,7 @@ class CalibratedExplainer:
             self.predict_function = (
                 learner.predict_proba if mode == "classification" else learner.predict
             )
+        validate_inputs_matrix(x_cal, y_cal, require_y=True, allow_nan=False)
         # Optionally suppress or convert low-level crepes errors into clearer messages.
         # Caller can pass suppress_crepes_errors=True via kwargs to avoid raising on
         # crepes broadcasting/shape errors (useful for synthetic tiny datasets).

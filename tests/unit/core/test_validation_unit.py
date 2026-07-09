@@ -44,6 +44,16 @@ def test_validate_inputs_matrix_shape_checks():
         validation.validate_inputs_matrix(np.zeros((2, 2)), n_features=3)
 
 
+def test_validate_inputs_matrix_rejects_empty_calibration_when_y_required():
+    with pytest.raises(validation.DataShapeError) as exc_info:
+        validation.validate_inputs_matrix(np.empty((0, 2)), y=np.empty((0,)), require_y=True)
+
+    assert "at least one sample" in str(exc_info.value)
+    assert exc_info.value.details is not None
+    assert exc_info.value.details.get("requirement") == "non-empty calibration data"
+    assert exc_info.value.details.get("x_samples") == 0
+
+
 def test_validate_inputs_matrix_finite_checks():
     x = np.array([[1.0, np.nan]])
     with pytest.raises(validation.ValidationError):

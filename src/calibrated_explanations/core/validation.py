@@ -218,12 +218,24 @@ def validate_inputs_matrix(
     - Ensure ``x`` is 2D and matches the expected feature count when provided.
     - Confirm that ``y`` has the same number of samples when supplied.
     - Guard against NaN or infinite values unless explicitly allowed.
+    - Reject empty calibration-style inputs when ``require_y=True`` so public
+      boundaries fail with CE exceptions before deeper indexing code runs.
     """
     validate_not_none(x, "x")
     x_arr = _as_2d_array(x)
     if x_arr.ndim != 2:
         raise DataShapeError("Argument 'x' must be 2D (n_samples, n_features).")
     n_samples = x_arr.shape[0]
+    if require_y and n_samples == 0:
+        raise DataShapeError(
+            "Argument 'x' must contain at least one sample when calibration targets are required.",
+            details={
+                "param": "x",
+                "require_y": True,
+                "x_samples": 0,
+                "requirement": "non-empty calibration data",
+            },
+        )
     if n_features is not None and x_arr.shape[1] != n_features:
         raise DataShapeError(f"Argument 'x' must have {n_features} features, got {x_arr.shape[1]}.")
 

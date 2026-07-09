@@ -1,15 +1,17 @@
-import numpy as np
 from types import SimpleNamespace
 
+import numpy as np
+import pandas as pd
 import pytest
 
+from calibrated_explanations.core.calibrated_explainer import CalibratedExplainer
 from tests.helpers.dataset_utils import make_binary_dataset
 from tests.helpers.model_utils import get_classification_model
 from calibrated_explanations.core.wrap_explainer import (
     WrapCalibratedExplainer,
     _KNOWN_PUBLIC_KWARGS,
 )
-from calibrated_explanations.utils.exceptions import ConfigurationError
+from calibrated_explanations.utils.exceptions import ConfigurationError, DataShapeError
 
 
 def test_serialise_preprocessor_value_various_types():
@@ -356,3 +358,42 @@ def test_should_raise_configuration_error_for_cross_method_kwargs(
         method = getattr(wrapper, method_name)
         with pytest.raises(ConfigurationError, match="not valid here"):
             method(x_test[:2], **{kwarg_name: kwarg_value})
+
+
+@pytest.mark.parametrize(
+    ("x_empty", "y_empty"),
+    [
+        (np.empty((0, 3)), np.empty((0,))),
+        (pd.DataFrame(columns=["f0", "f1", "f2"]), pd.Series(dtype=float)),
+    ],
+)
+def test_should_raise_data_shape_error_when_wrapper_calibrate_receives_empty_calibration_data(
+    x_empty, y_empty
+):
+    dataset = make_binary_dataset()
+    x_prop_train, y_prop_train, *_rest = dataset
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    wrapper = WrapCalibratedExplainer(model)
+    wrapper.fit(x_prop_train, y_prop_train)
+
+    with pytest.raises(DataShapeError) as exc_info:
+        wrapper.calibrate(x_empty, y_empty, mode="classification")
+
+    assert "at least one sample" in str(exc_info.value)
+    assert exc_info.value.details is not None
+    assert exc_info.value.details.get("requirement") == "non-empty calibration data"
+
+
+def test_should_raise_data_shape_error_when_core_explainer_receives_empty_calibration_data():
+    dataset = make_binary_dataset()
+    x_prop_train, y_prop_train, *_rest = dataset
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+
+    with pytest.raises(DataShapeError) as exc_info:
+        CalibratedExplainer(
+            model, np.empty((0, x_prop_train.shape[1])), np.empty((0,)), mode="classification"
+        )
+
+    assert "at least one sample" in str(exc_info.value)
+    assert exc_info.value.details is not None
+    assert exc_info.value.details.get("requirement") == "non-empty calibration data"
