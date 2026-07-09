@@ -1,9 +1,16 @@
 {
   "commands_run": [
-    "python -m ruff check src/calibrated_explanations/core/calibrated_explainer.py src/calibrated_explanations/core/wrap_explainer.py tests/unit/core/test_calibrated_explainer_more_paths.py tests/unit/core/test_wrap_explainer_core.py"
+    "python -m ruff check tests/unit/core/test_calibrated_explainer_more_paths.py tests/unit/core/test_parameter_surface_contracts.py tests/scripts/test_local_checks_profiles.py",
+    "python -m ruff format --check tests/unit/core/test_calibrated_explainer_more_paths.py tests/unit/core/test_parameter_surface_contracts.py tests/scripts/test_local_checks_profiles.py",
+    "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
+    "python scripts/quality/check_import_graph.py",
+    "python scripts/quality/check_adr002_compliance.py",
+    "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
+    "python -m pytest -q tests/unit/core/test_calibrated_explainer_more_paths.py tests/unit/core/test_parameter_surface_contracts.py tests/scripts/test_local_checks_profiles.py -o addopts= --no-cov",
+    "python scripts/local_checks.py --adr030-ratification"
   ],
-  "exit_status": 1,
-  "generated_at": "2026-07-08T18:13:01.152658+00:00",
+  "exit_status": 0,
+  "generated_at": "2026-07-09T06:57:43.700734+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -45,5 +52,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 5
+  "task_id": 10
 }

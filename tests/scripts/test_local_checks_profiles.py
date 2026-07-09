@@ -119,11 +119,11 @@ def test_should_scope_task_7_lint_targets_to_instruction_verification_files(
     assert rc == 0
     assert captured["profile"] == "task"
     assert captured["task"] == 7
-    assert captured["lint_targets"] == [
+    assert set(captured["lint_targets"]) == {
         "scripts/local_checks.py",
         "scripts/quality/check_agent_instruction_consistency.py",
         "tests/scripts/test_local_checks_profiles.py",
-    ]
+    }
 
 
 def test_should_include_pr_gates_without_heavy_optional_work() -> None:

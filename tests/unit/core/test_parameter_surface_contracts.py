@@ -303,7 +303,8 @@ def test_interval_summary_accepted_on_wrap_predict(cls_wrapper):
     """Bug 5D-3: CalibratedExplainer.predict consumes interval_summary, so the
     wrapper's predict() gate must accept it (predict_proba already did)."""
     wrapper, x_test = cls_wrapper
-    wrapper.predict(x_test[:2], interval_summary="mean")
+    result = wrapper.predict(x_test[:2], interval_summary="mean")
+    assert len(result) == 2
 
 
 def test_calibrate_accepts_fast_mode_tuning_kwargs(data):
@@ -376,22 +377,36 @@ class TestLegacyGlobalPlotKwargForwarding:
         compat.plt.close("all")
 
     def test_classification_use_legacy(self, cls_wrapper):
+        from calibrated_explanations.viz import _matplotlib_compat as compat
+
         wrapper, x_test = cls_wrapper
         wrapper.plot(x_test[:2], show=True, use_legacy=True)
+        assert compat.plt.get_fignums(), "legacy plot must actually render a figure"
 
     def test_regression_use_legacy(self, reg_wrapper):
+        from calibrated_explanations.viz import _matplotlib_compat as compat
+
         wrapper, x_test = reg_wrapper
         wrapper.plot(x_test[:2], show=True, use_legacy=True)
+        assert compat.plt.get_fignums(), "legacy plot must actually render a figure"
 
     def test_regression_thresholded_use_legacy(self, reg_wrapper):
+        from calibrated_explanations.viz import _matplotlib_compat as compat
+
         wrapper, x_test = reg_wrapper
         wrapper.plot(x_test[:2], threshold=0.0, show=True, use_legacy=True)
+        assert compat.plt.get_fignums(), "legacy plot must actually render a figure"
 
     def test_regression_low_high_percentiles_use_legacy(self, reg_wrapper):
+        from calibrated_explanations.viz import _matplotlib_compat as compat
+
         wrapper, x_test = reg_wrapper
         wrapper.plot(x_test[:2], show=True, use_legacy=True, low_high_percentiles=(10, 90))
+        assert compat.plt.get_fignums(), "legacy plot must actually render a figure"
 
     def test_plot_only_kwargs_do_not_reach_prediction_gates(self, cls_wrapper, tmp_path):
+        from calibrated_explanations.viz import _matplotlib_compat as compat
+
         wrapper, x_test = cls_wrapper
         wrapper.plot(
             x_test[:2],
@@ -400,3 +415,7 @@ class TestLegacyGlobalPlotKwargForwarding:
             path=str(tmp_path),
             save_ext=[],
         )
+        # Proves path/save_ext (plot-only kwargs) did not reach predict()/
+        # predict_proba() and cause a ConfigurationError -- the plot still
+        # completed and rendered a figure.
+        assert compat.plt.get_fignums(), "legacy plot must actually render a figure"

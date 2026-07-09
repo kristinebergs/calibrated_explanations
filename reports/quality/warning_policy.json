@@ -24,25 +24,25 @@
     },
     {
       "file": "core/calibrated_explainer.py",
-      "line": 202,
+      "line": 352,
       "message_snippet": "condition_source not provided; defaulting to 'prediction' in v0.10.3. Pass condi",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/calibrated_explainer.py",
-      "line": 1514,
+      "line": 1674,
       "message_snippet": "_use_plugin has no effect on guarded explanation methods",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/calibrated_explainer.py",
-      "line": 1626,
+      "line": 1796,
       "message_snippet": "_use_plugin has no effect on guarded explanation methods",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/calibrated_explainer.py",
-      "line": 2224,
+      "line": 2403,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
@@ -210,73 +210,73 @@
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 877,
+      "line": 894,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1442,
+      "line": 1459,
       "message_snippet": "Reject threshold mismatch detected; reinitializing reject learner with call thre",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1535,
+      "line": 1552,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1755,
+      "line": 1772,
       "message_snippet": "Reject prediction fallback engaged: predict_set returned unexpected shape; using",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1960,
+      "line": 1974,
       "message_snippet": "",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 2317,
+      "line": 2352,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1690,
+      "line": 1707,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1733,
+      "line": 1750,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 2440,
+      "line": 2475,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 2490,
+      "line": 2525,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1219,
+      "line": 1236,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1257,
+      "line": 1274,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
@@ -600,13 +600,13 @@
     },
     {
       "file": "viz/_matplotlib_compat.py",
-      "line": 648,
+      "line": 654,
       "message_snippet": "All uncertainties are (almost) identical.",
       "category": "ALLOWLISTED"
     },
     {
       "file": "viz/_matplotlib_compat.py",
-      "line": 678,
+      "line": 684,
       "message_snippet": "plot_global requires a scalar threshold for non-probabilistic explainers.",
       "category": "ALLOWLISTED"
     },

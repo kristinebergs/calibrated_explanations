@@ -5,6 +5,7 @@ import pytest
 from tests.helpers.model_utils import get_classification_model, get_regression_model
 from tests.helpers.dataset_utils import make_binary_dataset, make_regression_dataset
 from tests.helpers.explainer_utils import initiate_explainer
+from calibrated_explanations.explanations import CalibratedExplanations
 from calibrated_explanations.explanations.reject import RejectResult, RejectPolicy
 from calibrated_explanations.utils.exceptions import ConfigurationError, ValidationError
 
@@ -664,7 +665,9 @@ def test_explain_methods_still_forward_genuinely_unknown_kwargs_to_plugin(method
     cal_exp, x_test = _classification_explainer()
     method = getattr(cal_exp, method_name)
     # Should not raise; the unrecognized key is forwarded toward the plugin.
-    method(x_test[:2], some_plugin_specific_key=123)
+    result = method(x_test[:2], some_plugin_specific_key=123)
+    assert isinstance(result, CalibratedExplanations)
+    assert len(result) == 2
 
 
 def test_should_raise_configuration_error_when_removed_normalize_alias_passed_to_predict_proba():
@@ -698,8 +701,10 @@ def test_ce_skip_reject_still_works_on_predict_and_predict_proba():
     """ADR-038 5C: _ce_skip_reject is a real internal escape hatch used by
     core/explain/orchestrator.py and must remain allowed."""
     cal_exp, x_test = _classification_explainer()
-    cal_exp.predict(x_test[:2], _ce_skip_reject=True)
-    cal_exp.predict_proba(x_test[:2], _ce_skip_reject=True)
+    pred = cal_exp.predict(x_test[:2], _ce_skip_reject=True)
+    proba = cal_exp.predict_proba(x_test[:2], _ce_skip_reject=True)
+    assert len(pred) == 2
+    assert len(proba) == 2
 
 
 def test_plot_still_works_after_5c_predict_kwarg_scoping():
@@ -708,3 +713,8 @@ def test_plot_still_works_after_5c_predict_kwarg_scoping():
     predict() must strip them defensively like predict_proba() already does."""
     cal_exp, x_test = _classification_explainer()
     cal_exp.plot(x_test[:1], show=False)
+    # plot() re-injects style_override and forwards show= into predict()/
+    # predict_proba() through plot_global(); exercise that boundary directly to
+    # prove predict() strips them instead of raising on the unknown names.
+    pred = cal_exp.predict(x_test[:1], show=False, style_override=None)
+    assert len(pred) == 1

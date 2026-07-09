@@ -1049,6 +1049,23 @@ def _task_specific_steps(task: int) -> list[Step]:
                 _python_cmd("scripts/quality/check_agent_instruction_consistency.py"),
             ),
         ],
+        10: [
+            Step(
+                "Task 10 assertion-quality regressions",
+                _pytest_no_cov_command(
+                    "-q",
+                    "tests/unit/core/test_calibrated_explainer_more_paths.py",
+                    "tests/unit/core/test_parameter_surface_contracts.py",
+                    "tests/scripts/test_local_checks_profiles.py",
+                    "-o",
+                    "addopts=",
+                ),
+            ),
+            Step(
+                "Task 10 ADR-030 ratification",
+                _python_cmd("scripts/local_checks.py", "--adr030-ratification"),
+            ),
+        ],
     }
     if task not in task_steps:
         raise ValueError(f"Unsupported task profile mapping: {task}")
@@ -1107,6 +1124,11 @@ def _task_specific_lint_targets(task: int) -> list[str]:
             "tests/scripts/test_local_checks_deprecation_closure.py",
             "tests/scripts/test_local_checks_profiles.py",
             "tests/unit/core/test_calibrated_explainer_runtime_helpers.py",
+        ],
+        10: [
+            "tests/unit/core/test_calibrated_explainer_more_paths.py",
+            "tests/unit/core/test_parameter_surface_contracts.py",
+            "tests/scripts/test_local_checks_profiles.py",
         ],
     }
     if task not in task_targets:
