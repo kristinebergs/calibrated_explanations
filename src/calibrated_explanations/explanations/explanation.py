@@ -17,6 +17,7 @@ Primary classes
 from __future__ import annotations
 
 import contextlib
+import logging
 import math
 import re
 import warnings
@@ -46,6 +47,19 @@ from ..utils.exceptions import CalibratedError, ValidationError
 from ..utils.helper import assign_threshold as normalize_threshold
 from ..utils.int_utils import collect_ints
 from ._conjunctions import ConjunctionState
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _log_forwarded_plot_kwargs(surface: str, kwargs: dict[str, Any], *, allowed: set[str]) -> None:
+    forwarded = sorted(set(kwargs) - allowed)
+    if not forwarded:
+        return
+    _LOGGER.info(
+        "%s forwarding plot keyword arguments to downstream renderers/plugins: %s",
+        surface,
+        forwarded,
+    )
 
 
 @dataclass
@@ -559,7 +573,9 @@ class CalibratedExplanation(ABC):
         filter_top : int, optional
             The number of top features to display.
         **kwargs : dict
-            Additional plotting arguments. See each subclass.
+            Additional plotting arguments. Built-in plot kwargs are consumed on
+            this surface; any remaining keys are forwarded to downstream
+            renderers/plugins with an INFO log entry. See each subclass.
 
         See Also
         --------
@@ -616,6 +632,9 @@ class CalibratedExplanation(ABC):
 
         Raises
         ------
+        ConfigurationError
+            If unsupported keyword arguments are supplied, such as ``format=``
+            or typo'd names that are not part of the public narrative surface.
         ValidationError
             If an invalid expertise level or output format is specified.
         ImportError
@@ -2369,6 +2388,11 @@ class FactualExplanation(CalibratedExplanation):
         if rnk_metric == "uncertainty":
             rnk_weight = 1.0
             rnk_metric = "ensured"
+        _log_forwarded_plot_kwargs(
+            f"{type(self).__name__}.plot",
+            kwargs,
+            allowed={"style", "return_plot_spec", "renderer", "bins", "low_high_percentiles"},
+        )
 
         # Consistency guard: one-sided intervals cannot show uncertainty bands
         if uncertainty and self.is_one_sided():
@@ -3923,6 +3947,11 @@ class AlternativeExplanation(CalibratedExplanation):
         if rnk_metric == "uncertainty":
             rnk_weight = 1.0
             rnk_metric = "ensured"
+        _log_forwarded_plot_kwargs(
+            f"{type(self).__name__}.plot",
+            kwargs,
+            allowed={"style", "return_plot_spec", "renderer", "bins", "low_high_percentiles"},
+        )
 
         # Use conjunctive rules when available so that conjunctions appear in plots
         if getattr(self, "has_conjunctive_rules", False) and getattr(
@@ -4323,6 +4352,11 @@ class FastExplanation(CalibratedExplanation):
         if rnk_metric == "uncertainty":
             rnk_weight = 1.0
             rnk_metric = "ensured"
+        _log_forwarded_plot_kwargs(
+            f"{type(self).__name__}.plot",
+            kwargs,
+            allowed={"style", "return_plot_spec", "renderer", "bins", "low_high_percentiles"},
+        )
 
         # Consistency guard: one-sided intervals cannot show uncertainty bands
         if uncertainty and self.is_one_sided():

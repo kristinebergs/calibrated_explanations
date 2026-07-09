@@ -592,6 +592,16 @@ comparison of different visualization styles for the same explanations.
 
 **Note:** The `style` parameter in `.plot()` controls plot **type** (regular, triangular),
 not the plugin style. Use `style_override` to select plot plugins.
+Additional plot kwargs outside the documented built-in surface are treated as a
+plugin/renderer seam: they are forwarded and logged at `INFO` so typo'd names no
+longer disappear silently.
+
+**Call-time plugin-kwarg boundary:** `WrapCalibratedExplainer` remains a closed
+surface for explain-time kwargs and rejects unknown names with `ConfigurationError`.
+Direct `CalibratedExplainer.explain_factual(...)` /
+`explore_alternatives(...)` keep the ADR-038 experimental plugin-forwarding seam
+for genuinely plugin-defined kwargs, and now emit an `INFO` log naming any keys
+that are forwarded.
 
 ---
 

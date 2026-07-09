@@ -37,6 +37,17 @@ from .models import from_legacy_dict as _from_legacy_dict
 _LOGGER = logging.getLogger(__name__)
 
 
+def _log_forwarded_plot_kwargs(surface: str, kwargs: dict[str, Any], *, allowed: set[str]) -> None:
+    forwarded = sorted(set(kwargs) - allowed)
+    if not forwarded:
+        return
+    _LOGGER.info(
+        "%s forwarding plot keyword arguments to downstream renderers/plugins: %s",
+        surface,
+        forwarded,
+    )
+
+
 def _plot_alternative_dict(*args, **kwargs):
     """Lazy wrapper to avoid importing plotting dependencies at module import time."""
     from ..plotting import _plot_alternative_dict as _impl
@@ -1377,6 +1388,9 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
         rnk_weight : float, default=0.5
             The weight of the uncertainty in the ranking. Used with the 'ensured' ranking
             metric.
+        **kwargs : dict
+            Additional plot-plugin or renderer kwargs. Non-built-in names are
+            forwarded with an INFO log entry so they do not disappear silently.
 
         Returns
         -------
@@ -1437,6 +1451,19 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
                 output=output_format,
                 **kwargs,
             )
+        _log_forwarded_plot_kwargs(
+            f"{type(self).__name__}.plot",
+            kwargs,
+            allowed={
+                "instance_index",
+                "style",
+                "renderer",
+                "return_plot_spec",
+                "bins",
+                "low_high_percentiles",
+                "class_idx",
+            },
+        )
 
         if len(filename) > 0:
             path, filename, title, ext = prepare_for_saving(filename)
@@ -1556,6 +1583,9 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
 
         Raises
         ------
+        ConfigurationError
+            If unsupported keyword arguments are supplied, such as ``format=``
+            or typo'd names that are not part of the public narrative surface.
         ValidationError
             If an invalid expertise level or output format is specified.
         ImportError
@@ -2590,8 +2620,6 @@ class MultiClassCalibratedExplanations(CalibratedExplanations):
         attempt to coerce per-class outputs into the requested format where
         reasonable.
         """
-        reject_unsupported_narrative_kwargs(kwargs, surface=f"{type(self).__name__}.to_narrative")
-
         # Normalize kwargs used by the single-explanation API
         template_path = kwargs.pop("template_path", args[0] if len(args) > 0 else "exp.yaml")
         expertise_level = kwargs.pop(
@@ -2604,6 +2632,7 @@ class MultiClassCalibratedExplanations(CalibratedExplanations):
             "conjunction_separator", kwargs.get("conjunction_separator", " AND ")
         )
         align_weights = kwargs.pop("align_weights", kwargs.get("align_weights", True))
+        reject_unsupported_narrative_kwargs(kwargs, surface=f"{type(self).__name__}.to_narrative")
 
         # Helper to convert a per-class explanation to the desired intermediate dict
         per_instance = []

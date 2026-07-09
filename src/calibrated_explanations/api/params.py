@@ -194,16 +194,26 @@ def reject_unsupported_narrative_kwargs(kwargs: dict[str, Any], *, surface: str)
         for name, replacement in UNSUPPORTED_NARRATIVE_KWARG_MAP.items()
         if name in kwargs
     }
-    if not used:
+    if used:
+        formatted = ", ".join(f"'{name}' -> '{replacement}'" for name, replacement in used.items())
+        raise ConfigurationError(
+            "Unsupported narrative keyword arguments were provided. "
+            f"Use the public narrative API instead: {formatted}.",
+            details={
+                "surface": surface,
+                "unsupported_kwargs": list(used.keys()),
+                "replacements": used,
+            },
+        )
+    unknown = sorted(kwargs)
+    if not unknown:
         return
-    formatted = ", ".join(f"'{name}' -> '{replacement}'" for name, replacement in used.items())
     raise ConfigurationError(
         "Unsupported narrative keyword arguments were provided. "
-        f"Use the public narrative API instead: {formatted}.",
+        f"{surface} received unsupported keyword arguments: {unknown}.",
         details={
             "surface": surface,
-            "unsupported_kwargs": list(used.keys()),
-            "replacements": used,
+            "unsupported_kwargs": unknown,
         },
     )
 

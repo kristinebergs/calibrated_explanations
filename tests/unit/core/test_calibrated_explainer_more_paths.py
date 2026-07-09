@@ -670,6 +670,24 @@ def test_explain_methods_still_forward_genuinely_unknown_kwargs_to_plugin(method
     assert len(result) == 2
 
 
+@pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives"])
+def test_explain_methods_log_forwarded_plugin_kwargs(method_name, caplog):
+    cal_exp, x_test = _classification_explainer()
+    method = getattr(cal_exp, method_name)
+
+    with caplog.at_level(
+        logging.INFO,
+        logger="calibrated_explanations.core.calibrated_explainer",
+    ):
+        method(x_test[:2], some_plugin_specific_key=123)
+
+    assert any(
+        "forwarding explanation keyword arguments to plugins" in record.message
+        for record in caplog.records
+    )
+    assert any("some_plugin_specific_key" in record.message for record in caplog.records)
+
+
 def test_should_raise_configuration_error_when_removed_normalize_alias_passed_to_predict_proba():
     """ADR-038 5C: normalize= was previously not checked at all on
     CalibratedExplainer.predict_proba; it must now fail fast like every other

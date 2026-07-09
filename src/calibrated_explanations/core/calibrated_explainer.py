@@ -204,6 +204,15 @@ _CLOSED_SURFACE_KWARGS: frozenset[str] = (
 )
 
 
+def _log_forwarded_explain_kwargs(
+    logger: logging.Logger, surface: str, kwargs: dict[str, Any], *, allowed: frozenset[str]
+) -> None:
+    forwarded = sorted(set(kwargs) - allowed)
+    if not forwarded:
+        return
+    logger.info("%s forwarding explanation keyword arguments to plugins: %s", surface, forwarded)
+
+
 class CalibratedExplainer:
     """Explain a fitted learner using calibrated intervals and plugins.
 
@@ -1691,6 +1700,12 @@ class CalibratedExplainer:
             closed_surface_names=_CLOSED_SURFACE_KWARGS,
             surface="CalibratedExplainer.explain_factual",
         )
+        _log_forwarded_explain_kwargs(
+            logging.getLogger(__name__),
+            "CalibratedExplainer.explain_factual",
+            kwargs,
+            allowed=_EXPLAIN_KWARGS,
+        )
         bins = resolve_conditional_bins(x, bins, calibration_bins=self.bins)
         if guarded_options is not None:
             if not _use_plugin and kwargs.get("verbose", False):
@@ -1812,6 +1827,12 @@ class CalibratedExplainer:
             allowed=_EXPLAIN_KWARGS,
             closed_surface_names=_CLOSED_SURFACE_KWARGS,
             surface="CalibratedExplainer.explore_alternatives",
+        )
+        _log_forwarded_explain_kwargs(
+            logging.getLogger(__name__),
+            "CalibratedExplainer.explore_alternatives",
+            kwargs,
+            allowed=_EXPLAIN_KWARGS,
         )
         bins = resolve_conditional_bins(x, bins, calibration_bins=self.bins)
         if guarded_options is not None:

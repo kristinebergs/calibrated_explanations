@@ -1,6 +1,7 @@
 import sys
 import types
 import json
+import logging
 
 import numpy as np
 import pytest
@@ -1013,6 +1014,21 @@ def test_should_raise_configuration_error_when_collection_to_narrative_uses_form
 ):
     with pytest.raises(ConfigurationError, match="Unsupported narrative keyword arguments"):
         calibrated_collection.to_narrative(format="short")
+
+
+def test_should_raise_configuration_error_when_collection_to_narrative_uses_unknown_kwarg(
+    calibrated_collection,
+):
+    with pytest.raises(ConfigurationError, match="Unsupported narrative keyword arguments"):
+        calibrated_collection.to_narrative(expertise_lvl="advanced")
+
+
+def test_should_log_forwarded_plot_kwargs_for_collection_surface(calibrated_collection, caplog):
+    with caplog.at_level(logging.INFO, logger="calibrated_explanations.explanations.explanations"):
+        calibrated_collection.plot(filter_topp=3)
+
+    assert any("forwarding plot keyword arguments" in record.message for record in caplog.records)
+    assert any("filter_topp" in record.message for record in caplog.records)
 
 
 def test_should_fail_closed_for_removed_lime_and_shap_collection_adapters(

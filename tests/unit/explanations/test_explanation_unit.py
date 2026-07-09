@@ -218,6 +218,14 @@ class TestExplanationUnit:
         with pytest.raises(ConfigurationError, match="Unsupported narrative keyword arguments"):
             expl.to_narrative(format="short")
 
+    def test_should_raise_configuration_error_when_single_explanation_uses_unknown_narrative_kwarg(
+        self,
+    ):
+        expl = self.create_expl()
+
+        with pytest.raises(ConfigurationError, match="Unsupported narrative keyword arguments"):
+            expl.to_narrative(expertise_lvl="advanced")
+
     # --- Tests for add_new_rule_condition ---
 
     def test_add_new_rule_condition_invalid_feature(self):
