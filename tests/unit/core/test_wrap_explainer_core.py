@@ -19,6 +19,38 @@ from calibrated_explanations.utils.exceptions import (
 )
 
 
+class _Task33Preprocessor:
+    def __init__(self):
+        self.fit_transform_calls = 0
+        self.transform_calls = 0
+
+    def fit_transform(self, x):
+        self.fit_transform_calls += 1
+        return self.transform(x)
+
+    def transform(self, x):
+        self.transform_calls += 1
+        frame = x.copy()
+        frame["segment"] = frame["segment"].map({"low": 0.0, "high": 1.0})
+        return frame[["segment", "value"]].to_numpy(dtype=float)
+
+
+class _Task33Learner:
+    def fit(self, x, y):
+        self.fitted_ = True
+        self.classes_ = np.array(sorted(set(y)))
+        return self
+
+    def predict(self, x):
+        x_arr = np.asarray(x, dtype=float)
+        return (x_arr[:, 0] > 0.5).astype(int)
+
+    def predict_proba(self, x):
+        x_arr = np.asarray(x, dtype=float)
+        positive = x_arr[:, 0].astype(float)
+        return np.column_stack((1.0 - positive, positive))
+
+
 def test_serialise_preprocessor_value_various_types():
     # Provide a minimal 'fitted' learner so wrapper initializer proceeds
     w = WrapCalibratedExplainer(learner=SimpleNamespace(fitted=True))
@@ -484,3 +516,73 @@ def test_should_raise_validation_error_when_core_explainer_receives_single_class
     assert exc_info.value.details is not None
     assert exc_info.value.details.get("unique_class_count") == 1
     assert exc_info.value.details.get("model_class_count") == 2
+
+
+@pytest.mark.parametrize("method_name", ["predict", "predict_proba"])
+def test_should_raise_configuration_error_when_unknown_kwargs_are_passed_to_uncalibrated_prediction_paths(
+    method_name,
+):
+    wrapper = WrapCalibratedExplainer(_Task33Learner())
+    wrapper.fit(
+        pd.DataFrame({"segment": ["low", "high"], "value": [0.1, 0.9]}),
+        np.array([0, 1]),
+    )
+
+    method = getattr(wrapper, method_name)
+
+    with pytest.raises(ConfigurationError, match="unknown keyword arguments"):
+        method(pd.DataFrame({"segment": ["low"], "value": [0.2]}), bogus_kwarg=123)
+
+
+@pytest.mark.parametrize("method_name", ["predict", "predict_proba"])
+def test_should_apply_preprocessing_consistently_before_and_after_calibration_on_prediction_paths(
+    method_name,
+):
+    wrapper = WrapCalibratedExplainer(_Task33Learner())
+    wrapper.preprocessor = _Task33Preprocessor()
+    x_train = pd.DataFrame({"segment": ["low", "high", "low"], "value": [0.1, 0.9, 0.2]})
+    y_train = np.array([0, 1, 0])
+    x_query = pd.DataFrame({"segment": ["high", "low"], "value": [0.8, 0.2]})
+    wrapper.fit(x_train, y_train)
+
+    if method_name == "predict":
+        with pytest.warns(UserWarning, match="must be calibrated"):
+            before = wrapper.predict(x_query)
+    else:
+        with pytest.warns(UserWarning, match="must be calibrated"):
+            before = wrapper.predict_proba(x_query)
+
+    class _DelegatingExplainer:
+        def __init__(self, learner):
+            self.learner = learner
+
+        def predict(self, x, uq_interval=False, calibrated=True, reject_policy=None, **kwargs):
+            del reject_policy, kwargs
+            prediction = self.learner.predict(x)
+            if uq_interval:
+                return prediction, (prediction, prediction)
+            return prediction
+
+        def predict_proba(
+            self,
+            x,
+            uq_interval=False,
+            calibrated=True,
+            threshold=None,
+            reject_policy=None,
+            **kwargs,
+        ):
+            del calibrated, threshold, reject_policy, kwargs
+            proba = self.learner.predict_proba(x)
+            if uq_interval:
+                return proba, (proba, proba)
+            return proba
+
+    wrapper.explainer = _DelegatingExplainer(wrapper.learner)
+    wrapper.calibrated = True
+    after = getattr(wrapper, method_name)(x_query, calibrated=False)
+
+    if method_name == "predict":
+        assert np.array_equal(before, after)
+    else:
+        assert np.allclose(before, after)

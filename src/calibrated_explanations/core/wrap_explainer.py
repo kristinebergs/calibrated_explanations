@@ -687,6 +687,10 @@ class WrapCalibratedExplainer:
         :meth:`.CalibratedExplainer.predict` : Refer to the docstring for predict in CalibratedExplainer for more details.
         """
         self._assert_fitted("The WrapCalibratedExplainer must be fitted before predicting.")
+        x_local = self._maybe_preprocess_for_inference(x)
+        kwargs = self._normalize_public_kwargs(
+            kwargs, allowed=_PREDICT_KWARGS, surface="WrapCalibratedExplainer.predict"
+        )
         if not self.calibrated:
             if "threshold" in kwargs:
                 raise DataShapeError(
@@ -699,15 +703,10 @@ class WrapCalibratedExplainer:
                     stacklevel=2,
                 )
             if uq_interval:
-                predict = self.learner.predict(x)
+                predict = self.learner.predict(x_local)
                 return predict, (predict, predict)
-            return self.learner.predict(x)
+            return self.learner.predict(x_local)
 
-        # Optional preprocessing for inference consistency
-        x_local = self._maybe_preprocess_for_inference(x)
-        kwargs = self._normalize_public_kwargs(
-            kwargs, allowed=_PREDICT_KWARGS, surface="WrapCalibratedExplainer.predict"
-        )
         validate_inputs_matrix(x_local, allow_nan=True)
         validate_param_combination(kwargs)
         if calibrated:
@@ -750,6 +749,10 @@ class WrapCalibratedExplainer:
             self._assert_calibrated(
                 "The WrapCalibratedExplainer must be calibrated to get calibrated probabilities for regression."
             )
+        x_local = self._maybe_preprocess_for_inference(x)
+        kwargs = self._normalize_public_kwargs(
+            kwargs, allowed=_PREDICT_PROBA_KWARGS, surface="WrapCalibratedExplainer.predict_proba"
+        )
         if not self.calibrated:
             if threshold is not None:
                 raise DataShapeError(
@@ -762,14 +765,9 @@ class WrapCalibratedExplainer:
                     stacklevel=2,
                 )
             # getattr to appease typing when learner may not expose predict_proba
-            proba = self.learner.predict_proba(x)
+            proba = self.learner.predict_proba(x_local)
             return self._format_proba_output(proba, uq_interval)
 
-        # Optional preprocessing for inference consistency
-        x_local = self._maybe_preprocess_for_inference(x)
-        kwargs = self._normalize_public_kwargs(
-            kwargs, allowed=_PREDICT_PROBA_KWARGS, surface="WrapCalibratedExplainer.predict_proba"
-        )
         validate_inputs_matrix(x_local, allow_nan=True)
         validate_param_combination(kwargs)
         if calibrated:
