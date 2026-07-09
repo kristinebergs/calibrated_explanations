@@ -74,7 +74,7 @@ non-conforming to calibration data are filtered out of emitted explanations.
 Use when you need plausibility filtering for hypothetical perturbations.
 This is not an instance-level OOD detection API.
 
-> **API note**: `guarded=True` kwarg is deprecated (removed v1.0.0). Always use `guarded_options=GuardedOptions()`.
+> **API note**: `guarded=True` kwarg was removed in v0.11.5. Always use `guarded_options=GuardedOptions()`.
 
 ---
 

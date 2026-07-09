@@ -48,7 +48,7 @@ for quick reference.
    Also use when rule conditions of the form `x < feature <= y` are needed.
    Guarded APIs are not instance-level OOD detectors.
    `explain_guarded_factual` / `explore_guarded_alternatives` were REMOVED in v0.11.3;
-   `guarded=True` kwarg is deprecated (removed v1.0.0) — do not use either.
+  `guarded=True` kwarg was removed in v0.11.5 — do not use it.
 7. **Conjunctions** — `explanations.add_conjunctions(...)` or
    `explanations[idx].add_conjunctions(...)`.
 8. **Narratives & plots** — `.to_narrative(output_format=...)` and `.plot(...)`.

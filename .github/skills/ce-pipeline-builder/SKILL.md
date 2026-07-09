@@ -46,7 +46,7 @@ for quick reference.
    explainer.explore_alternatives(X, guarded_options=GuardedOptions())
    ```
    Guarded APIs are not instance-level OOD detectors.
-   `guarded=True` kwarg is deprecated (removed v1.0.0) — do not use.
+`guarded=True` kwarg was removed in v0.11.5 — do not use it.
 7. **Conjunctions** — `explanations.add_conjunctions(...)` or
    `explanations[idx].add_conjunctions(...)`.
 8. **Narratives & plots** — `.to_narrative(output_format=...)` and `.plot(...)`.

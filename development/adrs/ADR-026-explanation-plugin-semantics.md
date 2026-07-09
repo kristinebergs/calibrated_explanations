@@ -200,8 +200,8 @@ The validator must check:
   The resolver uses this field to filter eligible plugins for guarded requests; see §6a.
   Authors that wish to support `explain_factual(..., guarded_options=GuardedOptions())` and
   `explore_alternatives(..., guarded_options=GuardedOptions())` must set this to `True` and
-  route accordingly. (`guarded=True` kwarg is deprecated but still triggers guarded routing;
-  removed v1.0.0.)
+  route accordingly. (`guarded=True` was removed in v0.11.5; guarded requests now come
+  through `guarded_options=GuardedOptions()`.)
 
 ### 6. Legacy compatibility guarantees
 
@@ -219,8 +219,8 @@ The validator must check:
 ### 6a. Guarded entrypoints and plugin opt-in (v0.11.3+)
 
 * `explain_factual(..., guarded_options=GuardedOptions())` and `explore_alternatives(..., guarded_options=GuardedOptions())` are
-  the canonical guarded execution paths as of v0.11.3. The deprecated `guarded=True`
-  boolean kwarg still works but emits `DeprecationWarning` and will be removed in v1.0.0.
+  the canonical guarded execution paths as of v0.11.3. The legacy `guarded=True`
+  boolean kwarg was removed in v0.11.5.
   The method pair `explain_guarded_factual(...)` / `explore_guarded_alternatives(...)` were
   **REMOVED in v0.11.3** (not deprecated for future removal — already gone).
 * As of v0.11.3, guarded execution **is** an explanation-plugin concern. The `guarded`

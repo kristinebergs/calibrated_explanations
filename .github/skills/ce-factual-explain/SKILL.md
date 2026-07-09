@@ -76,7 +76,7 @@ Use the guarded variant when:
 
 Do **not** use guarded factual explanations as an instance-level OOD detector.
 
-> **API note**: `guarded=True` kwarg is deprecated (removed v1.0.0). Always use `guarded_options=GuardedOptions()`.
+> **API note**: `guarded=True` kwarg was removed in v0.11.5. Always use `guarded_options=GuardedOptions()`.
 
 ---
 

@@ -159,8 +159,8 @@ some observable signal.
 | Reject algorithm selection | Strategy | `RejectPolicySpec` | `reject_policy=` |
 | Reject coverage threshold | Tuning (single) | qualified kwarg | `reject_confidence=` |
 | Guard tuning bundle | Tuning (grouped) | `GuardedOptions` | `guarded_options=` |
-| `guarded=True` flag | (deprecated) | boolean → `guarded_options=GuardedOptions()` | deprecated |
-| `significance=` kwarg | (deprecated) | kwarg → `GuardedOptions(confidence=...)` | deprecated |
+| `guarded=True` flag | Removed | boolean → `guarded_options=GuardedOptions()` | removed in v0.11.5 |
+| `significance=` kwarg | Removed | kwarg → `GuardedOptions(confidence=...)` | removed in v0.11.5 |
 
 ### 5. Plugin compliance
 
@@ -230,8 +230,8 @@ relationship with `reject_confidence` immediately readable.
 
 **Negative / Risks:**
 
-- `guarded=True` boolean flag and `significance=` kwarg require ADR-011 deprecation
-  cycles before removal.
+- `guarded=True` boolean flag and `significance=` kwarg completed their ADR-011
+  deprecation cycle and were removed in v0.11.5.
 - Existing code using `significance=0.1` must migrate to `GuardedOptions(confidence=0.9)` —
   numerically inverted, not just renamed; migration notes are mandatory.
 - Plugin authors must learn a three-suffix convention rather than a single `Config` pattern.

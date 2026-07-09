@@ -117,7 +117,7 @@ Get-ChildItem development/adrs/*.md | Where-Object Name -NotMatch '^superseded'
 ### ADR-032 — Guarded explanations
 - Use `explain_factual(..., guarded_options=GuardedOptions())` / `explore_alternatives(..., guarded_options=GuardedOptions())` when you need interval plausibility filtering for hypothetical perturbation rules.
 - Import: `from calibrated_explanations.explanations.guarded_options import GuardedOptions`
-- `guarded=True` kwarg is deprecated (removed v1.0.0); `explain_guarded_factual` / `explore_guarded_alternatives` were REMOVED in v0.11.3.
+- `guarded=True` kwarg was removed in v0.11.5; `explain_guarded_factual` / `explore_guarded_alternatives` were REMOVED in v0.11.3.
 - Do not treat ADR-032 guarded APIs as instance-level OOD detectors.
 
 ### ADR-033 — Modality extension
