@@ -188,7 +188,7 @@ All ten now emit `deprecate()` warnings and are assigned to explicit pre-v1.0 re
 
 ### Active deprecations
 
-All active deprecations were removed in 1.0.0. The Active deprecations section is intentionally empty.
+All active deprecations were removed in v0.11.5. The Active deprecations section is intentionally empty.
 
 | Deprecated symbol | Replacement | Deprecated since | Removal ETA | Notes |
 |---|---|---:|---:|---|

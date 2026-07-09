@@ -365,7 +365,10 @@ def _legacy_base_ncf(proba: np.ndarray, ncf: str) -> np.ndarray:
         predict_high, so the width ``proba[:,1] - proba[:,0]`` is the
         calibrated uncertainty interval (used by ``ensured``).
     ncf : {'ensured', 'entropy', 'margin'}
-        Non-conformity function type.
+        Internal legacy non-conformity function type. The public reject-policy
+        boundary accepts only ``default`` and ``ensured``; ``entropy``,
+        ``hinge``, and ``margin`` now raise ``ValidationError`` before they
+        reach this helper.
 
     Returns
     -------
@@ -1544,8 +1547,7 @@ class RejectOrchestrator:
         if ncf == "ensured":
             if validated_w == 0.0:
                 raise ValidationError(
-                    "w=0.0 with ncf='ensured' is not allowed. Use w > 0.0 "
-                    "(recommended w >= 0.1).",
+                    "w=0.0 with ncf='ensured' is not allowed. Use w > 0.0 (recommended w >= 0.1).",
                     details={"w": validated_w, "ncf": ncf},
                 )
             if validated_w < 0.1:
