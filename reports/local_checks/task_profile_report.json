@@ -1,16 +1,16 @@
 {
   "commands_run": [
-    "python -m ruff check tests/unit/core/test_calibrated_explainer_more_paths.py tests/unit/core/test_parameter_surface_contracts.py tests/scripts/test_local_checks_profiles.py",
-    "python -m ruff format --check tests/unit/core/test_calibrated_explainer_more_paths.py tests/unit/core/test_parameter_surface_contracts.py tests/scripts/test_local_checks_profiles.py",
+    "python -m ruff check scripts/local_checks.py scripts/quality/check_packaging_artifacts.py tests/scripts/test_local_checks_profiles.py tests/scripts/test_packaging_artifact_check.py",
+    "python -m ruff format --check scripts/local_checks.py scripts/quality/check_packaging_artifacts.py tests/scripts/test_local_checks_profiles.py tests/scripts/test_packaging_artifact_check.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python -m pytest -q tests/unit/core/test_calibrated_explainer_more_paths.py tests/unit/core/test_parameter_surface_contracts.py tests/scripts/test_local_checks_profiles.py -o addopts= --no-cov",
-    "python scripts/local_checks.py --adr030-ratification"
+    "python -m build",
+    "python scripts/quality/check_packaging_artifacts.py --report reports/packaging/license_artifact_check.json"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-09T06:57:43.700734+00:00",
+  "generated_at": "2026-07-09T07:24:53.266932+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -52,5 +52,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 10
+  "task_id": 11
 }

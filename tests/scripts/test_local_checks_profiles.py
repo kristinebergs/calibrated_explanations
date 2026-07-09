@@ -241,3 +241,18 @@ def test_should_write_machine_readable_task_report(monkeypatch, tmp_path: Path) 
         == "python scripts/quality/check_agent_instruction_consistency.py"
     )
     assert any(item["gate"] == "coverage" for item in report["skipped_heavy_gates"])
+
+
+def test_should_include_packaging_build_and_smoke_for_task_11() -> None:
+    """Task 11 should build artifacts and inspect license inclusion."""
+    plan = local_checks.build_profile_plan(
+        "task",
+        task=11,
+        mypy_targets=[],
+        lint_targets=["scripts/local_checks.py"],
+        pre_commit_available=False,
+    )
+
+    step_names = _step_names(plan)
+    assert "Task 11 packaging build" in step_names
+    assert "Task 11 packaging artifact smoke" in step_names

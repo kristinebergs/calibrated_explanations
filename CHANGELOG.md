@@ -11,6 +11,7 @@
 
 ### Fixed
 
+- Built wheel and sdist artifacts now include the repository `LICENSE` text again, and Task 11 adds a packaging smoke check that builds release artifacts and fails when the wheel or sdist omits the license file or the wheel metadata drops the `License-File` entry.
 - Reject-policy NCF validation now fails fast for the removed legacy alias `ncf="entropy"` instead of silently normalizing it to `ncf="default"`. Callers must pass `ncf="default"` or `ncf="ensured"` explicitly.
 - Fail-fast closure of the silent guarded-kwarg sink: `guarded=`, `significance=`, `n_neighbors=`, `normalize_guard=`, and `merge_adjacent=` (removed in v0.11.5) now raise `ConfigurationError` with `GuardedOptions` migration guidance from `CalibratedExplainer.explain_factual` / `explore_alternatives` and the `WrapCalibratedExplainer` delegators, instead of being silently swallowed by the `**kwargs` sink. `_KNOWN_PUBLIC_KWARGS` no longer allowlists `guarded`, `n_neighbors`, or `merge_adjacent`.
 - Fail-fast reject-policy kwarg validation now closes the silent `predict_reject` / `apply_policy` sink: removed `confidence=` now raises with `reject_confidence=` migration guidance, reject-kwarg typos no longer vanish silently, and the wrapper/core reject-policy prediction paths reject the removed alias consistently.

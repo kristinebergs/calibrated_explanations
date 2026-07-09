@@ -1066,6 +1066,17 @@ def _task_specific_steps(task: int) -> list[Step]:
                 _python_cmd("scripts/local_checks.py", "--adr030-ratification"),
             ),
         ],
+        11: [
+            Step("Task 11 packaging build", _python_cmd("-m", "build")),
+            Step(
+                "Task 11 packaging artifact smoke",
+                _python_cmd(
+                    "scripts/quality/check_packaging_artifacts.py",
+                    "--report",
+                    "reports/packaging/license_artifact_check.json",
+                ),
+            ),
+        ],
     }
     if task not in task_steps:
         raise ValueError(f"Unsupported task profile mapping: {task}")
@@ -1129,6 +1140,12 @@ def _task_specific_lint_targets(task: int) -> list[str]:
             "tests/unit/core/test_calibrated_explainer_more_paths.py",
             "tests/unit/core/test_parameter_surface_contracts.py",
             "tests/scripts/test_local_checks_profiles.py",
+        ],
+        11: [
+            "scripts/local_checks.py",
+            "scripts/quality/check_packaging_artifacts.py",
+            "tests/scripts/test_local_checks_profiles.py",
+            "tests/scripts/test_packaging_artifact_check.py",
         ],
     }
     if task not in task_targets:
