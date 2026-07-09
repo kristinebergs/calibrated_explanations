@@ -8,6 +8,7 @@ exercise these wrappers to lock in semantics before moving logic bodies.
 
 from __future__ import annotations
 
+from contextlib import suppress
 import warnings as _warnings
 from typing import TYPE_CHECKING, Any, Optional, Protocol, Sequence, Tuple, Union, cast
 
@@ -375,7 +376,25 @@ def format_classification_prediction(
     if label_map is not None or class_labels is not None:
         # Prefer explicit mapping function when label_map provided
         if label_map is not None:
-            mapped = [label_map.get(int(c), label_map.get(str(c), c)) for c in new_classes]
+            inverse_map = {
+                int(value): key
+                for key, value in label_map.items()
+                if isinstance(value, (int, np.integer))
+            }
+            mapped = []
+            for cls in new_classes:
+                candidates = [cls]
+                with suppress(TypeError, ValueError):
+                    candidates.extend([int(cls), str(cls)])
+                for candidate in candidates:
+                    if candidate in label_map:
+                        mapped.append(label_map[candidate])
+                        break
+                else:
+                    try:
+                        mapped.append(inverse_map.get(int(cls), cls))
+                    except (TypeError, ValueError):
+                        mapped.append(cls)
             new_classes = np.array(mapped)
         else:
             # class_labels may be a sequence (list/ndarray) or a mapping.

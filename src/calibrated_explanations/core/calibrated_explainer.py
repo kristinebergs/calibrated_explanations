@@ -405,17 +405,33 @@ class CalibratedExplainer:
         self._feature_names = list(feature_names)
 
         if mode == "classification":
-            if any(isinstance(val, str) for val in self.y_cal) or any(
-                isinstance(val, (np.str_, np.object_)) for val in self.y_cal
-            ):
-                self.y_cal_numeric, self.label_map = convert_targets_to_numeric(self.y_cal)
-                self.y_cal = self.y_cal_numeric  # save to _y_cal to avoid append
+            self.y_cal_numeric, self.label_map = convert_targets_to_numeric(self.y_cal)
+            self.y_cal = self.y_cal_numeric  # save to _y_cal to avoid append
+            if self.label_map is not None:
                 if self.class_labels is None:
-                    self.class_labels = {v: k for k, v in self.label_map.items()}
-            else:
-                self.label_map = None
-                if self.class_labels is None:
-                    self.class_labels = {int(label): str(label) for label in np.unique(self.y_cal)}
+                    self.class_labels = {
+                        int(encoded_label): str(original_label)
+                        for original_label, encoded_label in self.label_map.items()
+                    }
+                elif isinstance(self.class_labels, Mapping):
+                    normalized_class_labels = {}
+                    for original_label, encoded_label in self.label_map.items():
+                        if original_label in self.class_labels:
+                            normalized_class_labels[int(encoded_label)] = self.class_labels[
+                                original_label
+                            ]
+                        elif str(original_label) in self.class_labels:
+                            normalized_class_labels[int(encoded_label)] = self.class_labels[
+                                str(original_label)
+                            ]
+                        elif int(encoded_label) in self.class_labels:
+                            normalized_class_labels[int(encoded_label)] = self.class_labels[
+                                int(encoded_label)
+                            ]
+                    if len(normalized_class_labels) == len(self.label_map):
+                        self.class_labels = normalized_class_labels
+            elif self.class_labels is None:
+                self.class_labels = {int(label): str(label) for label in np.unique(self.y_cal)}
         else:
             self.label_map = None
             self.class_labels = None
