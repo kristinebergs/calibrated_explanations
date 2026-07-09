@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 
 from calibrated_explanations import WrapCalibratedExplainer
 from calibrated_explanations.core.calibrated_explainer import CalibratedExplainer
+from calibrated_explanations.explanations.reject import RejectPolicy, RejectResult
 from calibrated_explanations.utils.exceptions import ValidationError
 
 
@@ -60,6 +61,112 @@ def _fit_wrapper(label_space: tuple[object, ...]) -> tuple[WrapCalibratedExplain
     wrapper.fit(x_train, y_train)
     wrapper.calibrate(x_cal, y_cal, mode="classification", feature_names=feature_names)
     return wrapper, x_test
+
+
+def _map_reference_predictions_to_label_space(
+    reference_predictions: np.ndarray, label_space: tuple[object, ...]
+) -> np.ndarray:
+    return np.asarray([label_space[int(index)] for index in np.asarray(reference_predictions)])
+
+
+def _canonicalize_predictions_for_label_space(
+    predictions: np.ndarray, label_space: tuple[object, ...]
+) -> np.ndarray:
+    canonicalized = []
+    for prediction in np.asarray(predictions).tolist():
+        for expected_label in label_space:
+            if prediction == expected_label or str(prediction) == str(expected_label):
+                canonicalized.append(expected_label)
+                break
+        else:
+            canonicalized.append(prediction)
+    return np.asarray(canonicalized, dtype=object)
+
+
+def _assert_predictions_stay_within_training_labels(
+    predictions: np.ndarray, label_space: tuple[object, ...]
+) -> None:
+    observed = set(_canonicalize_predictions_for_label_space(predictions, label_space).tolist())
+    expected = set(np.asarray(label_space).tolist())
+    assert observed <= expected
+
+
+@pytest.mark.parametrize(
+    "label_space",
+    [
+        (0, 1),
+        (1, 2),
+        (0, 2),
+        (5, 9),
+        (1, 2, 3),
+        ("bird", "cat", "dog"),
+        (False, True),
+    ],
+)
+def test_should_return_only_seen_training_labels_from_core_predict_and_reject_envelope(
+    label_space: tuple[object, ...],
+) -> None:
+    reference_label_space = tuple(range(len(label_space)))
+    reference_explainer, reference_x_test = _fit_core_explainer(reference_label_space)
+    explainer, x_test = _fit_core_explainer(label_space)
+
+    plain_predictions = explainer.predict(x_test[:8])
+    reject_result = explainer.predict(x_test[:8], reject_policy=RejectPolicy.FLAG)
+
+    assert isinstance(reject_result, RejectResult)
+    expected_predictions = _map_reference_predictions_to_label_space(
+        reference_explainer.predict(reference_x_test[:8]),
+        label_space,
+    )
+    _assert_predictions_stay_within_training_labels(plain_predictions, label_space)
+    _assert_predictions_stay_within_training_labels(reject_result.prediction, label_space)
+    np.testing.assert_array_equal(
+        _canonicalize_predictions_for_label_space(plain_predictions, label_space),
+        np.asarray(expected_predictions, dtype=object),
+    )
+    np.testing.assert_array_equal(
+        _canonicalize_predictions_for_label_space(reject_result.prediction, label_space),
+        _canonicalize_predictions_for_label_space(plain_predictions, label_space),
+    )
+
+
+@pytest.mark.parametrize(
+    "label_space",
+    [
+        (0, 1),
+        (1, 2),
+        (0, 2),
+        (5, 9),
+        (1, 2, 3),
+        ("bird", "cat", "dog"),
+        (False, True),
+    ],
+)
+def test_should_return_only_seen_training_labels_from_wrapper_predict_and_reject_envelope(
+    label_space: tuple[object, ...],
+) -> None:
+    reference_label_space = tuple(range(len(label_space)))
+    reference_wrapper, reference_x_test = _fit_wrapper(reference_label_space)
+    wrapper, x_test = _fit_wrapper(label_space)
+
+    plain_predictions = wrapper.predict(x_test[:8])
+    reject_result = wrapper.predict(x_test[:8], reject_policy=RejectPolicy.FLAG)
+
+    assert isinstance(reject_result, RejectResult)
+    expected_predictions = _map_reference_predictions_to_label_space(
+        reference_wrapper.predict(reference_x_test[:8]),
+        label_space,
+    )
+    _assert_predictions_stay_within_training_labels(plain_predictions, label_space)
+    _assert_predictions_stay_within_training_labels(reject_result.prediction, label_space)
+    np.testing.assert_array_equal(
+        _canonicalize_predictions_for_label_space(plain_predictions, label_space),
+        np.asarray(expected_predictions, dtype=object),
+    )
+    np.testing.assert_array_equal(
+        _canonicalize_predictions_for_label_space(reject_result.prediction, label_space),
+        _canonicalize_predictions_for_label_space(plain_predictions, label_space),
+    )
 
 
 @pytest.mark.parametrize(
