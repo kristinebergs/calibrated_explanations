@@ -15,6 +15,7 @@ from calibrated_explanations.explanations import (
     CalibratedExplanations,
 )
 from calibrated_explanations.explanations.explanations import MultiClassCalibratedExplanations
+from calibrated_explanations.utils.exceptions import ConfigurationError
 
 
 def install_fake_matplotlib_colors(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -315,6 +316,31 @@ def test_multiclass_interface_parity_slice_list_and_get_explanation(
     assert len(masked) == 2
     assert coll.X_test.shape == coll.x_test.shape
     assert coll[(0, 2)] is coll.explanations[0][2]
+
+
+def test_should_raise_configuration_error_when_multiclass_to_narrative_uses_format_kwarg(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from calibrated_explanations.explanations import explanations as explanations_module
+
+    class FakeFactual:
+        def get_class_labels(self):
+            return {2: "two", 5: "five"}
+
+    monkeypatch.setattr(explanations_module, "FactualExplanation", FakeFactual)
+
+    explainer = DummyOriginalExplainer(feature_names=("f0",), class_labels={2: "two", 5: "five"})
+    x = np.array([[1.0]])
+    coll = MultiClassCalibratedExplanations(
+        explainer,
+        x,
+        bins=None,
+        num_classes=2,
+        explanations=[{2: FakeFactual(), 5: FakeFactual()}],
+    )
+
+    with pytest.raises(ConfigurationError, match="Unsupported narrative keyword arguments"):
+        coll.to_narrative(format="short")
 
 
 def test_multiclass_plot_factual_dispatches_dict_path_for_nonzero_keys(

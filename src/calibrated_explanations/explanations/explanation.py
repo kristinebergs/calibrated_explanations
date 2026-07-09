@@ -30,6 +30,7 @@ from typing import Any, Dict, Literal, Optional, Tuple
 import numpy as np
 from pandas import Categorical
 
+from ..api.params import reject_unsupported_narrative_kwargs
 from ..plotting import plot_alternative, plot_probabilistic, plot_regression, plot_triangular
 from ..utils import (
     BinaryEntropyDiscretizer,
@@ -639,6 +640,8 @@ class CalibratedExplanation(ABC):
         :meth:`.plot` : Plot explanations with various visual styles.
         """
         from ..viz.narrative_plugin import NarrativePlotPlugin
+
+        reject_unsupported_narrative_kwargs(kwargs, surface=f"{type(self).__name__}.to_narrative")
 
         # Create a temporary collection with just this explanation
         # We need to wrap this single explanation in a collection-like object

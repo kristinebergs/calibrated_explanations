@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from calibrated_explanations.explanations import explanations as explanations_mod
-from calibrated_explanations.utils.exceptions import ValidationError
+from calibrated_explanations.utils.exceptions import ConfigurationError, ValidationError
 from calibrated_explanations.explanations import (
     AlternativeExplanations,
     CalibratedExplanations,
@@ -1006,6 +1006,13 @@ def test_collection_to_narrative_and_plot_style_narrative(monkeypatch, calibrate
     assert result["single"] is True
     assert single.called["template_path"] == "single.yaml"
     assert single.called["output_format"] == "text"
+
+
+def test_should_raise_configuration_error_when_collection_to_narrative_uses_format_kwarg(
+    calibrated_collection,
+):
+    with pytest.raises(ConfigurationError, match="Unsupported narrative keyword arguments"):
+        calibrated_collection.to_narrative(format="short")
 
 
 def test_should_fail_closed_for_removed_lime_and_shap_collection_adapters(

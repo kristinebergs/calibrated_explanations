@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import re
+import sys
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -256,3 +259,107 @@ def test_should_include_packaging_build_and_smoke_for_task_11() -> None:
     step_names = _step_names(plan)
     assert "Task 11 packaging build" in step_names
     assert "Task 11 packaging artifact smoke" in step_names
+
+
+def test_should_map_every_task_id_referenced_by_the_active_release_plan() -> None:
+    """Any task the active plan tells contributors to verify must have a mapping."""
+    plan_text = local_checks.ACTIVE_RELEASE_PLAN.read_text(encoding="utf-8")
+    referenced = {int(m) for m in re.findall(r"local-checks-task TASK=(\d+)", plan_text)}
+    supported = local_checks.supported_task_ids()
+
+    assert referenced, "no TASK=<n> references found in the active release plan"
+    missing = referenced - supported
+    assert not missing, f"plan references unmapped task ids: {sorted(missing)}"
+
+
+@pytest.mark.parametrize("task_id", sorted(local_checks.supported_task_ids()))
+def test_should_provide_steps_and_lint_targets_when_task_is_supported(
+    task_id: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Each mapped task id must resolve to non-empty steps and lint targets."""
+    monkeypatch.setattr(local_checks, "_pytest_supports_no_cov", lambda: True)
+
+    steps = local_checks.task_specific_steps(task_id)
+    lint_targets = local_checks.task_specific_lint_targets(task_id)
+
+    assert steps, f"task {task_id} has no focused steps"
+    assert lint_targets, f"task {task_id} has no lint targets"
+    assert all(step.name.startswith(f"Task {task_id} ") for step in steps)
+
+
+@pytest.mark.parametrize("task_id", [0, 9999])
+def test_should_raise_value_error_when_task_has_no_profile_mapping(
+    task_id: int, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Unmapped task ids must fail loudly and name the supported ids."""
+    monkeypatch.setattr(local_checks, "_pytest_supports_no_cov", lambda: True)
+
+    with pytest.raises(ValueError, match="Supported task ids"):
+        local_checks.task_specific_steps(task_id)
+    with pytest.raises(ValueError, match="Supported task ids"):
+        local_checks.task_specific_lint_targets(task_id)
+
+
+def test_should_build_steps_and_lint_targets_from_a_plan_verification_block(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The engine must build task mappings from any plan's verification block."""
+    monkeypatch.setattr(local_checks, "_pytest_supports_no_cov", lambda: True)
+    plan = tmp_path / "vX.Y.Z_plan.md"
+    plan.write_text(
+        textwrap.dedent(
+            """\
+            # Some future release plan
+
+            ```toml ce-task-verification
+            schema_version = 1
+
+            [task.42]
+            lint_targets = ["scripts/local_checks.py"]
+
+            [[task.42.steps]]
+            name = "Task 42 focused tests"
+            pytest = ["tests/unit/core"]
+            pytest_args = ["-k", "smoke"]
+
+            [[task.42.steps]]
+            name = "Task 42 guard"
+            command = "python scripts/quality/check_import_graph.py --check"
+            ```
+            """
+        ),
+        encoding="utf-8",
+    )
+
+    steps = local_checks.task_specific_steps(42, plan_path=plan)
+
+    assert [step.name for step in steps] == ["Task 42 focused tests", "Task 42 guard"]
+    pytest_command = steps[0].command
+    assert "tests/unit/core" in pytest_command
+    assert "-k" in pytest_command
+    assert "smoke" in pytest_command
+    assert "--no-cov" in pytest_command
+    guard_command = steps[1].command
+    assert guard_command[0] == sys.executable
+    assert guard_command[1:] == ["scripts/quality/check_import_graph.py", "--check"]
+    assert local_checks.task_specific_lint_targets(42, plan_path=plan) == [
+        "scripts/local_checks.py"
+    ]
+    assert local_checks.supported_task_ids(plan_path=plan) == frozenset({42})
+
+
+def test_should_not_skip_docs_html_when_task_runs_a_docs_build(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Tasks whose steps include a Sphinx build must not report docs_html as skipped."""
+    monkeypatch.setattr(local_checks, "_pytest_supports_no_cov", lambda: True)
+
+    plan = local_checks.build_profile_plan(
+        "task",
+        task=14,
+        mypy_targets=[],
+        lint_targets=["scripts/local_checks.py"],
+        pre_commit_available=False,
+    )
+
+    assert all(item["gate"] != "docs_html" for item in plan.skipped_heavy_gates)

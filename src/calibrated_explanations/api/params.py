@@ -44,6 +44,10 @@ REMOVED_NORMALIZATION_KWARG_MAP: dict[str, str] = {
     "normalize": "normalization=NormalizationStrategy.<MEMBER>",
 }
 
+UNSUPPORTED_NARRATIVE_KWARG_MAP: dict[str, str] = {
+    "format": 'output_format=<"text"|"dataframe"|"html"|"dict"|"markdown"> and expertise_level=<"beginner"|"intermediate"|"advanced">',
+}
+
 # Kept for API compatibility; no active alias mapping remains after v0.11.0.
 ALIAS_MAP: dict[str, str] = {}
 
@@ -177,6 +181,33 @@ def reject_unknown_public_kwargs(
     )
 
 
+def reject_unsupported_narrative_kwargs(kwargs: dict[str, Any], *, surface: str) -> None:
+    """Reject unsupported ``to_narrative`` kwargs that were previously ignored.
+
+    The CE-first docs mistakenly taught ``format=...`` while the runtime only
+    supported ``output_format=...`` plus ``expertise_level=...``. Prior to
+    v0.11.6 Task 12, ``format`` was silently forwarded and ignored, yielding the
+    default dataframe output instead of the requested narrative style.
+    """
+    used = {
+        name: replacement
+        for name, replacement in UNSUPPORTED_NARRATIVE_KWARG_MAP.items()
+        if name in kwargs
+    }
+    if not used:
+        return
+    formatted = ", ".join(f"'{name}' -> '{replacement}'" for name, replacement in used.items())
+    raise ConfigurationError(
+        "Unsupported narrative keyword arguments were provided. "
+        f"Use the public narrative API instead: {formatted}.",
+        details={
+            "surface": surface,
+            "unsupported_kwargs": list(used.keys()),
+            "replacements": used,
+        },
+    )
+
+
 def reject_cross_surface_kwargs(
     kwargs: dict[str, Any],
     *,
@@ -244,11 +275,13 @@ __all__ = [
     "REMOVED_GUARDED_KWARG_MAP",
     "REMOVED_REJECT_KWARG_MAP",
     "REMOVED_NORMALIZATION_KWARG_MAP",
+    "UNSUPPORTED_NARRATIVE_KWARG_MAP",
     "canonicalize_kwargs",
     "reject_removed_guarded_kwargs",
     "reject_removed_reject_kwargs",
     "reject_removed_aliases",
     "reject_removed_normalization_kwarg",
+    "reject_unsupported_narrative_kwargs",
     "reject_unknown_public_kwargs",
     "reject_cross_surface_kwargs",
     "validate_param_combination",

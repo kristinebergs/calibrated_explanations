@@ -12,11 +12,14 @@ from contextlib import suppress
 import json
 import os
 import platform
+import re
 import shutil
+import shlex
 import subprocess
 import sys
 import tempfile
 import time
+import tomllib
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -915,242 +918,150 @@ def _common_skipped_heavy_gates() -> list[dict[str, str]]:
     ]
 
 
-def _task_specific_steps(task: int) -> list[Step]:
-    """Return the focused validation steps for a v0.11.6 task."""
-    task_steps: dict[int, list[Step]] = {
-        1: [
-            Step(
-                "Task 1 focused tests",
-                _pytest_no_cov_command(
-                    "-q", "tests/scripts/test_local_checks_deprecation_closure.py", "-o", "addopts="
-                ),
-            ),
-            Step(
-                "Task 1 deprecation closure gate",
-                _python_cmd("scripts/local_checks.py", "--deprecation-closure"),
-            ),
-        ],
-        2: [
-            Step(
-                "Task 2 guarded-kwarg regressions",
-                _pytest_no_cov_command(
-                    "-q",
-                    "tests/unit/core/test_calibrated_explainer_more_paths.py",
-                    "tests/unit/core/test_wrap_explainer_core.py",
-                    "-o",
-                    "addopts=",
-                ),
-            ),
-        ],
-        3: [
-            Step(
-                "Task 3 reject-kwarg regressions",
-                _pytest_no_cov_command(
-                    "-q",
-                    "tests/unit/test_reject_orchestrator.py",
-                    "tests/unit/test_reject_prediction_api.py",
-                    "tests/unit/core/test_calibrated_explainer_predict_reject.py",
-                    "tests/unit/core/test_reject_orchestrator_resilience.py",
-                    "-o",
-                    "addopts=",
-                ),
-            ),
-        ],
-        4: [
-            Step(
-                "Task 4 coercer regressions",
-                _pytest_no_cov_command(
-                    "-q",
-                    "tests/unit/core/test_venn_abers.py",
-                    "tests/unit/core/test_calibrated_explainer_runtime_helpers.py",
-                    "-o",
-                    "addopts=",
-                ),
-            ),
-        ],
-        5: [
-            Step(
-                "Task 5 ADR-038 surface tests",
-                _pytest_no_cov_command(
-                    "-q",
-                    "tests/unit/core/test_wrap_explainer_core.py",
-                    "tests/unit/core/test_calibrated_explainer_more_paths.py",
-                    "-o",
-                    "addopts=",
-                ),
-            ),
-            Step(
-                "Task 5 public API snapshot", _python_cmd("scripts/quality/snapshot_public_api.py")
-            ),
-        ],
-        6: [
-            Step(
-                "Task 6 warning-scope regressions",
-                _pytest_no_cov_command(
-                    "-q", "tests/unit/core/test_venn_abers.py", "-o", "addopts="
-                ),
-            ),
-            Step(
-                "Task 6 warning policy",
-                _python_cmd(
-                    "scripts/quality/check_warning_policy.py",
-                    "--check",
-                    "--report",
-                    "reports/quality/warning_policy.json",
-                ),
-            ),
-        ],
-        7: [
-            Step(
-                "Task 7 instruction consistency",
-                _python_cmd("scripts/quality/check_agent_instruction_consistency.py"),
-            ),
-            Step(
-                "Task 7 strict docs build",
-                [sys.executable, "-m", "sphinx", "-W", "--keep-going", "docs", "docs/_build/html"],
-            ),
-        ],
-        8: [
-            Step(
-                "Task 8 ncf alias regressions",
-                _pytest_no_cov_command(
-                    "-q",
-                    "tests/unit/core/test_reject.py",
-                    "tests/unit/core/test_reject_ncf_redteam.py",
-                    "-o",
-                    "addopts=",
-                ),
-            ),
-            Step(
-                "Task 8 targeted Ruff check",
-                _ruff_check_command(
-                    "src", "tests/unit/core/test_calibrated_explainer_runtime_helpers.py"
-                ),
-            ),
-        ],
-        9: [
-            Step(
-                "Task 9 local-check profile tests",
-                _pytest_no_cov_command(
-                    "-q",
-                    "tests/scripts/test_local_checks_adr030_ratification.py",
-                    "tests/scripts/test_local_checks_deprecation_closure.py",
-                    "tests/scripts/test_local_checks_profiles.py",
-                    "-o",
-                    "addopts=",
-                ),
-            ),
-            Step(
-                "Task 9 ADR-030 ratification",
-                _python_cmd("scripts/local_checks.py", "--adr030-ratification"),
-            ),
-            Step(
-                "Task 9 instruction consistency",
-                _python_cmd("scripts/quality/check_agent_instruction_consistency.py"),
-            ),
-        ],
-        10: [
-            Step(
-                "Task 10 assertion-quality regressions",
-                _pytest_no_cov_command(
-                    "-q",
-                    "tests/unit/core/test_calibrated_explainer_more_paths.py",
-                    "tests/unit/core/test_parameter_surface_contracts.py",
-                    "tests/scripts/test_local_checks_profiles.py",
-                    "-o",
-                    "addopts=",
-                ),
-            ),
-            Step(
-                "Task 10 ADR-030 ratification",
-                _python_cmd("scripts/local_checks.py", "--adr030-ratification"),
-            ),
-        ],
-        11: [
-            Step("Task 11 packaging build", _python_cmd("-m", "build")),
-            Step(
-                "Task 11 packaging artifact smoke",
-                _python_cmd(
-                    "scripts/quality/check_packaging_artifacts.py",
-                    "--report",
-                    "reports/packaging/license_artifact_check.json",
-                ),
-            ),
-        ],
-    }
-    if task not in task_steps:
-        raise ValueError(f"Unsupported task profile mapping: {task}")
-    return task_steps[task]
+ACTIVE_RELEASE_PLAN = Path("development/current-work/v0.11.6_plan.md")
+_TASK_VERIFICATION_BLOCK_RE = re.compile(
+    r"```toml ce-task-verification\r?\n(?P<body>.*?)```",
+    re.DOTALL,
+)
 
 
-def _task_specific_lint_targets(task: int) -> list[str]:
-    """Return lint/format targets scoped to one v0.11.6 task."""
-    task_targets: dict[int, list[str]] = {
-        1: [
-            "scripts/local_checks.py",
-            "tests/scripts/test_local_checks_deprecation_closure.py",
-        ],
-        2: [
-            "src/calibrated_explanations/api/params.py",
-            "src/calibrated_explanations/core/calibrated_explainer.py",
-            "src/calibrated_explanations/core/wrap_explainer.py",
-            "tests/unit/core/test_calibrated_explainer_more_paths.py",
-            "tests/unit/core/test_wrap_explainer_core.py",
-            "tests/integration/core/test_guarded_audit_integration.py",
-            "tests/unit/core/explain/test_guarded_audit.py",
-        ],
-        3: [
-            "tests/unit/test_reject_orchestrator.py",
-            "tests/unit/test_reject_prediction_api.py",
-            "tests/unit/core/test_calibrated_explainer_predict_reject.py",
-            "tests/unit/core/test_reject_orchestrator_resilience.py",
-        ],
-        4: [
-            "tests/unit/core/test_venn_abers.py",
-            "tests/unit/core/test_calibrated_explainer_runtime_helpers.py",
-        ],
-        5: [
-            "src/calibrated_explanations/core/calibrated_explainer.py",
-            "src/calibrated_explanations/core/wrap_explainer.py",
-            "tests/unit/core/test_calibrated_explainer_more_paths.py",
-            "tests/unit/core/test_wrap_explainer_core.py",
-        ],
-        6: [
-            "src/calibrated_explanations/calibration/venn_abers.py",
-            "tests/unit/core/test_venn_abers.py",
-        ],
-        7: [
-            "scripts/local_checks.py",
-            "scripts/quality/check_agent_instruction_consistency.py",
-            "tests/scripts/test_local_checks_profiles.py",
-        ],
-        8: [
-            "tests/unit/core/test_calibrated_explainer_runtime_helpers.py",
-            "tests/unit/core/test_reject.py",
-            "tests/unit/core/test_reject_ncf_redteam.py",
-        ],
-        9: [
-            "scripts/local_checks.py",
-            "tests/scripts/test_local_checks_adr030_ratification.py",
-            "tests/scripts/test_local_checks_deprecation_closure.py",
-            "tests/scripts/test_local_checks_profiles.py",
-            "tests/unit/core/test_calibrated_explainer_runtime_helpers.py",
-        ],
-        10: [
-            "tests/unit/core/test_calibrated_explainer_more_paths.py",
-            "tests/unit/core/test_parameter_surface_contracts.py",
-            "tests/scripts/test_local_checks_profiles.py",
-        ],
-        11: [
-            "scripts/local_checks.py",
-            "scripts/quality/check_packaging_artifacts.py",
-            "tests/scripts/test_local_checks_profiles.py",
-            "tests/scripts/test_packaging_artifact_check.py",
-        ],
-    }
-    if task not in task_targets:
-        raise ValueError(f"Unsupported task profile mapping: {task}")
-    return task_targets[task] or _changed_python_targets()
+def _load_task_verification_config(plan_path: Path) -> dict[str, object]:
+    """Parse the task-verification TOML block from a release plan."""
+    plan_text = plan_path.read_text(encoding="utf-8")
+    match = _TASK_VERIFICATION_BLOCK_RE.search(plan_text)
+    if match is None:
+        raise ValueError(
+            f"Could not find a ```toml ce-task-verification``` block in {plan_path.as_posix()}."
+        )
+    config = tomllib.loads(match.group("body"))
+    if config.get("schema_version") != 1:
+        raise ValueError(
+            f"Unsupported ce-task-verification schema in {plan_path.as_posix()}: "
+            f"{config.get('schema_version')!r}."
+        )
+    task_table = config.get("task")
+    if not isinstance(task_table, dict) or not task_table:
+        raise ValueError(f"No task mappings found in {plan_path.as_posix()}.")
+    return config
+
+
+def _resolved_plan_path(plan_path: Path | None) -> Path:
+    """Return the active plan path or an explicit override."""
+    return ACTIVE_RELEASE_PLAN if plan_path is None else plan_path
+
+
+def _task_verification_tasks(plan_path: Path | None = None) -> dict[int, dict[str, object]]:
+    """Return normalized task-verification entries keyed by task id."""
+    config = _load_task_verification_config(_resolved_plan_path(plan_path))
+    raw_tasks = config["task"]
+    assert isinstance(raw_tasks, dict)
+    tasks: dict[int, dict[str, object]] = {}
+    for raw_id, raw_payload in raw_tasks.items():
+        if not isinstance(raw_payload, dict):
+            raise ValueError(f"Task mapping for {raw_id!r} must be a table.")
+        task_id = int(raw_id)
+        tasks[task_id] = raw_payload
+    return tasks
+
+
+def supported_task_ids(*, plan_path: Path | None = None) -> frozenset[int]:
+    """Return task ids mapped in the selected release plan."""
+    return frozenset(_task_verification_tasks(plan_path).keys())
+
+
+def _unsupported_task_mapping_error(task: int, plan_path: Path | None = None) -> ValueError:
+    supported = sorted(supported_task_ids(plan_path=plan_path))
+    return ValueError(f"Unsupported task profile mapping: {task}. Supported task ids: {supported}.")
+
+
+def _command_from_plan(command: str) -> list[str]:
+    """Parse a task-plan command string into an executable argument vector."""
+    parts = shlex.split(command, posix=True)
+    if not parts:
+        raise ValueError("Task verification command entries must not be empty.")
+    if parts[0] == "python":
+        return _python_cmd(*parts[1:])
+    return parts
+
+
+def _step_from_plan(step_config: dict[str, object]) -> Step:
+    """Build a local-check step from one plan step table."""
+    name = step_config.get("name")
+    if not isinstance(name, str) or not name:
+        raise ValueError("Each task-verification step must define a non-empty 'name'.")
+    if "pytest" in step_config:
+        pytest_paths = step_config["pytest"]
+        pytest_args = step_config.get("pytest_args", [])
+        if not isinstance(pytest_paths, list) or not all(
+            isinstance(path, str) and path for path in pytest_paths
+        ):
+            raise ValueError(f"{name}: pytest steps must define a non-empty string list.")
+        if not isinstance(pytest_args, list) or not all(
+            isinstance(arg, str) for arg in pytest_args
+        ):
+            raise ValueError(f"{name}: pytest_args must be a string list when present.")
+        return Step(
+            name,
+            _pytest_no_cov_command("-q", *pytest_paths, *pytest_args, "-o", "addopts="),
+        )
+    command = step_config.get("command")
+    if isinstance(command, str) and command:
+        return Step(name, _command_from_plan(command))
+    raise ValueError(f"{name}: task-verification steps must define either pytest or command.")
+
+
+def _task_specific_steps(task: int, *, plan_path: Path | None = None) -> list[Step]:
+    """Return the focused validation steps for a mapped release-plan task."""
+    tasks = _task_verification_tasks(plan_path)
+    if task not in tasks:
+        raise _unsupported_task_mapping_error(task, plan_path)
+    raw_steps = tasks[task].get("steps")
+    if not isinstance(raw_steps, list) or not raw_steps:
+        raise ValueError(f"Task {task} has no step definitions in the verification block.")
+    return [
+        _step_from_plan(step_config) for step_config in raw_steps if isinstance(step_config, dict)
+    ]
+
+
+def _task_specific_lint_targets(task: int, *, plan_path: Path | None = None) -> list[str]:
+    """Return lint/format targets scoped to one mapped release-plan task."""
+    tasks = _task_verification_tasks(plan_path)
+    if task not in tasks:
+        raise _unsupported_task_mapping_error(task, plan_path)
+    lint_targets = tasks[task].get("lint_targets", [])
+    if not lint_targets:
+        return _changed_python_targets()
+    if not isinstance(lint_targets, list) or not all(
+        isinstance(target, str) and target for target in lint_targets
+    ):
+        raise ValueError(f"Task {task} lint_targets must be a string list when present.")
+    return lint_targets
+
+
+def task_specific_steps(task: int, *, plan_path: Path | None = None) -> list[Step]:
+    """Public accessor for the focused validation steps of one task."""
+    return _task_specific_steps(task, plan_path=plan_path)
+
+
+def task_specific_lint_targets(task: int, *, plan_path: Path | None = None) -> list[str]:
+    """Public accessor for the lint/format targets of one task."""
+    return _task_specific_lint_targets(task, plan_path=plan_path)
+
+
+def _step_runs_docs_html(step: Step) -> bool:
+    """Return True when a task step already runs a Sphinx HTML build."""
+    command = step.command
+    if len(command) < 2:
+        return False
+    if command[0] != sys.executable:
+        return False
+    if "-m" not in command:
+        return False
+    try:
+        module_name = command[command.index("-m") + 1]
+    except IndexError:
+        return False
+    return module_name == "sphinx" and "docs/_build/html" in command
 
 
 def build_profile_plan(
@@ -1160,6 +1071,7 @@ def build_profile_plan(
     mypy_targets: list[str],
     lint_targets: list[str],
     pre_commit_available: bool,
+    plan_path: Path | None = None,
 ) -> ProfilePlan:
     """Build the local-check step plan for the requested profile."""
     skipped_heavy = _common_skipped_heavy_gates()
@@ -1172,13 +1084,19 @@ def build_profile_plan(
     if profile == "task":
         if task is None:
             raise ValueError("The task profile requires --task / TASK=<n>.")
+        task_steps = _task_specific_steps(task, plan_path=plan_path)
         task_skips = [
-            entry for entry in skipped_heavy if not (task == 7 and entry["gate"] == "docs_html")
+            entry
+            for entry in skipped_heavy
+            if not (
+                entry["gate"] == "docs_html"
+                and any(_step_runs_docs_html(step) for step in task_steps)
+            )
         ]
         return ProfilePlan(
             profile="task",
             task=task,
-            steps=[*_quick_steps(mypy_targets, lint_targets), *_task_specific_steps(task)],
+            steps=[*_quick_steps(mypy_targets, lint_targets), *task_steps],
             skipped_heavy_gates=task_skips,
         )
     if profile == "pr":
@@ -1268,6 +1186,11 @@ def main() -> int:
     )
     parser.add_argument("--task", type=int, help="Focused v0.11.6 task id for --profile task.")
     parser.add_argument(
+        "--plan",
+        type=Path,
+        help="Optional release-plan override containing the ce-task-verification block.",
+    )
+    parser.add_argument(
         "--paths",
         nargs="*",
         default=None,
@@ -1342,19 +1265,28 @@ def main() -> int:
     mypy_targets = _mypy_targets()
     if not mypy_targets:
         print("No mypy target files found; skipping mypy step.")
-    lint_targets = (
-        _task_specific_lint_targets(args.task)
-        if selected_profile == "task" and args.task is not None
-        else _changed_python_targets()
-    )
+    try:
+        lint_targets = (
+            _task_specific_lint_targets(args.task, plan_path=args.plan)
+            if selected_profile == "task" and args.task is not None
+            else _changed_python_targets()
+        )
+    except ValueError as exc:
+        print(f"ERROR: {exc}")
+        return 2
 
     try:
+        build_kwargs = {
+            "task": args.task,
+            "mypy_targets": mypy_targets,
+            "lint_targets": lint_targets,
+            "pre_commit_available": pre_commit_available,
+        }
+        if args.plan is not None:
+            build_kwargs["plan_path"] = args.plan
         plan = build_profile_plan(
             selected_profile,
-            task=args.task,
-            mypy_targets=mypy_targets,
-            lint_targets=lint_targets,
-            pre_commit_available=pre_commit_available,
+            **build_kwargs,
         )
     except ValueError as exc:
         print(f"ERROR: {exc}")

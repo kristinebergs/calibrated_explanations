@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union, c
 
 import numpy as np
 
+from ..api.params import reject_unsupported_narrative_kwargs
 from ..core.prediction_helpers import validate_and_prepare_input
 from ..utils import EntropyDiscretizer, RegressorDiscretizer, prepare_for_saving
 from ..utils.exceptions import ValidationError
@@ -1576,6 +1577,8 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
         --------
         :meth:`.plot` : Plot explanations with various visual styles.
         """
+        reject_unsupported_narrative_kwargs(kwargs, surface=f"{type(self).__name__}.to_narrative")
+
         from ..viz.narrative_plugin import NarrativePlotPlugin
 
         # Create plugin instance
@@ -2588,6 +2591,8 @@ class MultiClassCalibratedExplanations(CalibratedExplanations):
         attempt to coerce per-class outputs into the requested format where
         reasonable.
         """
+        reject_unsupported_narrative_kwargs(kwargs, surface=f"{type(self).__name__}.to_narrative")
+
         # Normalize kwargs used by the single-explanation API
         template_path = kwargs.pop("template_path", args[0] if len(args) > 0 else "exp.yaml")
         expertise_level = kwargs.pop(

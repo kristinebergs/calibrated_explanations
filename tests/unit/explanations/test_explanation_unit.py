@@ -4,7 +4,7 @@ import pytest
 from unittest.mock import Mock
 from calibrated_explanations.explanations.explanation import CalibratedExplanation
 import numpy as np
-from calibrated_explanations.utils.exceptions import ValidationError
+from calibrated_explanations.utils.exceptions import ConfigurationError, ValidationError
 
 # Alias for convenience
 Explanation = CalibratedExplanation
@@ -211,6 +211,12 @@ class TestExplanationUnit:
         expl = self.create_expl()
         result = expl.filter_features(exclude_features=0, copy=False)
         assert result is expl  # in-place: same object returned
+
+    def test_should_raise_configuration_error_when_single_explanation_uses_format_kwarg(self):
+        expl = self.create_expl()
+
+        with pytest.raises(ConfigurationError, match="Unsupported narrative keyword arguments"):
+            expl.to_narrative(format="short")
 
     # --- Tests for add_new_rule_condition ---
 

@@ -126,7 +126,7 @@ if not explainer.fitted or not explainer.calibrated:
 
 # Factual explanations
 explanations = explainer.explain_factual(X_query)
-print(explanations[0].to_narrative(format="short"))
+print(explanations[0].to_narrative(output_format="text", expertise_level="beginner"))
 
 # Alternative / counterfactual explanations
 alternatives = explainer.explore_alternatives(X_query)
