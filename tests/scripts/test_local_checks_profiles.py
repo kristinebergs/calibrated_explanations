@@ -261,6 +261,21 @@ def test_should_include_packaging_build_and_smoke_for_task_11() -> None:
     assert "Task 11 packaging artifact smoke" in step_names
 
 
+def test_should_include_docs_import_guard_and_wheel_smoke_for_task_15() -> None:
+    """Task 15 should run both the grep guard and the wheel-only docs smoke."""
+    plan = local_checks.build_profile_plan(
+        "task",
+        task=15,
+        mypy_targets=[],
+        lint_targets=["scripts/quality/check_forbidden_doc_patterns.py"],
+        pre_commit_available=False,
+    )
+
+    step_names = _step_names(plan)
+    assert "Task 15 docs test-helper import guard" in step_names
+    assert "Task 15 wheel-only docs smoke" in step_names
+
+
 def test_should_map_every_task_id_referenced_by_the_active_release_plan() -> None:
     """Any task the active plan tells contributors to verify must have a mapping."""
     plan_text = local_checks.ACTIVE_RELEASE_PLAN.read_text(encoding="utf-8")

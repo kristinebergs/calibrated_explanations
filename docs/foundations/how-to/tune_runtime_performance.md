@@ -27,13 +27,25 @@ When you already have a fitted wrapper, reuse its learner when constructing the
 builder so the cached artefacts align with your deployed estimator:
 
 ```python
+from sklearn.datasets import load_breast_cancer
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.model_selection import train_test_split
+
 from calibrated_explanations import WrapCalibratedExplainer
 from calibrated_explanations.api.config import ExplainerBuilder
 
-from tests.helpers.doc_utils import run_quickstart_classification
+# Prepare the same public quickstart flow inline so the snippet works from a wheel install.
+dataset = load_breast_cancer()
+x_train, _, y_train, _ = train_test_split(
+    dataset.data,
+    dataset.target,
+    test_size=0.2,
+    stratify=dataset.target,
+    random_state=0,
+)
+model = RandomForestClassifier(random_state=0)
+model.fit(x_train, y_train)
 
-context = run_quickstart_classification()
-model = context.explainer.learner
 builder = ExplainerBuilder(model)
 config = (
     builder.perf_cache(
