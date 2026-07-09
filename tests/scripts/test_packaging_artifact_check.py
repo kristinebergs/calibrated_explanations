@@ -8,7 +8,11 @@ import zipfile
 from email.message import Message
 from pathlib import Path
 
-from scripts.quality.check_packaging_artifacts import inspect_packaging_artifacts, main
+from scripts.quality.check_packaging_artifacts import (
+    REQUIRED_PACKAGE_MEMBERS,
+    inspect_packaging_artifacts,
+    main,
+)
 
 
 def _write_wheel(
@@ -16,6 +20,7 @@ def _write_wheel(
     *,
     include_license_member: bool,
     license_metadata: list[str] | None,
+    requires_python: str | None = ">=3.10",
     package_members: list[str] | None = None,
 ) -> Path:
     wheel_path = dist_dir / "calibrated_explanations-0.11.6.dev0-py3-none-any.whl"
@@ -24,6 +29,8 @@ def _write_wheel(
     metadata["Name"] = "calibrated_explanations"
     metadata["Version"] = "0.11.6.dev0"
     metadata["License-Expression"] = "BSD-3-Clause"
+    if requires_python is not None:
+        metadata["Requires-Python"] = requires_python
     for value in license_metadata or []:
         metadata["License-File"] = value
 
@@ -75,12 +82,7 @@ def _write_sdist(
 
 def test_should_report_pass_when_wheel_and_sdist_include_license(tmp_path: Path) -> None:
     """The checker should pass when both artifacts carry the license text and metadata."""
-    required_members = [
-        "calibrated_explanations/py.typed",
-        "calibrated_explanations/schemas/v1/plotspec_schema.json",
-        "calibrated_explanations/templates/explain_template.yaml",
-        "calibrated_explanations/utils/configurations/plot_config.ini",
-    ]
+    required_members = REQUIRED_PACKAGE_MEMBERS
     dist_dir = tmp_path / "dist"
     dist_dir.mkdir()
     _write_wheel(
@@ -95,7 +97,7 @@ def test_should_report_pass_when_wheel_and_sdist_include_license(tmp_path: Path)
         package_members=required_members,
     )
 
-    result = inspect_packaging_artifacts(dist_dir)
+    result = inspect_packaging_artifacts(dist_dir, expected_requires_python=">=3.10")
 
     assert result.status == "pass"
     assert result.errors == []
@@ -104,6 +106,9 @@ def test_should_report_pass_when_wheel_and_sdist_include_license(tmp_path: Path)
     assert result.wheel_license_metadata == ["LICENSE"]
     assert sorted(result.wheel_required_members) == sorted(required_members)
     assert len(result.sdist_required_members) == len(required_members)
+    assert result.wheel_requires_python == ">=3.10"
+    assert result.unexpected_top_level_packages == []
+    assert result.stale_artifacts_removed == []
 
 
 def test_should_report_fail_when_artifacts_omit_license(tmp_path: Path) -> None:
@@ -113,7 +118,7 @@ def test_should_report_fail_when_artifacts_omit_license(tmp_path: Path) -> None:
     _write_wheel(dist_dir, include_license_member=False, license_metadata=[])
     _write_sdist(dist_dir, include_license_member=False)
 
-    result = inspect_packaging_artifacts(dist_dir)
+    result = inspect_packaging_artifacts(dist_dir, expected_requires_python=">=3.10")
 
     assert result.status == "fail"
     assert any("Wheel artifact" in error for error in result.errors)
@@ -122,17 +127,67 @@ def test_should_report_fail_when_artifacts_omit_license(tmp_path: Path) -> None:
     assert any("required package data" in error for error in result.errors)
 
 
+def test_should_fail_when_wheel_metadata_or_top_level_packages_are_wrong(tmp_path: Path) -> None:
+    """The checker should reject mismatched Requires-Python metadata and stray packages."""
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    package_members = [*REQUIRED_PACKAGE_MEMBERS, "tests/__init__.py"]
+    _write_wheel(
+        dist_dir,
+        include_license_member=True,
+        license_metadata=["LICENSE"],
+        requires_python=">=3.9",
+        package_members=package_members,
+    )
+    _write_sdist(dist_dir, include_license_member=True, package_members=REQUIRED_PACKAGE_MEMBERS)
+
+    result = inspect_packaging_artifacts(dist_dir, expected_requires_python=">=3.10")
+
+    assert result.status == "fail"
+    assert any("Requires-Python" in error for error in result.errors)
+    assert any("unexpected top-level packages" in error for error in result.errors)
+    assert result.unexpected_top_level_packages == ["tests"]
+
+
+def test_should_remove_stale_artifacts_when_clean_dist_is_enabled(tmp_path: Path) -> None:
+    """The checker should remove older matching artifacts when asked to clean dist."""
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    (dist_dir / "calibrated_explanations-0.11.2.dev0-py3-none-any.whl").write_text(
+        "stale\n", encoding="utf-8"
+    )
+    (dist_dir / "calibrated_explanations-0.11.2.dev0.tar.gz").write_text(
+        "stale\n", encoding="utf-8"
+    )
+    _write_wheel(
+        dist_dir,
+        include_license_member=True,
+        license_metadata=["LICENSE"],
+        package_members=REQUIRED_PACKAGE_MEMBERS,
+    )
+    _write_sdist(dist_dir, include_license_member=True, package_members=REQUIRED_PACKAGE_MEMBERS)
+
+    result = inspect_packaging_artifacts(
+        dist_dir,
+        expected_requires_python=">=3.10",
+        clean_dist=True,
+    )
+
+    assert result.status == "pass"
+    assert sorted(result.stale_artifacts_removed) == [
+        "calibrated_explanations-0.11.2.dev0-py3-none-any.whl",
+        "calibrated_explanations-0.11.2.dev0.tar.gz",
+    ]
+    assert not (dist_dir / "calibrated_explanations-0.11.2.dev0-py3-none-any.whl").exists()
+    assert not (dist_dir / "calibrated_explanations-0.11.2.dev0.tar.gz").exists()
+
+
 def test_should_write_report_and_exit_zero_when_check_passes(tmp_path: Path, monkeypatch) -> None:
     """CLI mode should persist the inspection result report."""
     dist_dir = tmp_path / "dist"
     report_path = tmp_path / "reports" / "packaging.json"
     dist_dir.mkdir()
-    required_members = [
-        "calibrated_explanations/py.typed",
-        "calibrated_explanations/schemas/v1/plotspec_schema.json",
-        "calibrated_explanations/templates/explain_template.yaml",
-        "calibrated_explanations/utils/configurations/plot_config.ini",
-    ]
+    required_members = REQUIRED_PACKAGE_MEMBERS
     _write_wheel(
         dist_dir,
         include_license_member=True,
@@ -162,4 +217,5 @@ def test_should_write_report_and_exit_zero_when_check_passes(tmp_path: Path, mon
     assert rc == 0
     assert payload["status"] == "pass"
     assert payload["wheel_license_metadata"] == ["LICENSE"]
+    assert payload["wheel_requires_python"] == ">=3.10"
     assert sorted(payload["wheel_required_members"]) == sorted(required_members)

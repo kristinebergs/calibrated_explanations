@@ -1,15 +1,16 @@
 {
   "commands_run": [
-    "python -m ruff check scripts/quality/check_fallback_filter_live.py",
-    "python -m ruff format --check scripts/quality/check_fallback_filter_live.py",
+    "python -m ruff check scripts/quality/check_packaging_artifacts.py scripts/local_checks.py",
+    "python -m ruff format --check scripts/quality/check_packaging_artifacts.py scripts/local_checks.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python scripts/quality/check_fallback_filter_live.py"
+    "python -m build",
+    "python scripts/quality/check_packaging_artifacts.py --clean-dist --report reports/packaging/license_artifact_check.json"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-09T19:38:24.821899+00:00",
+  "generated_at": "2026-07-09T19:55:51.750502+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -45,11 +46,7 @@
     {
       "gate": "capability_evidence_refresh",
       "reason": "Reserved for release validation."
-    },
-    {
-      "gate": "release_bookkeeping",
-      "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 25
+  "task_id": 26
 }

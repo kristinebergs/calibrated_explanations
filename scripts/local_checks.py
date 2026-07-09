@@ -916,6 +916,16 @@ def _release_steps(
                 "Deprecation closure",
                 _python_cmd("scripts/local_checks.py", "--deprecation-closure"),
             ),
+            Step("Release packaging build", _python_cmd("-m", "build")),
+            Step(
+                "Release packaging artifact smoke",
+                _python_cmd(
+                    "scripts/quality/check_packaging_artifacts.py",
+                    "--clean-dist",
+                    "--report",
+                    "reports/packaging/license_artifact_check.json",
+                ),
+            ),
             Step(
                 "Capability evidence refresh",
                 _python_cmd("scripts/generate_tif_evidence.py", "--check-current"),
@@ -937,7 +947,6 @@ def _common_skipped_heavy_gates() -> list[dict[str, str]]:
         {"gate": "dependency_audit", "reason": "Reserved for release validation."},
         {"gate": "performance", "reason": "Reserved for full/release validation."},
         {"gate": "capability_evidence_refresh", "reason": "Reserved for release validation."},
-        {"gate": "release_bookkeeping", "reason": "Reserved for release validation."},
     ]
 
 
