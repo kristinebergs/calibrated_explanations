@@ -12,6 +12,7 @@ import json
 from pathlib import Path
 
 import pytest
+from tests.helpers.capability_utils import write_text_fixture
 
 import scripts.quality.check_no_release_profile_meta_tests as guard
 
@@ -32,10 +33,6 @@ def test_should_fail_when_fixture_wheel_omits_license(tmp_path) -> None:
 """
 
 
-def _write(path: Path, content: str) -> None:
-    """Write fixture content, creating parent directories."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding="utf-8")
 
 
 def test_should_flag_profile_meta_test_patterns_when_present_in_fixture(
@@ -43,7 +40,7 @@ def test_should_flag_profile_meta_test_patterns_when_present_in_fixture(
 ) -> None:
     """Each prohibited marker in a test file should produce a finding."""
     # Arrange
-    _write(tmp_path / "tests" / "test_offender.py", OFFENDING_TEST)
+    write_text_fixture(tmp_path / "tests" / "test_offender.py", OFFENDING_TEST)
 
     # Act
     findings = guard.scan_tests(tmp_path / "tests", repo_root=tmp_path)
@@ -61,7 +58,7 @@ def test_should_pass_when_tests_contain_only_durable_checker_assertions(
 ) -> None:
     """Behavior-level checker tests must not trip the guard."""
     # Arrange
-    _write(tmp_path / "tests" / "test_durable.py", DURABLE_TEST)
+    write_text_fixture(tmp_path / "tests" / "test_durable.py", DURABLE_TEST)
 
     # Act
     findings = guard.scan_tests(tmp_path / "tests", repo_root=tmp_path)
@@ -74,7 +71,7 @@ def test_should_skip_allowlisted_paths_when_scanning(tmp_path: Path) -> None:
     """Files on the documented allowlist are exempt from scanning."""
     # Arrange
     allowlisted = next(iter(guard.ALLOWLIST))
-    _write(tmp_path / allowlisted, OFFENDING_TEST)
+    write_text_fixture(tmp_path / allowlisted, OFFENDING_TEST)
 
     # Act
     findings = guard.scan_tests(tmp_path / "tests", repo_root=tmp_path)
@@ -88,7 +85,7 @@ def test_should_return_failure_exit_code_and_report_when_offender_found(
 ) -> None:
     """The CLI should exit 1 and emit a machine-readable failure report."""
     # Arrange
-    _write(tmp_path / "tests" / "test_offender.py", OFFENDING_TEST)
+    write_text_fixture(tmp_path / "tests" / "test_offender.py", OFFENDING_TEST)
     monkeypatch.chdir(tmp_path)
 
     # Act
@@ -106,7 +103,7 @@ def test_should_return_success_exit_code_when_tests_are_clean(
 ) -> None:
     """The CLI should exit 0 on a clean test tree."""
     # Arrange
-    _write(tmp_path / "tests" / "test_durable.py", DURABLE_TEST)
+    write_text_fixture(tmp_path / "tests" / "test_durable.py", DURABLE_TEST)
     monkeypatch.chdir(tmp_path)
 
     # Act

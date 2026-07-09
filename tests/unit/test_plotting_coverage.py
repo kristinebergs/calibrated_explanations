@@ -9,16 +9,17 @@ from typing import Any, Callable
 import pytest
 
 import calibrated_explanations.plotting as plotting
+from tests.helpers.plotting_utils import reset_plotting_config_manager
 
 
 pytest.importorskip("matplotlib")
 
 
 @pytest.fixture(autouse=True)
-def _reset_plotting_config_manager():
-    plotting.reset_plotting_config_manager()
+def reset_plotting_config_manager_fixture():
+    reset_plotting_config_manager()
     yield
-    plotting.reset_plotting_config_manager()
+    reset_plotting_config_manager()
 
 
 def test_split_csv_coverage():

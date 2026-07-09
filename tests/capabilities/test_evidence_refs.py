@@ -7,6 +7,7 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
+from tests.helpers.capability_utils import markdown_table_value
 
 import pytest
 
@@ -86,22 +87,19 @@ def _tif_spec_index() -> set[str]:
     return {p.stem for p in _TIF_SPEC_DIR.glob("CE-TIF-*.md")}
 
 
-def _metadata_value(text: str, field: str) -> str | None:
-    match = re.search(rf"\|\s*{re.escape(field)}\s*\|\s*([^|]+?)\s*\|", text)
-    return match.group(1).strip() if match else None
-
-
 def _requirement_text(requirement_id: str) -> str:
     return (_REQ_DIR / f"{requirement_id}.md").read_text(encoding="utf-8")
 
 
 def _requirement_strength(requirement_id: str) -> str | None:
-    return _metadata_value(_requirement_text(requirement_id), "verification_strength")
+    return markdown_table_value(_requirement_text(requirement_id), "verification_strength")
 
 
 def _requirement_tif_exemption(requirement_id: str) -> str | None:
     text = _requirement_text(requirement_id)
-    return _metadata_value(text, "tif_exemption") or _metadata_value(text, "tif_exemption:")
+    return markdown_table_value(text, "tif_exemption") or markdown_table_value(
+        text, "tif_exemption:"
+    )
 
 
 def _has_valid_tif_exemption(requirement_id: str) -> bool:

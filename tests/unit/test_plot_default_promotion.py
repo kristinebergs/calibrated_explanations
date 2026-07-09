@@ -14,13 +14,14 @@ from calibrated_explanations.core.calibrated_explainer import CalibratedExplaine
 from calibrated_explanations.core.wrap_explainer import WrapCalibratedExplainer
 from calibrated_explanations.plugins.plots import PlotRenderResult
 from calibrated_explanations import plotting
+from tests.helpers.plotting_utils import reset_plotting_config_manager
 
 
 @pytest.fixture(autouse=True)
-def _reset_plotting_config_manager() -> None:
-    plotting.reset_plotting_config_manager()
+def reset_plotting_config_manager_fixture() -> None:
+    reset_plotting_config_manager()
     yield
-    plotting.reset_plotting_config_manager()
+    reset_plotting_config_manager()
 
 
 def configure_legacy_style_preference(

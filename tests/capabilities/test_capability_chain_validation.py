@@ -16,6 +16,7 @@ import textwrap
 from pathlib import Path
 
 import pytest
+from tests.helpers.capability_utils import write_text_fixture
 
 # Add validator and evidence generator to path
 _SCRIPTS_QUALITY = Path(__file__).parents[2] / "scripts" / "quality"
@@ -30,12 +31,6 @@ import validate_capability_chain as vcc  # noqa: E402
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-
-def _write(path: Path, content: str) -> Path:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(textwrap.dedent(content), encoding="utf-8")
-    return path
 
 
 def _minimal_claim(claim_id: str, req_ids: list[str], *, atomic_rationale: bool = False) -> str:
@@ -209,13 +204,14 @@ def test_should_pass_when_chain_is_structurally_valid(chain_dirs: dict[str, Path
     reqs_dir = chain_dirs["reqs"]
 
     # Write claim
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-API-001"], atomic_rationale=True),
+        dedent=True,
     )
 
     # Write requirement (TIF-exempt so no TIF spec needed)
-    _write(
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-API-001.md",
         _minimal_req(
             "CE-REQ-TEST-API-001",
@@ -223,6 +219,7 @@ def test_should_pass_when_chain_is_structurally_valid(chain_dirs: dict[str, Path
             vstatus="not_implemented",
             tif_exemption="documentation_boundary",
         ),
+        dedent=True,
     )
 
     errors, warnings = vcc.run_checks()
@@ -232,9 +229,10 @@ def test_should_pass_when_chain_is_structurally_valid(chain_dirs: dict[str, Path
 def test_should_fail_when_requirement_file_is_missing(chain_dirs: dict[str, Path]) -> None:
     """A claim referencing a non-existent requirement file produces an error."""
     claims_dir = chain_dirs["claims"]
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-MISSING-001"]),
+        dedent=True,
     )
 
     errors, _ = vcc.run_checks()
@@ -248,12 +246,13 @@ def test_should_fail_when_behavioral_requirement_has_no_tif_refs(
     claims_dir = chain_dirs["claims"]
     reqs_dir = chain_dirs["reqs"]
 
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-API-001"], atomic_rationale=True),
+        dedent=True,
     )
     # api_contract + verified + no tif_refs + no tif_exemption -> ERROR
-    _write(
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-API-001.md",
         _minimal_req(
             "CE-REQ-TEST-API-001",
@@ -261,6 +260,7 @@ def test_should_fail_when_behavioral_requirement_has_no_tif_refs(
             obligation_type="api_contract",
             vstatus="verified",
         ),
+        dedent=True,
     )
 
     errors, _ = vcc.run_checks()
@@ -273,7 +273,11 @@ def test_should_fail_when_tif_executable_missing_wrapcalibratedexplainer(
     """A TIF executable that does not reference WrapCalibratedExplainer fails the guard."""
     tif_dir = chain_dirs["tif"]
     # Write a TIF py without WrapCalibratedExplainer
-    _write(tif_dir / "tif_test.py", _minimal_tif_py("CE-TIF-TEST-001", include_wce=False))
+    write_text_fixture(
+        tif_dir / "tif_test.py",
+        _minimal_tif_py("CE-TIF-TEST-001", include_wce=False),
+        dedent=True,
+    )
 
     errors, _ = vcc.run_checks()
     assert any("WrapCalibratedExplainer not found" in e for e in errors), errors
@@ -284,9 +288,10 @@ def test_should_fail_when_tif_imports_core_calibrated_explainer(
 ) -> None:
     """A TIF that imports from core.calibrated_explainer fails the guard."""
     tif_dir = chain_dirs["tif"]
-    _write(
+    write_text_fixture(
         tif_dir / "tif_test.py",
         _minimal_tif_py("CE-TIF-TEST-001", include_wce=True, include_forbidden=True),
+        dedent=True,
     )
 
     errors, _ = vcc.run_checks()
@@ -301,11 +306,11 @@ def test_should_fail_when_raw_evidence_has_unknown_requirement_id(
     claims_dir = chain_dirs["claims"]
     reqs_dir = chain_dirs["reqs"]
 
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-API-001"], atomic_rationale=True),
     )
-    _write(
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-API-001.md",
         _minimal_req(
             "CE-REQ-TEST-API-001",
@@ -333,11 +338,11 @@ def test_should_fail_when_raw_evidence_id_mismatches_filename(chain_dirs: dict[s
     claims_dir = chain_dirs["claims"]
     reqs_dir = chain_dirs["reqs"]
 
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-API-001"], atomic_rationale=True),
     )
-    _write(
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-API-001.md",
         _minimal_req(
             "CE-REQ-TEST-API-001",
@@ -367,11 +372,11 @@ def test_should_pass_when_documentation_boundary_curated_evidence_uses_none_raw_
     claims_dir = chain_dirs["claims"]
     reqs_dir = chain_dirs["reqs"]
 
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-DOC-001"], atomic_rationale=True),
     )
-    _write(
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-DOC-001.md",
         _minimal_req(
             "CE-REQ-TEST-DOC-001",
@@ -382,7 +387,7 @@ def test_should_pass_when_documentation_boundary_curated_evidence_uses_none_raw_
         ),
     )
 
-    _write(
+    write_text_fixture(
         evid_dir / "evidence_test_doc_boundaries.md",
         """\
         # Doc boundary evidence
@@ -393,7 +398,7 @@ def test_should_pass_when_documentation_boundary_curated_evidence_uses_none_raw_
         | verification_strength | documentation_boundary |
         | result | PASS |
 
-        raw_evidence_ref: none — TIF-exempt documentation-boundary review
+        raw_evidence_ref: none â€” TIF-exempt documentation-boundary review
     """,
     )
 
@@ -408,10 +413,10 @@ def test_should_fail_when_claim_has_single_req_without_atomic_rationale(
     claims_dir = chain_dirs["claims"]
     reqs_dir = chain_dirs["reqs"]
 
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml", _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"])
     )
-    _write(
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-001.md",
         _minimal_req(
             "CE-REQ-TEST-001",
@@ -552,14 +557,14 @@ def test_should_fail_when_active_spec_missing_from_readme(
     """An active TIF spec not listed in the README table fails."""
     tif_dir = chain_dirs["tif"]
     exec_path = tif_dir / "tif_test.py"
-    _write(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
+    write_text_fixture(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
     # Add build_evidence_payload to the executable
     exec_path.write_text(
         exec_path.read_text(encoding="utf-8")
         + "\ndef build_evidence_payload(**_kw):\n    return {}\n",
         encoding="utf-8",
     )
-    _write(
+    write_text_fixture(
         tif_dir / "CE-TIF-TEST-001.md",
         _minimal_tif_spec(
             "CE-TIF-TEST-001",
@@ -568,7 +573,7 @@ def test_should_fail_when_active_spec_missing_from_readme(
         ),
     )
     # README exists but does NOT list CE-TIF-TEST-001
-    _write(tif_dir / "README.md", _readme_with_tif_table([]))
+    write_text_fixture(tif_dir / "README.md", _readme_with_tif_table([]))
 
     errors, _ = vcc.run_checks()
     assert any("CE-TIF-TEST-001" in e and "not listed" in e for e in errors), errors
@@ -579,8 +584,8 @@ def test_should_fail_when_readme_has_stale_extra_row(
 ) -> None:
     """A README row whose TIF ID has no matching active spec fails."""
     tif_dir = chain_dirs["tif"]
-    # No spec files — README has a row for a non-existent spec
-    _write(
+    # No spec files â€” README has a row for a non-existent spec
+    write_text_fixture(
         tif_dir / "README.md",
         _readme_with_tif_table(
             [
@@ -605,13 +610,13 @@ def test_should_fail_when_readme_metadata_mismatches_spec(
     """A README row whose verification_type differs from the spec fails."""
     tif_dir = chain_dirs["tif"]
     exec_path = tif_dir / "tif_test.py"
-    _write(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
+    write_text_fixture(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
     exec_path.write_text(
         exec_path.read_text(encoding="utf-8")
         + "\ndef build_evidence_payload(**_kw):\n    return {}\n",
         encoding="utf-8",
     )
-    _write(
+    write_text_fixture(
         tif_dir / "CE-TIF-TEST-001.md",
         _minimal_tif_spec(
             "CE-TIF-TEST-001",
@@ -621,7 +626,7 @@ def test_should_fail_when_readme_metadata_mismatches_spec(
         ),
     )
     # README has wrong verification_type
-    _write(
+    write_text_fixture(
         tif_dir / "README.md",
         _readme_with_tif_table(
             [
@@ -646,7 +651,9 @@ def test_should_fail_when_tif_executable_missing_build_evidence_payload(
     """A tif_*.py that does not define build_evidence_payload() fails."""
     tif_dir = chain_dirs["tif"]
     # Write a valid TIF py with WrapCalibratedExplainer but no build_evidence_payload
-    _write(tif_dir / "tif_test.py", _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
+    write_text_fixture(
+        tif_dir / "tif_test.py", _minimal_tif_py("CE-TIF-TEST-001", include_wce=True)
+    )
 
     errors, _ = vcc.run_checks()
     assert any("build_evidence_payload" in e for e in errors), errors
@@ -656,7 +663,7 @@ def test_should_not_have_manual_registry_in_generate_capability_evidence() -> No
     """generate_capability_evidence.py must be deleted or contain no _RUNNERS or TIF imports."""
     script = Path(__file__).parents[2] / "scripts" / "generate_capability_evidence.py"
     if not script.exists():
-        return  # Deleted — compliant
+        return  # Deleted â€” compliant
     text = script.read_text(encoding="utf-8")
     assert (
         "_RUNNERS" not in text
@@ -752,7 +759,7 @@ def test_should_fail_when_committed_evidence_has_wrong_claim_ids(
     tif_dir = chain_dirs["tif"]
     raw_dir = chain_dirs["raw_evid"]
 
-    _write(
+    write_text_fixture(
         tif_dir / "CE-TIF-TEST-001.md",
         _tif_spec_with_sections(
             "CE-TIF-TEST-001",
@@ -781,7 +788,7 @@ def test_should_fail_when_committed_evidence_has_wrong_requirement_ids(
     tif_dir = chain_dirs["tif"]
     raw_dir = chain_dirs["raw_evid"]
 
-    _write(
+    write_text_fixture(
         tif_dir / "CE-TIF-TEST-001.md",
         _tif_spec_with_sections(
             "CE-TIF-TEST-001",
@@ -810,7 +817,7 @@ def test_should_fail_when_committed_evidence_omits_declared_adr_refs(
     tif_dir = chain_dirs["tif"]
     raw_dir = chain_dirs["raw_evid"]
 
-    _write(
+    write_text_fixture(
         tif_dir / "CE-TIF-TEST-001.md",
         _tif_spec_with_sections(
             "CE-TIF-TEST-001",
@@ -845,13 +852,13 @@ def test_should_fail_when_readme_row_has_wrong_requirements_served(
     """A README row whose requirements_served differs from the spec fails."""
     tif_dir = chain_dirs["tif"]
     exec_path = tif_dir / "tif_test.py"
-    _write(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
+    write_text_fixture(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
     exec_path.write_text(
         exec_path.read_text(encoding="utf-8")
         + "\ndef build_evidence_payload(**_kw):\n    return {}\n",
         encoding="utf-8",
     )
-    _write(
+    write_text_fixture(
         tif_dir / "CE-TIF-TEST-001.md",
         _tif_spec_with_sections(
             "CE-TIF-TEST-001",
@@ -861,7 +868,7 @@ def test_should_fail_when_readme_row_has_wrong_requirements_served(
             claims_served=["CE-CAP-TEST-001"],
         ),
     )
-    _write(
+    write_text_fixture(
         tif_dir / "README.md",
         _readme_with_tif_table_full(
             [
@@ -888,13 +895,13 @@ def test_should_fail_when_readme_row_has_wrong_claims_served(
     """A README row whose claims_served differs from the spec fails."""
     tif_dir = chain_dirs["tif"]
     exec_path = tif_dir / "tif_test.py"
-    _write(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
+    write_text_fixture(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
     exec_path.write_text(
         exec_path.read_text(encoding="utf-8")
         + "\ndef build_evidence_payload(**_kw):\n    return {}\n",
         encoding="utf-8",
     )
-    _write(
+    write_text_fixture(
         tif_dir / "CE-TIF-TEST-001.md",
         _tif_spec_with_sections(
             "CE-TIF-TEST-001",
@@ -904,7 +911,7 @@ def test_should_fail_when_readme_row_has_wrong_claims_served(
             claims_served=["CE-CAP-TEST-001"],
         ),
     )
-    _write(
+    write_text_fixture(
         tif_dir / "README.md",
         _readme_with_tif_table_full(
             [
@@ -935,7 +942,7 @@ def test_should_fail_when_active_tif_spec_has_no_committed_evidence(
 ) -> None:
     """An active TIF spec with no matching CE-EVID-*.json file fails."""
     tif_dir = chain_dirs["tif"]
-    _write(
+    write_text_fixture(
         tif_dir / "CE-TIF-TEST-001.md",
         _tif_spec_with_sections(
             "CE-TIF-TEST-001",
@@ -943,7 +950,7 @@ def test_should_fail_when_active_tif_spec_has_no_committed_evidence(
             "TEST-001",
         ),
     )
-    # chain_dirs["raw_evid"] is empty — no evidence written
+    # chain_dirs["raw_evid"] is empty â€” no evidence written
 
     errors, _ = vcc.run_checks()
     assert any("CE-TIF-TEST-001" in e and "no committed raw evidence" in e for e in errors), errors
@@ -958,11 +965,11 @@ def test_should_pass_when_active_tif_spec_has_committed_evidence(
     claims_dir = chain_dirs["claims"]
     reqs_dir = chain_dirs["reqs"]
 
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
     )
-    _write(
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-001.md",
         _minimal_req(
             "CE-REQ-TEST-001",
@@ -971,7 +978,7 @@ def test_should_pass_when_active_tif_spec_has_committed_evidence(
             tif_exemption="documentation_boundary",
         ),
     )
-    _write(
+    write_text_fixture(
         tif_dir / "CE-TIF-TEST-001.md",
         _tif_spec_with_sections(
             "CE-TIF-TEST-001",
@@ -994,7 +1001,7 @@ def test_should_pass_when_active_tif_spec_has_committed_evidence(
 
 
 # ---------------------------------------------------------------------------
-# Tests: bidirectional claim↔requirement reciprocity
+# Tests: bidirectional claimâ†”requirement reciprocity
 # ---------------------------------------------------------------------------
 
 
@@ -1005,12 +1012,12 @@ def test_should_fail_when_claim_to_req_link_not_reciprocal(
     claims_dir = chain_dirs["claims"]
     reqs_dir = chain_dirs["reqs"]
 
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
     )
-    # Requirement points to a DIFFERENT claim — not back to CE-CAP-TEST-001
-    _write(
+    # Requirement points to a DIFFERENT claim â€” not back to CE-CAP-TEST-001
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-001.md",
         _minimal_req(
             "CE-REQ-TEST-001",
@@ -1035,11 +1042,11 @@ def test_should_fail_when_req_to_claim_link_not_reciprocal(
     reqs_dir = chain_dirs["reqs"]
 
     # Claim does NOT list CE-REQ-TEST-001 in its requirements
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-002"], atomic_rationale=True),
     )
-    _write(
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-002.md",
         _minimal_req(
             "CE-REQ-TEST-002",
@@ -1049,7 +1056,7 @@ def test_should_fail_when_req_to_claim_link_not_reciprocal(
         ),
     )
     # This requirement references CE-CAP-TEST-001 but the claim does not list it
-    _write(
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-001.md",
         _minimal_req(
             "CE-REQ-TEST-001",
@@ -1067,7 +1074,7 @@ def test_should_fail_when_req_to_claim_link_not_reciprocal(
 
 
 # ---------------------------------------------------------------------------
-# Tests: bidirectional TIF↔requirement reciprocity
+# Tests: bidirectional TIFâ†”requirement reciprocity
 # ---------------------------------------------------------------------------
 
 
@@ -1079,12 +1086,12 @@ def test_should_fail_when_req_tif_ref_not_in_tif_requirements_served(
     reqs_dir = chain_dirs["reqs"]
     claims_dir = chain_dirs["claims"]
 
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
     )
-    # TIF spec with empty requirements_served — doesn't list CE-REQ-TEST-001
-    _write(
+    # TIF spec with empty requirements_served â€” doesn't list CE-REQ-TEST-001
+    write_text_fixture(
         tif_dir / "CE-TIF-TEST-001.md",
         _tif_spec_with_sections(
             "CE-TIF-TEST-001",
@@ -1095,7 +1102,7 @@ def test_should_fail_when_req_tif_ref_not_in_tif_requirements_served(
         ),
     )
     # Requirement references the TIF
-    _write(
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-001.md",
         _minimal_req(
             "CE-REQ-TEST-001",
@@ -1121,12 +1128,12 @@ def test_should_fail_when_tif_requirements_served_not_in_req_tif_refs(
     reqs_dir = chain_dirs["reqs"]
     claims_dir = chain_dirs["claims"]
 
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
     )
     # TIF spec serves CE-REQ-TEST-001
-    _write(
+    write_text_fixture(
         tif_dir / "CE-TIF-TEST-001.md",
         _tif_spec_with_sections(
             "CE-TIF-TEST-001",
@@ -1137,7 +1144,7 @@ def test_should_fail_when_tif_requirements_served_not_in_req_tif_refs(
         ),
     )
     # Requirement does NOT reference the TIF back (uses tif_exemption instead)
-    _write(
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-001.md",
         _minimal_req(
             "CE-REQ-TEST-001",
@@ -1156,7 +1163,7 @@ def test_should_fail_when_tif_requirements_served_not_in_req_tif_refs(
 
 
 # ---------------------------------------------------------------------------
-# Tests: TIF→claim reachability
+# Tests: TIFâ†’claim reachability
 # ---------------------------------------------------------------------------
 
 
@@ -1168,15 +1175,15 @@ def test_should_fail_when_tif_served_claim_not_reachable_through_served_requirem
     reqs_dir = chain_dirs["reqs"]
     claims_dir = chain_dirs["claims"]
 
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
     )
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-ORPHAN-001.yaml",
         _minimal_claim("CE-CAP-ORPHAN-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
     )
-    _write(
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-001.md",
         _minimal_req(
             "CE-REQ-TEST-001",
@@ -1186,7 +1193,7 @@ def test_should_fail_when_tif_served_claim_not_reachable_through_served_requirem
         ),
     )
     # TIF claims to serve CE-CAP-ORPHAN-001, but its served requirements only link to CE-CAP-TEST-001
-    _write(
+    write_text_fixture(
         tif_dir / "CE-TIF-TEST-001.md",
         _tif_spec_with_sections(
             "CE-TIF-TEST-001",
@@ -1211,11 +1218,11 @@ def test_should_pass_when_tif_served_claim_is_reachable_through_served_requireme
     reqs_dir = chain_dirs["reqs"]
     claims_dir = chain_dirs["claims"]
 
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
     )
-    _write(
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-001.md",
         _minimal_req(
             "CE-REQ-TEST-001",
@@ -1224,7 +1231,7 @@ def test_should_pass_when_tif_served_claim_is_reachable_through_served_requireme
             tif_exemption="documentation_boundary",
         ),
     )
-    _write(
+    write_text_fixture(
         tif_dir / "CE-TIF-TEST-001.md",
         _tif_spec_with_sections(
             "CE-TIF-TEST-001",
@@ -1249,7 +1256,7 @@ def test_should_fail_when_curated_evidence_has_unresolved_raw_evidence_ref(
 ) -> None:
     """A curated evidence file referencing a non-existent CE-EVID-* ID fails with a hard error."""
     evid_dir = chain_dirs["evid"]
-    _write(
+    write_text_fixture(
         evid_dir / "evidence_test_001.md",
         """\
         # Test Evidence
@@ -1276,11 +1283,11 @@ def test_should_pass_when_curated_tif_exempt_evidence_uses_none_raw_ref(
     claims_dir = chain_dirs["claims"]
     reqs_dir = chain_dirs["reqs"]
 
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-SCHEMA-001"], atomic_rationale=True),
     )
-    _write(
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-SCHEMA-001.md",
         _minimal_req(
             "CE-REQ-TEST-SCHEMA-001",
@@ -1290,7 +1297,7 @@ def test_should_pass_when_curated_tif_exempt_evidence_uses_none_raw_ref(
             tif_exemption="schema_validation",
         ),
     )
-    _write(
+    write_text_fixture(
         evid_dir / "evidence_test_schema.md",
         """\
         # Schema validation evidence
@@ -1299,7 +1306,7 @@ def test_should_pass_when_curated_tif_exempt_evidence_uses_none_raw_ref(
         |---|---|
         | requirement_ids | CE-REQ-TEST-SCHEMA-001 |
 
-        raw_evidence_ref: none — TIF-exempt schema validation check
+        raw_evidence_ref: none â€” TIF-exempt schema validation check
         """,
     )
 
@@ -1335,13 +1342,13 @@ def test_should_fail_when_active_tif_spec_declares_missing_entry_function(
     tif_dir = chain_dirs["tif"]
     exec_path = tif_dir / "tif_test.py"
     # Executable has WrapCalibratedExplainer and build_evidence_payload but NOT the declared fn
-    _write(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
+    write_text_fixture(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
     exec_path.write_text(
         exec_path.read_text(encoding="utf-8")
         + "\ndef build_evidence_payload(**_kw):\n    return {}\n",
         encoding="utf-8",
     )
-    _write(
+    write_text_fixture(
         tif_dir / "CE-TIF-TEST-001.md",
         textwrap.dedent(f"""\
             # CE-TIF-TEST-001
@@ -1372,13 +1379,13 @@ def test_should_pass_when_active_tif_spec_entry_functions_exist(
     """An active TIF spec whose declared entry functions exist in the executable passes."""
     tif_dir = chain_dirs["tif"]
     exec_path = tif_dir / "tif_test.py"
-    _write(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
+    write_text_fixture(exec_path, _minimal_tif_py("CE-TIF-TEST-001", include_wce=True))
     exec_path.write_text(
         exec_path.read_text(encoding="utf-8")
         + "\ndef run_scenario():\n    pass\n\ndef build_evidence_payload(**_kw):\n    return {}\n",
         encoding="utf-8",
     )
-    _write(
+    write_text_fixture(
         tif_dir / "CE-TIF-TEST-001.md",
         textwrap.dedent(f"""\
             # CE-TIF-TEST-001
@@ -1426,7 +1433,7 @@ def test_should_not_have_hardcoded_envelope_in_tif_executables() -> None:
                 continue
             arg_names = {a.arg for a in node.args.kwonlyargs}
             assert "spec_claim_ids" in arg_names, (
-                f"{exec_path.name}: build_evidence_payload() missing 'spec_claim_ids' kwarg — "
+                f"{exec_path.name}: build_evidence_payload() missing 'spec_claim_ids' kwarg â€” "
                 "envelope metadata must be injected from the TIF spec, not hardcoded"
             )
             assert (
@@ -1472,7 +1479,7 @@ def test_should_not_have_manifest_or_registry_sidecar_files() -> None:
                 if "__pycache__" not in str(match):
                     found.append(str(match.relative_to(repo_root)))
     assert not found, (
-        "Manifest/registry/sidecar file(s) detected — these are forbidden "
+        "Manifest/registry/sidecar file(s) detected â€” these are forbidden "
         f"(active inventories must not be added as sidecar files): {found}"
     )
 
@@ -1493,11 +1500,11 @@ def test_should_warn_when_behavioral_requirement_exempted_without_rationale(
     claims_dir = chain_dirs["claims"]
     reqs_dir = chain_dirs["reqs"]
 
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
     )
-    _write(
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-001.md",
         _minimal_req(
             "CE-REQ-TEST-001",
@@ -1522,11 +1529,11 @@ def test_should_not_warn_when_behavioral_requirement_exempted_with_rationale(
     claims_dir = chain_dirs["claims"]
     reqs_dir = chain_dirs["reqs"]
 
-    _write(
+    write_text_fixture(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
     )
-    _write(
+    write_text_fixture(
         reqs_dir / "CE-REQ-TEST-001.md",
         _minimal_req(
             "CE-REQ-TEST-001",
