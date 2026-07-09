@@ -586,8 +586,9 @@ class CalibratedExplanation(ABC):
         Parameters
         ----------
         template_path : str or None, default=None
-            Path to the narrative template file (YAML or JSON).
-            If None or the file doesn't exist, the built-in default template is used.
+            Path to the narrative template file. If None, the built-in default
+            template `explain_template.yaml` is used. Missing template paths
+            fall back to that default with a `UserWarning` and INFO log entry.
         expertise_level : str or tuple of str, default=("beginner", "advanced")
             The expertise level(s) for narrative generation. Can be a single
             level or a tuple of levels. Valid values: "beginner", "intermediate", "advanced".
@@ -615,9 +616,7 @@ class CalibratedExplanation(ABC):
 
         Raises
         ------
-        FileNotFoundError
-            If the template file is not found and no default is available.
-        ValueError
+        ValidationError
             If an invalid expertise level or output format is specified.
         ImportError
             If pandas is not available and output_format="dataframe" is requested.
