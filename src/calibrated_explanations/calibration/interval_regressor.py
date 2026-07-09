@@ -19,6 +19,7 @@ import numpy as np
 
 from ..utils import safe_first_element
 from ..utils.exceptions import ConfigurationError, DataShapeError, ValidationError
+from ..utils.helper import assert_threshold
 from .venn_abers import VennAbers
 
 
@@ -307,7 +308,7 @@ class IntervalRegressor:
         )
 
     def predict_proba(self, x, bins=None):
-        """Predict the probabilities for being below the y_threshold (for float threshold) or below the lower bound and above the upper bound (for tuple threshold).
+        """Predict calibrated event probabilities for the active threshold.
 
         Parameters
         ----------
@@ -321,8 +322,10 @@ class IntervalRegressor:
         Returns
         -------
             a numpy array of shape (n_samples, 2), where each row represents the predicted probabilities
-            for being above or below the y_threshold. The first column represents the probability of the
-            negative class (1-proba) and the second column represents the probability of the positive class (proba).
+            for the complement event and the active threshold event. For scalar thresholds the
+            positive class is ``P(y <= threshold)``. For tuple thresholds the positive class is
+            ``P(low < y <= high)``. The first column represents ``1 - proba`` and the second
+            column represents ``proba``.
         """
         y_test_hat = self.ce.predict_function(x).reshape(-1, 1)
 
@@ -418,6 +421,7 @@ class IntervalRegressor:
             y_threshold : tuple
                 Lower and upper bounds that define the calibration target interval.
         """
+        assert_threshold(y_threshold, [0])
         cal_va = self.split["parts"][1]
         bins = None if self.bins is None else self.bins[cal_va]
         proba_lower = self.split["cps"].predict(

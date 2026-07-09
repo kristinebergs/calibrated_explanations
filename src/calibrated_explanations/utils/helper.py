@@ -418,6 +418,23 @@ def assert_threshold(threshold, x):
                     "actual_length": len(threshold),
                 },
             )
+        if not all(isinstance(value, (numbers.Integral, numbers.Real)) for value in threshold):
+            raise ValidationError(
+                "tuple thresholds must contain only numeric values",
+                details={
+                    "param": "threshold",
+                    "values": [type(value).__name__ for value in threshold],
+                },
+            )
+        if threshold[0] >= threshold[1]:
+            raise ValidationError(
+                "tuple threshold lower bound must be strictly less than upper bound",
+                details={
+                    "param": "threshold",
+                    "lower": threshold[0],
+                    "upper": threshold[1],
+                },
+            )
         return threshold
     if isinstance(threshold, (list, np.ndarray)):
         if not (len(threshold) == np.asarray(x).shape[0]):

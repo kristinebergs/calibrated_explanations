@@ -48,6 +48,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for <3.11
 # Core imports (no cross-sibling dependencies)
 from ..calibration.interval_wrappers import is_fast_interval_collection
 from ..utils import check_is_fitted, convert_targets_to_numeric, safe_isinstance
+from ..utils.helper import assert_threshold
 
 from ..utils.exceptions import (
     DataShapeError,
@@ -1709,6 +1710,8 @@ class CalibratedExplainer:
             kwargs,
             allowed=_EXPLAIN_KWARGS,
         )
+        if threshold is not None and "regression" in self.mode:
+            assert_threshold(threshold, x)
         bins = resolve_conditional_bins(x, bins, calibration_bins=self.bins)
         if guarded_options is not None:
             if not _use_plugin and kwargs.get("verbose", False):
@@ -1837,6 +1840,8 @@ class CalibratedExplainer:
             kwargs,
             allowed=_EXPLAIN_KWARGS,
         )
+        if threshold is not None and "regression" in self.mode:
+            assert_threshold(threshold, x)
         bins = resolve_conditional_bins(x, bins, calibration_bins=self.bins)
         if guarded_options is not None:
             if not _use_plugin and kwargs.get("verbose", False):

@@ -6,7 +6,8 @@ import pytest
 
 from calibrated_explanations.core.calibrated_explainer import CalibratedExplainer
 from tests.helpers.dataset_utils import make_binary_dataset
-from tests.helpers.model_utils import get_classification_model
+from tests.helpers.dataset_utils import make_regression_dataset
+from tests.helpers.model_utils import get_classification_model, get_regression_model
 from calibrated_explanations.core.wrap_explainer import (
     WrapCalibratedExplainer,
     _KNOWN_PUBLIC_KWARGS,
@@ -166,6 +167,51 @@ def test_should_raise_configuration_error_when_removed_reject_confidence_alias_i
     message = str(exc_info.value)
     assert "removed in v0.11.5" in message
     assert "reject_confidence" in message
+
+
+@pytest.mark.parametrize(
+    "method_name", ["predict_proba", "explain_factual", "explore_alternatives"]
+)
+@pytest.mark.parametrize(
+    ("threshold", "match"),
+    [
+        ((105.0, 95.0), "lower bound must be strictly less than upper bound"),
+        ((100.0,), "exactly two values"),
+        ((100.0, "high"), "only numeric values"),
+    ],
+)
+def test_wrapper_regression_paths_reject_invalid_interval_threshold_tuples(
+    method_name, threshold, match
+):
+    dataset = make_regression_dataset()
+    (
+        x_prop_train,
+        y_prop_train,
+        x_cal,
+        y_cal,
+        x_test,
+        _y_test,
+        _,
+        _no_of_features,
+        categorical_features,
+        feature_names,
+    ) = dataset
+
+    model, _ = get_regression_model("RF", x_prop_train, y_prop_train)
+    wrapper = WrapCalibratedExplainer(model)
+    wrapper.fit(x_prop_train, y_prop_train)
+    wrapper.calibrate(
+        x_cal,
+        y_cal,
+        mode="regression",
+        feature_names=feature_names,
+        categorical_features=categorical_features,
+    )
+
+    method = getattr(wrapper, method_name)
+
+    with pytest.raises(ValidationError, match=match):
+        method(x_test[:2], threshold=threshold)
 
 
 @pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives", "explain_fast"])

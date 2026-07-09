@@ -196,6 +196,53 @@ def test_invalid_explicit_policy_fails_fast_across_predict_and_explain():
         cal_exp.explain_factual(x_test[:2], reject_policy="not-a-policy")
 
 
+@pytest.mark.parametrize(
+    "method_name", ["predict_proba", "explain_factual", "explore_alternatives"]
+)
+@pytest.mark.parametrize(
+    ("threshold", "match"),
+    [
+        ((105.0, 95.0), "lower bound must be strictly less than upper bound"),
+        ((100.0,), "exactly two values"),
+        ((100.0, "high"), "only numeric values"),
+    ],
+)
+def test_regression_public_paths_reject_invalid_interval_threshold_tuples(
+    method_name, threshold, match
+):
+    dataset = make_regression_dataset()
+    (
+        x_prop_train,
+        y_prop_train,
+        x_cal,
+        y_cal,
+        x_test,
+        _y_test,
+        _,
+        _no_of_features,
+        categorical_features,
+        feature_names,
+    ) = dataset
+
+    model, _ = get_regression_model("RF", x_prop_train, y_prop_train)
+    cal_exp = initiate_explainer(
+        model,
+        x_cal,
+        y_cal,
+        feature_names,
+        categorical_features,
+        mode="regression",
+    )
+
+    method = getattr(cal_exp, method_name)
+
+    with pytest.raises(ValidationError, match=match):
+        if method_name == "predict_proba":
+            method(x_test[:2], threshold=threshold)
+        else:
+            method(x_test[:2], threshold=threshold)
+
+
 @pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives"])
 @pytest.mark.parametrize(
     ("removed_kwarg", "value", "replacement"),
