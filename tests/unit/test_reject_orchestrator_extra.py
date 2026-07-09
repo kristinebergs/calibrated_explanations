@@ -72,7 +72,7 @@ def test_reject_score_helpers_cover_edge_and_error_paths():
     assert normalize_stored_ncf(None) is None
 
 
-def test_predict_reject_breakdown_uses_predict_p_per_instance_fallback():
+def test_predict_reject_breakdown_uses_predict_p_per_instance_fallback(enable_fallbacks):
     class IntervalLearner:
         def predict_proba(self, x, bins=None):
             proba = []
@@ -110,7 +110,8 @@ def test_predict_reject_breakdown_uses_predict_p_per_instance_fallback():
     stub.bins = np.array([10, 11, 12])
     ro = RejectOrchestrator(stub)
 
-    breakdown = ro.predict_reject_breakdown([[1], [2], [3]], bins=stub.bins, confidence=0.95)
+    with pytest.warns(UserWarning, match="fallback engaged"):
+        breakdown = ro.predict_reject_breakdown([[1], [2], [3]], bins=stub.bins, confidence=0.95)
     assert breakdown["prediction_set"].shape == (3, 2)
     assert breakdown["prediction_set_size"].tolist() == [1, 0, 2]
     assert breakdown["error_rate_defined"] is True

@@ -190,10 +190,12 @@ def capture_builder_kwargs(store: dict[str, Any]) -> Callable[..., dict[str, Any
 def test_plot_alternative__should_default_features_to_plot_when_none_and_feature_count(monkeypatch):
     captured: dict[str, Any] = {}
     import calibrated_explanations.viz.builders as builders
+    import calibrated_explanations.viz.matplotlib_adapter as matplotlib_adapter
 
     monkeypatch.setattr(
         builders, "build_alternative_probabilistic_spec", capture_builder_kwargs(captured)
     )
+    monkeypatch.setattr(matplotlib_adapter, "render", lambda *args, **kwargs: None)
 
     explanation = DummyExplanation(mode="classification", thresholded=False)
 
@@ -220,10 +222,12 @@ def test_plot_alternative__should_default_features_to_plot_when_none_and_feature
 def test_plot_alternative__should_format_xlabel_for_thresholded_regression_tuple(monkeypatch):
     captured: dict[str, Any] = {}
     import calibrated_explanations.viz.builders as builders
+    import calibrated_explanations.viz.matplotlib_adapter as matplotlib_adapter
 
     monkeypatch.setattr(
         builders, "build_alternative_probabilistic_spec", capture_builder_kwargs(captured)
     )
+    monkeypatch.setattr(matplotlib_adapter, "render", lambda *args, **kwargs: None)
 
     explanation = DummyExplanation(mode="regression", thresholded=True, y_threshold=(0.4, 0.6))
 

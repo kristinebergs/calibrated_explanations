@@ -9,6 +9,7 @@ def mock_explainer():
     explainer = MagicMock()
     explainer.x_cal = np.array([[1, 2], [3, 4]])
     explainer.y_cal = np.array([0, 1])
+    explainer.default_reject_policy = None
     explainer.condition_source = "observed"
     explainer.mode = "classification"
     explainer.categorical_features = []

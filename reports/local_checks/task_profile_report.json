@@ -1,16 +1,15 @@
 {
   "commands_run": [
-    "python -m ruff check scripts/quality/check_runtime_deprecations.py src/calibrated_explanations/ce_agent_utils.py",
-    "python -m ruff format --check scripts/quality/check_runtime_deprecations.py src/calibrated_explanations/ce_agent_utils.py",
+    "python -m ruff check scripts/quality/check_fallback_filter_live.py",
+    "python -m ruff format --check scripts/quality/check_fallback_filter_live.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python scripts/quality/check_runtime_deprecations.py --check",
-    "python scripts/local_checks.py --deprecation-closure"
+    "python scripts/quality/check_fallback_filter_live.py"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-09T19:22:52.636052+00:00",
+  "generated_at": "2026-07-09T19:38:24.821899+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -52,5 +51,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 24
+  "task_id": 25
 }

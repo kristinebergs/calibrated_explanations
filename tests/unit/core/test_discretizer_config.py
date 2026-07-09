@@ -50,4 +50,5 @@ def test_instantiate_discretizer__should_raise_when_unknown_discretizer_name():
             y_cal=None,
             seed=0,
             current_discretizer=None,
+            condition_source="observed",
         )

@@ -694,6 +694,7 @@ def test_knn_normalized_regression_ce(regression_dataset):
         categorical_features,
         mode="regression",
         difficulty_estimator=safe_fit_difficulty(x_prop_train, y_prop_train, scaler=True),
+        condition_source="observed",
     )
 
     factual_explanation = cal_exp.explain_factual(x_test, guarded_options=GuardedOptions())
@@ -753,6 +754,7 @@ def test_knn_normalized_probabilistic_regression_ce(regression_dataset):
         categorical_features,
         mode="regression",
         difficulty_estimator=safe_fit_difficulty(x_prop_train, y_prop_train, scaler=True),
+        condition_source="observed",
     )
 
     factual_explanation = cal_exp.explain_factual(x_test, y_test, guarded_options=GuardedOptions())
@@ -789,6 +791,7 @@ def test_var_normalized_regression_ce(regression_dataset):
         categorical_features,
         mode="regression",
         difficulty_estimator=safe_fit_difficulty(x_prop_train, y_prop_train, scaler=True),
+        condition_source="observed",
     )
 
     factual_explanation = cal_exp.explain_factual(x_test, guarded_options=GuardedOptions())
@@ -845,6 +848,7 @@ def test_var_normalized_probabilistic_regression_ce(regression_dataset):
         categorical_features,
         mode="regression",
         difficulty_estimator=safe_fit_difficulty(x_prop_train, y_prop_train, scaler=True),
+        condition_source="observed",
     )
 
     factual_explanation = cal_exp.explain_factual(x_test, y_test, guarded_options=GuardedOptions())

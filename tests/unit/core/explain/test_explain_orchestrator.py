@@ -25,6 +25,7 @@ def mock_explainer():
     explainer.telemetry_interval_sources = {}
     explainer.interval_plugin_hints = {}
     explainer.plugin_manager.plot_plugin_fallbacks = {}
+    explainer.default_reject_policy = None
     explainer.preprocessor_metadata = None
     return explainer
 
