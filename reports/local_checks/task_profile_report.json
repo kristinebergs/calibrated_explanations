@@ -1,17 +1,15 @@
 {
   "commands_run": [
-    "python -m ruff check scripts/quality/check_no_release_profile_meta_tests.py tests/scripts/test_check_no_release_profile_meta_tests.py",
-    "python -m ruff format --check scripts/quality/check_no_release_profile_meta_tests.py tests/scripts/test_check_no_release_profile_meta_tests.py",
+    "python -m ruff check scripts/quality/check_forbidden_doc_patterns.py",
+    "python -m ruff format --check scripts/quality/check_forbidden_doc_patterns.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python scripts/quality/check_no_release_profile_meta_tests.py",
-    "python -m pytest -q tests/scripts/test_check_no_release_profile_meta_tests.py -o addopts= --no-cov",
-    "python scripts/local_checks.py --adr030-ratification"
+    "python scripts/quality/check_forbidden_doc_patterns.py --check stale-notebook-warnings"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-09T12:14:52.243235+00:00",
+  "generated_at": "2026-07-09T12:20:15.791306+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -53,5 +51,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 29
+  "task_id": 17
 }
