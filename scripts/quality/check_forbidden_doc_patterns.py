@@ -127,7 +127,7 @@ CHECKS: dict[str, PatternCheck] = {
             name="ledger-active-framing",
             description=(
                 "The deprecation ledger's Active section must not claim the "
-                "removals happened in 1.0.0 (Task 29)."
+                "removals happened in 1.0.0 (Task 28)."
             ),
             patterns=(r"removed in 1\.0\.0",),
             includes=("docs/migration/deprecations.md",),

@@ -1,14 +1,19 @@
 # Pre-v1 Second-Pass Gap Audit (pre-v2-gaps)
 
-Status: complete — dispositioned into `v0.11.6_plan.md` Tasks 24–29 (2026-07-09)
+Status: complete — dispositioned into `v0.11.6_plan.md` Tasks 23–28 (2026-07-09;
+originally numbered 24–29, renumbered when the plan moved release preparation to
+Task 30 and added the Task 29 test-quality correction)
 Date: 2026-07-09
 
-> **Disposition (2026-07-09):** the findings below were converted into release-plan
-> work the same day. P3 → Task 24; P2 → Task 25; P6 → Task 26; P4/P5/P7 → Task 27;
-> P8 + the Task 5 plugin-seam follow-up → Task 28; P9/P10/P12 → Task 29. P1 was
+> **Disposition (2026-07-09; task ids updated to the renumbered plan):** the findings
+> below were converted into release-plan
+> work the same day. P3 → Task 23; P2 → Task 24; P6 → Task 25; P4/P5/P7 → Task 26;
+> P8 + the Task 5 plugin-seam follow-up → Task 27; P9/P10/P12 → Task 28. P1 was
 > closed directly: `scripts/local_checks.py` now maps every non-optional task
-> (1–21, 24–29) with `SUPPORTED_TASK_IDS` as the source of truth and a mapping-
-> completeness test in `tests/scripts/test_local_checks_profiles.py`. P11 was folded
+> (1–21, 23–29) from the plan's `toml ce-task-verification` block. (The original
+> mapping-completeness test in `tests/scripts/test_local_checks_profiles.py` was
+> later removed by plan Task 29 as prohibited release-plan meta-testing; the
+> engine's fail-fast unmapped-id error is the durable enforcement.) P11 was folded
 > into the pending Tasks 14 and 21 as scope expansions. Five new gate scripts under
 > `scripts/quality/` back the pending-task mappings and were validated to fail on the
 > exact confirmed defects; two of them widened the evidence: the local editable

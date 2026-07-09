@@ -737,6 +737,14 @@ def _pr_steps(
                     "reports/quality/no_local_paths_report.json",
                 ),
             ),
+            Step(
+                "Release-profile meta-test guard",
+                _python_cmd(
+                    "scripts/quality/check_no_release_profile_meta_tests.py",
+                    "--report",
+                    "reports/quality/meta_test_guard.json",
+                ),
+            ),
             Step("All non-viz tests (no coverage)", _all_non_viz_pytest_command()),
         ]
     )

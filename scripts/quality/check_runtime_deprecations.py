@@ -3,7 +3,7 @@
 The ``make deprecation-closure`` gate parses only
 ``docs/migration/deprecations.md``; it cannot see live ``DeprecationWarning``
 emitters in ``src/``. This check closes that blind spot (pre-v2-gaps finding
-P2, v0.11.6 Task 25): it AST-scans the package for calls to the central
+P2, v0.11.6 Task 24): it AST-scans the package for calls to the central
 ``deprecate``/``deprecate_alias`` helpers and for direct ``warnings.warn``
 calls with a ``DeprecationWarning``/``PendingDeprecationWarning`` category,
 excluding the helper modules themselves. Any hit means an active runtime

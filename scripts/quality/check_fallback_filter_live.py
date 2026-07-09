@@ -3,7 +3,7 @@
 ``pyproject.toml`` declares ``error:.*fall.*back.*:UserWarning`` so that
 fallback warnings fail the suite, but pytest gives later ``filterwarnings``
 entries precedence, and a later ``ignore::UserWarning`` can silently disable
-the policy (pre-v2-gaps finding P6, v0.11.6 Task 26). This check runs two
+the policy (pre-v2-gaps finding P6, v0.11.6 Task 25). This check runs two
 probe tests under the repository pytest configuration:
 
 1. a test emitting ``UserWarning("... falling back ...")`` — must FAIL;
