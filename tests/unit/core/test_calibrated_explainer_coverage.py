@@ -68,8 +68,8 @@ def mock_helpers():
 
 
 def test_preloads(mock_learner, mock_plugin_manager):
-    x_cal = np.array([[1, 2]])
-    y_cal = np.array([0])
+    x_cal = np.array([[1, 2], [2, 3]])
+    y_cal = np.array([0, 1])
     explainer = CalibratedExplainer(mock_learner, x_cal, y_cal, mode="classification")
 
     with pytest.raises(AttributeError, match="preload_lime"):
@@ -84,8 +84,8 @@ def test_should_fail_closed_for_removed_plugin_delegations_and_aliases(
     monkeypatch: pytest.MonkeyPatch, mock_learner, mock_plugin_manager
 ):
     monkeypatch.delenv("CE_DEPRECATIONS", raising=False)
-    x_cal = np.array([[1, 2]])
-    y_cal = np.array([0])
+    x_cal = np.array([[1, 2], [2, 3]])
+    y_cal = np.array([0, 1])
     explainer = CalibratedExplainer(mock_learner, x_cal, y_cal, mode="classification")
 
     for name in (
@@ -168,8 +168,8 @@ def test_invalid_features_to_ignore_falls_back_to_constant_features(
 
 
 def test_enable_fast_mode_resets_on_error(mock_learner):
-    x_cal = np.array([[1, 2]])
-    y_cal = np.array([0])
+    x_cal = np.array([[1, 2], [2, 3]])
+    y_cal = np.array([0, 1])
     explainer = CalibratedExplainer(mock_learner, x_cal, y_cal, mode="classification")
 
     with (
@@ -186,8 +186,8 @@ def test_enable_fast_mode_resets_on_error(mock_learner):
 
 
 def test_explain_mondrian_bins_and_legacy_path(mock_learner, mock_plugin_manager):
-    x_cal = np.array([[1, 2]])
-    y_cal = np.array([0])
+    x_cal = np.array([[1, 2], [2, 3]])
+    y_cal = np.array([0, 1])
     explainer = CalibratedExplainer(mock_learner, x_cal, y_cal, mode="classification")
     explainer.bins = np.array([1])
 
@@ -211,8 +211,8 @@ def test_explain_mondrian_bins_and_legacy_path(mock_learner, mock_plugin_manager
 
 def test_additional_coverage(monkeypatch: pytest.MonkeyPatch, mock_learner, mock_plugin_manager):
     monkeypatch.delenv("CE_DEPRECATIONS", raising=False)
-    x_cal = np.array([[1, 2]])
-    y_cal = np.array([0])
+    x_cal = np.array([[1, 2], [2, 3]])
+    y_cal = np.array([0, 1])
 
     # predict_function in kwargs
     def my_predict(x):
@@ -274,12 +274,12 @@ def test_additional_coverage(monkeypatch: pytest.MonkeyPatch, mock_learner, mock
     mock_plugin_manager.prediction_orchestrator.interval_registry.initialize_for_fast_explainer.assert_called_once()
 
     # reinitialize with bins
-    explainer.bins = np.array([0])
+    explainer.bins = np.array([0, 0])
     mock_plugin_manager.prediction_orchestrator.obtain_interval_calibrator.return_value = (
         MagicMock(),
         "id",
     )
-    explainer.reinitialize(mock_learner, x_cal, y_cal, bins=np.array([0]))
+    explainer.reinitialize(mock_learner, x_cal, y_cal, bins=np.array([0, 0]))
 
     # reinitialize error: mix bins
     explainer.bins = None
@@ -287,9 +287,9 @@ def test_additional_coverage(monkeypatch: pytest.MonkeyPatch, mock_learner, mock
         explainer.reinitialize(mock_learner, x_cal, y_cal, bins=np.array([0]))
 
     # reinitialize error: bin length
-    explainer.bins = np.array([0])
+    explainer.bins = np.array([0, 0])
     with pytest.raises(DataShapeError):
-        explainer.reinitialize(mock_learner, x_cal, y_cal, bins=np.array([0, 1]))
+        explainer.reinitialize(mock_learner, x_cal, y_cal, bins=np.array([0]))
 
     # reinitialize without xs, ys
     explainer.reinitialize(mock_learner)
@@ -314,7 +314,7 @@ def test_additional_coverage(monkeypatch: pytest.MonkeyPatch, mock_learner, mock
     explainer.obtain_interval_calibrator(fast=False, metadata={})
 
     # explain_factual with mondrian
-    explainer.bins = np.array([0])
+    explainer.bins = np.array([0, 0])
     with patch.object(explainer.explanation_orchestrator, "invoke_factual") as mock_invoke:
         explainer.explain_factual(x_cal, bins=explainer.bins)
         mock_invoke.assert_called_once()

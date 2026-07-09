@@ -323,7 +323,7 @@ def test_explain_parallel_instances_empty_and_combined(monkeypatch: pytest.Monke
     from calibrated_explanations.core.explain._shared import ExplainConfig, ExplainRequest
 
     # create a simple explainer instance used by the fake sequential execute
-    explainer = make_mock_explainer(monkeypatch, DummyLearner(), np.ones((1, 2)), np.array([0]))
+    explainer = make_mock_explainer(monkeypatch, DummyLearner(), np.ones((2, 2)), np.array([0, 1]))
 
     # Empty instances -> early return via plugin
     req_empty = ExplainRequest(
@@ -432,7 +432,7 @@ def test_instance_parallel_task_calls_explain(monkeypatch: pytest.MonkeyPatch) -
 
     # Single chunk will delegate to sequential plugin via InstanceParallelExplainExecutor
     # create a small explainer instance for the plugin to attach results to
-    explainer = make_mock_explainer(monkeypatch, DummyLearner(), np.ones((1, 2)), np.array([0]))
+    explainer = make_mock_explainer(monkeypatch, DummyLearner(), np.ones((2, 2)), np.array([0, 1]))
 
     req = ExplainRequest(
         x=np.asarray([[1.0, 2.0]]),

@@ -1,16 +1,23 @@
-"""Check agent skill mirrors for structural drift (v0.11.6 Task 21).
+"""Check canonical skill coverage and platform-tree drift (v0.11.6 Task 21).
 
-Two checks across the four skill trees (``.github/skills``, ``.agents/skills``,
-``.codex/skills``, ``.claude/skills``):
+The canonical shared skill catalog lives under ``.claude/skills``.
+Other skill trees (``.github/skills``, ``.agents/skills``, ``.codex/skills``)
+may expose compatibility copies or platform-only extras, but they must not
+become independent sources of truth.
 
-1. **Referenced files exist (always fatal).** Every ``references/...`` path
-   mentioned in a ``SKILL.md`` must exist inside that skill's directory. This
-   catches drift like ``.codex/skills/ce-test-audit`` referencing
-   ``references/adr-030-test-quality.md`` without shipping it.
-2. **Skill-name set drift (fatal with ``--strict``).** The trees are expected
-   to be mirrors; skills present in one tree but missing in another are
-   reported. Intentional per-platform differences must be recorded in
-   ``INTENTIONAL_DIFFERENCES`` with a reason.
+This check enforces three rules:
+
+1. **Canonical references exist (always fatal).** Every ``references/...`` path
+   mentioned in a canonical ``.claude/skills/*/SKILL.md`` must exist inside
+   that canonical skill directory.
+2. **Canonical coverage / intentional extras (fatal with ``--strict``).**
+   Every canonical skill must exist in each shadow tree. Extra shadow-tree
+   skills are allowed only when recorded in ``INTENTIONAL_DIFFERENCES`` with a
+   reason.
+3. **Shadow shared skills stay as shims (always fatal).** When a shadow tree
+   contains a canonical shared skill, its local copy must be a thin reference
+   shim that points back to ``.claude/skills/<name>/SKILL.md`` and must not ship
+   its own ``assets/``, ``references/``, or ``scripts/`` directories.
 
 Usage
 -----
@@ -28,16 +35,40 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 SKILL_TREES = (
-    Path(".github/skills"),
-    Path(".agents/skills"),
-    Path(".codex/skills"),
     Path(".claude/skills"),
+    Path(".agents/skills"),
+    Path(".github/skills"),
+    Path(".codex/skills"),
 )
+CANONICAL_TREE = Path(".claude/skills")
+SHADOW_TREES = tuple(tree for tree in SKILL_TREES if tree != CANONICAL_TREE)
 
-# skill name -> reason it may legitimately be absent from some trees.
-INTENTIONAL_DIFFERENCES: dict[str, str] = {}
+# skill name -> reason it may legitimately exist only in selected non-canonical trees.
+INTENTIONAL_DIFFERENCES: dict[str, str] = {
+    "ai-adoption-briefing": "Platform-local general AI advisory skill; not part of the canonical CE catalog.",
+    "ai-readiness-assessor": "Platform-local general AI advisory skill; not part of the canonical CE catalog.",
+    "ai-sprint-facilitator": "Platform-local general AI advisory skill; not part of the canonical CE catalog.",
+    "ai-systems-architect": "Platform-local general AI advisory skill; not part of the canonical CE catalog.",
+    "ce-doc-navigator": "Legacy platform convenience skill kept outside the canonical CE catalog.",
+    "conformal-methods-reviewer": "Platform-local general research skill; not part of the canonical CE catalog.",
+    "decision-memo-drafter": "Platform-local general documentation skill; not part of the canonical CE catalog.",
+    "experiment-result-interpreter": "Platform-local general research skill; not part of the canonical CE catalog.",
+    "lecture-designer": "Platform-local education skill; not part of the canonical CE catalog.",
+    "notion-snapshot-refresh": "Codex-only workspace utility skill; not part of the canonical CE catalog.",
+    "paper-distiller": "Platform-local general research skill; not part of the canonical CE catalog.",
+    "peer-review-writer": "Platform-local general research skill; not part of the canonical CE catalog.",
+    "process-automation-designer": "Platform-local general AI advisory skill; not part of the canonical CE catalog.",
+    "red-team-my-idea": "Platform-local general AI advisory skill; not part of the canonical CE catalog.",
+    "requirements-analyst": "Platform-local general analysis skill; not part of the canonical CE catalog.",
+    "rigorous-technical-writer": "Platform-local general writing skill; not part of the canonical CE catalog.",
+    "student-feedback-writer": "Platform-local education skill; not part of the canonical CE catalog.",
+    "training-material-designer": "Platform-local education skill; not part of the canonical CE catalog.",
+    "use-case-evaluator": "Platform-local general AI advisory skill; not part of the canonical CE catalog.",
+    "workspace-setup": "Codex-only workspace utility skill; not part of the canonical CE catalog.",
+}
 
 REFERENCE_PATTERN = re.compile(r"references/[\w\-./]+")
+SHIM_MARKER = "Compatibility shim for the canonical shared skill definition."
 
 
 def _skill_dirs(tree: Path) -> dict[str, Path]:
@@ -61,6 +92,30 @@ def _missing_references(skill_dir: Path) -> list[str]:
     return missing
 
 
+def _shadow_shim_failures(skill_name: str, skill_dir: Path) -> list[str]:
+    failures: list[str] = []
+    skill_md = skill_dir / "SKILL.md"
+    rel_skill_md = skill_md.relative_to(REPO_ROOT).as_posix()
+    canonical_path = f".claude/skills/{skill_name}/SKILL.md"
+    if not skill_md.is_file():
+        return [f"{rel_skill_md}: missing SKILL.md"]
+
+    text = skill_md.read_text(encoding="utf-8", errors="ignore")
+    if SHIM_MARKER not in text:
+        failures.append(f"{rel_skill_md}: missing shadow-skill shim marker")
+    if canonical_path not in text:
+        failures.append(f"{rel_skill_md}: missing canonical path reference {canonical_path}")
+
+    for child in sorted(skill_dir.iterdir()):
+        if child.name == "SKILL.md":
+            continue
+        failures.append(
+            f"{skill_dir.relative_to(REPO_ROOT).as_posix()}: unexpected duplicated support path "
+            f"{child.name} for canonical skill {skill_name}"
+        )
+    return failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument(
@@ -74,38 +129,51 @@ def main() -> int:
     exit_code = 0
 
     reference_failures: list[str] = []
-    for skills in trees.values():
-        for skill_dir in skills.values():
-            reference_failures.extend(_missing_references(skill_dir))
+    for skill_dir in trees[CANONICAL_TREE].values():
+        reference_failures.extend(_missing_references(skill_dir))
     if reference_failures:
         exit_code = 1
-        print("FAIL: skill files reference materials that do not exist:")
+        print("FAIL: canonical skill files reference materials that do not exist:")
         for failure in reference_failures:
             print(f"  {failure}")
 
-    all_names = {name for skills in trees.values() for name in skills}
+    shim_failures: list[str] = []
+    for tree in SHADOW_TREES:
+        for skill_name in sorted(set(trees[CANONICAL_TREE]).intersection(trees[tree])):
+            shim_failures.extend(_shadow_shim_failures(skill_name, trees[tree][skill_name]))
+    if shim_failures:
+        exit_code = 1
+        print("FAIL: shadow-tree copies of canonical skills are not clean shims:")
+        for failure in shim_failures:
+            print(f"  {failure}")
+
+    canonical_names = set(trees[CANONICAL_TREE])
     drift_lines: list[str] = []
-    for name in sorted(all_names):
-        if name in INTENTIONAL_DIFFERENCES:
-            continue
-        present = [tree.as_posix() for tree, skills in trees.items() if name in skills]
-        if len(present) != len(SKILL_TREES):
-            missing_from = [
-                tree.as_posix() for tree in SKILL_TREES if tree.as_posix() not in present
-            ]
-            drift_lines.append(f"  {name}: missing from {', '.join(missing_from)}")
+    for tree in SHADOW_TREES:
+        shadow_names = set(trees[tree])
+        for missing_name in sorted(canonical_names - shadow_names):
+            drift_lines.append(f"  {missing_name}: canonical skill missing from {tree.as_posix()}")
+        for extra_name in sorted(shadow_names - canonical_names):
+            reason = INTENTIONAL_DIFFERENCES.get(extra_name)
+            if reason is None:
+                drift_lines.append(
+                    f"  {extra_name}: extra non-canonical skill in {tree.as_posix()} "
+                    "without an INTENTIONAL_DIFFERENCES reason"
+                )
     if drift_lines:
         header = "FAIL" if args.strict else "WARN"
-        print(f"{header}: skill-name drift across mirror trees ({len(drift_lines)} skills):")
+        print(
+            f"{header}: skill-tree drift relative to canonical .claude/skills ({len(drift_lines)} issues):"
+        )
         for line in drift_lines:
             print(line)
         if args.strict:
             exit_code = 1
 
     if exit_code == 0 and not drift_lines:
-        print("PASS: skill mirrors are structurally synchronized.")
+        print("PASS: canonical skills and platform skill trees are structurally synchronized.")
     elif exit_code == 0:
-        print("PASS (non-strict): no missing referenced files; drift reported above.")
+        print("PASS (non-strict): canonical references are valid; drift reported above.")
     return exit_code
 
 

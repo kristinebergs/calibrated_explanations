@@ -1,17 +1,16 @@
 {
   "commands_run": [
-    "python -m ruff check tests/unit/viz/test_plotspec_schema_and_primitives.py scripts/quality/check_packaging_artifacts.py",
-    "python -m ruff format --check tests/unit/viz/test_plotspec_schema_and_primitives.py scripts/quality/check_packaging_artifacts.py",
+    "python -m ruff check scripts/quality/check_skill_mirror_sync.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/core/wrap_explainer.py src/calibrated_explanations/core/calibrated_explainer.py tests/unit/core/test_validation_unit.py tests/unit/core/test_wrap_explainer_core.py",
+    "python -m ruff format --check scripts/quality/check_skill_mirror_sync.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/core/wrap_explainer.py src/calibrated_explanations/core/calibrated_explainer.py tests/unit/core/test_validation_unit.py tests/unit/core/test_wrap_explainer_core.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python -m pytest -q tests/unit/viz/test_plotspec_schema_and_primitives.py -o addopts= --no-cov",
-    "python -m build",
-    "python scripts/quality/check_packaging_artifacts.py --report reports/packaging/license_artifact_check.json"
+    "python scripts/quality/check_skill_mirror_sync.py --strict",
+    "python -m pytest -q tests/unit/core/test_validation_unit.py tests/unit/core/test_wrap_explainer_core.py -k single_class -o addopts= --no-cov"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-09T15:07:47.821200+00:00",
+  "generated_at": "2026-07-09T16:40:38.764867+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -53,5 +52,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 20
+  "task_id": 21
 }

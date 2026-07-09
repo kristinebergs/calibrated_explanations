@@ -320,6 +320,15 @@ Proposing a new root directory requires a PR rationale and an update to this fil
 All agent platforms (Codex, GitHub Copilot, Claude Code, Gemini, and others)
 must treat `.claude/skills/` as the canonical repository skill catalog.
 
+Other skill trees such as `.agents/skills/`, `.github/skills/`, and
+`.codex/skills/` are compatibility or platform-local surfaces only. Shared CE
+skills must not be maintained independently there; keep the authoritative
+content under `.claude/skills/` and treat any extra non-canonical skills as
+explicit platform-only differences.
+For shared CE skills, shadow trees should contain only a shim `SKILL.md` that
+redirects to the canonical `.claude/skills/<skill>/SKILL.md` path; do not ship
+duplicated `assets/`, `references/`, or `scripts/` there.
+
 ### Skill discovery and use
 
 1. Discover skills from `./.claude/skills/*/SKILL.md`.

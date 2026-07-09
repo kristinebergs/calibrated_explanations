@@ -46,6 +46,30 @@ def validate_non_empty(value: Any, name: str) -> None:
         raise ValidationError(f"Argument '{name}' must not be empty.")
 
 
+def validate_classification_calibration_targets(y: Any, *, learner: Any | None = None) -> None:
+    """Ensure classification calibration data spans at least two classes."""
+    y_arr = _as_1d_array(y)
+    unique_classes = np.unique(y_arr)
+    if unique_classes.shape[0] >= 2:
+        return
+
+    details: dict[str, Any] = {
+        "param": "y_cal",
+        "requirement": "at least two classes in calibration data",
+        "unique_class_count": int(unique_classes.shape[0]),
+        "unique_classes": np.asarray(unique_classes).tolist(),
+    }
+    if learner is not None and hasattr(learner, "classes_"):
+        learner_classes = np.asarray(learner.classes_)
+        details["model_class_count"] = int(learner_classes.shape[0])
+        details["model_classes"] = learner_classes.tolist()
+
+    raise ValidationError(
+        "Classification calibration requires at least two unique target classes in y_cal.",
+        details=details,
+    )
+
+
 def validate_inputs(
     x: Any,
     y: Any | None = None,

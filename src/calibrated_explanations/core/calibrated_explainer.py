@@ -53,7 +53,10 @@ from ..utils.exceptions import (
     DataShapeError,
     ValidationError,
 )
-from .validation import validate_inputs_matrix
+from .validation import (
+    validate_classification_calibration_targets,
+    validate_inputs_matrix,
+)
 from .prediction.interval_summary import IntervalSummary, coerce_interval_summary
 from .prediction_helpers import resolve_conditional_bins
 
@@ -323,6 +326,8 @@ class CalibratedExplainer:
             y_cal = y_oob
         self.x_cal = x_cal
         self.y_cal = y_cal
+        if mode == "classification":
+            validate_classification_calibration_targets(self.y_cal, learner=self.learner)
 
         # Initialize RNG with seed
         from ..utils import set_rng_seed  # pylint: disable=import-outside-toplevel

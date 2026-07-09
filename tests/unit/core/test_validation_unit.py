@@ -68,6 +68,18 @@ def test_validate_inputs_matrix_finite_checks():
     validation.validate_inputs_matrix(np.ones((2, 1)), y=y, allow_nan=True)
 
 
+def test_validate_classification_calibration_targets_rejects_single_class():
+    y = np.array([1, 1, 1, 1])
+
+    with pytest.raises(validation.ValidationError) as exc_info:
+        validation.validate_classification_calibration_targets(y)
+
+    assert "at least two unique target classes" in str(exc_info.value)
+    assert exc_info.value.details is not None
+    assert exc_info.value.details.get("unique_class_count") == 1
+    assert exc_info.value.details.get("unique_classes") == [1]
+
+
 def test_validate_model_and_fit_state_errors():
     with pytest.raises(validation.ModelNotSupportedError):
         validation.validate_model(object())

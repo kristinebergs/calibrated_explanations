@@ -11,7 +11,11 @@ from calibrated_explanations.core.wrap_explainer import (
     WrapCalibratedExplainer,
     _KNOWN_PUBLIC_KWARGS,
 )
-from calibrated_explanations.utils.exceptions import ConfigurationError, DataShapeError
+from calibrated_explanations.utils.exceptions import (
+    ConfigurationError,
+    DataShapeError,
+    ValidationError,
+)
 
 
 def test_serialise_preprocessor_value_various_types():
@@ -397,3 +401,40 @@ def test_should_raise_data_shape_error_when_core_explainer_receives_empty_calibr
     assert "at least one sample" in str(exc_info.value)
     assert exc_info.value.details is not None
     assert exc_info.value.details.get("requirement") == "non-empty calibration data"
+
+
+def test_should_raise_validation_error_when_wrapper_calibrate_receives_single_class_targets():
+    dataset = make_binary_dataset()
+    x_prop_train, y_prop_train, x_cal, y_cal, *_rest = dataset
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    wrapper = WrapCalibratedExplainer(model)
+    wrapper.fit(x_prop_train, y_prop_train)
+    single_class_mask = y_cal == y_cal[0]
+
+    with pytest.raises(ValidationError) as exc_info:
+        wrapper.calibrate(x_cal[single_class_mask], y_cal[single_class_mask], mode="classification")
+
+    assert "at least two unique target classes" in str(exc_info.value)
+    assert exc_info.value.details is not None
+    assert exc_info.value.details.get("unique_class_count") == 1
+    assert exc_info.value.details.get("model_class_count") == 2
+
+
+def test_should_raise_validation_error_when_core_explainer_receives_single_class_targets():
+    dataset = make_binary_dataset()
+    x_prop_train, y_prop_train, x_cal, y_cal, *_rest = dataset
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    single_class_mask = y_cal == y_cal[0]
+
+    with pytest.raises(ValidationError) as exc_info:
+        CalibratedExplainer(
+            model,
+            x_cal[single_class_mask],
+            y_cal[single_class_mask],
+            mode="classification",
+        )
+
+    assert "at least two unique target classes" in str(exc_info.value)
+    assert exc_info.value.details is not None
+    assert exc_info.value.details.get("unique_class_count") == 1
+    assert exc_info.value.details.get("model_class_count") == 2

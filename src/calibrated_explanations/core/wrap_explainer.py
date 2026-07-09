@@ -68,7 +68,11 @@ from .prediction_helpers import (
     _normalize_conditional_bins,
     resolve_conditional_bins,
 )
-from .validation import validate_inputs_matrix, validate_model
+from .validation import (
+    validate_classification_calibration_targets,
+    validate_inputs_matrix,
+    validate_model,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - import only for type checking
     from calibrated_explanations.api.config import ExplainerConfig
@@ -509,6 +513,8 @@ class WrapCalibratedExplainer:
             kwargs["mode"] = (
                 "classification" if "predict_proba" in dir(self.learner) else "regression"
             )
+        if kwargs["mode"] == "classification":
+            validate_classification_calibration_targets(y_calibration, learner=self.learner)
 
         # Only invalidate the previous calibration once every validation gate has
         # passed; a rejected calibrate() call must not discard a working explainer.
