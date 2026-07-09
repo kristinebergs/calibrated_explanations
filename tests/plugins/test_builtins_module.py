@@ -13,7 +13,9 @@ from calibrated_explanations.utils.exceptions import (
     ConfigurationError,
     NotFittedError,
 )
+from calibrated_explanations import __version__ as package_version
 from calibrated_explanations.plugins import builtins as builtins_mod
+from calibrated_explanations.plugins import registry as plugin_registry
 from calibrated_explanations.plugins.builtins import (
     LegacyAlternativeExplanationPlugin,
     LegacyFactualExplanationPlugin,
@@ -526,3 +528,21 @@ def test_plot_spec_renderer_raises_runtime_error(monkeypatch: pytest.MonkeyPatch
     ctx = make_local_plot_context(save_ext=[".png"], path="bad", show=False)
     with pytest.raises(ConfigurationError):
         renderer.render({"spec": 1}, context=ctx)
+
+
+def test_builtin_plugin_descriptors_use_package_version() -> None:
+    """Task 13: built-in plugin metadata should report the package version."""
+    plugin_registry.ensure_builtin_plugins()
+
+    descriptor_lookup_pairs = (
+        (plugin_registry.find_interval_descriptor, "core.interval.legacy"),
+        (plugin_registry.find_explanation_descriptor, "core.explanation.factual"),
+        (plugin_registry.find_explanation_descriptor, "core.explanation.alternative"),
+        (plugin_registry.find_plot_builder_descriptor, "core.plot.plot_spec.default"),
+        (plugin_registry.find_plot_renderer_descriptor, "core.plot.plot_spec.default"),
+    )
+
+    for lookup, identifier in descriptor_lookup_pairs:
+        descriptor = lookup(identifier)
+        assert descriptor is not None
+        assert descriptor.metadata["version"] == package_version

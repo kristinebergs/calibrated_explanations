@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib.metadata as importlib_metadata
 from pathlib import Path
 
 try:
@@ -31,3 +32,15 @@ def test_pyproject_development_status_classifier_matches_release_phase() -> None
         expected = "Development Status :: 5 - Production/Stable"
 
     assert development_status_classifiers == [expected]
+
+
+def test_runtime_version_matches_installed_package_metadata() -> None:
+    """Task 13: runtime ``__version__`` should match installed package metadata."""
+    import calibrated_explanations as ce
+
+    try:
+        metadata_version = importlib_metadata.version("calibrated_explanations")
+    except importlib_metadata.PackageNotFoundError:
+        metadata_version = importlib_metadata.version("calibrated-explanations")
+
+    assert ce.__version__ == metadata_version

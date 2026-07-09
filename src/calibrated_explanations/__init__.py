@@ -7,13 +7,27 @@ It is based on the paper "Calibrated Explanations: with Uncertainty Information 
 by Helena Löfström et al.
 """
 
-__version__ = "v0.11.6-dev"
+from __future__ import annotations
 
 import copyreg
 import importlib
+import importlib.metadata as importlib_metadata
 import logging as _logging
 from types import MappingProxyType
 from typing import Any
+
+
+def _resolve_package_version() -> str:
+    """Return the installed package version or the checked-in fallback."""
+    for distribution_name in ("calibrated_explanations", "calibrated-explanations"):
+        try:
+            return importlib_metadata.version(distribution_name)
+        except importlib_metadata.PackageNotFoundError:
+            continue
+    return "0.11.6.dev0"
+
+
+__version__ = _resolve_package_version()
 
 # Ensure MappingProxyType objects can be pickled project-wide by reducing them
 # to plain dicts. This avoids "cannot pickle 'mappingproxy' object" errors
@@ -125,3 +139,6 @@ def __getattr__(name: str) -> Any:
         return configure_logging
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__getattr__.__annotations__["return"] = Any

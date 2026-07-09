@@ -1,16 +1,15 @@
 {
   "commands_run": [
-    "python -m ruff check scripts/local_checks.py src/calibrated_explanations/api/params.py src/calibrated_explanations/explanations/explanation.py src/calibrated_explanations/explanations/explanations.py tests/unit/explanations/test_explanation_unit.py tests/unit/test_explanations_collection.py tests/unit/explanations/test_calibrated_explanations.py",
-    "python -m ruff format --check scripts/local_checks.py src/calibrated_explanations/api/params.py src/calibrated_explanations/explanations/explanation.py src/calibrated_explanations/explanations/explanations.py tests/unit/explanations/test_explanation_unit.py tests/unit/test_explanations_collection.py tests/unit/explanations/test_calibrated_explanations.py",
+    "python -m ruff check scripts/quality/check_version_alignment.py src/calibrated_explanations/__init__.py",
+    "python -m ruff format --check scripts/quality/check_version_alignment.py src/calibrated_explanations/__init__.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python -m pytest -q tests/unit/explanations/test_explanation_unit.py tests/unit/test_explanations_collection.py tests/unit/explanations/test_calibrated_explanations.py -k format_kwarg -o addopts= --no-cov",
-    "python scripts/quality/check_forbidden_doc_patterns.py --check narrative-format"
+    "python scripts/quality/check_version_alignment.py --check"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-09T09:22:51.969479+00:00",
+  "generated_at": "2026-07-09T09:31:25.691847+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -52,5 +51,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 12
+  "task_id": 13
 }
