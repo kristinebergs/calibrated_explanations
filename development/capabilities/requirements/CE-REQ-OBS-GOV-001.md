@@ -22,13 +22,16 @@ ADR-028 and STD-005 observability behavior for governance events, logging domain
 - Plugin registration and discovery emit schema-valid governance events.
 - Governance event payloads are side-effect-only and safe.
 - Feature-filter strict paths emit both operational and governance records.
-- Logging-domain and warning-policy quality gates classify governed observability surfaces.
+- Logging-domain and warning-policy quality gates classify governed observability surfaces
+  and validate the fallback-site registry/exemption records.
 
 ## Acceptance criterion
 
 - Governance event tests pass for accepted, denied, skipped, and checksum-failure plugin decisions.
 - Feature-filter observability tests pass for strict paths.
-- Logging-domain and warning-policy quality gates pass with zero violations.
+- Logging-domain and warning-policy quality gates pass with zero violations, and every
+  registered fallback site is either warning+INFO paired or explicitly exempted with a
+  recorded reason.
 - Config governance event schema tests reject unsupported or malformed event payloads.
 
 ## Verification method

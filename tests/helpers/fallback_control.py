@@ -12,6 +12,7 @@ This module provides utilities for:
 from __future__ import annotations
 
 import contextlib
+import logging
 import os
 import re
 import warnings
@@ -22,6 +23,28 @@ import pytest
 # store original warnings.warn so we can restore it when tests opt-in to
 # fallback behaviour via the `enable_fallbacks` fixture
 ORIGINAL_WARN: Any | None = None
+ORIGINAL_LOG_LEVEL: int | None = None
+FALLBACK_LOG_HANDLER: logging.Handler | None = None
+FALLBACK_LOG_RECORDS: list[logging.LogRecord] = []
+
+FALLBACK_RUNTIME_PATTERNS = (
+    r"fall(?:ing)? back",
+    r"failed to initialize perf primitives from config",
+    r"feature filter enforcement skipped",
+    r"using fallback feature_filter_config",
+)
+
+
+class _FallbackLogCapture(logging.Handler):
+    """Capture fallback-like log records emitted during tests."""
+
+    def emit(self, record: logging.LogRecord) -> None:
+        try:
+            message = record.getMessage()
+        except Exception:
+            return
+        if re.search("|".join(FALLBACK_RUNTIME_PATTERNS), message, flags=re.IGNORECASE):
+            FALLBACK_LOG_RECORDS.append(record)
 
 
 def disable_all_fallbacks(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -97,6 +120,18 @@ def disable_all_fallbacks(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr("warnings.warn", warn_no_fallback)
 
+    global FALLBACK_LOG_HANDLER, ORIGINAL_LOG_LEVEL
+    logger = logging.getLogger("calibrated_explanations")
+    if FALLBACK_LOG_HANDLER is not None:
+        logger.removeHandler(FALLBACK_LOG_HANDLER)
+    if ORIGINAL_LOG_LEVEL is None:
+        ORIGINAL_LOG_LEVEL = logger.level
+    FALLBACK_LOG_RECORDS.clear()
+    FALLBACK_LOG_HANDLER = _FallbackLogCapture()
+    FALLBACK_LOG_HANDLER.setLevel(logging.DEBUG)
+    logger.addHandler(FALLBACK_LOG_HANDLER)
+    logger.setLevel(logging.DEBUG)
+
 
 def restore_runtime_warnings(monkeypatch: pytest.MonkeyPatch) -> None:
     """Restore the original `warnings.warn` implementation.
@@ -108,6 +143,14 @@ def restore_runtime_warnings(monkeypatch: pytest.MonkeyPatch) -> None:
     global ORIGINAL_WARN
     if ORIGINAL_WARN is not None:
         monkeypatch.setattr("warnings.warn", ORIGINAL_WARN)
+    global FALLBACK_LOG_HANDLER, ORIGINAL_LOG_LEVEL
+    logger = logging.getLogger("calibrated_explanations")
+    if FALLBACK_LOG_HANDLER is not None:
+        logger.removeHandler(FALLBACK_LOG_HANDLER)
+        FALLBACK_LOG_HANDLER = None
+    FALLBACK_LOG_RECORDS.clear()
+    if ORIGINAL_LOG_LEVEL is not None:
+        logger.setLevel(ORIGINAL_LOG_LEVEL)
 
 
 def enable_specific_fallback(
@@ -204,6 +247,7 @@ def assert_no_fallbacks_triggered() -> Generator[None, None, None]:
     """
     with warnings.catch_warnings(record=True) as warning_list:
         warnings.simplefilter("always", UserWarning)
+        FALLBACK_LOG_RECORDS.clear()
         yield
 
         # Check if any warnings contain fallback indicators
@@ -231,6 +275,13 @@ def assert_no_fallbacks_triggered() -> Generator[None, None, None]:
             messages = [str(w.message) for w in fallback_warnings]
             msg = "Unexpected fallback warnings detected:\n" + "\n".join(
                 f"  - {m}" for m in messages
+            )
+            raise AssertionError(msg)
+
+        if FALLBACK_LOG_RECORDS:
+            messages = [record.getMessage() for record in FALLBACK_LOG_RECORDS]
+            msg = "Unexpected fallback log records detected:\n" + "\n".join(
+                f"  - {message}" for message in messages
             )
             raise AssertionError(msg)
 

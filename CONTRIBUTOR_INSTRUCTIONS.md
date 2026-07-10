@@ -268,6 +268,9 @@ Every fallback must be visible to users. No silent fallbacks.
 - Emit an `INFO` log entry summarising the fallback decision.
 - Applies to: parallel → sequential execution, plugin fallback chains, cache backend
   fallbacks, visualization simplifications.
+- Exception: an internal best-effort fallback may remain non-user-visible only when
+  `scripts/quality/check_warning_policy.py` records a site-specific exemption with a
+  concrete reason and the strongest available logger signal.
 - When introducing a new fallback, update `CHANGELOG.md`.
 
 ---

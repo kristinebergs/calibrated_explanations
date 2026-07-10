@@ -319,13 +319,22 @@ class CalibratedExplainer:
                 if (
                     len(y_oob_proba.shape) == 1 or y_oob_proba.shape[1] == 1
                 ):  # Binary classification
-                    y_oob = (y_oob_proba > 0.5).astype(np.dtype(y_cal.dtype))
+                    y_oob_idx = (np.ravel(y_oob_proba) > 0.5).astype(int)
                 else:  # Multiclass classification
-                    y_oob = np.argmax(y_oob_proba, axis=1)
-                    if safe_isinstance(y_cal, "pandas.core.arrays.categorical.Categorical"):
-                        y_oob = y_cal.categories[y_oob]
+                    y_oob_idx = np.argmax(y_oob_proba, axis=1)
+                if safe_isinstance(y_cal, "pandas.core.arrays.categorical.Categorical"):
+                    y_oob = y_cal.categories[y_oob_idx]
+                else:
+                    classes_ = np.asarray(getattr(self.learner, "classes_", None))
+                    if classes_.ndim == 1 and classes_.size >= 2:
+                        # Map OOB class indices back through the fitted
+                        # learner's class labels instead of casting the raw
+                        # integer index to y_cal's dtype, which silently
+                        # produced wrong labels (e.g. "0"/"1" digit strings)
+                        # for non-contiguous-numeric or string class spaces.
+                        y_oob = classes_[y_oob_idx]
                     else:
-                        y_oob = y_oob.astype(np.dtype(y_cal.dtype))
+                        y_oob = y_oob_idx.astype(np.dtype(y_cal.dtype))
             else:
                 y_oob = self.learner.oob_prediction_
             if len(x_cal) != len(y_oob):
