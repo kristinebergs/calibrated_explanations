@@ -20,6 +20,7 @@ import sys
 import tempfile
 import time
 import tomllib
+import venv
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -955,6 +956,436 @@ def _release_steps(
     return steps
 
 
+RELEASE_PREFLIGHT_REPORT = Path("reports/local_checks/release_preflight_report.json")
+RELEASE_MANUAL_STEP_RANGE = tuple(range(11, 18))
+RELEASE_STANDARD_NOTEBOOK_PATTERNS: tuple[str, ...] = (
+    "notebooks/quickstart.ipynb",
+    "notebooks/quickstart_guarded.ipynb",
+    "notebooks/quickstart_tiny.ipynb",
+    "notebooks/core_demos/*.ipynb",
+    "notebooks/miscellaneous/*.ipynb",
+    "notebooks/paper_based/*.ipynb",
+    "notebooks/advanced/demo_conditional.ipynb",
+    "notebooks/advanced/demo_config_management.ipynb",
+    "notebooks/advanced/demo_narrative_explanations.ipynb",
+    "notebooks/advanced/demo_plugin_wiring.ipynb",
+    "notebooks/advanced/demo_reject.ipynb",
+    "notebooks/advanced/demo_under_the_hood.ipynb",
+)
+RELEASE_SLOW_NOTEBOOK_PATTERNS: tuple[str, ...] = (
+    "notebooks/advanced/fast_feature_filtering_demo.ipynb",
+)
+
+
+def _resolve_release_notebook_paths(patterns: tuple[str, ...]) -> list[str]:
+    """Resolve release notebook globs into deterministic repo-relative paths."""
+    resolved_paths: list[str] = []
+    missing_patterns: list[str] = []
+    for pattern in patterns:
+        if any(token in pattern for token in "*?["):
+            matches = sorted(Path().glob(pattern))
+        else:
+            candidate = Path(pattern)
+            matches = [candidate] if candidate.exists() else []
+        if not matches:
+            missing_patterns.append(pattern)
+            continue
+        for match in matches:
+            resolved_paths.append(match.as_posix())
+    if missing_patterns:
+        joined = ", ".join(sorted(missing_patterns))
+        raise RuntimeError(f"Release notebook patterns did not resolve to files: {joined}")
+    return resolved_paths
+
+
+def _release_notebook_steps() -> list[Step]:
+    """Return the strict in-place notebook execution steps for releases."""
+    standard_paths = _resolve_release_notebook_paths(RELEASE_STANDARD_NOTEBOOK_PATTERNS)
+    slow_paths = _resolve_release_notebook_paths(RELEASE_SLOW_NOTEBOOK_PATTERNS)
+    steps = [
+        Step(
+            "Release notebooks (saved in-place)",
+            _python_cmd(
+                "-m",
+                "jupyter",
+                "nbconvert",
+                "--to",
+                "notebook",
+                "--execute",
+                "--inplace",
+                "--ExecutePreprocessor.timeout=600",
+                *standard_paths,
+            ),
+        )
+    ]
+    if slow_paths:
+        steps.append(
+            Step(
+                "Release slow notebook (saved in-place)",
+                _python_cmd(
+                    "-m",
+                    "jupyter",
+                    "nbconvert",
+                    "--to",
+                    "notebook",
+                    "--execute",
+                    "--inplace",
+                    "--ExecutePreprocessor.timeout=5400",
+                    *slow_paths,
+                ),
+            )
+        )
+    return steps
+
+
+def _git_text(*args: str) -> str | None:
+    """Return trimmed stdout from a git command, or ``None`` when unavailable."""
+    git = shutil.which("git")
+    if git is None:
+        return None
+    result = subprocess.run(  # noqa: S603
+        [git, *args],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    return (result.stdout or "").strip()
+
+
+def _current_git_branch() -> str | None:
+    """Return the current git branch, if available."""
+    return _git_text("branch", "--show-current")
+
+
+def _current_git_status_porcelain() -> str | None:
+    """Return the current git status snapshot used by release-finalize."""
+    return _git_text("status", "--short")
+
+
+def _pyproject_release_version() -> str:
+    """Return the raw project version from pyproject.toml."""
+    payload = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    return str(payload["project"]["version"])
+
+
+def _release_gate_task_statuses(plan_path: Path) -> dict[int, str]:
+    """Parse task statuses from the release gate summary table."""
+    text = plan_path.read_text(encoding="utf-8")
+    try:
+        summary_section = text.split("## Release gate summary", 1)[1]
+    except IndexError as exc:
+        raise ValueError(
+            f"Could not locate the release gate summary section in {plan_path.as_posix()}."
+        ) from exc
+
+    statuses: dict[int, str] = {}
+    for line in summary_section.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue
+        if stripped.startswith("|---") or stripped.startswith("| Gate criterion "):
+            continue
+        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
+        if len(cells) < 3 or not cells[1].isdigit():
+            continue
+        statuses[int(cells[1])] = cells[2]
+    return statuses
+
+
+def _release_task_status_is_closed(status: str) -> bool:
+    """Return True when a release-summary status counts as closed for Task 45."""
+    normalized = status.lower()
+    return normalized.startswith("completed") or "deferred" in normalized
+
+
+def _evaluate_release_plan_readiness(plan_path: Path) -> tuple[dict[str, object], list[str]]:
+    """Evaluate whether Task 45 prerequisites are satisfied for release handoff."""
+    task_statuses = _release_gate_task_statuses(plan_path)
+    branch = _current_git_branch()
+    pyproject_version = _pyproject_release_version()
+    observed: dict[str, object] = {
+        "plan_path": plan_path.as_posix(),
+        "branch": branch,
+        "pyproject_version": pyproject_version,
+        "task_statuses": task_statuses,
+    }
+
+    errors: list[str] = []
+    if branch is None:
+        errors.append("Git is unavailable; release-preflight requires a git checkout.")
+    elif branch != "main":
+        errors.append(
+            f"Release-preflight must run from the main branch; current branch is {branch!r}."
+        )
+
+    if "dev" in pyproject_version.lower():
+        errors.append(
+            "pyproject.toml still carries a development version. Bump to the release version before preflight."
+        )
+
+    for task_id in range(1, 45):
+        status = task_statuses.get(task_id)
+        if status is None:
+            errors.append(
+                f"Release gate summary is missing a status row for Task {task_id}."
+            )
+            continue
+        if not _release_task_status_is_closed(status):
+            errors.append(
+                f"Task {task_id} is not closed for release handoff: {status}."
+            )
+    return observed, errors
+
+
+def _run_release_readiness_guard(plan_path: Path) -> tuple[int, dict[str, object]]:
+    """Run the Task 45 readiness guard and return the observed state."""
+    observed, errors = _evaluate_release_plan_readiness(plan_path)
+    print("\n[Release readiness guard]")
+    print(f"Active release plan: {plan_path.as_posix()}")
+    if errors:
+        print("ERROR: release handoff prerequisites are not satisfied:")
+        for error in errors:
+            print(f"- {error}")
+        return 1, observed
+    print("PASS: release plan summary, branch, and version state are ready for Task 45.")
+    return 0, observed
+
+
+def _write_release_preflight_report(
+    records: list[dict[str, object]],
+    started_at: float,
+    output_path: Path,
+    *,
+    observed: dict[str, object],
+    exit_status: int,
+    git_status_porcelain: str | None,
+) -> None:
+    """Write the strict release-preflight report consumed by release-finalize."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "schema_version": 1,
+        "generated_at": _utc_now_iso(),
+        "python_version": platform.python_version(),
+        "platform": platform.system(),
+        "plan_path": observed.get("plan_path"),
+        "branch": observed.get("branch"),
+        "pyproject_version": observed.get("pyproject_version"),
+        "task_statuses": observed.get("task_statuses", {}),
+        "steps": records,
+        "exit_status": exit_status,
+        "preflight_passed": exit_status == 0,
+        "git_status_porcelain": git_status_porcelain,
+        "manual_release_steps": list(RELEASE_MANUAL_STEP_RANGE),
+        "total_elapsed_seconds": round(time.monotonic() - started_at, 3),
+    }
+    output_path.write_text(
+        json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n"
+    )
+
+
+def _run_release_twine_check() -> int:
+    """Validate built release artifacts with twine."""
+    artifacts = sorted(path.as_posix() for path in Path("dist").glob("*"))
+    if not artifacts:
+        print("ERROR: No build artifacts found under dist/ for twine validation.")
+        return 1
+    return _run_step(Step("Release artifact validation", _python_cmd("-m", "twine", "check", *artifacts)))
+
+
+def _run_release_wheel_smoke() -> int:
+    """Smoke-test the built wheel in an isolated temporary virtual environment."""
+    if not any(Path("dist").glob("*.whl")):
+        print("ERROR: No wheel artifacts found under dist/ for the release smoke test.")
+        return 1
+
+    run_dir = Path(tempfile.mkdtemp(prefix="ce-release-wheel-smoke-")).resolve()
+    venv_dir = run_dir / "venv-wheel"
+    builder = venv.EnvBuilder(with_pip=True, clear=True)
+    builder.create(venv_dir)
+    venv_python = _venv_python(venv_dir)
+    smoke_steps = [
+        Step(
+            "Wheel smoke: upgrade pip",
+            [str(venv_python), "-m", "pip", "install", "--upgrade", "pip"],
+        ),
+        Step(
+            "Wheel smoke: install release artifact",
+            [
+                str(venv_python),
+                "-m",
+                "pip",
+                "install",
+                "calibrated_explanations",
+                "--find-links",
+                str(Path("dist").resolve()),
+            ],
+        ),
+        Step(
+            "Wheel smoke: import release artifact",
+            [
+                str(venv_python),
+                "-c",
+                "import calibrated_explanations as ce; print(ce.__version__)",
+            ],
+        ),
+    ]
+    for step in smoke_steps:
+        rc = _run_step(step)
+        if rc != 0:
+            return rc
+    return 0
+
+
+def run_release_preflight(*, plan_path: Path | None = None) -> int:
+    """Run the strict pre-step-11 release gate and persist a handoff snapshot."""
+    resolved_plan = _resolved_plan_path(plan_path)
+    records: list[dict[str, object]] = []
+    started_at = time.monotonic()
+
+    def record_step(name: str, command: str, rc: int, step_started_at: float) -> None:
+        records.append(
+            {
+                "name": name,
+                "command": command,
+                "exit_code": rc,
+                "elapsed_seconds": round(time.monotonic() - step_started_at, 3),
+            }
+        )
+
+    readiness_started_at = time.monotonic()
+    readiness_rc, observed = _run_release_readiness_guard(resolved_plan)
+    record_step(
+        "Release readiness guard",
+        f"parse {resolved_plan.as_posix()} release gate summary",
+        readiness_rc,
+        readiness_started_at,
+    )
+    git_status_porcelain = _current_git_status_porcelain()
+    _write_release_preflight_report(
+        records,
+        started_at,
+        RELEASE_PREFLIGHT_REPORT,
+        observed=observed,
+        exit_status=readiness_rc,
+        git_status_porcelain=git_status_porcelain,
+    )
+    if readiness_rc != 0:
+        return readiness_rc
+
+    steps = [
+        Step("Full pytest suite", _python_cmd("-m", "pytest", "-q")),
+        Step("Editable install (release tree)", _python_cmd("-m", "pip", "install", "-e", ".[dev]")),
+        Step(
+            "Editable install version smoke",
+            _python_cmd("-c", "import calibrated_explanations as ce; print(ce.__version__)"),
+        ),
+        *_release_notebook_steps(),
+        Step("Release profile", _python_cmd("scripts/local_checks.py", "--profile", "release")),
+    ]
+    for step in steps:
+        step_started_at = time.monotonic()
+        rc = _run_step(step)
+        record_step(step.name, _command_text(step.command), rc, step_started_at)
+        git_status_porcelain = _current_git_status_porcelain()
+        _write_release_preflight_report(
+            records,
+            started_at,
+            RELEASE_PREFLIGHT_REPORT,
+            observed=observed,
+            exit_status=rc,
+            git_status_porcelain=git_status_porcelain,
+        )
+        if rc != 0:
+            return rc
+
+    twine_started_at = time.monotonic()
+    twine_rc = _run_release_twine_check()
+    record_step(
+        "Release artifact validation",
+        "python -m twine check dist/*",
+        twine_rc,
+        twine_started_at,
+    )
+    git_status_porcelain = _current_git_status_porcelain()
+    _write_release_preflight_report(
+        records,
+        started_at,
+        RELEASE_PREFLIGHT_REPORT,
+        observed=observed,
+        exit_status=twine_rc,
+        git_status_porcelain=git_status_porcelain,
+    )
+    if twine_rc != 0:
+        return twine_rc
+
+    wheel_started_at = time.monotonic()
+    wheel_rc = _run_release_wheel_smoke()
+    record_step(
+        "Release wheel smoke",
+        "create temp venv; install calibrated_explanations from dist; import version",
+        wheel_rc,
+        wheel_started_at,
+    )
+    git_status_porcelain = _current_git_status_porcelain()
+    _write_release_preflight_report(
+        records,
+        started_at,
+        RELEASE_PREFLIGHT_REPORT,
+        observed=observed,
+        exit_status=wheel_rc,
+        git_status_porcelain=git_status_porcelain,
+    )
+    return wheel_rc
+
+
+def run_release_finalize(*, plan_path: Path | None = None) -> int:
+    """Verify that release-preflight is still valid before manual release steps."""
+    resolved_plan = _resolved_plan_path(plan_path)
+    print("\n[Release finalize guard]")
+    if not RELEASE_PREFLIGHT_REPORT.exists():
+        print(
+            "ERROR: No release-preflight report found. Run `make release-preflight` before the manual release phase."
+        )
+        return 1
+
+    try:
+        payload = json.loads(RELEASE_PREFLIGHT_REPORT.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        print(f"ERROR: release-preflight report is not valid JSON: {exc}")
+        return 1
+
+    if payload.get("exit_status") != 0 or not payload.get("preflight_passed"):
+        print("ERROR: The latest release-preflight run did not pass. Re-run `make release-preflight`.")
+        return 1
+
+    readiness_rc, _ = _run_release_readiness_guard(resolved_plan)
+    if readiness_rc != 0:
+        return readiness_rc
+
+    current_branch = _current_git_branch()
+    if current_branch != payload.get("branch"):
+        print(
+            "ERROR: The current branch no longer matches the successful preflight snapshot. "
+            f"Current branch: {current_branch!r}; preflight branch: {payload.get('branch')!r}."
+        )
+        return 1
+
+    current_status = _current_git_status_porcelain()
+    if current_status != payload.get("git_status_porcelain"):
+        print(
+            "ERROR: The worktree changed after release-preflight. Re-run `make release-preflight` before step 11."
+        )
+        return 1
+
+    print(
+        "PASS: release-preflight is still valid. Continue with the manual release phase "
+        f"(steps {RELEASE_MANUAL_STEP_RANGE[0]}-{RELEASE_MANUAL_STEP_RANGE[-1]} in the private runbook)."
+    )
+    return 0
+
+
 def _common_skipped_heavy_gates() -> list[dict[str, str]]:
     """Return the heavy gates excluded from quick/task/pr by default."""
     return [
@@ -1273,6 +1704,16 @@ def main() -> int:
         action="store_true",
         help="Run the pre-v1.0 deprecation-closure lane and timing report.",
     )
+    parser.add_argument(
+        "--release-preflight",
+        action="store_true",
+        help="Run the strict pre-step-11 release gate and write the handoff report.",
+    )
+    parser.add_argument(
+        "--release-finalize",
+        action="store_true",
+        help="Validate the latest release-preflight snapshot before manual release steps.",
+    )
     args = parser.parse_args()
 
     if args.uv_install_smoke:
@@ -1281,6 +1722,10 @@ def main() -> int:
         return run_adr030_ratification()
     if args.deprecation_closure:
         return run_deprecation_closure()
+    if args.release_preflight:
+        return run_release_preflight(plan_path=args.plan)
+    if args.release_finalize:
+        return run_release_finalize(plan_path=args.plan)
 
     if args.ci_parity:
         print("Run-block smoke mode: delegating to scripts/run_ci_locally.py")

@@ -132,6 +132,16 @@ local-checks-pr:
 local-checks-release:
 	python scripts/local_checks.py --profile release
 
+# Pre-tag release gate: strict local handoff before the manual publish phase.
+.PHONY: release-preflight
+release-preflight:
+	python scripts/local_checks.py --release-preflight
+
+# Guard the manual publish phase against stale or incomplete preflight state.
+.PHONY: release-finalize
+release-finalize:
+	python scripts/local_checks.py --release-finalize
+
 # Validate the capability verification chain without executing TIF scenarios.
 # Safe to run on every PR - does not mutate any files.
 .PHONY: capability-chain-check
