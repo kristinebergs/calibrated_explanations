@@ -41,6 +41,7 @@ def _required_package_members() -> list[str]:
     package_root = REPO_ROOT / "src" / PACKAGE_NAME
     required_members = [
         f"{PACKAGE_NAME}/py.typed",
+        f"{PACKAGE_NAME}/preprocessing/__init__.py",
         f"{PACKAGE_NAME}/templates/explain_template.yaml",
         f"{PACKAGE_NAME}/utils/configurations/plot_config.ini",
     ]

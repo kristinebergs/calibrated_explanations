@@ -111,6 +111,36 @@ def test_should_report_pass_when_wheel_and_sdist_include_license(tmp_path: Path)
     assert result.stale_artifacts_removed == []
 
 
+def test_should_require_preprocessing_package_marker(tmp_path: Path) -> None:
+    """The checker should fail when the preprocessing package lacks ``__init__.py``."""
+    dist_dir = tmp_path / "dist"
+    dist_dir.mkdir()
+    missing_marker_members = [
+        member
+        for member in REQUIRED_PACKAGE_MEMBERS
+        if member != "calibrated_explanations/preprocessing/__init__.py"
+    ]
+    _write_wheel(
+        dist_dir,
+        include_license_member=True,
+        license_metadata=["LICENSE"],
+        package_members=missing_marker_members,
+    )
+    _write_sdist(
+        dist_dir,
+        include_license_member=True,
+        package_members=missing_marker_members,
+    )
+
+    result = inspect_packaging_artifacts(dist_dir, expected_requires_python=">=3.10")
+
+    assert result.status == "fail"
+    assert any(
+        "calibrated_explanations/preprocessing/__init__.py" in error
+        for error in result.errors
+    )
+
+
 def test_should_report_fail_when_artifacts_omit_license(tmp_path: Path) -> None:
     """The checker should fail when either artifact or metadata omits the license."""
     dist_dir = tmp_path / "dist"

@@ -7,7 +7,7 @@ import pytest
 
 from calibrated_explanations.calibration.state import CalibrationState
 from calibrated_explanations.core.explain.sequential import SequentialExplainExecutor
-from calibrated_explanations.core.test import JoblibBackend, ParallelBackend
+from calibrated_explanations.parallel.parallel import JoblibBackend, ParallelBackend
 
 
 class ExplainerStub:

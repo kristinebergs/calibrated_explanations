@@ -11,6 +11,7 @@
     "LICENSE"
   ],
   "wheel_required_members": [
+    "calibrated_explanations/preprocessing/__init__.py",
     "calibrated_explanations/py.typed",
     "calibrated_explanations/schemas/explanation_schema_v1.json",
     "calibrated_explanations/schemas/governance_config_event_schema_v1.json",
@@ -83,7 +84,6 @@
     "src/calibrated_explanations/core/reject/__init__.py",
     "src/calibrated_explanations/core/reject/orchestrator.py",
     "src/calibrated_explanations/core/reject/policy.py",
-    "src/calibrated_explanations/core/test.py",
     "src/calibrated_explanations/core/validation.py",
     "src/calibrated_explanations/core/wrap_explainer.py",
     "src/calibrated_explanations/explanations",
@@ -128,6 +128,7 @@
     "src/calibrated_explanations/plugins/registry.py",
     "src/calibrated_explanations/plugins/trust_policy.py",
     "src/calibrated_explanations/preprocessing",
+    "src/calibrated_explanations/preprocessing/__init__.py",
     "src/calibrated_explanations/preprocessing/builtin_encoder.py",
     "src/calibrated_explanations/py.typed",
     "src/calibrated_explanations/schema",
