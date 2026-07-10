@@ -363,12 +363,14 @@ class WrapCalibratedExplainer:
         WrapCalibratedExplainer(...)
         """
         reinitialize = bool(self.calibrated)
-        self.fitted = False
-        self.calibrated = False
-        # Optional preprocessing: fit on training data when provided
+        # Optional preprocessing: fit on training data when provided. Run this
+        # before invalidating fitted/calibrated state so a rejected
+        # preprocessing call leaves the prior lifecycle state untouched.
         x_train_local = x_proper_train
         if self._preprocessor is not None:
             x_train_local = self._pre_fit_preprocess(x_train_local)
+        self.fitted = False
+        self.calibrated = False
         self._logger.info("Fitting underlying learner: %s", type(self.learner).__name__)
         self.learner.fit(x_train_local, y_proper_train, **kwargs)
         # delegate shared post-fit logic
@@ -1097,71 +1099,105 @@ class WrapCalibratedExplainer:
 
         if a user-supplied preprocessor exposes
         fit/transform, we use it. No built-in auto encoding is activated here.
-        """
-        try:
-            # When no preprocessor is provided and auto_encode is enabled,
-            # activate the small deterministic builtin encoder.
-            if self._preprocessor is None:
-                # ADR-009 default mode: auto_encode='auto' activates deterministic
-                # built-in encoding when no user preprocessor is provided.
-                if self._normalize_auto_encode_flag() in {"auto", "true"}:
-                    try:
-                        from calibrated_explanations.preprocessing.builtin_encoder import (
-                            BuiltinEncoder,
-                        )
 
-                        encoder = BuiltinEncoder(unseen_policy=self._unseen_category_policy)
-                        x_out = encoder.fit_transform(x)
-                        # attach encoder so export/import helpers can find it
-                        self._preprocessor = encoder
-                        self._pre_fitted = True
-                        return x_out
-                    except (
-                        ImportError,
-                        TypeError,
-                        ValueError,
-                        AttributeError,
-                    ) as exc:  # pragma: no cover - defensive
-                        self._logger.warning("Builtin encoder failed; bypassing: %s", exc)
-                        return x
-                self._raise_non_numeric_without_preprocessor(x, stage="fit")
-                return x
+        Raises
+        ------
+        ValidationError
+            If the preprocessor's ``fit``/``fit_transform``/``transform`` call
+            fails. Preprocessing failures are never silently bypassed: doing
+            so would later feed representation-incompatible raw data into a
+            learner trained on transformed features.
+        """
+        # When no preprocessor is provided and auto_encode is enabled,
+        # activate the small deterministic builtin encoder.
+        if self._preprocessor is None:
+            # ADR-009 default mode: auto_encode='auto' activates deterministic
+            # built-in encoding when no user preprocessor is provided.
+            if self._normalize_auto_encode_flag() in {"auto", "true"}:
+                from calibrated_explanations.preprocessing.builtin_encoder import (
+                    BuiltinEncoder,
+                )
+
+                encoder = BuiltinEncoder(unseen_policy=self._unseen_category_policy)
+                try:
+                    x_out = encoder.fit_transform(x)
+                except Exception as exc:  # adr002_allow - translated to ValidationError below
+                    raise ValidationError(
+                        f"Built-in preprocessor failed during fit: {exc}",
+                        details={
+                            "stage": "fit",
+                            "preprocessor_type": type(encoder).__name__,
+                            "original_error_type": type(exc).__name__,
+                            "original_error": str(exc),
+                        },
+                    ) from exc
+                # attach encoder so export/import helpers can find it
+                self._preprocessor = encoder
+                self._pre_fitted = True
+                return x_out
+            self._raise_non_numeric_without_preprocessor(x, stage="fit")
+            return x
+        try:
             if hasattr(self._preprocessor, "fit_transform"):
                 x_out = self._preprocessor.fit_transform(x)
             else:
                 self._preprocessor.fit(x)
                 x_out = self._preprocessor.transform(x)
-            self._pre_fitted = True
-            return x_out
-        except:  # noqa: E722
-            if not isinstance(sys.exc_info()[1], Exception):
-                raise
-            exc = sys.exc_info()[1]
-            if isinstance(exc, ValidationError):
-                raise
-            self._logger.warning("Preprocessor failed; proceeding without it: %s", exc)
-            return x
+        except ValidationError:
+            raise
+        except Exception as exc:  # adr002_allow - translated to ValidationError below
+            raise ValidationError(
+                f"Preprocessor failed during fit: {exc}",
+                details={
+                    "stage": "fit",
+                    "preprocessor_type": type(self._preprocessor).__name__,
+                    "original_error_type": type(exc).__name__,
+                    "original_error": str(exc),
+                },
+            ) from exc
+        self._pre_fitted = True
+        return x_out
 
     def _pre_transform(self, x: Any, stage: str = "predict") -> Any:
-        """Transform x with the fitted preprocessor if available."""
+        """Transform x with the fitted preprocessor if available.
+
+        Raises
+        ------
+        ValidationError
+            If the fitted preprocessor's ``transform`` call fails. Transform
+            failures are never silently bypassed: doing so would feed
+            representation-incompatible raw data into a learner/explainer
+            trained or calibrated on transformed features.
+        """
+        if self._preprocessor is None or not self._pre_fitted:
+            self._raise_non_numeric_without_preprocessor(x, stage=stage)
+            return x
+        pre = self._preprocessor
         try:
-            if self._preprocessor is None or not self._pre_fitted:
-                self._raise_non_numeric_without_preprocessor(x, stage=stage)
-                return x
-            return self._preprocessor.transform(x)
-        except:  # noqa: E722
-            if not isinstance(sys.exc_info()[1], Exception):
-                raise
-            exc = sys.exc_info()[1]
-            pre = getattr(self, "_preprocessor", None)
+            return pre.transform(x)
+        except Exception as exc:  # adr002_allow - translated to ValidationError below
             unseen_policy = str(getattr(pre, "unseen_policy", "")).lower()
             if isinstance(exc, (KeyError, ValidationError)) and unseen_policy == "error":
                 raise ValidationError(
                     f"Unseen category encountered during {stage} preprocessing. "
-                    "Set unseen_category_policy='ignore' or import/export a stable mapping."
+                    "Set unseen_category_policy='ignore' or import/export a stable mapping.",
+                    details={
+                        "stage": stage,
+                        "preprocessor_type": type(pre).__name__,
+                        "original_error_type": type(exc).__name__,
+                    },
                 ) from exc
-            self._logger.warning("Preprocessor transform failed at %s; bypassing: %s", stage, exc)
-            return x
+            if isinstance(exc, ValidationError):
+                raise
+            raise ValidationError(
+                f"Preprocessor transform failed during {stage}: {exc}",
+                details={
+                    "stage": stage,
+                    "preprocessor_type": type(pre).__name__,
+                    "original_error_type": type(exc).__name__,
+                    "original_error": str(exc),
+                },
+            ) from exc
 
     def _maybe_preprocess_for_inference(self, x: Any) -> Any:
         """Apply preprocessing for inference paths if configured/fitted."""

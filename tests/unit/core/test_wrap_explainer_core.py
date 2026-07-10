@@ -638,3 +638,114 @@ def test_should_apply_preprocessing_consistently_before_and_after_calibration_on
         assert np.array_equal(before, after)
     else:
         assert np.allclose(before, after)
+
+
+class _Task45AlwaysFailsTransform:
+    """Preprocessor whose ``transform`` always raises; used to simulate a
+    representation-changing preprocessor breaking after a wrapper is already
+    fitted/calibrated (bug-list/pre-v4 S4-B1)."""
+
+    def transform(self, x):
+        raise RuntimeError("boom-transform")
+
+
+def _fit_and_calibrate_task45_wrapper():
+    wrapper = WrapCalibratedExplainer(_Task33Learner())
+    wrapper.preprocessor = _Task33Preprocessor()
+    x_train = pd.DataFrame({"segment": ["low", "high", "low"], "value": [0.1, 0.9, 0.2]})
+    y_train = np.array([0, 1, 0])
+    wrapper.fit(x_train, y_train)
+    x_cal = pd.DataFrame({"segment": ["low", "high"], "value": [0.3, 0.7]})
+    y_cal = np.array([0, 1])
+    wrapper.calibrate(x_cal, y_cal)
+    return wrapper
+
+
+def test_should_raise_validation_error_when_fit_preprocessing_fails_and_preserve_prior_lifecycle_state():
+    wrapper = _fit_and_calibrate_task45_wrapper()
+    assert wrapper.fitted is True
+    assert wrapper.calibrated is True
+    prior_explainer = wrapper.explainer
+    prior_learner = wrapper.learner
+
+    class _AlwaysFailsFitTransform:
+        def fit_transform(self, x):
+            raise RuntimeError("boom-fit")
+
+        def transform(self, x):
+            raise RuntimeError("boom-fit")
+
+    wrapper.preprocessor = _AlwaysFailsFitTransform()
+    x_train = pd.DataFrame({"segment": ["low", "high"], "value": [0.4, 0.6]})
+    y_train = np.array([0, 1])
+
+    with pytest.raises(ValidationError, match="Preprocessor failed during fit"):
+        wrapper.fit(x_train, y_train)
+
+    # A rejected fit() call must not disturb the previously fitted/calibrated
+    # lifecycle state or swap out the working explainer/learner.
+    assert wrapper.fitted is True
+    assert wrapper.calibrated is True
+    assert wrapper.explainer is prior_explainer
+    assert wrapper.learner is prior_learner
+
+
+def test_should_raise_validation_error_when_calibrate_preprocessing_fails_and_preserve_prior_calibration():
+    wrapper = _fit_and_calibrate_task45_wrapper()
+    prior_explainer = wrapper.explainer
+    assert wrapper.calibrated is True
+    assert wrapper.pre_fitted is True
+
+    wrapper.preprocessor = _Task45AlwaysFailsTransform()
+    x_cal = pd.DataFrame({"segment": ["low", "high"], "value": [0.3, 0.7]})
+    y_cal = np.array([0, 1])
+
+    with pytest.raises(ValidationError, match="Preprocessor transform failed during calibrate"):
+        wrapper.calibrate(x_cal, y_cal)
+
+    # A rejected calibrate() call must not discard the working calibration.
+    assert wrapper.calibrated is True
+    assert wrapper.explainer is prior_explainer
+
+
+@pytest.mark.parametrize("method_name", ["predict", "predict_proba"])
+def test_should_raise_validation_error_when_inference_preprocessing_fails(method_name):
+    wrapper = _fit_and_calibrate_task45_wrapper()
+    prior_explainer = wrapper.explainer
+    wrapper.preprocessor = _Task45AlwaysFailsTransform()
+    x_query = pd.DataFrame({"segment": ["high"], "value": [0.8]})
+    method = getattr(wrapper, method_name)
+
+    with pytest.raises(ValidationError, match="Preprocessor transform failed during inference"):
+        method(x_query)
+
+    # A rejected prediction call must never fall back to raw features and
+    # must not disturb wrapper lifecycle state.
+    assert wrapper.calibrated is True
+    assert wrapper.explainer is prior_explainer
+
+
+def test_should_raise_validation_error_when_explain_factual_preprocessing_fails():
+    wrapper = _fit_and_calibrate_task45_wrapper()
+    prior_explainer = wrapper.explainer
+    wrapper.preprocessor = _Task45AlwaysFailsTransform()
+    x_query = pd.DataFrame({"segment": ["high"], "value": [0.8]})
+
+    with pytest.raises(ValidationError, match="Preprocessor transform failed during inference"):
+        wrapper.explain_factual(x_query)
+
+    assert wrapper.calibrated is True
+    assert wrapper.explainer is prior_explainer
+
+
+def test_should_raise_validation_error_when_explore_alternatives_preprocessing_fails():
+    wrapper = _fit_and_calibrate_task45_wrapper()
+    prior_explainer = wrapper.explainer
+    wrapper.preprocessor = _Task45AlwaysFailsTransform()
+    x_query = pd.DataFrame({"segment": ["high"], "value": [0.8]})
+
+    with pytest.raises(ValidationError, match="Preprocessor transform failed during inference"):
+        wrapper.explore_alternatives(x_query)
+
+    assert wrapper.calibrated is True
+    assert wrapper.explainer is prior_explainer

@@ -155,7 +155,9 @@ def test_pre_fit_preprocess_and_transform_stages(wrapper: WrapCalibratedExplaine
     assert np.array_equal(x_inference, x + 1)
 
 
-def test_preprocess_failures_are_swallowed(wrapper: WrapCalibratedExplainer) -> None:
+def test_pre_fit_preprocess_raises_validation_error_on_preprocessor_failure(
+    wrapper: WrapCalibratedExplainer,
+) -> None:
     class FailingPreprocessor:
         def fit_transform(self, x: Any) -> Any:
             raise RuntimeError("boom")
@@ -165,12 +167,34 @@ def test_preprocess_failures_are_swallowed(wrapper: WrapCalibratedExplainer) -> 
 
     wrapper.preprocessor = FailingPreprocessor()
     x = np.array([[1, 2]])
-    x_fit = wrapper.pre_fit_preprocess(x)
-    assert np.array_equal(x_fit, x)
+
+    with pytest.raises(ValidationError, match="Preprocessor failed during fit"):
+        wrapper.pre_fit_preprocess(x)
+
+    # A rejected fit-preprocess call must not be recorded as fitted.
     assert not wrapper.pre_fitted
 
-    x_pred = wrapper.pre_transform(x)
-    assert np.array_equal(x_pred, x)
+
+def test_pre_transform_raises_validation_error_on_preprocessor_failure(
+    wrapper: WrapCalibratedExplainer,
+) -> None:
+    class FailingTransformPreprocessor:
+        def fit_transform(self, x: Any) -> Any:
+            return np.asarray(x) * 2
+
+        def transform(self, x: Any) -> Any:
+            raise RuntimeError("boom")
+
+    wrapper.preprocessor = FailingTransformPreprocessor()
+    x = np.array([[1, 2]])
+    wrapper.pre_fit_preprocess(x)
+    assert wrapper.pre_fitted
+
+    with pytest.raises(ValidationError, match="Preprocessor transform failed during predict"):
+        wrapper.pre_transform(x)
+
+    # The preprocessor stays fitted; only the failed transform call is rejected.
+    assert wrapper.pre_fitted
 
 
 def test_finalize_fit_preserves_existing_explainer(wrapper: WrapCalibratedExplainer) -> None:
