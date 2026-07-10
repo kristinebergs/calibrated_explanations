@@ -21,26 +21,34 @@ import scripts.local_checks as local_checks
 def write_release_plan(
     path: Path,
     *,
-    status_overrides: dict[int, str] | None = None,
+    unchecked_tasks: set[int] | None = None,
 ) -> None:
-    """Write a minimal release plan with a release gate summary table."""
-    overrides = status_overrides or {}
-    rows = []
+    """Write a minimal release plan with task verification checklists."""
+    unchecked = unchecked_tasks or set()
+    sections: list[str] = ["# Minimal release plan", ""]
     for task_id in range(1, 45):
-        status = overrides.get(task_id, "Completed")
-        rows.append(f"| Criterion {task_id} | {task_id} | {status} |")
-    path.write_text(
-        "\n".join(
+        mark = " " if task_id in unchecked else "x"
+        sections.extend(
             [
-                "# Minimal release plan",
+                f"## {task_id}) Task {task_id}",
                 "",
-                "## Release gate summary",
+                f"### {task_id}.1 Verification checklist",
                 "",
-                "| Gate criterion | Task | Status |",
-                "|---|---|---|",
-                *rows,
+                f"- [{mark}] Task {task_id} closure evidence captured",
+                "",
             ]
-        ),
+        )
+    sections.extend(
+        [
+            "## Release gate summary",
+            "",
+            "| Gate criterion | Task | Status |",
+            "|---|---|---|",
+            "| Placeholder | 45 | Not started |",
+        ]
+    )
+    path.write_text(
+        "\n".join(sections),
         encoding="utf-8",
         newline="\n",
     )
@@ -50,10 +58,10 @@ def test_should_fail_release_readiness_when_any_release_gate_task_is_pending(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
-    """Release readiness should stop when the plan summary still shows pending work."""
+    """Release readiness should stop when any task checklist has unchecked items."""
     # Arrange
     plan_path = tmp_path / "v0.11.6_plan.md"
-    write_release_plan(plan_path, status_overrides={41: "Not started"})
+    write_release_plan(plan_path, unchecked_tasks={41})
     monotonic_values = count(10)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(local_checks, "_current_git_branch", lambda: "main")
@@ -70,7 +78,9 @@ def test_should_fail_release_readiness_when_any_release_gate_task_is_pending(
     payload = json.loads(local_checks.RELEASE_PREFLIGHT_REPORT.read_text(encoding="utf-8"))
     assert payload["branch"] == "main"
     assert payload["pyproject_version"] == "0.11.6"
-    assert payload["task_statuses"]["41"] == "Not started"
+    assert payload["task_checklist_state"]["41"]["all_items_checked"] is False
+    assert payload["task_checklist_state"]["41"]["checked_items"] == 0
+    assert payload["task_checklist_state"]["41"]["total_items"] == 1
     assert payload["steps"][0]["name"] == "Release readiness guard"
     assert payload["steps"][0]["exit_code"] == 1
 

@@ -1,0 +1,258 @@
+{
+  "branch": "main",
+  "exit_status": 1,
+  "generated_at": "2026-07-10T10:14:34.352761+00:00",
+  "git_status_porcelain": "M development/current-work/v0.11.6_plan.md\n M scripts/local_checks.py\n M tests/scripts/test_local_checks_release_workflow.py\n?? reports/local_checks/release_preflight_report.json",
+  "manual_release_steps": [
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17
+  ],
+  "parse_errors": [],
+  "plan_path": "development/current-work/v0.11.6_plan.md",
+  "platform": "Windows",
+  "preflight_passed": false,
+  "pyproject_version": "0.11.6-dev",
+  "python_version": "3.14.4",
+  "schema_version": 1,
+  "steps": [
+    {
+      "command": "parse development/current-work/v0.11.6_plan.md release gate summary",
+      "elapsed_seconds": 0.112,
+      "exit_code": 1,
+      "name": "Release readiness guard"
+    }
+  ],
+  "task_checklist_state": {
+    "1": {
+      "all_items_checked": true,
+      "checked_items": 7,
+      "total_items": 7
+    },
+    "2": {
+      "all_items_checked": true,
+      "checked_items": 7,
+      "total_items": 7
+    },
+    "3": {
+      "all_items_checked": true,
+      "checked_items": 6,
+      "total_items": 6
+    },
+    "4": {
+      "all_items_checked": true,
+      "checked_items": 7,
+      "total_items": 7
+    },
+    "5": {
+      "all_items_checked": true,
+      "checked_items": 15,
+      "total_items": 15
+    },
+    "6": {
+      "all_items_checked": true,
+      "checked_items": 4,
+      "total_items": 4
+    },
+    "7": {
+      "all_items_checked": true,
+      "checked_items": 4,
+      "total_items": 4
+    },
+    "8": {
+      "all_items_checked": true,
+      "checked_items": 4,
+      "total_items": 4
+    },
+    "9": {
+      "all_items_checked": true,
+      "checked_items": 19,
+      "total_items": 19
+    },
+    "10": {
+      "all_items_checked": true,
+      "checked_items": 5,
+      "total_items": 5
+    },
+    "11": {
+      "all_items_checked": true,
+      "checked_items": 6,
+      "total_items": 6
+    },
+    "12": {
+      "all_items_checked": true,
+      "checked_items": 4,
+      "total_items": 4
+    },
+    "13": {
+      "all_items_checked": true,
+      "checked_items": 5,
+      "total_items": 5
+    },
+    "14": {
+      "all_items_checked": true,
+      "checked_items": 4,
+      "total_items": 4
+    },
+    "15": {
+      "all_items_checked": true,
+      "checked_items": 4,
+      "total_items": 4
+    },
+    "16": {
+      "all_items_checked": true,
+      "checked_items": 5,
+      "total_items": 5
+    },
+    "17": {
+      "all_items_checked": true,
+      "checked_items": 4,
+      "total_items": 4
+    },
+    "18": {
+      "all_items_checked": true,
+      "checked_items": 3,
+      "total_items": 3
+    },
+    "19": {
+      "all_items_checked": true,
+      "checked_items": 4,
+      "total_items": 4
+    },
+    "20": {
+      "all_items_checked": true,
+      "checked_items": 4,
+      "total_items": 4
+    },
+    "21": {
+      "all_items_checked": true,
+      "checked_items": 4,
+      "total_items": 4
+    },
+    "22": {
+      "all_items_checked": true,
+      "checked_items": 5,
+      "total_items": 5
+    },
+    "23": {
+      "all_items_checked": true,
+      "checked_items": 6,
+      "total_items": 6
+    },
+    "24": {
+      "all_items_checked": true,
+      "checked_items": 5,
+      "total_items": 5
+    },
+    "25": {
+      "all_items_checked": true,
+      "checked_items": 4,
+      "total_items": 4
+    },
+    "26": {
+      "all_items_checked": true,
+      "checked_items": 6,
+      "total_items": 6
+    },
+    "27": {
+      "all_items_checked": true,
+      "checked_items": 6,
+      "total_items": 6
+    },
+    "28": {
+      "all_items_checked": true,
+      "checked_items": 5,
+      "total_items": 5
+    },
+    "29": {
+      "all_items_checked": true,
+      "checked_items": 11,
+      "total_items": 11
+    },
+    "30": {
+      "all_items_checked": true,
+      "checked_items": 6,
+      "total_items": 6
+    },
+    "31": {
+      "all_items_checked": true,
+      "checked_items": 5,
+      "total_items": 5
+    },
+    "32": {
+      "all_items_checked": true,
+      "checked_items": 5,
+      "total_items": 5
+    },
+    "33": {
+      "all_items_checked": true,
+      "checked_items": 5,
+      "total_items": 5
+    },
+    "34": {
+      "all_items_checked": true,
+      "checked_items": 5,
+      "total_items": 5
+    },
+    "35": {
+      "all_items_checked": true,
+      "checked_items": 5,
+      "total_items": 5
+    },
+    "36": {
+      "all_items_checked": true,
+      "checked_items": 4,
+      "total_items": 4
+    },
+    "37": {
+      "all_items_checked": true,
+      "checked_items": 5,
+      "total_items": 5
+    },
+    "38": {
+      "all_items_checked": true,
+      "checked_items": 4,
+      "total_items": 4
+    },
+    "39": {
+      "all_items_checked": true,
+      "checked_items": 5,
+      "total_items": 5
+    },
+    "40": {
+      "all_items_checked": false,
+      "checked_items": 0,
+      "total_items": 4
+    },
+    "41": {
+      "all_items_checked": false,
+      "checked_items": 0,
+      "total_items": 4
+    },
+    "42": {
+      "all_items_checked": false,
+      "checked_items": 0,
+      "total_items": 4
+    },
+    "43": {
+      "all_items_checked": false,
+      "checked_items": 0,
+      "total_items": 4
+    },
+    "44": {
+      "all_items_checked": false,
+      "checked_items": 0,
+      "total_items": 4
+    },
+    "45": {
+      "all_items_checked": false,
+      "checked_items": 0,
+      "total_items": 11
+    }
+  },
+  "total_elapsed_seconds": 0.292
+}

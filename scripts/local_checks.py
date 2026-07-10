@@ -1070,49 +1070,67 @@ def _pyproject_release_version() -> str:
     return str(payload["project"]["version"])
 
 
-def _release_gate_task_statuses(plan_path: Path) -> dict[int, str]:
-    """Parse task statuses from the release gate summary table."""
+def _release_task_checklist_state(plan_path: Path) -> tuple[dict[int, dict[str, int | bool]], list[str]]:
+    """Parse per-task verification checklist completion state from the release plan."""
     text = plan_path.read_text(encoding="utf-8")
-    try:
-        summary_section = text.split("## Release gate summary", 1)[1]
-    except IndexError as exc:
-        raise ValueError(
-            f"Could not locate the release gate summary section in {plan_path.as_posix()}."
-        ) from exc
 
-    statuses: dict[int, str] = {}
-    for line in summary_section.splitlines():
-        stripped = line.strip()
-        if not stripped.startswith("|"):
-            continue
-        if stripped.startswith("|---") or stripped.startswith("| Gate criterion "):
-            continue
-        cells = [cell.strip() for cell in stripped.strip("|").split("|")]
-        if len(cells) < 3 or not cells[1].isdigit():
-            continue
-        statuses[int(cells[1])] = cells[2]
-    return statuses
+    header_pattern = re.compile(r"^##\s+(\d+)\)\s+", re.MULTILINE)
+    checklist_header_pattern = re.compile(r"^###\s+\d+\.\d+\s+Verification checklist\s*$", re.MULTILINE)
+    checklist_item_pattern = re.compile(r"^\s*[-*]\s*\[([ xX])\]\s+", re.MULTILINE)
 
+    task_sections = list(header_pattern.finditer(text))
+    if not task_sections:
+        raise ValueError(f"Could not locate any numbered task sections in {plan_path.as_posix()}.")
 
-def _release_task_status_is_closed(status: str) -> bool:
-    """Return True when a release-summary status counts as closed for Task 45."""
-    normalized = status.lower()
-    return normalized.startswith("completed") or "deferred" in normalized
+    states: dict[int, dict[str, int | bool]] = {}
+    parse_errors: list[str] = []
+
+    for index, match in enumerate(task_sections):
+        task_id = int(match.group(1))
+        start = match.start()
+        end = task_sections[index + 1].start() if index + 1 < len(task_sections) else len(text)
+        section = text[start:end]
+
+        checklist_header = checklist_header_pattern.search(section)
+        if checklist_header is None:
+            parse_errors.append(
+                f"Task {task_id} is missing a 'Verification checklist' subsection in {plan_path.as_posix()}."
+            )
+            continue
+
+        checklist_text = section[checklist_header.end() :]
+        checklist_marks = checklist_item_pattern.findall(checklist_text)
+        if not checklist_marks:
+            parse_errors.append(
+                f"Task {task_id} verification checklist has no checkbox items in {plan_path.as_posix()}."
+            )
+            continue
+
+        total_items = len(checklist_marks)
+        checked_items = sum(1 for mark in checklist_marks if mark.lower() == "x")
+        states[task_id] = {
+            "all_items_checked": checked_items == total_items,
+            "checked_items": checked_items,
+            "total_items": total_items,
+        }
+
+    return states, parse_errors
 
 
 def _evaluate_release_plan_readiness(plan_path: Path) -> tuple[dict[str, object], list[str]]:
     """Evaluate whether Task 45 prerequisites are satisfied for release handoff."""
-    task_statuses = _release_gate_task_statuses(plan_path)
+    task_checklist_state, parse_errors = _release_task_checklist_state(plan_path)
     branch = _current_git_branch()
     pyproject_version = _pyproject_release_version()
     observed: dict[str, object] = {
         "plan_path": plan_path.as_posix(),
         "branch": branch,
         "pyproject_version": pyproject_version,
-        "task_statuses": task_statuses,
+        "task_checklist_state": task_checklist_state,
+        "parse_errors": parse_errors,
     }
 
-    errors: list[str] = []
+    errors = list(parse_errors)
     if branch is None:
         errors.append("Git is unavailable; release-preflight requires a git checkout.")
     elif branch != "main":
@@ -1126,15 +1144,18 @@ def _evaluate_release_plan_readiness(plan_path: Path) -> tuple[dict[str, object]
         )
 
     for task_id in range(1, 45):
-        status = task_statuses.get(task_id)
-        if status is None:
+        state = task_checklist_state.get(task_id)
+        if state is None:
             errors.append(
-                f"Release gate summary is missing a status row for Task {task_id}."
+                f"Task {task_id} verification checklist state is unavailable for release handoff."
             )
             continue
-        if not _release_task_status_is_closed(status):
+        if not bool(state["all_items_checked"]):
+            open_items = int(state["total_items"]) - int(state["checked_items"])
             errors.append(
-                f"Task {task_id} is not closed for release handoff: {status}."
+                "Task "
+                f"{task_id} verification checklist is not closed for release handoff: "
+                f"{open_items}/{state['total_items']} items unchecked."
             )
     return observed, errors
 
@@ -1172,7 +1193,8 @@ def _write_release_preflight_report(
         "plan_path": observed.get("plan_path"),
         "branch": observed.get("branch"),
         "pyproject_version": observed.get("pyproject_version"),
-        "task_statuses": observed.get("task_statuses", {}),
+        "task_checklist_state": observed.get("task_checklist_state", {}),
+        "parse_errors": observed.get("parse_errors", []),
         "steps": records,
         "exit_status": exit_status,
         "preflight_passed": exit_status == 0,
