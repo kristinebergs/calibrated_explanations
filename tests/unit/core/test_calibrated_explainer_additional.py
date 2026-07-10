@@ -52,6 +52,25 @@ def test_oob_predictions_binary(monkeypatch: pytest.MonkeyPatch) -> None:
     assert np.array_equal(explainer.y_cal, np.array([0, 1, 1]))
 
 
+def test_oob_predictions_binary_string_labels_use_learner_classes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OOB label recovery must map recovered class indices through
+    ``learner.classes_`` rather than casting the raw integer index straight
+    to ``y_cal``'s dtype. Casting previously turned string labels such as
+    "False"/"True" into digit strings ("0"/"1") that do not exist in the
+    calibration data, which the calibration-target subset validation now
+    correctly rejects."""
+    learner = DummyLearner(oob_decision_function=np.array([[0.8, 0.2], [0.2, 0.8], [0.9, 0.1]]))
+    learner.classes_ = np.array(["False", "True"])
+    x_cal = np.arange(3).reshape(-1, 1)
+    y_cal = np.array(["False", "True", "False"])
+    explainer = make_mock_explainer(monkeypatch, learner, x_cal, y_cal, oob=True)
+
+    assert np.array_equal(explainer.y_cal, np.array([0, 1, 0]))
+    assert explainer.class_labels == {0: "False", 1: "True"}
+
+
 def test_oob_predictions_multiclass_categorical(monkeypatch: pytest.MonkeyPatch) -> None:
     import pandas.core.arrays.categorical  # noqa: F401  ensure module is available
 
