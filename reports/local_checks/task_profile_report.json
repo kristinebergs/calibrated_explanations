@@ -1,15 +1,15 @@
 {
   "commands_run": [
-    "python -m ruff check scripts/quality/check_forbidden_doc_patterns.py",
-    "python -m ruff format --check scripts/quality/check_forbidden_doc_patterns.py",
+    "python -m ruff check scripts/quality/check_version_alignment.py docs/conf.py",
+    "python -m ruff format --check scripts/quality/check_version_alignment.py docs/conf.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python scripts/quality/check_forbidden_doc_patterns.py --all-checks"
+    "python scripts/quality/check_version_alignment.py --check --allow-normalized"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-10T05:09:23.818037+00:00",
+  "generated_at": "2026-07-10T06:49:10.898252+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -47,5 +47,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 35
+  "task_id": 36
 }

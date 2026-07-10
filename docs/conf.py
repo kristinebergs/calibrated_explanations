@@ -6,20 +6,22 @@
 
 # -- Path setup --------------------------------------------------------------
 
+import importlib.metadata as importlib_metadata
 import os
 import shutil
 import sys
+import warnings
 from pathlib import Path
+
+_DOCS_DIR = Path(__file__).resolve().parent
+_REPO_ROOT = _DOCS_DIR.parent
 
 # Add project directories to sys.path
 # sys.path.insert(0, os.path.abspath('../..'))
-sys.path.insert(0, os.path.abspath("../src"))
+sys.path.insert(0, str(_REPO_ROOT / "src"))
 # sys.path.insert(0, os.path.abspath('../notebooks'))
 # sys.path.insert(0, os.path.abspath('../src/calibrated_explanations'))
 # sys.path.insert(0, os.path.abspath('../src/calibrated_explanations/utils'))
-
-# Suppress deprecation warnings for docs build
-import warnings
 
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -30,11 +32,31 @@ project = "Calibrated Explanations"
 copyright = "2023, Helena Löfström, Tuwe Löfström"
 author = "Helena Löfström, Tuwe Löfström"
 
-# The short X.Y version
-version = "0.11"
+
+def _resolve_docs_release() -> str:
+    for distribution_name in ("calibrated_explanations", "calibrated-explanations"):
+        try:
+            return importlib_metadata.version(distribution_name)
+        except importlib_metadata.PackageNotFoundError:
+            continue
+
+    import calibrated_explanations  # noqa: PLC0415
+
+    return calibrated_explanations.__version__
+
+
+def _resolve_docs_version(release_value: str) -> str:
+    numeric_parts = release_value.split(".")
+    if len(numeric_parts) >= 2:
+        return ".".join(numeric_parts[:2])
+    return release_value
+
 
 # The full version, including alpha/beta/rc tags
-release = "0.11.5"
+release = _resolve_docs_release()
+
+# The short X.Y version
+version = _resolve_docs_version(release)
 
 # -- General configuration ---------------------------------------------------
 
@@ -148,7 +170,7 @@ myst_config = {
     "linkify_fuzzy_links": False,
 }
 
-_SHARED_FRAGMENT_DIR = Path(__file__).parent / "_shared"
+_SHARED_FRAGMENT_DIR = _DOCS_DIR / "_shared"
 
 
 def _load_shared_fragment(fragment_name: str) -> str:
@@ -175,7 +197,7 @@ html_theme_options = {
 }
 
 # HTML title
-html_title = f"{project} v{version}"
+html_title = f"{project} v{release}"
 
 # Last updated format
 html_last_updated_fmt = "%b %d, %Y"

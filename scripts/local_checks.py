@@ -923,6 +923,14 @@ def _release_steps(
                 "Deprecation closure",
                 _python_cmd("scripts/local_checks.py", "--deprecation-closure"),
             ),
+            Step(
+                "Version alignment",
+                _python_cmd(
+                    "scripts/quality/check_version_alignment.py",
+                    "--check",
+                    "--allow-normalized",
+                ),
+            ),
             Step("Release packaging build", _python_cmd("-m", "build")),
             Step(
                 "Release packaging artifact smoke",
