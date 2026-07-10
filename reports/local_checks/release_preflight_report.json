@@ -1,8 +1,8 @@
 {
   "branch": "main",
   "exit_status": 1,
-  "generated_at": "2026-07-10T10:14:34.352761+00:00",
-  "git_status_porcelain": "M development/current-work/v0.11.6_plan.md\n M scripts/local_checks.py\n M tests/scripts/test_local_checks_release_workflow.py\n?? reports/local_checks/release_preflight_report.json",
+  "generated_at": "2026-07-10T11:20:38.533371+00:00",
+  "git_status_porcelain": "M  development/current-work/v0.11.6_plan.md\nM  docs/get-started/quick_api.md\nM  docs/practitioner/advanced/reject-policy.md\nM  reports/local_checks/task_profile_report.json\nM  src/calibrated_explanations/core/reject/orchestrator.py\nM  tests/unit/core/test_reject.py\nM  tests/unit/test_reject_prediction_api.py",
   "manual_release_steps": [
     11,
     12,
@@ -22,7 +22,7 @@
   "steps": [
     {
       "command": "parse development/current-work/v0.11.6_plan.md release gate summary",
-      "elapsed_seconds": 0.112,
+      "elapsed_seconds": 0.114,
       "exit_code": 1,
       "name": "Release readiness guard"
     }
@@ -224,8 +224,8 @@
       "total_items": 5
     },
     "40": {
-      "all_items_checked": false,
-      "checked_items": 0,
+      "all_items_checked": true,
+      "checked_items": 4,
       "total_items": 4
     },
     "41": {
@@ -254,5 +254,5 @@
       "total_items": 11
     }
   },
-  "total_elapsed_seconds": 0.292
+  "total_elapsed_seconds": 0.356
 }

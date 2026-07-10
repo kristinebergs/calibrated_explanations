@@ -1250,6 +1250,8 @@ class RejectOrchestrator:
                 source_indices = [i for i, r in enumerate(rejected) if r]
             elif policy is RejectPolicy.ONLY_ACCEPTED:
                 source_indices = [i for i, r in enumerate(rejected) if not r]
+            if policy in (RejectPolicy.ONLY_REJECTED, RejectPolicy.ONLY_ACCEPTED):
+                matched_count = len(source_indices)
 
             if explain_fn is not None:
                 try:
@@ -1259,7 +1261,6 @@ class RejectOrchestrator:
                         policy is RejectPolicy.ONLY_REJECTED or policy is RejectPolicy.ONLY_ACCEPTED
                     ):
                         idx = source_indices
-                        matched_count = len(idx)
                         if idx:
                             subset = (
                                 np.asarray(x)[idx]
@@ -2490,6 +2491,8 @@ class RejectOrchestrator:
             source_indices = [i for i, r in enumerate(rejected) if r]
         elif policy is RejectPolicy.ONLY_ACCEPTED:
             source_indices = [i for i, r in enumerate(rejected) if not r]
+        if policy in (RejectPolicy.ONLY_REJECTED, RejectPolicy.ONLY_ACCEPTED):
+            matched_count = len(source_indices)
 
         # Obtain explanations via provided callable according to policy
         if explain_fn is not None:
@@ -2500,7 +2503,6 @@ class RejectOrchestrator:
                 elif policy is RejectPolicy.ONLY_REJECTED:
                     # Process only rejected instances
                     idx = source_indices
-                    matched_count = len(idx)
                     if idx:
                         subset = (
                             np.asarray(x)[idx] if isinstance(x, np.ndarray) else [x[i] for i in idx]
@@ -2511,7 +2513,6 @@ class RejectOrchestrator:
                 elif policy is RejectPolicy.ONLY_ACCEPTED:
                     # Process only non-rejected (accepted) instances
                     idx = source_indices
-                    matched_count = len(idx)
                     if idx:
                         subset = (
                             np.asarray(x)[idx] if isinstance(x, np.ndarray) else [x[i] for i in idx]
