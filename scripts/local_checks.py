@@ -604,10 +604,14 @@ def _all_non_viz_pytest_command() -> list[str]:
 
 def _quick_steps(mypy_targets: list[str], lint_targets: list[str]) -> list[Step]:
     """Return the inner-loop verification steps."""
-    steps = [
-        Step("Ruff check", _ruff_check_command(*lint_targets)),
-        Step("Ruff format check", _ruff_format_check_command(*lint_targets)),
-    ]
+    steps: list[Step] = []
+    if lint_targets:
+        steps.extend(
+            [
+                Step("Ruff check", _ruff_check_command(*lint_targets)),
+                Step("Ruff format check", _ruff_format_check_command(*lint_targets)),
+            ]
+        )
     if mypy_targets:
         steps.append(
             Step(
@@ -1075,9 +1079,10 @@ def _task_specific_lint_targets(task: int, *, plan_path: Path | None = None) -> 
     tasks = _task_verification_tasks(plan_path)
     if task not in tasks:
         raise _unsupported_task_mapping_error(task, plan_path)
-    lint_targets = tasks[task].get("lint_targets", [])
-    if not lint_targets:
+    task_config = tasks[task]
+    if "lint_targets" not in task_config:
         return _changed_python_targets()
+    lint_targets = task_config["lint_targets"]
     if not isinstance(lint_targets, list) or not all(
         isinstance(target, str) and target for target in lint_targets
     ):

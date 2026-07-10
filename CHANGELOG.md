@@ -13,6 +13,11 @@
 
 ### Fixed
 
+- `make local-checks-task TASK=<n>` now respects an explicit empty `lint_targets = []`
+  mapping in the active release plan. Task-focused profiles no longer expand that
+  value into changed-file or repo-wide Ruff work, which keeps decision-ledger or
+  command-only tasks scoped to their mapped verification steps while preserving the
+  existing fallback behavior when `lint_targets` is omitted entirely.
 - Uncalibrated `WrapCalibratedExplainer.predict(...)` and `predict_proba(...)` now enforce the same fail-fast kwarg validation as the calibrated path and apply configured inference preprocessing before returning raw learner outputs. Unknown kwargs on the pre-calibration path now raise `ConfigurationError` instead of being silently ignored, while wrappers fitted with a preprocessor no longer send raw categorical inputs straight into the underlying learner before calibration.
 - Probabilistic regression interval thresholds now validate tuple shape and ordering consistently across `predict_proba(...)`, `explain_factual(...)`, and `explore_alternatives(...)`. Reversed tuples such as `threshold=(105.0, 95.0)`, equal bounds such as `threshold=(100.0, 100.0)`, non-length-2 tuples, and non-numeric tuple entries now raise `ValidationError` instead of silently producing misleading calibrated probabilities for an impossible event. If you were passing interval tuples dynamically, make sure they are numeric two-tuples with `low < high`.
 - Classification `predict(...)` and reject-envelope prediction payloads now preserve the original classification label dtype instead of coercing common numeric label spaces such as `{0, 1}` and `{0, 1, 2}` to NumPy strings. CE now stores the original class-value array for prediction decoding and keeps `class_labels` as a display-only surface for plots, narratives, and explanation text. If you added local workarounds for the earlier string output, you can remove them.

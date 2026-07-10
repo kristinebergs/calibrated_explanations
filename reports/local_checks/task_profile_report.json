@@ -1,16 +1,13 @@
 {
   "commands_run": [
-    "python -m ruff check scripts/quality/check_packaging_artifacts.py",
-    "python -m ruff format --check scripts/quality/check_packaging_artifacts.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python -m build",
-    "python scripts/quality/check_packaging_artifacts.py --clean-dist --report reports/packaging/license_artifact_check.json"
+    "python scripts/quality/check_agent_instruction_consistency.py"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-10T07:03:56.528943+00:00",
+  "generated_at": "2026-07-10T07:23:56.590827+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -48,5 +45,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 37
+  "task_id": 38
 }
