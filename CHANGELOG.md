@@ -14,6 +14,7 @@
 
 ### Fixed
 
+- Plugin CLI and default narrative text now avoid non-ASCII banner/template glyphs that could crash redirected Windows output. `ce plugins ...` no longer prints the `🔒` banner prefix, and the built-in narrative wording now uses ASCII-safe markers (`[!]`, `- weight ~`) so `cp1252`-encoded stdout paths do not raise `UnicodeEncodeError` before users can inspect plugin metadata or print explanation narratives.
 - README and QUICK_API example coverage now has an executable integration smoke test, the README fairness snippet calibrates Mondrian bins before binned explanations, and the optional modality shims now point users to installable companion packages (`pip install ce-audio` / `pip install ce-vision`) instead of nonexistent extras.
 - `make local-checks-task TASK=<n>` now respects an explicit empty `lint_targets = []`
   mapping in the active release plan. Task-focused profiles no longer expand that

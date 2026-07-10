@@ -12,7 +12,7 @@ from sklearn.model_selection import train_test_split
 
 from calibrated_explanations import WrapCalibratedExplainer
 
-pytestmark = pytest.mark.integration
+pytestmark = [pytest.mark.integration, pytest.mark.viz]
 
 matplotlib.use("Agg")
 

@@ -358,12 +358,12 @@ def test_expand_template_should_tag_uncertain_for_alternatives_when_interval_cov
     lines = [ln.strip() for ln in res.splitlines() if ln.strip().startswith("-")]
 
     total_bedrooms_line = next(ln for ln in lines if "total_bedrooms < 9.00" in ln)
-    assert "⚠️ direction uncertain" not in total_bedrooms_line
-    assert "⚠️ uncertain" not in total_bedrooms_line
+    assert "[!] direction uncertain" not in total_bedrooms_line
+    assert "[!] uncertain" not in total_bedrooms_line
 
     housing_line = next(ln for ln in lines if "housing_median_age" in ln)
-    assert "⚠️ direction uncertain" not in housing_line
-    assert "⚠️ uncertain" in housing_line
+    assert "[!] direction uncertain" not in housing_line
+    assert "[!] uncertain" in housing_line
 
 
 def test_generate_narrative_should_not_split_uncertainty_for_regression():

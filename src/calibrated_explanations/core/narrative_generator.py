@@ -633,9 +633,12 @@ class NarrativeGenerator:
                     # Only show caution if width > 0.20
                     if width > 0.20:
                         if level == "beginner":
-                            caution_line = "⚠️ Use caution: uncertainty is high."
+                            caution_line = "[!] Use caution: uncertainty is high."
                         else:
-                            caution_line = f"⚠️ Use caution: calibrated probability interval is wide ({width:.3f})."
+                            caution_line = (
+                                "[!] Use caution: calibrated probability interval is wide "
+                                f"({width:.3f})."
+                            )
 
         # Build feature lines (without alignment - alignment applied globally later)
         def build_lines(line: str, feats: List[Dict]) -> List[str]:
@@ -771,13 +774,13 @@ class NarrativeGenerator:
                     "multiclass_classification",
                     "probabilistic_regression",
                 ) and has_wide_prediction_interval(f):
-                    tags.append("⚠️ highly uncertain")
+                    tags.append("[!] highly uncertain")
                 if explanation_type == "alternative":
                     if uncertain_for_alternative_threshold(f):
-                        tags.append("⚠️ uncertain")
+                        tags.append("[!] uncertain")
                 else:
                     if crosses_zero(f):
-                        tags.append("⚠️ direction uncertain")
+                        tags.append("[!] direction uncertain")
                 uncertainty_tag = " [" + ", ".join(tags) + "]" if tags else ""
 
                 line_for_rule = line
@@ -858,7 +861,7 @@ class NarrativeGenerator:
             """Apply vertical alignment across all feature groups.
 
             Alignment is marker-driven:
-            - Factual narratives align the weight marker ("— weight …").
+            - Factual narratives align the weight marker (" - weight ~").
             - Alternative narratives align the "then" keyword in rule lines.
             """
 
@@ -892,7 +895,7 @@ class NarrativeGenerator:
             if explanation_type == "alternative":
                 aligned = _align_marker(aligned, " then ")
             else:
-                aligned = _align_marker(aligned, "— weight")
+                aligned = _align_marker(aligned, " - weight ~")
             return aligned
 
         lines = template.splitlines()

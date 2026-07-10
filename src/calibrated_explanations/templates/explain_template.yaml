@@ -34,10 +34,10 @@ narrative_templates:
         Calibrated Probability: {calibrated_pred} [{pred_interval_lower}, {pred_interval_upper}]
 
         Factors impacting the calibrated probability for class {positive_label} positively:
-        * {feature_name} ({feature_actual_value}) {condition} — weight ≈ {feature_weight}
+        * {feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight}
 
         Factors impacting the calibrated probability for class {positive_label} negatively:
-        * {feature_name} ({feature_actual_value}) {condition} — weight ≈ {feature_weight}
+        * {feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight}
 
       advanced: |
         Prediction: {label}
@@ -45,10 +45,10 @@ narrative_templates:
         Prediction Interval: [{pred_interval_lower}, {pred_interval_upper}]
 
         Factors impacting the calibrated probability for class {positive_label} positively:
-        {feature_name} ({feature_actual_value}) {condition} — weight ≈ {feature_weight} [{feature_weight_low}, {feature_weight_high}]
+        {feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight} [{feature_weight_low}, {feature_weight_high}]
 
         Factors impacting the calibrated probability for class {positive_label} negatively:
-        {feature_name} ({feature_actual_value}) {condition} — weight ≈ {feature_weight} [{feature_weight_low}, {feature_weight_high}]
+        {feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight} [{feature_weight_low}, {feature_weight_high}]
 
     alternative:
       beginner: |
@@ -98,10 +98,10 @@ narrative_templates:
         Runner-up Class: {runner_up_class} (margin {margin_value})
 
         Factors impacting the calibrated probability for class {label} positively:
-        * {feature_name} ({feature_actual_value}) {condition} — weight ≈ {feature_weight}
+        * {feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight}
 
         Factors impacting the calibrated probability for class {label} negatively:
-        * {feature_name} ({feature_actual_value}) {condition} — weight ≈ {feature_weight}
+        * {feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight}
 
       advanced: |
         Calibrated Probability for class {label}: {calibrated_pred}
@@ -109,10 +109,10 @@ narrative_templates:
         Runner-up Class: {runner_up_class} (margin {margin_value})
 
         Factors impacting the calibrated probability for class {label} positively:
-        {feature_name} ({feature_actual_value}) {condition} — weight ≈ {feature_weight} [{feature_weight_low}, {feature_weight_high}]
+        {feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight} [{feature_weight_low}, {feature_weight_high}]
 
         Factors impacting the calibrated probability for class {label} negatively:
-        {feature_name} ({feature_actual_value}) {condition} — weight ≈ {feature_weight} [{feature_weight_low}, {feature_weight_high}]
+        {feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight} [{feature_weight_low}, {feature_weight_high}]
 
     alternative:
       beginner: |
@@ -161,20 +161,20 @@ narrative_templates:
         Calibrated Prediction: {calibrated_pred} [{pred_interval_lower}, {pred_interval_upper}]
 
         Factors impacting the calibrated prediction positively:
-        * {feature_name} ({feature_actual_value}) {condition} — weight ≈ {feature_weight}
+        * {feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight}
 
         Factors impacting the calibrated prediction negatively:
-        * {feature_name} ({feature_actual_value}) {condition} — weight ≈ {feature_weight}
+        * {feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight}
 
       advanced: |
         Calibrated Prediction: {calibrated_pred}
         Prediction Interval: [{pred_interval_lower}, {pred_interval_upper}]
 
         Factors impacting the calibrated prediction positively:
-        {feature_name} ({feature_actual_value}) {condition} — weight ≈ {feature_weight} [{feature_weight_low}, {feature_weight_high}]
+        {feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight} [{feature_weight_low}, {feature_weight_high}]
 
         Factors impacting the calibrated prediction negatively:
-        {feature_name} ({feature_actual_value}) {condition} — weight ≈ {feature_weight} [{feature_weight_low}, {feature_weight_high}]
+        {feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight} [{feature_weight_low}, {feature_weight_high}]
 
     alternative:
       # Note: For plain regression the narrative 'semi' alternatives are
@@ -224,20 +224,20 @@ narrative_templates:
         Calibrated Probability ({threshold_condition}): {calibrated_pred} [{pred_interval_lower}, {pred_interval_upper}]
 
         Factors impacting the calibrated probability for {threshold_condition} positively:
-        * {feature_name} ({feature_actual_value}) {condition} — weight ≈ {feature_weight}
+        * {feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight}
 
         Factors impacting the calibrated probability for {threshold_condition} negatively:
-        * {feature_name} ({feature_actual_value}) {condition} — weight ≈ {feature_weight}
+        * {feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight}
 
       advanced: |
         Calibrated Probability ({threshold_condition}): {calibrated_pred}
         Prediction Interval: [{pred_interval_lower}, {pred_interval_upper}]
 
         Factors impacting the calibrated probability for {threshold_condition} positively:
-        {feature_name} ({feature_actual_value}) {condition} — weight ≈ {feature_weight} [{feature_weight_low}, {feature_weight_high}]
+        {feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight} [{feature_weight_low}, {feature_weight_high}]
 
         Factors impacting the calibrated probability for {threshold_condition} negatively:
-        {feature_name} ({feature_actual_value}) {condition} — weight ≈ {feature_weight} [{feature_weight_low}, {feature_weight_high}]
+        {feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight} [{feature_weight_low}, {feature_weight_high}]
 
     alternative:
       beginner: |

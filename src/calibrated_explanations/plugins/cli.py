@@ -635,7 +635,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.print_help()
         return 0
     print(
-        "🔒 Optional tooling: the plugin CLI is opt-in. Core calibrated explanations run "
+        "Optional tooling: the plugin CLI is opt-in. Core calibrated explanations run "
         "without it. Set CE_DENY_PLUGIN to block plugin identifiers when experimenting."
     )
     print()

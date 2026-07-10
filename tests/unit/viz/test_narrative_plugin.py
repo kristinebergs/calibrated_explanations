@@ -194,12 +194,12 @@ def test_narrative_generator_emits_caution_and_uncertainty_tags():
         feature_names=["age", "income", "savings"],
     )
 
-    assert narrative.startswith("⚠️ Use caution")
+    assert narrative.startswith("[!] Use caution")
     assert "POS age" in narrative
     assert "NEG income" in narrative
     assert "UNC savings" in narrative
-    assert "⚠️ highly uncertain" in narrative
-    assert "⚠️ direction uncertain" in narrative
+    assert "[!] highly uncertain" in narrative
+    assert "[!] direction uncertain" in narrative
 
 
 def test_load_template_file_validates_format(tmp_path):
