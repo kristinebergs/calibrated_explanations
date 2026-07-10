@@ -753,6 +753,13 @@ def _pr_steps(
                 ),
             ),
             Step(
+                "Forbidden doc-pattern gates",
+                _python_cmd(
+                    "scripts/quality/check_forbidden_doc_patterns.py",
+                    "--all-checks",
+                ),
+            ),
+            Step(
                 "Release-profile meta-test guard",
                 _python_cmd(
                     "scripts/quality/check_no_release_profile_meta_tests.py",

@@ -45,13 +45,13 @@ Applicable workflow: fit-calibrate-explore_alternatives-pareto_explanations.
 
 **Default parameters (include_potential=True, pareto_cost="uncertainty_width"):**
 
-Collection: `alternatives.pareto_explanations()` Ã¢â€ â€™ non-None, `len == len(X_test)`.
+Collection: `alternatives.pareto_explanations()` → non-None, `len == len(X_test)`.
 
-Individual: `alternatives[0].pareto_explanations()` Ã¢â€ â€™ non-None.
+Individual: `alternatives[0].pareto_explanations()` → non-None.
 
 **With include_potential=False:**
 
-Collection: `alternatives.pareto_explanations(include_potential=False)` Ã¢â€ â€™ non-None,
+Collection: `alternatives.pareto_explanations(include_potential=False)` → non-None,
 `len == len(X_test)`.
 
 **Alias check:** `alternatives.pareto()` produces a result equal in structure to `alternatives.pareto_explanations()`.

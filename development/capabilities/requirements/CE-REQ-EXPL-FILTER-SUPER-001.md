@@ -45,13 +45,13 @@ Applicable workflow: fit-calibrate-explore_alternatives-super_explanations.
 
 **Default parameters (only_ensured=False, include_potential=True):**
 
-Collection: `alternatives.super_explanations()` Ã¢â€ â€™ non-None, `len == len(X_test)`.
+Collection: `alternatives.super_explanations()` → non-None, `len == len(X_test)`.
 
-Individual: `alternatives[0].super_explanations()` Ã¢â€ â€™ non-None.
+Individual: `alternatives[0].super_explanations()` → non-None.
 
 **With only_ensured=True (applies ensured filter within super set):**
 
-Collection: `alternatives.super_explanations(only_ensured=True)` Ã¢â€ â€™ non-None, `len == len(X_test)`.
+Collection: `alternatives.super_explanations(only_ensured=True)` → non-None, `len == len(X_test)`.
 
 **Alias check:**
 

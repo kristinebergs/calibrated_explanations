@@ -1,16 +1,15 @@
 {
   "commands_run": [
-    "python -m ruff check tests/capabilities/test_probabilistic_regression_contracts.py tests/test_reject.py",
-    "python -m ruff format --check tests/capabilities/test_probabilistic_regression_contracts.py tests/test_reject.py",
+    "python -m ruff check scripts/quality/check_forbidden_doc_patterns.py",
+    "python -m ruff format --check scripts/quality/check_forbidden_doc_patterns.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python scripts/quality/check_agent_instruction_consistency.py",
-    "python -m pytest -q tests/test_reject.py -k metadata -o addopts= --no-cov"
+    "python scripts/quality/check_forbidden_doc_patterns.py --all-checks"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-10T04:57:21.825880+00:00",
+  "generated_at": "2026-07-10T05:09:23.818037+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -48,5 +47,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 34
+  "task_id": 35
 }

@@ -398,7 +398,7 @@ def test_should_pass_when_documentation_boundary_curated_evidence_uses_none_raw_
         | verification_strength | documentation_boundary |
         | result | PASS |
 
-        raw_evidence_ref: none â€” TIF-exempt documentation-boundary review
+        raw_evidence_ref: none — TIF-exempt documentation-boundary review
     """,
     )
 
@@ -584,7 +584,7 @@ def test_should_fail_when_readme_has_stale_extra_row(
 ) -> None:
     """A README row whose TIF ID has no matching active spec fails."""
     tif_dir = chain_dirs["tif"]
-    # No spec files â€” README has a row for a non-existent spec
+    # No spec files — README has a row for a non-existent spec
     write_text_fixture(
         tif_dir / "README.md",
         _readme_with_tif_table(
@@ -663,7 +663,7 @@ def test_should_not_have_manual_registry_in_generate_capability_evidence() -> No
     """generate_capability_evidence.py must be deleted or contain no _RUNNERS or TIF imports."""
     script = Path(__file__).parents[2] / "scripts" / "generate_capability_evidence.py"
     if not script.exists():
-        return  # Deleted â€” compliant
+        return  # Deleted — compliant
     text = script.read_text(encoding="utf-8")
     assert (
         "_RUNNERS" not in text
@@ -950,7 +950,7 @@ def test_should_fail_when_active_tif_spec_has_no_committed_evidence(
             "TEST-001",
         ),
     )
-    # chain_dirs["raw_evid"] is empty â€” no evidence written
+    # chain_dirs["raw_evid"] is empty — no evidence written
 
     errors, _ = vcc.run_checks()
     assert any("CE-TIF-TEST-001" in e and "no committed raw evidence" in e for e in errors), errors
@@ -1001,7 +1001,7 @@ def test_should_pass_when_active_tif_spec_has_committed_evidence(
 
 
 # ---------------------------------------------------------------------------
-# Tests: bidirectional claimâ†”requirement reciprocity
+# Tests: bidirectional claim↔requirement reciprocity
 # ---------------------------------------------------------------------------
 
 
@@ -1016,7 +1016,7 @@ def test_should_fail_when_claim_to_req_link_not_reciprocal(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
     )
-    # Requirement points to a DIFFERENT claim â€” not back to CE-CAP-TEST-001
+    # Requirement points to a DIFFERENT claim — not back to CE-CAP-TEST-001
     write_text_fixture(
         reqs_dir / "CE-REQ-TEST-001.md",
         _minimal_req(
@@ -1074,7 +1074,7 @@ def test_should_fail_when_req_to_claim_link_not_reciprocal(
 
 
 # ---------------------------------------------------------------------------
-# Tests: bidirectional TIFâ†”requirement reciprocity
+# Tests: bidirectional TIF↔requirement reciprocity
 # ---------------------------------------------------------------------------
 
 
@@ -1090,7 +1090,7 @@ def test_should_fail_when_req_tif_ref_not_in_tif_requirements_served(
         claims_dir / "CE-CAP-TEST-001.yaml",
         _minimal_claim("CE-CAP-TEST-001", ["CE-REQ-TEST-001"], atomic_rationale=True),
     )
-    # TIF spec with empty requirements_served â€” doesn't list CE-REQ-TEST-001
+    # TIF spec with empty requirements_served — doesn't list CE-REQ-TEST-001
     write_text_fixture(
         tif_dir / "CE-TIF-TEST-001.md",
         _tif_spec_with_sections(
@@ -1163,7 +1163,7 @@ def test_should_fail_when_tif_requirements_served_not_in_req_tif_refs(
 
 
 # ---------------------------------------------------------------------------
-# Tests: TIFâ†’claim reachability
+# Tests: TIF→claim reachability
 # ---------------------------------------------------------------------------
 
 
@@ -1306,7 +1306,7 @@ def test_should_pass_when_curated_tif_exempt_evidence_uses_none_raw_ref(
         |---|---|
         | requirement_ids | CE-REQ-TEST-SCHEMA-001 |
 
-        raw_evidence_ref: none â€” TIF-exempt schema validation check
+        raw_evidence_ref: none — TIF-exempt schema validation check
         """,
     )
 
@@ -1433,7 +1433,7 @@ def test_should_not_have_hardcoded_envelope_in_tif_executables() -> None:
                 continue
             arg_names = {a.arg for a in node.args.kwonlyargs}
             assert "spec_claim_ids" in arg_names, (
-                f"{exec_path.name}: build_evidence_payload() missing 'spec_claim_ids' kwarg â€” "
+                f"{exec_path.name}: build_evidence_payload() missing 'spec_claim_ids' kwarg — "
                 "envelope metadata must be injected from the TIF spec, not hardcoded"
             )
             assert (
@@ -1479,7 +1479,7 @@ def test_should_not_have_manifest_or_registry_sidecar_files() -> None:
                 if "__pycache__" not in str(match):
                     found.append(str(match.relative_to(repo_root)))
     assert not found, (
-        "Manifest/registry/sidecar file(s) detected â€” these are forbidden "
+        "Manifest/registry/sidecar file(s) detected — these are forbidden "
         f"(active inventories must not be added as sidecar files): {found}"
     )
 

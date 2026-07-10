@@ -14,6 +14,7 @@ Usage
 -----
     python scripts/quality/check_forbidden_doc_patterns.py --list-checks
     python scripts/quality/check_forbidden_doc_patterns.py --check narrative-format
+    python scripts/quality/check_forbidden_doc_patterns.py --all-checks
     python scripts/quality/check_forbidden_doc_patterns.py --check guarded-stale-wording --check template-json-references
 """
 
@@ -133,6 +134,27 @@ CHECKS: dict[str, PatternCheck] = {
             includes=("docs/migration/deprecations.md",),
             excludes=(),
         ),
+        PatternCheck(
+            name="utf8-mojibake-needle",
+            description=(
+                "Tracked text files must not contain the U+00E2 U+20AC "
+                "mojibake needle or a UTF-8 BOM (Task 35)."
+            ),
+            patterns=(r"\u00e2\u20ac", r"^\ufeff"),
+            includes=(
+                "*.md",
+                "*.toml",
+                "*.yml",
+                "*.yaml",
+                "docs/**/*.md",
+                "development/**/*.md",
+                "tests/**/*.py",
+                "scripts/**/*.py",
+                ".github/**/*.md",
+                ".github/**/*.yml",
+                ".github/**/*.yaml",
+            ),
+        ),
     )
 }
 
@@ -197,17 +219,26 @@ def main() -> int:
     parser.add_argument(
         "--list-checks", action="store_true", help="List available checks and exit."
     )
+    parser.add_argument(
+        "--all-checks",
+        action="store_true",
+        help="Run every named check.",
+    )
     args = parser.parse_args()
 
     if args.list_checks:
         for name in sorted(CHECKS):
             print(f"{name}: {CHECKS[name].description}")
         return 0
-    if not args.check:
+    if args.all_checks and args.check:
+        parser.error("Use either --all-checks or one or more --check values, not both.")
+
+    selected_checks = list(CHECKS) if args.all_checks else args.check
+    if not selected_checks:
         parser.error("Provide at least one --check name (or --list-checks).")
 
     exit_code = 0
-    for name in args.check:
+    for name in selected_checks:
         check = CHECKS[name]
         violations = run_check(check)
         if violations:
