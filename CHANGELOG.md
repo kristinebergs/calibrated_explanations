@@ -14,6 +14,7 @@
 
 ### Fixed
 
+- README and QUICK_API example coverage now has an executable integration smoke test, the README fairness snippet calibrates Mondrian bins before binned explanations, and the optional modality shims now point users to installable companion packages (`pip install ce-audio` / `pip install ce-vision`) instead of nonexistent extras.
 - `make local-checks-task TASK=<n>` now respects an explicit empty `lint_targets = []`
   mapping in the active release plan. Task-focused profiles no longer expand that
   value into changed-file or repo-wide Ruff work, which keeps decision-ledger or

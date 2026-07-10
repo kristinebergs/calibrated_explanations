@@ -137,7 +137,16 @@ explainer.explore_alternatives(X_query)[0].ensured_explanations()  # X_query: ar
 A model can be globally well-calibrated but systematically overconfident for a minority group. CE's **Mondrian/conditional calibration** conditions calibration and uncertainty on a per-instance group label (`bins`) (Löfström & Löfström, xAI 2024). The result: explanation uncertainty intervals are valid *within each group*, not only on average. Wider intervals for a group are a direct, auditable signal of data insufficiency — a concrete fairness artefact that can be reported to regulators or risk committees.
 
 ```python
-explainer.explain_factual(X_query, bins=X_query[:, gender_col_index])
+group_threshold = X_cal[:, gender_col_index].mean()
+explainer.calibrate(
+    X_cal,
+    y_cal,
+    bins=(X_cal[:, gender_col_index] >= group_threshold).astype(int),
+)
+explainer.explain_factual(
+    X_query,
+    bins=(X_query[:, gender_col_index] >= group_threshold).astype(int),
+)
 ```
 
 > **Read more:** [Mondrian / conditional calibration playbook](https://calibrated-explanations.readthedocs.io/en/latest/practitioner/playbooks/mondrian-calibration)

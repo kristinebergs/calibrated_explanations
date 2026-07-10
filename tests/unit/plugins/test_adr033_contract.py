@@ -214,6 +214,7 @@ def test_missing_extension_error_is_importerror():
     with pytest.raises(MissingExtensionError) as exc_info:
         importlib.import_module("calibrated_explanations.vision")
     assert isinstance(exc_info.value, ImportError)
+    assert "pip install ce-vision" in str(exc_info.value)
 
 
 def test_missing_extension_error_audio():
@@ -221,6 +222,7 @@ def test_missing_extension_error_audio():
     with pytest.raises(MissingExtensionError) as exc_info:
         importlib.import_module("calibrated_explanations.audio")
     assert isinstance(exc_info.value, ImportError)
+    assert "pip install ce-audio" in str(exc_info.value)
 
 
 def test_audio_shim_imports_extension_symbols_when_dependency_present(monkeypatch):
