@@ -441,7 +441,11 @@ def validate_explanation_batch(
     for index, instance in enumerate(instances):
         prediction = instance.get("prediction")
         if isinstance(prediction, MappingABC):
-            _validate_prediction_invariant(prediction, f"Instance {index} prediction")
+            _validate_prediction_invariant(
+                prediction,
+                f"Instance {index} prediction",
+                task=str(task_hint or expected_task or ""),
+            )
         mode = str(instance.get("mode") or instance.get("explanation_type") or mode_hint or "")
         if mode == "alternative":
             _validate_alternative_reference_prediction(instance, metadata, index)
@@ -523,7 +527,9 @@ def _validate_alternative_reference_prediction(
         )
     if isinstance(reference_prediction, MappingABC):
         _validate_prediction_invariant(
-            reference_prediction, f"Instance {instance_index} reference_prediction"
+            reference_prediction,
+            f"Instance {instance_index} reference_prediction",
+            task=str(metadata.get("task") or ""),
         )
 
 
@@ -577,8 +583,15 @@ def _validate_numeric_interval(value: Any, low: Any, high: Any, context: str) ->
             )
 
 
-def _validate_prediction_invariant(payload: Mapping[str, Any], context: str) -> None:
-    """Enforce low <= predict <= high invariant on prediction payload."""
+def _validate_prediction_invariant(
+    payload: Mapping[str, Any], context: str, *, task: str = ""
+) -> None:
+    """Enforce prediction interval invariants on payloads.
+
+    Regression point predictions must lie inside their numeric intervals.
+    Classification payloads may pair calibrated score intervals with class
+    labels, so only the low <= high interval shape invariant is enforced.
+    """
     import numpy as np
 
     predict = payload.get("predict")
@@ -610,10 +623,11 @@ def _validate_prediction_invariant(payload: Mapping[str, Any], context: str) -> 
         if not np.all(low_arr <= high_arr):
             raise ValidationError(f"{context}: Interval invariant violated: low > high")
 
-        # Check low <= predict <= high
-        # Allow small floating point tolerance
-        epsilon = 1e-9
-        if not np.all((low_arr - epsilon <= predict_arr) & (predict_arr <= high_arr + epsilon)):
-            raise ValidationError(
-                f"{context}: Prediction invariant violated: predict not in [low, high]"
-            )
+        if task == "regression":
+            # Check low <= predict <= high
+            # Allow small floating point tolerance
+            epsilon = 1e-9
+            if not np.all((low_arr - epsilon <= predict_arr) & (predict_arr <= high_arr + epsilon)):
+                raise ValidationError(
+                    f"{context}: Prediction invariant violated: predict not in [low, high]"
+                )

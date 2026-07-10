@@ -83,31 +83,95 @@ def test_should_enforce_interval_invariant_consistently_across_task_types(task):
         validate_explanation_batch(batch, expected_task=task, expected_mode="test")
 
 
-@pytest.mark.parametrize("task", ["regression", "classification"])
-def test_should_enforce_prediction_invariant_consistently_across_task_types(task):
-    """Prediction invariant violations must raise ValidationError for both regression and classification."""
+def test_should_enforce_prediction_invariant_for_regression_batches():
+    """Regression batch predictions must remain inside their numeric intervals."""
     invalid_payload = {"predict": np.array([0.9]), "low": np.array([0.4]), "high": np.array([0.6])}
     batch = ExplanationBatch(
         container_cls=DummyContainer,
         explanation_cls=DummyExplanation,
         instances=[{"prediction": invalid_payload}],
-        collection_metadata={"task": task, "mode": "test"},
+        collection_metadata={"task": "regression", "mode": "test"},
     )
     with pytest.raises(ValidationError, match="Prediction invariant violated"):
-        validate_explanation_batch(batch, expected_task=task, expected_mode="test")
+        validate_explanation_batch(batch, expected_task="regression", expected_mode="test")
 
 
-def test_should_raise_when_classification_bridge_prediction_outside_interval():
-    """Classification bridge predictions must obey the same bounds as regression."""
+def test_should_allow_classification_batch_scores_outside_interval_when_payload_represents_labels():
+    """Classification payloads may combine calibrated score intervals with class labels."""
+    payload = {
+        "predict": np.array([0.9]),
+        "low": np.array([0.4]),
+        "high": np.array([0.6]),
+        "classes": np.array([1]),
+    }
+    batch = ExplanationBatch(
+        container_cls=DummyContainer,
+        explanation_cls=DummyExplanation,
+        instances=[{"prediction": payload}],
+        collection_metadata={"task": "classification", "mode": "test"},
+    )
+
+    validated = validate_explanation_batch(
+        batch, expected_task="classification", expected_mode="test"
+    )
+
+    assert validated is batch
+
+
+def test_should_allow_classification_alternative_reference_prediction_when_task_uses_label_payload():
+    """Alternative classification reference predictions should reuse the relaxed invariant."""
+    batch = ExplanationBatch(
+        container_cls=DummyContainer,
+        explanation_cls=DummyExplanation,
+        instances=[
+            {
+                "mode": "alternative",
+                "reference_prediction": {
+                    "predict": np.array([0.9]),
+                    "low": np.array([0.4]),
+                    "high": np.array([0.6]),
+                    "classes": np.array([1]),
+                },
+                "rules": [
+                    {
+                        "predicted_value": 0.3,
+                        "prediction_interval": {"low": 0.2, "high": 0.4},
+                    }
+                ],
+            }
+        ],
+        collection_metadata={"task": "classification", "mode": "alternative"},
+    )
+
+    validated = validate_explanation_batch(
+        batch, expected_task="classification", expected_mode="alternative"
+    )
+
+    assert validated is batch
+
+
+def test_should_allow_classification_bridge_class_predictions_outside_score_interval():
+    """Classification bridge should tolerate class labels with probability intervals."""
     mock_explainer = Mock()
     mock_explainer.predict.return_value = (
         np.asarray([0.9]),
         (np.asarray([0.4]), np.asarray([0.6])),
     )
+    mock_explainer.predict.side_effect = [
+        (
+            np.asarray([0.9]),
+            (np.asarray([0.4]), np.asarray([0.6])),
+        ),
+        np.asarray([1]),
+    ]
     bridge = LegacyPredictBridge(mock_explainer)
 
-    with pytest.raises(ValidationError, match="predict not in \\[low, high\\]"):
-        bridge.predict("X", mode="factual", task="classification")
+    payload = bridge.predict("X", mode="factual", task="classification")
+
+    np.testing.assert_allclose(payload["predict"], [0.9])
+    np.testing.assert_allclose(payload["low"], [0.4])
+    np.testing.assert_allclose(payload["high"], [0.6])
+    np.testing.assert_array_equal(payload["classes"], [1])
 
 
 def test_should_validate_rule_level_weights_when_batch_contains_factual_rules():
