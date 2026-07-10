@@ -6,6 +6,7 @@ import contextlib
 import json
 import re
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -71,8 +72,7 @@ def load_template_file(filepath: str) -> Dict[str, Any]:
 
     else:
         raise SerializationError(
-            f"Unsupported template file format: {extension}. "
-            "Supported formats: .json, .yaml, .yml",
+            f"Unsupported template file format: {extension}. Supported formats: .json, .yaml, .yml",
             details={
                 "filepath": filepath,
                 "format": extension,
@@ -97,6 +97,20 @@ def fmt_float(x: Optional[float], nd=3) -> str:
     return "N/A" if x is None else f"{x:.{nd}f}"
 
 
+def clip_probability(x: Any) -> Optional[float]:
+    """Clip a probability-like value into the closed interval [0, 1]."""
+    if x is None:
+        return None
+    with contextlib.suppress(ValueError, TypeError):
+        return min(1.0, max(0.0, float(x)))
+    return None
+
+
+def fmt_probability(x: Any, nd=3) -> str:
+    """Format a probability-like value after clipping it into [0, 1]."""
+    return fmt_float(clip_probability(x), nd=nd)
+
+
 def first_or_none(x):
     """Return first element if list/array-like, else the scalar."""
     if x is None:
@@ -104,6 +118,48 @@ def first_or_none(x):
     if isinstance(x, (list, tuple, np.ndarray)):
         return to_py(x[0]) if len(x) else None
     return to_py(x)
+
+
+def class_label_for_index(class_labels: Any, class_index: Any) -> str:
+    """Map a class index/value to a display label."""
+    if class_index is None:
+        return ""
+    if isinstance(class_labels, dict):
+        if class_index in class_labels:
+            return str(class_labels[class_index])
+        with contextlib.suppress(TypeError, ValueError):
+            int_index = int(class_index)
+            if int_index in class_labels:
+                return str(class_labels[int_index])
+        return str(class_index)
+    if class_labels is not None:
+        with contextlib.suppress(TypeError, ValueError, IndexError):
+            return str(class_labels[int(class_index)])
+    return str(class_index)
+
+
+def extract_probability_vector(explanation: Any) -> Optional[np.ndarray]:
+    """Extract the current instance's full multiclass probability vector when available."""
+    candidate = getattr(explanation, "prediction_probabilities", None)
+    if candidate is None:
+        prediction = getattr(explanation, "prediction", None)
+        if isinstance(prediction, dict):
+            candidate = prediction.get("__full_probabilities__")
+
+    if isinstance(candidate, tuple) and candidate:
+        candidate = candidate[0]
+
+    if candidate is None:
+        return None
+
+    with contextlib.suppress(ValueError, TypeError):
+        arr = np.asarray(candidate, dtype=float)
+        if arr.ndim == 1:
+            return arr
+        index = int(getattr(explanation, "index", 0))
+        if arr.ndim >= 2 and 0 <= index < arr.shape[0]:
+            return np.asarray(arr[index], dtype=float)
+    return None
 
 
 def clean_condition(rule: str, feat_name: Any) -> str:
@@ -221,20 +277,49 @@ class NarrativeGenerator:
         bp = first_or_none(rules_dict.get("base_predict"))
         bl = first_or_none(rules_dict.get("base_predict_low"))
         bh = first_or_none(rules_dict.get("base_predict_high"))
+        probability_problem_types = {
+            "binary_classification",
+            "multiclass_classification",
+            "probabilistic_regression",
+        }
+        class_labels = (
+            explanation.get_class_labels() if hasattr(explanation, "get_class_labels") else None
+        )
+        if (
+            class_labels is not None
+            and not isinstance(class_labels, (dict, list, tuple, np.ndarray))
+            and (not isinstance(class_labels, Sequence) or isinstance(class_labels, (str, bytes)))
+        ):
+            class_labels = None
+        predicted_class = rules_dict.get("classes")
+        predicted_label = ""
+        runner_up_class = ""
+        margin_value = ""
+
+        if problem_type == "binary_classification":
+            if bp is not None:
+                with contextlib.suppress(ValueError, TypeError):
+                    predicted_class = 1 if float(bp) >= 0.5 else 0
+            predicted_label = class_label_for_index(class_labels, predicted_class)
+        elif problem_type == "multiclass_classification":
+            probability_vector = extract_probability_vector(explanation)
+            if probability_vector is not None and probability_vector.size:
+                predicted_class = int(np.argmax(probability_vector))
+                predicted_label = class_label_for_index(class_labels, predicted_class)
+                if probability_vector.size > 1:
+                    runner_up_index = int(np.argsort(probability_vector)[-2])
+                    runner_up_class = class_label_for_index(class_labels, runner_up_index)
+                    margin_value = fmt_probability(
+                        probability_vector[predicted_class] - probability_vector[runner_up_index]
+                    )
+            else:
+                predicted_label = class_label_for_index(class_labels, predicted_class)
 
         # Build context dictionary
-        # Try to get the predicted class/label
-        predicted_class = rules_dict.get("classes")
-        if predicted_class is not None:
-            # For classification, get the class label
-            if hasattr(explanation, "get_class_labels"):
-                class_labels = explanation.get_class_labels()
-                if class_labels is not None and isinstance(class_labels, dict):
-                    label = str(class_labels.get(predicted_class, predicted_class))
-                else:
-                    label = str(predicted_class)
-            else:
-                label = str(predicted_class)
+        if predicted_label:
+            label = predicted_label
+        elif predicted_class is not None:
+            label = class_label_for_index(class_labels, predicted_class)
         else:
             # Fallback: try to infer from prediction
             if bp is not None and bp > 0.5:
@@ -247,12 +332,8 @@ class NarrativeGenerator:
         # Determine positive_label for binary classification
         positive_label = ""
         if problem_type == "binary_classification":
-            if hasattr(explanation, "get_class_labels"):
-                class_labels = explanation.get_class_labels()
-                if class_labels is not None and isinstance(class_labels, dict):
-                    positive_label = str(class_labels.get(1, "1"))
-                else:
-                    positive_label = "1"
+            if class_labels is not None:
+                positive_label = class_label_for_index(class_labels, 1)
             else:
                 positive_label = "positive class"
 
@@ -275,15 +356,21 @@ class NarrativeGenerator:
         context = {
             "label": label,
             "positive_label": positive_label,
-            "calibrated_pred": fmt_float(bp),
-            "pred_interval_lower": fmt_float(bl),
-            "pred_interval_upper": fmt_float(bh),
+            "calibrated_pred": (
+                fmt_probability(bp) if problem_type in probability_problem_types else fmt_float(bp)
+            ),
+            "pred_interval_lower": (
+                fmt_probability(bl) if problem_type in probability_problem_types else fmt_float(bl)
+            ),
+            "pred_interval_upper": (
+                fmt_probability(bh) if problem_type in probability_problem_types else fmt_float(bh)
+            ),
             "threshold": threshold_str,
             "threshold_low": threshold_low,
             "threshold_high": threshold_high,
             "threshold_condition": threshold_condition,
-            "runner_up_class": "",
-            "margin_value": "",
+            "runner_up_class": runner_up_class,
+            "margin_value": margin_value,
             "interval_width": "",
         }
 
@@ -710,9 +797,39 @@ class NarrativeGenerator:
                 # Handle predict placeholders
                 p, pl, ph = f.get("predict"), f.get("predict_low"), f.get("predict_high")
                 txt = (
-                    txt.replace("{predict}", fmt_float(p))
-                    .replace("{predict_low}", fmt_float(pl))
-                    .replace("{predict_high}", fmt_float(ph))
+                    txt.replace(
+                        "{predict}",
+                        fmt_probability(p)
+                        if problem_type
+                        in (
+                            "binary_classification",
+                            "multiclass_classification",
+                            "probabilistic_regression",
+                        )
+                        else fmt_float(p),
+                    )
+                    .replace(
+                        "{predict_low}",
+                        fmt_probability(pl)
+                        if problem_type
+                        in (
+                            "binary_classification",
+                            "multiclass_classification",
+                            "probabilistic_regression",
+                        )
+                        else fmt_float(pl),
+                    )
+                    .replace(
+                        "{predict_high}",
+                        fmt_probability(ph)
+                        if problem_type
+                        in (
+                            "binary_classification",
+                            "multiclass_classification",
+                            "probabilistic_regression",
+                        )
+                        else fmt_float(ph),
+                    )
                 )
 
                 # Handle weight placeholders
