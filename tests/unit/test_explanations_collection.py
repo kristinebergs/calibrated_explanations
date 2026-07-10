@@ -718,9 +718,9 @@ def test_collection_to_json_without_version(calibrated_collection):
 
 def test_legacy_payload_was_removed_from_collection(calibrated_collection):
     """legacy_payload() public method was removed in v1.0.0."""
-    assert not hasattr(
-        calibrated_collection, "legacy_payload"
-    ), "legacy_payload() public method must be removed in v1.0.0"
+    assert not hasattr(calibrated_collection, "legacy_payload"), (
+        "legacy_payload() public method must be removed in v1.0.0"
+    )
 
 
 def test_legacy_payload_public_method_does_not_exist(calibrated_collection):

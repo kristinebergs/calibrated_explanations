@@ -17,9 +17,8 @@ from typing import Any, Mapping
 import crepes
 import numpy as np
 
-from ..utils import safe_first_element
+from ..utils import assert_threshold, safe_first_element
 from ..utils.exceptions import ConfigurationError, DataShapeError, ValidationError
-from ..utils.helper import assert_threshold
 from .venn_abers import VennAbers
 
 

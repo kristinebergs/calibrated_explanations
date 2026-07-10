@@ -185,9 +185,9 @@ def test_evidence_commit_sha_is_not_placeholder(evidence_path: Path | None):
     if evidence_path is None:
         pytest.skip("no evidence files in reports/verification/")
     data = _load_json(evidence_path)
-    assert _SHA_RE.fullmatch(
-        data.get("commit_sha", "")
-    ), f"{evidence_path.name}: commit_sha must be a full 40-character git SHA"
+    assert _SHA_RE.fullmatch(data.get("commit_sha", "")), (
+        f"{evidence_path.name}: commit_sha must be a full 40-character git SHA"
+    )
 
 
 @pytest.mark.parametrize("evidence_path", _parametrize_evidence())
@@ -204,9 +204,9 @@ def test_should_parse_timestamp_when_raw_evidence_committed(evidence_path: Path 
     if evidence_path is None:
         pytest.skip("no evidence files in reports/verification/")
     parsed_timestamp = datetime.fromisoformat(_load_json(evidence_path)["timestamp"])
-    assert (
-        parsed_timestamp.tzinfo is not None
-    ), f"{evidence_path.name}: timestamp must include UTC offset"
+    assert parsed_timestamp.tzinfo is not None, (
+        f"{evidence_path.name}: timestamp must include UTC offset"
+    )
 
 
 @pytest.mark.parametrize("evidence_path", _parametrize_evidence())

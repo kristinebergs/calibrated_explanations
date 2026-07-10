@@ -49,9 +49,9 @@ def test_should_not_log_when_arrays_are_aligned(caplog):
     assert len(result.rules) == 2
     debug_msgs = [r.message for r in caplog.records if r.levelno == logging.DEBUG]
     duplication_logged = any("endpoint duplication" in m for m in debug_msgs)
-    assert (
-        not duplication_logged
-    ), f"Unexpected endpoint-duplication log when arrays are aligned: {debug_msgs}"
+    assert not duplication_logged, (
+        f"Unexpected endpoint-duplication log when arrays are aligned: {debug_msgs}"
+    )
 
 
 def test_should_return_none_weight_and_log_debug_when_array_is_empty(caplog):
@@ -74,6 +74,6 @@ def test_should_return_none_weight_and_log_debug_when_array_is_empty(caplog):
     assert result.rules[0].rule_weight == {"predict": None}
     # And should emit a debug log about the empty array
     debug_msgs = [r.message for r in caplog.records if r.levelno == logging.DEBUG]
-    assert any(
-        "empty" in m for m in debug_msgs
-    ), f"Expected DEBUG log about empty array; got: {debug_msgs}"
+    assert any("empty" in m for m in debug_msgs), (
+        f"Expected DEBUG log about empty array; got: {debug_msgs}"
+    )

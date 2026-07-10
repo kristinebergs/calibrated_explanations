@@ -79,6 +79,7 @@ class Finding:
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _to_relative(path: Path, root: Path | None = None) -> str:
     try:
         if root is not None:
@@ -180,6 +181,7 @@ def _has_viz_imports(tree: ast.Module) -> bool:
 # Scanner
 # ---------------------------------------------------------------------------
 
+
 def scan_marker_hygiene(tests_root: Path) -> list[Finding]:
     """Walk the test tree and collect marker hygiene findings."""
     findings: list[Finding] = []
@@ -273,6 +275,7 @@ def scan_marker_hygiene(tests_root: Path) -> list[Finding]:
 # ---------------------------------------------------------------------------
 # Baseline + reporting
 # ---------------------------------------------------------------------------
+
 
 def load_baseline(path: Path) -> dict[str, dict[str, object]]:
     """Load baseline entries indexed by finding id."""
@@ -374,6 +377,7 @@ def print_rebaseline_diff(
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     """Run marker hygiene analysis."""

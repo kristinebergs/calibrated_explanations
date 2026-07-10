@@ -224,7 +224,7 @@ class TestImportGraphStaticAnalysis:
         found = set(packages.keys())
 
         assert expected_packages.issubset(found), (
-            f"Missing expected packages: {expected_packages - found}\n" f"Found: {found}"
+            f"Missing expected packages: {expected_packages - found}\nFound: {found}"
         )
 
 
@@ -378,9 +378,9 @@ class TestImportGraphRegressions:
         )
 
         # Check that lazy imports are used in methods
-        assert (
-            "importlib.import_module" in content or "from .." in content
-        ), "CalibratedExplainer should use lazy imports for sibling packages"
+        assert "importlib.import_module" in content or "from .." in content, (
+            "CalibratedExplainer should use lazy imports for sibling packages"
+        )
 
     def test_should_maintain_stage3_public_api_narrowing(self):
         """Verify Stage 3 public API narrowing is maintained after removals."""

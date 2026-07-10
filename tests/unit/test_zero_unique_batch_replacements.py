@@ -182,9 +182,9 @@ def test_base_explain_executor_abstract_method_bodies_are_callable() -> None:
 def test_core_reject_shim_flat_file_does_not_exist() -> None:
     """core/reject.py shim (flat file) must not exist in v1.0.0; core/reject/ package is canonical."""
     shim_path = Path("src/calibrated_explanations/core/reject.py").resolve()
-    assert (
-        not shim_path.exists()
-    ), f"core/reject.py shim was removed in v1.0.0 but still exists: {shim_path}"
+    assert not shim_path.exists(), (
+        f"core/reject.py shim was removed in v1.0.0 but still exists: {shim_path}"
+    )
 
 
 def test_plot_probabilistic_resolves_explainer_then_fails_without_matplotlib(

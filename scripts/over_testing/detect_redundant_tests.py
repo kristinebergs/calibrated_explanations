@@ -14,6 +14,7 @@ Outputs:
 - reports/over_testing/redundant_tests.csv
   (fingerprint_hash, test_count, unique_lines, test_names)
 """
+
 import sqlite3
 import hashlib
 import json
@@ -22,6 +23,7 @@ import sys
 from pathlib import Path
 from collections import defaultdict
 from typing import Dict, Set, List, Tuple
+
 
 def get_coverage_data(db_path: Path) -> Dict[str, Set[Tuple[str, int]]]:
     """
@@ -59,7 +61,7 @@ def get_coverage_data(db_path: Path) -> Dict[str, Set[Tuple[str, int]]]:
 
         test_coverage = defaultdict(set)
 
-        if 'line' in tables:
+        if "line" in tables:
             # Simple schema
             cursor.execute("SELECT context_id, file_id, lineno FROM line")
             rows = cursor.fetchall()
@@ -70,14 +72,17 @@ def get_coverage_data(db_path: Path) -> Dict[str, Set[Tuple[str, int]]]:
                 file_path = file_map[file_id]
                 test_coverage[ctx_name].add((file_path, lineno))
 
-        elif 'line_bits' in tables:
+        elif "line_bits" in tables:
             # Bitfield schema (more common in newer coverage)
             # This is complex to parse via SQL. Better to use coverage API if possible.
             # Fallback to CoverageData API.
-            print("Detected optimized schema, switching to CoverageData API (slower but reliable)...")
+            print(
+                "Detected optimized schema, switching to CoverageData API (slower but reliable)..."
+            )
             return get_coverage_data_via_api()
 
     return test_coverage
+
 
 def get_coverage_data_via_api() -> Dict[str, Set[Tuple[str, int]]]:
     """Fallback using official coverage API."""
@@ -96,7 +101,7 @@ def get_coverage_data_via_api() -> Dict[str, Set[Tuple[str, int]]]:
         ctx_by_line = cd.contexts_by_lineno(file_path)
         for lineno, contexts in ctx_by_line.items():
             for ctx in contexts:
-                if ctx == "": # Skip empty context
+                if ctx == "":  # Skip empty context
                     continue
                 test_coverage[ctx].add((file_path, lineno))
 
@@ -111,7 +116,10 @@ def get_coverage_data_via_api() -> Dict[str, Set[Tuple[str, int]]]:
 
     return test_coverage
 
-def calculate_fingerprints(coverage_map: Dict[str, Set[Tuple[str, int]]]) -> Tuple[List[dict], List[dict]]:
+
+def calculate_fingerprints(
+    coverage_map: Dict[str, Set[Tuple[str, int]]],
+) -> Tuple[List[dict], List[dict]]:
     """
     Group tests by fingerprint and detect subset redundancies (aggressive).
     Returns (fingerprint_groups, subset_pairs)
@@ -120,16 +128,17 @@ def calculate_fingerprints(coverage_map: Dict[str, Set[Tuple[str, int]]]) -> Tup
 
     # 1. Exact Fingerprinting
     groups = defaultdict(list)
-    test_lines_map = {} # cache for subset check
+    test_lines_map = {}  # cache for subset check
 
     for test_name, lines in coverage_map.items():
-        if test_name == "": continue
+        if test_name == "":
+            continue
         test_lines_map[test_name] = lines
 
         # Create deterministic string representation of executed lines
         sorted_lines = sorted(list(lines))
         fingerprint_str = str(sorted_lines)
-        fingerprint_hash = hashlib.md5(fingerprint_str.encode('utf-8')).hexdigest()
+        fingerprint_hash = hashlib.md5(fingerprint_str.encode("utf-8")).hexdigest()
 
         groups[fingerprint_hash].append(test_name)
 
@@ -151,16 +160,18 @@ def calculate_fingerprints(coverage_map: Dict[str, Set[Tuple[str, int]]]) -> Tup
         line_count = len(coverage_map[example_test])
         unique_val = test_unique_counts[example_test]
 
-        formatted_groups.append({
-            "fingerprint": fp,
-            "test_count": len(tests),
-            "line_count": line_count,
-            "unique_lines_per_test": unique_val,
-            "tests": sorted(tests),
-            "lines_set": coverage_map[example_test] # Keep for subset check
-        })
+        formatted_groups.append(
+            {
+                "fingerprint": fp,
+                "test_count": len(tests),
+                "line_count": line_count,
+                "unique_lines_per_test": unique_val,
+                "tests": sorted(tests),
+                "lines_set": coverage_map[example_test],  # Keep for subset check
+            }
+        )
 
-    formatted_groups.sort(key=lambda x: x['test_count'], reverse=True)
+    formatted_groups.sort(key=lambda x: x["test_count"], reverse=True)
 
     # 2. Aggressive Subset Detection
     # If Group A's lines are a subset of Group B's lines, then all tests in Group A
@@ -171,14 +182,15 @@ def calculate_fingerprints(coverage_map: Dict[str, Set[Tuple[str, int]]]) -> Tup
 
     # Sort by line_count descending to optimize subset check
     # We only need to check if a smaller set is contained in a larger set
-    sorted_groups = sorted(formatted_groups, key=lambda x: x['line_count'], reverse=True)
+    sorted_groups = sorted(formatted_groups, key=lambda x: x["line_count"], reverse=True)
 
     # O(N^2) comparison - acceptable for N < 5000 groups
     for i in range(len(sorted_groups)):
         subset_cand = sorted_groups[i]
-        subset_lines = subset_cand['lines_set']
+        subset_lines = subset_cand["lines_set"]
 
-        if not subset_lines: continue
+        if not subset_lines:
+            continue
 
         # Check against all groups that have MORE lines (appear earlier in list)
         for j in range(i):
@@ -186,20 +198,23 @@ def calculate_fingerprints(coverage_map: Dict[str, Set[Tuple[str, int]]]) -> Tup
             # Optimization: distinct line counts must differ
             # (If equal, they would be in same fingerprint group)
 
-            if subset_lines.issubset(superset_cand['lines_set']):
-                 subset_redundancies.append({
-                     "subset_fingerprint": subset_cand['fingerprint'],
-                     "superset_fingerprint": superset_cand['fingerprint'],
-                     "subset_tests": subset_cand['tests'],
-                     "superset_tests": superset_cand['tests'],
-                     "subset_line_count": subset_cand['line_count'],
-                     "superset_line_count": superset_cand['line_count']
-                 })
-                 # Once we find ONE superset, this group is redundant.
-                 # No need to find all supersets for the report (reduce noise).
-                 break
+            if subset_lines.issubset(superset_cand["lines_set"]):
+                subset_redundancies.append(
+                    {
+                        "subset_fingerprint": subset_cand["fingerprint"],
+                        "superset_fingerprint": superset_cand["fingerprint"],
+                        "subset_tests": subset_cand["tests"],
+                        "superset_tests": superset_cand["tests"],
+                        "subset_line_count": subset_cand["line_count"],
+                        "superset_line_count": superset_cand["line_count"],
+                    }
+                )
+                # Once we find ONE superset, this group is redundant.
+                # No need to find all supersets for the report (reduce noise).
+                break
 
     return formatted_groups, subset_redundancies
+
 
 def main():
     report_dir = Path("reports/over_testing")
@@ -214,61 +229,59 @@ def main():
     out_csv = report_dir / "redundant_tests.csv"
 
     print(f"Step 3: Writing report to {out_csv}...")
-    with open(out_csv, 'w', newline='', encoding='utf-8') as f:
+    with open(out_csv, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
-        writer.writerow([
-            "type",
-            "test_count",
-            "lines_covered",
-            "unique_lines_per_test",
-            "description",
-            "tests"
-        ])
+        writer.writerow(
+            ["type", "test_count", "lines_covered", "unique_lines_per_test", "description", "tests"]
+        )
 
         redundant_groups = 0
         total_redundant_tests = 0
 
         # 1. Write Exact Duplicates
         for g in groups:
-            if g['test_count'] > 1:
+            if g["test_count"] > 1:
                 redundant_groups += 1
-                count = g['test_count']
-                total_redundant_tests += (count - 1)
+                count = g["test_count"]
+                total_redundant_tests += count - 1
 
-                writer.writerow([
-                    "EXACT_MATCH",
-                    count,
-                    g['line_count'],
-                    g['unique_lines_per_test'],
-                    f"Share exact same {g['line_count']} lines",
-                    json.dumps(g['tests'])
-                ])
+                writer.writerow(
+                    [
+                        "EXACT_MATCH",
+                        count,
+                        g["line_count"],
+                        g["unique_lines_per_test"],
+                        f"Share exact same {g['line_count']} lines",
+                        json.dumps(g["tests"]),
+                    ]
+                )
 
         # 2. Write Subsets
         for s in subsets:
-            count = len(s['subset_tests'])
+            count = len(s["subset_tests"])
             total_redundant_tests += count
 
             desc = f"Subset of {s['superset_tests'][0]} ({s['subset_line_count']} lines vs {s['superset_line_count']})"
 
-            writer.writerow([
-                "SUBSET_MATCH",
-                count,
-                s['subset_line_count'],
-                0, # Effective unique lines is 0 if it's a subset
-                desc,
-                json.dumps(s['subset_tests'])
-            ])
+            writer.writerow(
+                [
+                    "SUBSET_MATCH",
+                    count,
+                    s["subset_line_count"],
+                    0,  # Effective unique lines is 0 if it's a subset
+                    desc,
+                    json.dumps(s["subset_tests"]),
+                ]
+            )
 
-    print("\n" + "="*60)
+    print("\n" + "=" * 60)
     print(f"ANALYSIS COMPLETE")
     print(f"Total Unique Contexts: {len(coverage_map)}")
     print(f"Exact Duplicate Groups: {redundant_groups}")
     print(f"Subset Redundancy Groups: {len(subsets)}")
     print(f"Total Potential Redundant Tests: {total_redundant_tests}")
     print(f"Report saved to: {out_csv}")
-    print("="*60)
-
+    print("=" * 60)
 
 
 if __name__ == "__main__":

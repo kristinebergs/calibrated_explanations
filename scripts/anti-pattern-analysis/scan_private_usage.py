@@ -6,6 +6,7 @@ import os
 import json
 from pathlib import Path
 
+
 def load_analysis(analysis_file):
     analysis_data = {}
     if not os.path.exists(analysis_file):
@@ -19,6 +20,7 @@ def load_analysis(analysis_file):
     except Exception:
         pass
     return analysis_data
+
 
 def get_category_and_pattern(name, usage_file, analysis_data):
     # Default values
@@ -54,8 +56,8 @@ def get_category_and_pattern(name, usage_file, analysis_data):
     else:
         # If not in analysis_data
         if "_fixtures" in usage_file or "conftest" in usage_file:
-             category = "Category B: Test Utilities"
-             pattern = "Pattern 2 (Test Utility Fix)"
+            category = "Category B: Test Utilities"
+            pattern = "Pattern 2 (Test Utility Fix)"
         else:
             message = "Could not find definition in analysis data."
             # We can't be sure without more analysis, but usually private methods
@@ -72,7 +74,18 @@ def scan_workspace(root_path, analysis_data):
     # scanner behaviour and avoids false positives from src/ modules that have
     # "test" in their filename (e.g. plugins/_testing.py) — those are
     # legitimate private-member facades, not policy violations.
-    skip_dirs = {".ci-env", "venv", ".venv", ".git", "site-packages", "__pycache__", "build", "dist", "scripts", ".cache"}
+    skip_dirs = {
+        ".ci-env",
+        "venv",
+        ".venv",
+        ".git",
+        "site-packages",
+        "__pycache__",
+        "build",
+        "dist",
+        "scripts",
+        ".cache",
+    }
 
     test_files = []
     for dirpath, dirnames, filenames in os.walk(root):
@@ -107,7 +120,11 @@ def scan_workspace(root_path, analysis_data):
             name = None
             type_str = ""
             if isinstance(node, ast.Attribute):
-                if node.attr.startswith("_") and not node.attr.startswith("__") and node.attr != "_":
+                if (
+                    node.attr.startswith("_")
+                    and not node.attr.startswith("__")
+                    and node.attr != "_"
+                ):
                     name = node.attr
                     type_str = "attribute"
             elif (
@@ -131,11 +148,12 @@ def scan_workspace(root_path, analysis_data):
                         "type": type_str,
                         "category": cat,
                         "pattern": pat,
-                        "message": msg
+                        "message": msg,
                     }
                 )
 
     return occurrences
+
 
 def load_allowlist(allowlist_file):
     if not os.path.exists(allowlist_file):
@@ -147,6 +165,7 @@ def load_allowlist(allowlist_file):
     except Exception:
         return []
 
+
 def is_allowed(occurrence, allowlist):
     # Normalize occurrence file path to use forward slashes for comparison
     occ_file = occurrence["file"].replace("\\", "/")
@@ -157,14 +176,32 @@ def is_allowed(occurrence, allowlist):
             return True
     return False
 
+
 def main():
     import argparse
+
     parser = argparse.ArgumentParser(description="Scan for private member usage in tests.")
     parser.add_argument("roots", nargs="*", default=["."], help="Root directories to scan.")
-    parser.add_argument("--output", default="reports/anti-pattern-analysis/private_usage_scan.csv", help="Output CSV file.")
-    parser.add_argument("--analysis", default="reports/anti-pattern-analysis/private_method_analysis.csv", help="Path to private_method_analysis.csv.")
-    parser.add_argument("--allowlist", default=".github/private_member_allowlist.json", help="Path to private_member_allowlist.json.")
-    parser.add_argument("--check", action="store_true", help="Exit with code 1 if non-allowlisted violations are found.")
+    parser.add_argument(
+        "--output",
+        default="reports/anti-pattern-analysis/private_usage_scan.csv",
+        help="Output CSV file.",
+    )
+    parser.add_argument(
+        "--analysis",
+        default="reports/anti-pattern-analysis/private_method_analysis.csv",
+        help="Path to private_method_analysis.csv.",
+    )
+    parser.add_argument(
+        "--allowlist",
+        default=".github/private_member_allowlist.json",
+        help="Path to private_member_allowlist.json.",
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="Exit with code 1 if non-allowlisted violations are found.",
+    )
 
     args = parser.parse_args()
 
@@ -196,7 +233,9 @@ def main():
     Path(out_file).parent.mkdir(exist_ok=True, parents=True)
 
     with open(out_file, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["file", "line", "name", "type", "category", "pattern", "message"])
+        writer = csv.DictWriter(
+            f, fieldnames=["file", "line", "name", "type", "category", "pattern", "message"]
+        )
         writer.writeheader()
         writer.writerows(all_data)
 
@@ -222,6 +261,7 @@ def main():
     print("\nUsages by Pattern:")
     for pat, count in pat_counts.most_common():
         print(f"{pat:<40} {count}")
+
 
 if __name__ == "__main__":
     main()

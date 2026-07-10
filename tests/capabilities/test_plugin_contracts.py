@@ -26,9 +26,9 @@ def test_should_import_explainer_plugin_protocol_when_plugins_module_available()
     """
     from calibrated_explanations.plugins.base import ExplainerPlugin  # noqa: PLC0415
 
-    assert (
-        ExplainerPlugin is not None
-    ), "CE-REQ-PLUGIN-DOC-001: ExplainerPlugin must be importable and non-None"
+    assert ExplainerPlugin is not None, (
+        "CE-REQ-PLUGIN-DOC-001: ExplainerPlugin must be importable and non-None"
+    )
 
 
 def test_should_import_interval_calibrator_plugin_protocol_when_plugins_module_available():
@@ -40,6 +40,6 @@ def test_should_import_interval_calibrator_plugin_protocol_when_plugins_module_a
     """
     from calibrated_explanations.plugins.intervals import IntervalCalibratorPlugin  # noqa: PLC0415
 
-    assert (
-        IntervalCalibratorPlugin is not None
-    ), "CE-REQ-PLUGIN-DOC-001: IntervalCalibratorPlugin must be importable and non-None"
+    assert IntervalCalibratorPlugin is not None, (
+        "CE-REQ-PLUGIN-DOC-001: IntervalCalibratorPlugin must be importable and non-None"
+    )

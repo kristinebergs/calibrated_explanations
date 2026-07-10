@@ -39,9 +39,7 @@ _DEFAULT_OUTPUT = Path("reports/governance/governance_status.json")
 
 # Mapping from schema_checks key to the quality report file that provides the status.
 _REPORT_SOURCES: dict[str, Path] = {
-    "governance_event_schema": Path(
-        "reports/quality/governance_event_schema_report.json"
-    ),
+    "governance_event_schema": Path("reports/quality/governance_event_schema_report.json"),
     "config_manager_usage": Path("reports/config_manager_usage_report.json"),
     "logging_domains": Path("reports/quality/logging_domain_report.json"),
     "no_local_paths": Path("reports/quality/no_local_paths_report.json"),
@@ -128,8 +126,7 @@ def build_artifact(*, lint_status: dict[str, str] | None = None) -> dict:
         "ruff": "unavailable",
     }
     schema_checks: dict[str, str] = {
-        key: _status_from_report(path)
-        for key, path in _REPORT_SOURCES.items()
+        key: _status_from_report(path) for key, path in _REPORT_SOURCES.items()
     }
     return {
         "schema_version": "1.0",

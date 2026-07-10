@@ -6,6 +6,7 @@ from WrapCalibratedExplainer and CalibratedExplainer.
 Usage:
     python scripts/audit_notebook_api.py [path] [--check] [--json REPORT_PATH]
 """
+
 import argparse
 import ast
 import json
@@ -40,8 +41,8 @@ ALLOWED_API = {
     "fitted",
     "calibrated",
     "num_features",
-    "parallel_executor", # Exposed in wrapper
-    "auto_encode", # Config exposed in wrapper
+    "parallel_executor",  # Exposed in wrapper
+    "auto_encode",  # Config exposed in wrapper
     "preprocessor",
     "perf_cache",
     "perf_parallel",
@@ -73,7 +74,7 @@ class NotebookAPIVisitor(ast.NodeVisitor):
 
         # Also track methods in ALLOWED_API regardless of variable name (for usage stats)
         if node.attr in ALLOWED_API:
-             self.api_usage.add(node.attr)
+            self.api_usage.add(node.attr)
 
         self.generic_visit(node)
 
@@ -103,9 +104,9 @@ def audit_notebook(notebook_path: Path) -> Dict:
         return {
             "path": str(notebook_path),
             "error": f"Failed to parse notebook: {e}",
-            "compliant": True, # Parse error is not per se an API violation
+            "compliant": True,  # Parse error is not per se an API violation
             "violations": [],
-            "usage": []
+            "usage": [],
         }
 
     visitor = NotebookAPIVisitor()
@@ -124,19 +125,20 @@ def audit_notebook(notebook_path: Path) -> Dict:
         "path": str(notebook_path).replace("\\", "/"),
         "compliant": len(violations) == 0,
         "violations": violations,
-        "usage": usage
+        "usage": usage,
     }
 
 
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(description="Audit notebooks for API compliance")
-    parser.add_argument("path", nargs="?", default="notebooks",
-                        help="Notebook file or directory to audit")
-    parser.add_argument("--check", action="store_true",
-                        help="Fail (exit non-zero) if violations are detected")
-    parser.add_argument("--json", dest="json_report",
-                        help="Path to write JSON report")
+    parser.add_argument(
+        "path", nargs="?", default="notebooks", help="Notebook file or directory to audit"
+    )
+    parser.add_argument(
+        "--check", action="store_true", help="Fail (exit non-zero) if violations are detected"
+    )
+    parser.add_argument("--json", dest="json_report", help="Path to write JSON report")
 
     args = parser.parse_args()
 
@@ -145,11 +147,10 @@ def main():
         notebooks = [root_path]
     else:
         if not root_path.exists():
-             print(f"Path not found: {root_path}")
-             sys.exit(1)
+            print(f"Path not found: {root_path}")
+            sys.exit(1)
         # Recursively find .ipynb files, excluding checkpoints
-        notebooks = [p for p in root_path.rglob("*.ipynb")
-                     if ".ipynb_checkpoints" not in str(p)]
+        notebooks = [p for p in root_path.rglob("*.ipynb") if ".ipynb_checkpoints" not in str(p)]
 
     results = []
     any_violation = False
@@ -164,10 +165,10 @@ def main():
             for v in res["violations"]:
                 print(f"  - {v}")
         else:
-             if args.check and args.json_report is None:
-                 pass
-             elif not args.check:
-                 print(f"OK: {res['path']}")
+            if args.check and args.json_report is None:
+                pass
+            elif not args.check:
+                print(f"OK: {res['path']}")
 
         results.append(res)
 
@@ -175,9 +176,9 @@ def main():
         "summary": {
             "total": len(notebooks),
             "compliant": len([r for r in results if r["compliant"]]),
-            "failed": len([r for r in results if not r["compliant"]])
+            "failed": len([r for r in results if not r["compliant"]]),
         },
-        "notebooks": results
+        "notebooks": results,
     }
 
     if args.json_report:
@@ -191,7 +192,8 @@ def main():
         sys.exit(1)
 
     if args.check:
-         print("Audit passed.")
+        print("Audit passed.")
+
 
 if __name__ == "__main__":
     main()

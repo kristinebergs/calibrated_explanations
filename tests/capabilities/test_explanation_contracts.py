@@ -75,9 +75,9 @@ def test_should_produce_factual_explanations_when_fitted_and_calibrated(
     result = explainer.explain_factual(X_test)
 
     assert result is not None, "explain_factual must return a non-None object"
-    assert len(result) == len(
-        X_test
-    ), f"CE-REQ-EXPL-API-001: len(result)={len(result)} != len(X_test)={len(X_test)}"
+    assert len(result) == len(X_test), (
+        f"CE-REQ-EXPL-API-001: len(result)={len(result)} != len(X_test)={len(X_test)}"
+    )
     assert result[0] is not None, "CE-REQ-EXPL-API-001: result[0] must not be None"
 
 
@@ -116,9 +116,9 @@ def test_should_produce_alternative_explanations_when_fitted_and_calibrated(
     result = explainer.explore_alternatives(X_test)
 
     assert result is not None, "explore_alternatives must return a non-None object"
-    assert len(result) == len(
-        X_test
-    ), f"CE-REQ-EXPL-API-002: len(result)={len(result)} != len(X_test)={len(X_test)}"
+    assert len(result) == len(X_test), (
+        f"CE-REQ-EXPL-API-002: len(result)={len(result)} != len(X_test)={len(X_test)}"
+    )
     assert result[0] is not None, "CE-REQ-EXPL-API-002: result[0] must not be None"
 
 
@@ -154,13 +154,13 @@ def test_should_preserve_cardinality_when_factual_explain():
     """
     obs = run_factual_tif_scenario()
 
-    assert (
-        not obs.exception_raised
-    ), f"CE-REQ-EXPL-RETURN-001: explain_factual raised {obs.exception_type}"
+    assert not obs.exception_raised, (
+        f"CE-REQ-EXPL-RETURN-001: explain_factual raised {obs.exception_type}"
+    )
     assert not obs.result_is_none, "CE-REQ-EXPL-RETURN-001: result must not be None"
-    assert (
-        obs.result_len == obs.n_instances
-    ), f"CE-REQ-EXPL-RETURN-001: len(result)={obs.result_len} != n_instances={obs.n_instances}"
+    assert obs.result_len == obs.n_instances, (
+        f"CE-REQ-EXPL-RETURN-001: len(result)={obs.result_len} != n_instances={obs.n_instances}"
+    )
     assert not obs.first_item_is_none, "CE-REQ-EXPL-RETURN-001: result[0] must not be None"
 
 
@@ -174,12 +174,12 @@ def test_should_return_accessible_feature_weights_when_factual_explain():
     """
     obs = run_factual_tif_scenario()
 
-    assert (
-        not obs.exception_raised
-    ), f"CE-REQ-EXPL-RETURN-001: explain_factual raised {obs.exception_type}"
-    assert (
-        obs.feature_weights_accessible
-    ), "CE-REQ-EXPL-RETURN-001: result[0].feature_weights must be accessible and non-None"
+    assert not obs.exception_raised, (
+        f"CE-REQ-EXPL-RETURN-001: explain_factual raised {obs.exception_type}"
+    )
+    assert obs.feature_weights_accessible, (
+        "CE-REQ-EXPL-RETURN-001: result[0].feature_weights must be accessible and non-None"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -199,13 +199,13 @@ def test_should_preserve_cardinality_when_alternative_explain():
     """
     obs = run_alternative_tif_scenario()
 
-    assert (
-        not obs.exception_raised
-    ), f"CE-REQ-EXPL-ALT-RETURN-001: explore_alternatives raised {obs.exception_type}"
+    assert not obs.exception_raised, (
+        f"CE-REQ-EXPL-ALT-RETURN-001: explore_alternatives raised {obs.exception_type}"
+    )
     assert not obs.result_is_none, "CE-REQ-EXPL-ALT-RETURN-001: result must not be None"
-    assert (
-        obs.result_len == obs.n_instances
-    ), f"CE-REQ-EXPL-ALT-RETURN-001: len(result)={obs.result_len} != n_instances={obs.n_instances}"
+    assert obs.result_len == obs.n_instances, (
+        f"CE-REQ-EXPL-ALT-RETURN-001: len(result)={obs.result_len} != n_instances={obs.n_instances}"
+    )
     assert not obs.first_item_is_none, "CE-REQ-EXPL-ALT-RETURN-001: result[0] must not be None"
 
 
@@ -219,9 +219,9 @@ def test_should_return_alternative_explanations_type_when_explore_alternatives()
     """
     obs = run_alternative_tif_scenario()
 
-    assert (
-        not obs.exception_raised
-    ), f"CE-REQ-EXPL-ALT-RETURN-001: explore_alternatives raised {obs.exception_type}"
+    assert not obs.exception_raised, (
+        f"CE-REQ-EXPL-ALT-RETURN-001: explore_alternatives raised {obs.exception_type}"
+    )
     assert obs.result_type_name == "AlternativeExplanations", (
         f"CE-REQ-EXPL-ALT-RETURN-001: expected type 'AlternativeExplanations', "
         f"got '{obs.result_type_name}'"

@@ -1842,10 +1842,7 @@ class ExplanationOrchestrator:
             return f"{prefix}: plugin metadata missing tasks declaration"
         if "both" not in tasks and self.explainer.mode not in tasks:
             declared = ", ".join(tasks)
-            return (
-                f"{prefix}: does not support task '{self.explainer.mode}' "
-                f"(declared: {declared})"
-            )
+            return f"{prefix}: does not support task '{self.explainer.mode}' (declared: {declared})"
 
         modes = coerce_string_tuple(metadata.get("modes"))
         if not modes:

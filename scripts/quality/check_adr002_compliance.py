@@ -18,6 +18,7 @@ DISALLOWED_WARNINGS = {
     "RuntimeWarning",
 }
 
+
 def _is_allowlisted(filepath: str | Path, lineno: int, end_lineno: int | None = None) -> bool:
     """Return True if the given line range or the preceding comment allows ADR002."""
     filepath = str(filepath)
@@ -51,7 +52,7 @@ def check_file(filepath):
         if isinstance(node, ast.Raise):
             exc_name = None
             if node.exc is None:
-                continue # bare raise is okay (re-raise)
+                continue  # bare raise is okay (re-raise)
 
             if isinstance(node.exc, ast.Call) and isinstance(node.exc.func, ast.Name):
                 exc_name = node.exc.func.id
@@ -61,7 +62,12 @@ def check_file(filepath):
             if exc_name in DISALLOWED_RAISED_EXCEPTIONS:
                 if _is_allowlisted(filepath, node.lineno, getattr(node, "end_lineno", None)):
                     continue
-                violations.append((node.lineno, f"Raised disallowed exception: {exc_name}. Use CalibratedError or subclasses per ADR-002."))
+                violations.append(
+                    (
+                        node.lineno,
+                        f"Raised disallowed exception: {exc_name}. Use CalibratedError or subclasses per ADR-002.",
+                    )
+                )
 
         # Check for disallowed exceptions in ExceptHandler
         if isinstance(node, ast.ExceptHandler):
@@ -80,22 +86,32 @@ def check_file(filepath):
                 if name in DISALLOWED_CAUGHT_EXCEPTIONS:
                     if _is_allowlisted(filepath, node.lineno, getattr(node, "end_lineno", None)):
                         continue
-                    violations.append((node.lineno, f"Caught disallowed exception: {name}. This may mask root causes; prefer specific handling or CalibratedError types if applicable."))
+                    violations.append(
+                        (
+                            node.lineno,
+                            f"Caught disallowed exception: {name}. This may mask root causes; prefer specific handling or CalibratedError types if applicable.",
+                        )
+                    )
 
         # Check for warnings.warn usage
         if isinstance(node, ast.Call):
-            if isinstance(node.func, ast.Attribute) and node.func.attr == 'warn':
+            if isinstance(node.func, ast.Attribute) and node.func.attr == "warn":
                 # Check if it's warnings.warn (heuristic)
 
                 # Check keywords for stacklevel
                 has_stacklevel = False
                 for keyword in node.keywords:
-                    if keyword.arg == 'stacklevel':
+                    if keyword.arg == "stacklevel":
                         has_stacklevel = True
                         break
 
                 if not has_stacklevel:
-                     violations.append((node.lineno, "warnings.warn() called without 'stacklevel' argument (ADR-002 best practice)."))
+                    violations.append(
+                        (
+                            node.lineno,
+                            "warnings.warn() called without 'stacklevel' argument (ADR-002 best practice).",
+                        )
+                    )
 
                 # Check category
                 category = None
@@ -105,13 +121,17 @@ def check_file(filepath):
 
                 # Check keywords for category
                 for keyword in node.keywords:
-                    if keyword.arg == 'category':
+                    if keyword.arg == "category":
                         if isinstance(keyword.value, ast.Name):
                             category = keyword.value.id
 
-
                 if category in DISALLOWED_WARNINGS:
-                    violations.append((node.lineno, f"Used disallowed warning category: {category}. Use specific warnings or CalibratedError types."))
+                    violations.append(
+                        (
+                            node.lineno,
+                            f"Used disallowed warning category: {category}. Use specific warnings or CalibratedError types.",
+                        )
+                    )
 
     return violations
 
@@ -140,6 +160,7 @@ def main():
     else:
         print("No ADR-002 violations found.")
         sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

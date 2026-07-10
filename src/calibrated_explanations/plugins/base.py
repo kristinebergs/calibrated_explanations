@@ -242,12 +242,11 @@ def validate_plugin_config_schema(schema: Mapping[str, Any]) -> None:
         if choices is not None:
             if isinstance(choices, str) or not isinstance(choices, Iterable):
                 raise ValidationError(
-                    f"plugin_meta['config_schema']['keys'][{key!r}]['choices'] "
-                    "must be a sequence"
+                    f"plugin_meta['config_schema']['keys'][{key!r}]['choices'] must be a sequence"
                 )
             if not tuple(choices):
                 raise ValidationError(
-                    f"plugin_meta['config_schema']['keys'][{key!r}]['choices'] " "must not be empty"
+                    f"plugin_meta['config_schema']['keys'][{key!r}]['choices'] must not be empty"
                 )
         if "default" in entry and not _config_value_matches_type(entry["default"], str(raw_type)):
             raise ValidationError(

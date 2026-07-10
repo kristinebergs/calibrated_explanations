@@ -35,7 +35,9 @@ def _node_span(node: ast.AST) -> Tuple[int, int]:
     return int(start), int(end)
 
 
-def _collect_targets(tree: ast.Module, class_name: str | None, test_name: str) -> List[Tuple[int, int]]:
+def _collect_targets(
+    tree: ast.Module, class_name: str | None, test_name: str
+) -> List[Tuple[int, int]]:
     spans: List[Tuple[int, int]] = []
     if class_name is None:
         for node in tree.body:
@@ -46,7 +48,10 @@ def _collect_targets(tree: ast.Module, class_name: str | None, test_name: str) -
     for node in tree.body:
         if isinstance(node, ast.ClassDef) and node.name == class_name:
             for child in node.body:
-                if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef)) and child.name == test_name:
+                if (
+                    isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    and child.name == test_name
+                ):
                     spans.append(_node_span(child))
     return spans
 
@@ -76,8 +81,12 @@ def _remove_spans(lines: List[str], spans: List[Tuple[int, int]]) -> List[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--nodeids-file", required=True, help="Path to text file containing one nodeid per line")
-    parser.add_argument("--write-applied", help="Optional output file for successfully removed nodeids")
+    parser.add_argument(
+        "--nodeids-file", required=True, help="Path to text file containing one nodeid per line"
+    )
+    parser.add_argument(
+        "--write-applied", help="Optional output file for successfully removed nodeids"
+    )
     parser.add_argument("--write-missing", help="Optional output file for nodeids not found")
     args = parser.parse_args()
 
@@ -131,9 +140,13 @@ def main() -> int:
         applied.extend(sorted(matched_ids))
 
     if args.write_applied:
-        Path(args.write_applied).write_text("\n".join(applied) + ("\n" if applied else ""), encoding="utf-8")
+        Path(args.write_applied).write_text(
+            "\n".join(applied) + ("\n" if applied else ""), encoding="utf-8"
+        )
     if args.write_missing:
-        Path(args.write_missing).write_text("\n".join(missing) + ("\n" if missing else ""), encoding="utf-8")
+        Path(args.write_missing).write_text(
+            "\n".join(missing) + ("\n" if missing else ""), encoding="utf-8"
+        )
 
     print(f"removed {len(applied)} tests; missing {len(missing)}")
     return 0

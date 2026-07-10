@@ -117,10 +117,7 @@ def discover_notebooks(root: Path) -> list[Path]:
     list[Path]
         Sorted list of notebook paths.
     """
-    return sorted(
-        p for p in root.rglob("*.ipynb")
-        if ".ipynb_checkpoints" not in p.parts
-    )
+    return sorted(p for p in root.rglob("*.ipynb") if ".ipynb_checkpoints" not in p.parts)
 
 
 def read_skip_tag(nb_metadata: dict[str, Any]) -> str | None:
@@ -220,9 +217,7 @@ def _execute_with_notebook_timeout(
                 km.shutdown_kernel(now=True)
         except Exception as exc:  # noqa: BLE001
             logger.debug("Kernel shutdown after notebook timeout failed: %s", exc)
-        raise TimeoutError(
-            f"Notebook exceeded {notebook_timeout}s wall-clock timeout"
-        )
+        raise TimeoutError(f"Notebook exceeded {notebook_timeout}s wall-clock timeout")
     if exc_holder[0] is not None:
         raise exc_holder[0]
     return result[0], result[1]
@@ -249,8 +244,7 @@ def validate_report_schema(report: dict[str, Any]) -> list[str]:
         status = rec.get("status", "")
         if status not in VALID_STATUSES:
             errs.append(
-                f"Record {i}: unknown status '{status}'. "
-                f"Valid statuses: {sorted(VALID_STATUSES)}"
+                f"Record {i}: unknown status '{status}'. Valid statuses: {sorted(VALID_STATUSES)}"
             )
     return errs
 
@@ -301,8 +295,7 @@ def run_notebooks(
             cell_timeout_error_type = None
     except ImportError as exc:
         print(
-            f"ERROR: nbconvert is not installed. "
-            f"Install calibrated_explanations[notebooks]: {exc}",
+            f"ERROR: nbconvert is not installed. Install calibrated_explanations[notebooks]: {exc}",
             file=sys.stderr,
         )
         return 1
@@ -453,9 +446,8 @@ def run_notebooks(
             ]
         except Exception as exc:  # noqa: BLE001
             elapsed = time.monotonic() - start
-            is_cell_timeout = (
-                cell_timeout_error_type is not None
-                and isinstance(exc, cell_timeout_error_type)
+            is_cell_timeout = cell_timeout_error_type is not None and isinstance(
+                exc, cell_timeout_error_type
             )
             if is_cell_timeout:
                 status = "timed_out"
@@ -504,12 +496,8 @@ def run_notebooks(
         "passed": sum(1 for r in records if r["status"] == "passed"),
         "failed": sum(1 for r in records if r["status"] == "failed"),
         "timed_out": sum(1 for r in records if r["status"] == "timed_out"),
-        "skipped_noexec": sum(
-            1 for r in records if r["status"] == "skipped_noexec"
-        ),
-        "skipped_slow": sum(
-            1 for r in records if r["status"] == "skipped_slow"
-        ),
+        "skipped_noexec": sum(1 for r in records if r["status"] == "skipped_noexec"),
+        "skipped_slow": sum(1 for r in records if r["status"] == "skipped_slow"),
         "mode": mode,
     }
 

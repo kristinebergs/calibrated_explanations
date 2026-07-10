@@ -173,8 +173,12 @@ def main(argv: list[str] | None = None) -> int:
     # Extras-pollution check (only informational — extras may be installed)
     imported_extras = _check_no_extras_pollution()
     if imported_extras:
-        print(f"\nNote: the following extras-only modules are present in sys.modules: {imported_extras[:5]}")
-        print("  (This is expected when extras are installed; run in a core-only venv to detect true pollution.)")
+        print(
+            f"\nNote: the following extras-only modules are present in sys.modules: {imported_extras[:5]}"
+        )
+        print(
+            "  (This is expected when extras are installed; run in a core-only venv to detect true pollution.)"
+        )
 
     report_payload = {
         "success": success,

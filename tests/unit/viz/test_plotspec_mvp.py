@@ -130,9 +130,9 @@ def testplot_regression_default_save_paths_include_title(monkeypatch, tmp_path):
                     found_indicators.add(indicator)
 
     # Verify at least the expected formats are present in the filenames
-    assert (
-        len(found_indicators) >= 3
-    ), f"Should find indicators for 3 formats, got {found_indicators}"
+    assert len(found_indicators) >= 3, (
+        f"Should find indicators for 3 formats, got {found_indicators}"
+    )
 
 
 def test_plotspec_sorting_abs_means_distance_from_zero():

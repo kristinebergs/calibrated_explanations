@@ -53,6 +53,8 @@ def _extract_section_text(text: str, section_name: str) -> str:
     pattern = rf"(?m)^##\s+{re.escape(section_name)}\s*$\n(.*?)(?=^##\s|\Z)"
     m = re.search(pattern, text, re.DOTALL)
     return m.group(1).strip() if m else ""
+
+
 _DATE_SUFFIX = _NOW.strftime("%Y%m%d")
 _TIMESTAMP = _NOW.isoformat()
 
@@ -128,7 +130,9 @@ def _parse_tif_spec(spec_path: Path) -> dict[str, Any]:
     requirements_served: list[str] = re.findall(r"\|\s*(CE-REQ-[\w-]+)\s*\|", reqs_section)
 
     claims_section = _extract_section_text(text, "Claims served")
-    claims_served: list[str] = re.findall(r"^\s*[-*]\s+(CE-CAP-[\w-]+)", claims_section, re.MULTILINE)
+    claims_served: list[str] = re.findall(
+        r"^\s*[-*]\s+(CE-CAP-[\w-]+)", claims_section, re.MULTILINE
+    )
 
     adr_section = _extract_section_text(text, "ADR refs")
     adr_refs: list[str] = re.findall(r"^\s*[-*]\s+(ADR-\d+)", adr_section, re.MULTILINE)
@@ -257,9 +261,7 @@ def _validate_payload_against_spec(
         payload_claims = set(payload.get("claim_ids", []))
         missing = [c for c in spec_claims if c not in payload_claims]
         if missing:
-            raise ValueError(
-                f"payload claim_ids missing spec-declared claims: {missing}"
-            )
+            raise ValueError(f"payload claim_ids missing spec-declared claims: {missing}")
 
     spec_reqs = meta.get("requirements_served", [])
     if spec_reqs:
@@ -275,9 +277,7 @@ def _validate_payload_against_spec(
         payload_adrs = set(payload.get("adr_refs", []))
         missing = [a for a in spec_adr_refs if a not in payload_adrs]
         if missing:
-            raise ValueError(
-                f"payload adr_refs missing spec-declared ADR refs: {missing}"
-            )
+            raise ValueError(f"payload adr_refs missing spec-declared ADR refs: {missing}")
 
     if spec_reqs:
         criteria_refs: set[str] = set()

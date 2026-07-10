@@ -8,7 +8,8 @@ original_count = len(data["allowlist"])
 
 # Filter for legacy only
 new_allowlist = [
-    entry for entry in data["allowlist"]
+    entry
+    for entry in data["allowlist"]
     if entry["file"].replace("\\", "/").startswith("tests/legacy/")
 ]
 

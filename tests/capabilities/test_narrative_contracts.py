@@ -82,9 +82,9 @@ def test_should_return_non_empty_string_when_narrative_text_format(
     """
     result = factual_explanations.to_narrative(output_format="text")
 
-    assert (
-        result is not None
-    ), "CE-REQ-NARR-API-001: to_narrative(output_format='text') must return non-None"
+    assert result is not None, (
+        "CE-REQ-NARR-API-001: to_narrative(output_format='text') must return non-None"
+    )
     assert isinstance(result, str), f"CE-REQ-NARR-API-001: result must be str, got {type(result)}"
     assert len(result) > 0, "CE-REQ-NARR-API-001: to_narrative text output must be non-empty"
 

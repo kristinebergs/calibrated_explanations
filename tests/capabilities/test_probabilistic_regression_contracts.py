@@ -71,12 +71,12 @@ def test_should_return_bounded_probabilities_when_regression_threshold_query(
 
     assert result is not None, "predict_proba with threshold must return a non-None object"
     arr = np.asarray(result)
-    assert (
-        arr.min() >= 0.0
-    ), f"CE-REQ-PRED-PROB-API-001: probabilities must be >= 0, got min={arr.min()}"
-    assert (
-        arr.max() <= 1.0
-    ), f"CE-REQ-PRED-PROB-API-001: probabilities must be <= 1, got max={arr.max()}"
+    assert arr.min() >= 0.0, (
+        f"CE-REQ-PRED-PROB-API-001: probabilities must be >= 0, got min={arr.min()}"
+    )
+    assert arr.max() <= 1.0, (
+        f"CE-REQ-PRED-PROB-API-001: probabilities must be <= 1, got max={arr.max()}"
+    )
 
 
 def test_should_return_correct_length_when_regression_threshold_query(
@@ -91,9 +91,9 @@ def test_should_return_correct_length_when_regression_threshold_query(
 
     result = explainer.predict_proba(X_test, threshold=y_threshold)
 
-    assert len(result) == len(
-        X_test
-    ), f"CE-REQ-PRED-PROB-API-001: len(result)={len(result)} != len(X_test)={len(X_test)}"
+    assert len(result) == len(X_test), (
+        f"CE-REQ-PRED-PROB-API-001: len(result)={len(result)} != len(X_test)={len(X_test)}"
+    )
 
 
 def test_should_return_event_probability_in_column_one_when_regression_threshold_query(

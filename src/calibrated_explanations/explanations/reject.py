@@ -52,7 +52,7 @@ def normalize_reject_ncf_choice(ncf: str) -> str:
     lowered = str(ncf).strip().lower()
     if lowered in _REMOVED_LEGACY_NCF:
         raise ValueError(  # adr002_allow - public dataclass validation contract uses ValueError
-            "Legacy ncf value 'entropy' is no longer supported; " "use ncf='default' instead."
+            "Legacy ncf value 'entropy' is no longer supported; use ncf='default' instead."
         )
     if lowered in _REMOVED_EXPLICIT_NCF:
         raise ValueError(  # adr002_allow - public dataclass validation contract uses ValueError

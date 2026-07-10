@@ -228,7 +228,11 @@ class FunctionProbe(ast.NodeVisitor):
     def _is_random_call(self, base: str, attr: str) -> bool:
         if base in self.random_modules and attr in RNG_METHODS:
             return True
-        if not base and attr in self.random_functions and self.random_functions[attr] in RNG_METHODS:
+        if (
+            not base
+            and attr in self.random_functions
+            and self.random_functions[attr] in RNG_METHODS
+        ):
             return True
         return False
 
@@ -253,9 +257,23 @@ class FunctionProbe(ast.NodeVisitor):
     def _is_network_call(self, base: str, attr: str) -> bool:
         if (base, attr) in NETWORK_CALLS:
             return True
-        if base in self.requests_aliases and attr in {"get", "post", "put", "delete", "patch", "request"}:
+        if base in self.requests_aliases and attr in {
+            "get",
+            "post",
+            "put",
+            "delete",
+            "patch",
+            "request",
+        }:
             return True
-        if base in self.httpx_aliases and attr in {"get", "post", "put", "delete", "patch", "request"}:
+        if base in self.httpx_aliases and attr in {
+            "get",
+            "post",
+            "put",
+            "delete",
+            "patch",
+            "request",
+        }:
             return True
         if base in self.urllib_request_aliases and attr == "urlopen":
             return True
@@ -459,7 +477,9 @@ class AntiPatternVisitor(ast.NodeVisitor):
     def _record(self, node: ast.AST, pattern: str) -> None:
         lineno = getattr(node, "lineno", 0)
         snippet = self._format_snippet(lineno)
-        self.findings.append(Finding(self.path, self.stable_file, lineno, pattern, snippet, self.file_hash))
+        self.findings.append(
+            Finding(self.path, self.stable_file, lineno, pattern, snippet, self.file_hash)
+        )
 
     def _format_snippet(self, lineno: int) -> str:
         if 1 <= lineno <= len(self.lines):
@@ -560,7 +580,9 @@ def scan_tests(tree_root: Path) -> list[Finding]:
     return findings
 
 
-def write_csv_report(findings: Iterable[Finding], output_path: Path, root: Path | None = None) -> None:
+def write_csv_report(
+    findings: Iterable[Finding], output_path: Path, root: Path | None = None
+) -> None:
     """Write findings to CSV."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", newline="", encoding="utf-8") as handle:
@@ -628,7 +650,9 @@ def load_baseline(path: Path) -> dict[str, dict[str, object]]:
     return indexed
 
 
-def find_new_violations(findings: Iterable[Finding], baseline: dict[str, dict[str, object]]) -> list[Finding]:
+def find_new_violations(
+    findings: Iterable[Finding], baseline: dict[str, dict[str, object]]
+) -> list[Finding]:
     """Return findings not covered by baseline id."""
     new_findings: list[Finding] = []
     for finding in findings:
@@ -649,7 +673,9 @@ def write_baseline(path: Path, findings: Iterable[Finding], root: Path) -> None:
         "version": 1,
         "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "tests_dir": _to_repo_relative(root),
-        "entries": sorted(entries, key=lambda item: (str(item["file"]), int(item["line"]), str(item["pattern"]))),
+        "entries": sorted(
+            entries, key=lambda item: (str(item["file"]), int(item["line"]), str(item["pattern"]))
+        ),
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -659,7 +685,9 @@ def write_baseline(path: Path, findings: Iterable[Finding], root: Path) -> None:
     )
 
 
-def print_rebaseline_diff(old: dict[str, dict[str, object]], findings: list[Finding], root: Path) -> None:
+def print_rebaseline_diff(
+    old: dict[str, dict[str, object]], findings: list[Finding], root: Path
+) -> None:
     """Print diff summary for rebaseline workflows."""
     current = {finding.finding_id: finding.to_record(root=root) for finding in findings}
     old_ids = set(old.keys())
@@ -718,7 +746,11 @@ def _is_mock_interaction_expression(node: ast.AST) -> bool:
     for child in ast.walk(node):
         if isinstance(child, ast.Call) and _is_mock_assertion_call(child):
             return True
-        if isinstance(child, ast.Attribute) and child.attr in {"called", "call_count", "await_count"}:
+        if isinstance(child, ast.Attribute) and child.attr in {
+            "called",
+            "call_count",
+            "await_count",
+        }:
             return True
     return False
 

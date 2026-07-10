@@ -64,9 +64,9 @@ def test_should_keep_default_and_fast_chains_separate():
     fast_id = DEFAULT_INTERVAL_IDENTIFIERS["fast"]
 
     # The fast identifier must not bleed into the default chain
-    assert (
-        fast_id not in default_chain
-    ), f"'{fast_id}' leaked into the non-fast default chain: {default_chain}"
+    assert fast_id not in default_chain, (
+        f"'{fast_id}' leaked into the non-fast default chain: {default_chain}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -97,9 +97,9 @@ def test_should_structurally_conform_when_third_party_implements_protocol():
     # Check structural conformance: required methods exist with expected signatures
     required_methods = ["predict_proba", "is_multiclass", "is_mondrian"]
     for method_name in required_methods:
-        assert hasattr(
-            calibrator, method_name
-        ), f"Third-party calibrator missing required method: {method_name}"
+        assert hasattr(calibrator, method_name), (
+            f"Third-party calibrator missing required method: {method_name}"
+        )
 
     # predict_proba must accept (x, *, output_interval, classes, bins)
     sig = inspect.signature(calibrator.predict_proba)
@@ -154,17 +154,17 @@ def test_should_confirm_interval_regressor_implements_required_protocol_methods(
     ]
     ir = IntervalRegressor.__new__(IntervalRegressor)
     for method_name in required:
-        assert hasattr(
-            IntervalRegressor, method_name
-        ), f"IntervalRegressor missing required protocol method: {method_name}"
+        assert hasattr(IntervalRegressor, method_name), (
+            f"IntervalRegressor missing required protocol method: {method_name}"
+        )
 
     # Structural protocol conformance — isinstance checks pass at runtime
-    assert isinstance(
-        ir, RegressionIntervalCalibrator
-    ), "IntervalRegressor must satisfy RegressionIntervalCalibrator structural protocol"
-    assert isinstance(
-        ir, ClassificationIntervalCalibrator
-    ), "IntervalRegressor must satisfy ClassificationIntervalCalibrator structural protocol"
+    assert isinstance(ir, RegressionIntervalCalibrator), (
+        "IntervalRegressor must satisfy RegressionIntervalCalibrator structural protocol"
+    )
+    assert isinstance(ir, ClassificationIntervalCalibrator), (
+        "IntervalRegressor must satisfy ClassificationIntervalCalibrator structural protocol"
+    )
 
     # is_multiclass and is_mondrian must accept no required positional args beyond self
     for name in ("is_multiclass", "is_mondrian"):
@@ -190,9 +190,9 @@ def test_should_confirm_venn_abers_implements_full_classification_protocol_signa
 
     required = ["predict_proba", "is_multiclass", "is_mondrian"]
     for method_name in required:
-        assert hasattr(
-            VennAbers, method_name
-        ), f"VennAbers missing required protocol method: {method_name}"
+        assert hasattr(VennAbers, method_name), (
+            f"VennAbers missing required protocol method: {method_name}"
+        )
 
     # Full signature conformance: output_interval, classes, bins must be present
     sig = inspect.signature(VennAbers.predict_proba)

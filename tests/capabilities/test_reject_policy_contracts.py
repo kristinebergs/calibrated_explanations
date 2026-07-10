@@ -69,9 +69,9 @@ def test_should_return_explanations_when_reject_policy_flag_provided(
 
     result = explainer.explain_factual(X_test, reject_policy=RejectPolicySpec.flag())
 
-    assert (
-        result is not None
-    ), "CE-REQ-REJECT-API-001: explain_factual with RejectPolicySpec.flag() must return non-None"
-    assert len(result) == len(
-        X_test
-    ), f"CE-REQ-REJECT-API-001: len(result)={len(result)} != len(X_test)={len(X_test)}"
+    assert result is not None, (
+        "CE-REQ-REJECT-API-001: explain_factual with RejectPolicySpec.flag() must return non-None"
+    )
+    assert len(result) == len(X_test), (
+        f"CE-REQ-REJECT-API-001: len(result)={len(result)} != len(X_test)={len(X_test)}"
+    )

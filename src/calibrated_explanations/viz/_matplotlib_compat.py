@@ -146,8 +146,8 @@ def _plot_probabilistic(
     resolved_explainer = _resolve_explainer(explanation)
     if explanation.is_thresholded():
         if np.isscalar(explanation.y_threshold):
-            ax_negative.set_yticklabels(labels=[f"P(y>{float(explanation.y_threshold) :.2f})"])
-            ax_positive.set_yticklabels(labels=[f"P(y<={float(explanation.y_threshold) :.2f})"])
+            ax_negative.set_yticklabels(labels=[f"P(y>{float(explanation.y_threshold):.2f})"])
+            ax_positive.set_yticklabels(labels=[f"P(y<={float(explanation.y_threshold):.2f})"])
         else:  # interval threshold
             ax_negative.set_yticklabels(
                 labels=[
@@ -161,20 +161,20 @@ def _plot_probabilistic(
             )  # pylint: disable=line-too-long
     elif explanation.get_class_labels() is None:
         if getattr(resolved_explainer, "is_multiclass", lambda: False)():  # pylint: disable=protected-access
-            ax_negative.set_yticklabels(labels=[f'P(y!={explanation.prediction["classes"]})'])
-            ax_positive.set_yticklabels(labels=[f'P(y={explanation.prediction["classes"]})'])
+            ax_negative.set_yticklabels(labels=[f"P(y!={explanation.prediction['classes']})"])
+            ax_positive.set_yticklabels(labels=[f"P(y={explanation.prediction['classes']})"])
         else:
             ax_negative.set_yticklabels(labels=["P(y=0)"])
             ax_positive.set_yticklabels(labels=["P(y=1)"])
     elif explanation.is_multiclass:  # pylint: disable=protected-access
         ax_negative.set_yticklabels(
             labels=[
-                f'P(y!={explanation.get_class_labels()[int(explanation.prediction["classes"])]})'
+                f"P(y!={explanation.get_class_labels()[int(explanation.prediction['classes'])]})"
             ]
         )  # pylint: disable=line-too-long
         ax_positive.set_yticklabels(
             labels=[
-                f'P(y={explanation.get_class_labels()[int(explanation.prediction["classes"])]})'
+                f"P(y={explanation.get_class_labels()[int(explanation.prediction['classes'])]})"
             ]
         )  # pylint: disable=line-too-long
     else:
@@ -590,13 +590,13 @@ def plot_alternative(
     else:
         if explanation.get_class_labels() is None:
             if getattr(resolved_explainer, "is_multiclass", lambda: False)():  # pylint: disable=protected-access
-                ax_main.set_xlabel(f'Probability for class \'{explanation.prediction["classes"]}\'')
+                ax_main.set_xlabel(f"Probability for class '{explanation.prediction['classes']}'")
             else:
                 ax_main.set_xlabel("Probability for the positive class")
         elif getattr(resolved_explainer, "is_multiclass", lambda: False)():  # pylint: disable=protected-access
             # pylint: disable=line-too-long
             ax_main.set_xlabel(
-                f'Probability for class \'{explanation.get_class_labels()[explanation.prediction["classes"]]}\''
+                f"Probability for class '{explanation.get_class_labels()[explanation.prediction['classes']]}'"
             )
         else:
             ax_main.set_xlabel(f"Probability for class '{explanation.get_class_labels()[1]}'")
@@ -686,9 +686,9 @@ def plot_global(explainer, x, y=None, threshold=None, **kwargs):
                     UserWarning,
                     stacklevel=2,
                 )
-            assert np.isscalar(
-                threshold
-            ), "The threshold parameter must be a single constant value for all instances when used in plot_global."  # pylint: disable=line-too-long
+            assert np.isscalar(threshold), (
+                "The threshold parameter must be a single constant value for all instances when used in plot_global."
+            )  # pylint: disable=line-too-long
             y = np.array([0 if y[i] >= threshold else 1 for i in range(len(y))])
             labels = [f"Y >= {threshold}", f"Y < {threshold}"]
         else:

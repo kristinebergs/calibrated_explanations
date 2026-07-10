@@ -29,6 +29,7 @@ Usage examples:
   # Run in PowerShell explicitly
   python scripts/run_ci_locally.py --shell pwsh
 """
+
 from __future__ import annotations
 
 import argparse
@@ -149,7 +150,9 @@ def extract_run_steps(workflow: Dict[str, Any]) -> List[Dict[str, Any]]:
     return out
 
 
-def collect_all_runs(workflow_files: List[str], selected: Optional[List[str]] = None) -> Dict[str, List[Dict[str, Any]]]:
+def collect_all_runs(
+    workflow_files: List[str], selected: Optional[List[str]] = None
+) -> Dict[str, List[Dict[str, Any]]]:
     collected: Dict[str, List[Dict[str, Any]]] = {}
     for wf in workflow_files:
         base = os.path.basename(wf)
@@ -323,7 +326,9 @@ def run_script_block(
     # requested working directory so we can invoke it by a relative path
     # (avoids path conversion/mount issues with MSYS/MinGW).
     temp_dir = cwd or os.getcwd()
-    with tempfile.NamedTemporaryFile("w", delete=False, suffix=".sh", dir=temp_dir, newline="\n") as fh:
+    with tempfile.NamedTemporaryFile(
+        "w", delete=False, suffix=".sh", dir=temp_dir, newline="\n"
+    ) as fh:
         fh.write(script)
         tmp = fh.name
     gh_output_path = None
@@ -399,12 +404,25 @@ def summary_cwd(cwd: Optional[str]) -> str:
 
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Run CI workflow steps locally")
-    parser.add_argument("--workflow", action="append", help="Workflow basename to run (without extension)")
+    parser.add_argument(
+        "--workflow", action="append", help="Workflow basename to run (without extension)"
+    )
     default_shell = "pwsh" if os.name == "nt" else "bash"
-    parser.add_argument("--shell", choices=("bash", "pwsh"), default=default_shell, help="Shell to use for running steps")
-    parser.add_argument("--dry-run", action="store_true", help="Only print discovered steps without executing")
-    parser.add_argument("--continue-on-error", action="store_true", help="Continue running other steps if one fails")
-    parser.add_argument("--cwd", default=".", help="Working directory for commands (defaults to repo root)")
+    parser.add_argument(
+        "--shell",
+        choices=("bash", "pwsh"),
+        default=default_shell,
+        help="Shell to use for running steps",
+    )
+    parser.add_argument(
+        "--dry-run", action="store_true", help="Only print discovered steps without executing"
+    )
+    parser.add_argument(
+        "--continue-on-error", action="store_true", help="Continue running other steps if one fails"
+    )
+    parser.add_argument(
+        "--cwd", default=".", help="Working directory for commands (defaults to repo root)"
+    )
     args = parser.parse_args(argv)
 
     workflow_files = find_workflow_files()
@@ -453,26 +471,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             # installs performed in bash are visible to later bash steps).
             # Finally, if neither is defined, default to the user-selected shell.
             step_shell = s.get("shell") or s.get("job_shell") or args.shell
-            script = render_step_expressions(s['run'], step_outputs)
+            script = render_step_expressions(s["run"], step_outputs)
             if offline and should_skip_for_offline(script):
                 print("-> Skipping step due to offline mode (network-required command).")
-                results.append({
-                    "workflow": wf_name,
-                    "job": s["job"],
-                    "step": s["name"],
-                    "rc": 0,
-                    "run": script,
-                    "setup_python": s.get("setup_python", False),
-                    "shell": step_shell,
-                    "skipped": True,
-                    "skip_reason": "network-required command",
-                })
-                continue
-            if offline:
-                missing_tool = missing_offline_dependency(script)
-                if missing_tool:
-                    print(f"-> Skipping step due to offline mode (missing tool: {missing_tool}).")
-                    results.append({
+                results.append(
+                    {
                         "workflow": wf_name,
                         "job": s["job"],
                         "step": s["name"],
@@ -481,25 +484,48 @@ def main(argv: Optional[List[str]] = None) -> int:
                         "setup_python": s.get("setup_python", False),
                         "shell": step_shell,
                         "skipped": True,
-                        "skip_reason": f"missing tool: {missing_tool}",
-                    })
+                        "skip_reason": "network-required command",
+                    }
+                )
+                continue
+            if offline:
+                missing_tool = missing_offline_dependency(script)
+                if missing_tool:
+                    print(f"-> Skipping step due to offline mode (missing tool: {missing_tool}).")
+                    results.append(
+                        {
+                            "workflow": wf_name,
+                            "job": s["job"],
+                            "step": s["name"],
+                            "rc": 0,
+                            "run": script,
+                            "setup_python": s.get("setup_python", False),
+                            "shell": step_shell,
+                            "skipped": True,
+                            "skip_reason": f"missing tool: {missing_tool}",
+                        }
+                    )
                     continue
             capture = bool(s.get("id"))
-            rc, outputs = run_script_block(script, env_vars, step_shell, cwd=args.cwd, capture_outputs=capture)
+            rc, outputs = run_script_block(
+                script, env_vars, step_shell, cwd=args.cwd, capture_outputs=capture
+            )
             step_id = s.get("id")
             if step_id is not None:
                 step_outputs[step_id] = outputs
-            results.append({
-                "workflow": wf_name,
-                "job": s["job"],
-                "step": s["name"],
-                "rc": rc,
-                "run": script,
-                "setup_python": s.get("setup_python", False),
-                "shell": step_shell,
-                "skipped": False,
-                "skip_reason": None,
-            })
+            results.append(
+                {
+                    "workflow": wf_name,
+                    "job": s["job"],
+                    "step": s["name"],
+                    "rc": rc,
+                    "run": script,
+                    "setup_python": s.get("setup_python", False),
+                    "shell": step_shell,
+                    "skipped": False,
+                    "skip_reason": None,
+                }
+            )
             if rc != 0:
                 print(f"Step failed with exit code {rc}: {s['name']}")
                 if first_nonzero_rc == 0:
@@ -556,7 +582,10 @@ def main(argv: Optional[List[str]] = None) -> int:
             print("\nCI test failures likely needing attention:")
             for r in important:
                 print(f"- {r['workflow']} :: {r['job']} :: {r['step']} (rc={r['rc']})")
-                print(f"    full command excerpt:\n      " + "\n      ".join((r['run'] or "").splitlines()[:5]))
+                print(
+                    f"    full command excerpt:\n      "
+                    + "\n      ".join((r["run"] or "").splitlines()[:5])
+                )
     else:
         print("\nAll steps completed successfully.")
 
@@ -597,7 +626,9 @@ def main(argv: Optional[List[str]] = None) -> int:
         }
         # Optionally run pre-commit and include its result in the summary.
         try:
-            preproc = subprocess.run(["pre-commit", "run", "--all-files"], capture_output=True, text=True)
+            preproc = subprocess.run(
+                ["pre-commit", "run", "--all-files"], capture_output=True, text=True
+            )
             pre_rc = preproc.returncode
             summary["pre_commit"] = {
                 "rc": pre_rc,

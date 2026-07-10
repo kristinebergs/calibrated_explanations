@@ -23,9 +23,7 @@ TEST_HELPER_PHRASES = (
     "testing purposes",
 )
 
-IGNORED_MODULE_PREFIXES = (
-    "calibrated_explanations.testing",
-)
+IGNORED_MODULE_PREFIXES = ("calibrated_explanations.testing",)
 
 # Registry symbols explicitly identified as over-scoped/anti-pattern exports.
 BANNED_EXPORTS_BY_MODULE: dict[str, set[str]] = {
@@ -83,9 +81,7 @@ def _resolve_package_root(root: Path) -> Path:
     candidate = root / "calibrated_explanations"
     if candidate.is_dir():
         return candidate.resolve()
-    raise ValueError(
-        "root must point to 'src/calibrated_explanations' or a parent containing it."
-    )
+    raise ValueError("root must point to 'src/calibrated_explanations' or a parent containing it.")
 
 
 def _module_name(path: Path, package_root: Path) -> str:
@@ -111,7 +107,9 @@ def _extract_exports(tree: ast.Module) -> dict[str, int]:
     for node in tree.body:
         value: ast.AST | None = None
         if isinstance(node, ast.Assign):
-            if any(isinstance(target, ast.Name) and target.id == "__all__" for target in node.targets):
+            if any(
+                isinstance(target, ast.Name) and target.id == "__all__" for target in node.targets
+            ):
                 value = node.value
         elif (
             isinstance(node, ast.AnnAssign)
@@ -195,9 +193,8 @@ def _find_dynamic_test_imports(
         if not isinstance(node, ast.Call):
             continue
         func = node.func
-        is_import_module = (
-            (isinstance(func, ast.Attribute) and func.attr == "import_module")
-            or (isinstance(func, ast.Name) and func.id == "import_module")
+        is_import_module = (isinstance(func, ast.Attribute) and func.attr == "import_module") or (
+            isinstance(func, ast.Name) and func.id == "import_module"
         )
         if not is_import_module or not node.args:
             continue
@@ -397,10 +394,7 @@ def main(argv: list[str] | None = None) -> int:
     if violations:
         print("Found prohibited test-helper exports:")
         for violation in violations:
-            print(
-                f"- {violation.file}:{violation.line} "
-                f"[{violation.symbol}] {violation.reason}"
-            )
+            print(f"- {violation.file}:{violation.line} [{violation.symbol}] {violation.reason}")
         print(f"Report written to {args.report}")
         return 1
 

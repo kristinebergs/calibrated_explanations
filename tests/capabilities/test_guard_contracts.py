@@ -68,9 +68,9 @@ def test_should_return_explanations_when_guarded_options_provided(
 
     result = explainer.explain_factual(X_test, guarded_options=GuardedOptions())
 
-    assert (
-        result is not None
-    ), "CE-REQ-GUARD-API-001: explain_factual with GuardedOptions must return non-None"
-    assert len(result) == len(
-        X_test
-    ), f"CE-REQ-GUARD-API-001: len(result)={len(result)} != len(X_test)={len(X_test)}"
+    assert result is not None, (
+        "CE-REQ-GUARD-API-001: explain_factual with GuardedOptions must return non-None"
+    )
+    assert len(result) == len(X_test), (
+        f"CE-REQ-GUARD-API-001: len(result)={len(result)} != len(X_test)={len(X_test)}"
+    )

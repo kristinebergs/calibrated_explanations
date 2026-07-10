@@ -137,16 +137,16 @@ def test_hash_part_covers_nested_structures__should_produce_hashable_representat
     nested_sets: List[object] = [{1, 2}, {3, 4}]
     hashed_nested = hash_part(nested_sets)
     assert isinstance(hashed_nested, tuple), "Nested list must be converted to hashable tuple"
-    assert all(
-        isinstance(item, tuple) for item in hashed_nested
-    ), "Each element in hashed list must be a hashable tuple"
+    assert all(isinstance(item, tuple) for item in hashed_nested), (
+        "Each element in hashed list must be a hashable tuple"
+    )
     assert hash(hashed_nested) is not None, "Hashed nested must be hashable"
 
     # Test dict: must be converted to hashable representation
     hashed_mapping = hash_part({"beta": 3})
-    assert isinstance(
-        hashed_mapping, (tuple, list)
-    ), "Dict must convert to hashable tuple or comparable list"
+    assert isinstance(hashed_mapping, (tuple, list)), (
+        "Dict must convert to hashable tuple or comparable list"
+    )
     # The key-value pair must be representable in the hash
     assert ("beta", 3) in hashed_mapping, "Key-value pair must appear in hashed dict representation"
     assert hash(hashed_mapping) is not None, "Hashed dict must be hashable"

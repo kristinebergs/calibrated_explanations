@@ -131,9 +131,9 @@ def test_should_preserve_cardinality_when_factual_collection_add_conjunctions():
         n_top_features=5,
     )
 
-    assert (
-        not obs.result_is_none
-    ), "CE-REQ-EXPL-CONJ-RETURN-001: add_conjunctions on factual collection must return non-None"
+    assert not obs.result_is_none, (
+        "CE-REQ-EXPL-CONJ-RETURN-001: add_conjunctions on factual collection must return non-None"
+    )
     assert obs.result_len == obs.n_instances, (
         f"CE-REQ-EXPL-CONJ-RETURN-001: len(result)={obs.result_len} != "
         f"n_instances={obs.n_instances}"
@@ -154,7 +154,9 @@ def test_should_preserve_cardinality_when_alternative_collection_add_conjunction
         n_top_features=5,
     )
 
-    assert not obs.result_is_none, "CE-REQ-EXPL-CONJ-RETURN-001: add_conjunctions on alternative collection must return non-None"
+    assert not obs.result_is_none, (
+        "CE-REQ-EXPL-CONJ-RETURN-001: add_conjunctions on alternative collection must return non-None"
+    )
     assert obs.result_len == obs.n_instances, (
         f"CE-REQ-EXPL-CONJ-RETURN-001: len(result)={obs.result_len} != "
         f"n_instances={obs.n_instances}"
@@ -181,9 +183,9 @@ def test_should_produce_conjunctive_rules_when_max_rule_size_two():
         n_top_features=5,
     )
 
-    assert (
-        not obs.exception_raised
-    ), f"CE-REQ-EXPL-CONJ-RULE-001: unexpected exception {obs.exception_type}"
+    assert not obs.exception_raised, (
+        f"CE-REQ-EXPL-CONJ-RULE-001: unexpected exception {obs.exception_type}"
+    )
     assert obs.any_has_conjunctive_rules, (
         "CE-REQ-EXPL-CONJ-RULE-001: expected at least one item to have "
         "has_conjunctive_rules == True when max_rule_size=2 and n_informative=3, "
@@ -208,9 +210,9 @@ def test_should_produce_conjunctive_rules_when_max_rule_size_three():
         n_top_features=5,
     )
 
-    assert (
-        not obs.exception_raised
-    ), f"CE-REQ-EXPL-CONJ-RULE-001: unexpected exception {obs.exception_type}"
+    assert not obs.exception_raised, (
+        f"CE-REQ-EXPL-CONJ-RULE-001: unexpected exception {obs.exception_type}"
+    )
     assert obs.any_has_conjunctive_rules, (
         "CE-REQ-EXPL-CONJ-RULE-001: expected at least one item to have "
         "has_conjunctive_rules == True when max_rule_size=3 and n_informative=3, "
@@ -237,9 +239,9 @@ def test_should_not_produce_conjunctive_rules_when_max_rule_size_one():
         n_top_features=5,
     )
 
-    assert (
-        not obs.exception_raised
-    ), f"CE-REQ-EXPL-CONJ-PARAM-001: unexpected exception {obs.exception_type}"
+    assert not obs.exception_raised, (
+        f"CE-REQ-EXPL-CONJ-PARAM-001: unexpected exception {obs.exception_type}"
+    )
     assert not obs.any_has_conjunctive_rules, (
         "CE-REQ-EXPL-CONJ-PARAM-001: max_rule_size=1 must not produce multi-feature "
         "conjunction rules, but has_conjunctive_rules was True for at least one item."
@@ -268,9 +270,9 @@ def test_should_control_conjunction_generation_via_max_rule_size(
         n_top_features=5,
     )
 
-    assert (
-        not obs.exception_raised
-    ), f"Unexpected exception {obs.exception_type} for max_rule_size={max_rule_size}"
+    assert not obs.exception_raised, (
+        f"Unexpected exception {obs.exception_type} for max_rule_size={max_rule_size}"
+    )
     assert obs.any_has_conjunctive_rules == expected_conjunctions, (
         f"max_rule_size={max_rule_size}: expected any_has_conjunctive_rules="
         f"{expected_conjunctions}, got {obs.any_has_conjunctive_rules}"

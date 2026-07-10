@@ -24,37 +24,37 @@
     },
     {
       "file": "core/calibrated_explainer.py",
-      "line": 369,
+      "line": 368,
       "message_snippet": "condition_source not provided; defaulting to 'prediction' in v0.10.3. Pass condi",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/calibrated_explainer.py",
-      "line": 1718,
+      "line": 1717,
       "message_snippet": "_use_plugin has no effect on guarded explanation methods",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/calibrated_explainer.py",
-      "line": 1848,
+      "line": 1847,
       "message_snippet": "_use_plugin has no effect on guarded explanation methods",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/calibrated_explainer.py",
-      "line": 2457,
+      "line": 2456,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/config_manager.py",
-      "line": 543,
+      "line": 542,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/config_manager.py",
-      "line": 677,
+      "line": 676,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
@@ -216,55 +216,55 @@
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1462,
+      "line": 1463,
       "message_snippet": "Reject threshold mismatch detected; reinitializing reject learner with call thre",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1554,
+      "line": 1555,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1774,
+      "line": 1775,
       "message_snippet": "Reject prediction fallback engaged: predict_set returned unexpected shape; using",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1976,
+      "line": 1977,
       "message_snippet": "",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 2354,
+      "line": 2355,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1709,
+      "line": 1710,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1752,
+      "line": 1753,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 2477,
+      "line": 2478,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 2527,
+      "line": 2528,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
@@ -276,7 +276,7 @@
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1277,
+      "line": 1278,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },

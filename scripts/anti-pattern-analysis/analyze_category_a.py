@@ -3,9 +3,12 @@ import os
 from pathlib import Path
 import collections
 
+
 def analyze_category_a(analysis_file, usage_file):
     if not os.path.exists(analysis_file) or not os.path.exists(usage_file):
-        print("Error: Analysis or usage files missing. Run analyze_private_methods.py and scan_private_usage.py first.")
+        print(
+            "Error: Analysis or usage files missing. Run analyze_private_methods.py and scan_private_usage.py first."
+        )
         return
 
     # Load analysis data
@@ -55,23 +58,39 @@ def analyze_category_a(analysis_file, usage_file):
             allow_list_candidate = True
             reason = "Legacy component maintenance"
 
-        report.append({
-            "name": name,
-            "def_file": def_file,
-            "test_usages": test_usages,
-            "src_usages": src_usages,
-            "is_name_mangled": is_name_mangled,
-            "allow_list_candidate": allow_list_candidate,
-            "reason": reason,
-            "remediation_strategy": "Refactor to public API" if not allow_list_candidate else "Add to allow-list (temporary)"
-        })
+        report.append(
+            {
+                "name": name,
+                "def_file": def_file,
+                "test_usages": test_usages,
+                "src_usages": src_usages,
+                "is_name_mangled": is_name_mangled,
+                "allow_list_candidate": allow_list_candidate,
+                "reason": reason,
+                "remediation_strategy": "Refactor to public API"
+                if not allow_list_candidate
+                else "Add to allow-list (temporary)",
+            }
+        )
 
     # Sort by test usages descending
     report.sort(key=lambda x: x["test_usages"], reverse=True)
 
     output_file = "reports/anti-pattern-analysis/category_a_analysis.csv"
     with open(output_file, "w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(f, fieldnames=["name", "def_file", "test_usages", "src_usages", "is_name_mangled", "allow_list_candidate", "reason", "remediation_strategy"])
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "name",
+                "def_file",
+                "test_usages",
+                "src_usages",
+                "is_name_mangled",
+                "allow_list_candidate",
+                "reason",
+                "remediation_strategy",
+            ],
+        )
         writer.writeheader()
         writer.writerows(report)
 
@@ -86,8 +105,9 @@ def analyze_category_a(analysis_file, usage_file):
     for c in candidates[:10]:
         print(f"- {c['name']} ({c['test_usages']} usages): {c['reason']}")
 
+
 if __name__ == "__main__":
     analyze_category_a(
         "reports/anti-pattern-analysis/private_method_analysis.csv",
-        "reports/anti-pattern-analysis/private_usage_scan.csv"
+        "reports/anti-pattern-analysis/private_usage_scan.csv",
     )

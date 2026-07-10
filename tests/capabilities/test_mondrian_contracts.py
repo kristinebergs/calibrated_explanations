@@ -101,9 +101,9 @@ def test_should_calibrate_when_mondrian_categorizer_provided(
 
     explainer.calibrate(X_cal, y_cal, mc=mondrian_fn)
 
-    assert (
-        explainer.calibrated is True
-    ), "CE-REQ-MOND-API-001: explainer.calibrated must be True after Mondrian calibration"
+    assert explainer.calibrated is True, (
+        "CE-REQ-MOND-API-001: explainer.calibrated must be True after Mondrian calibration"
+    )
 
 
 @pytest.mark.parametrize("method_name", ["predict", "predict_proba", "explain_factual"])

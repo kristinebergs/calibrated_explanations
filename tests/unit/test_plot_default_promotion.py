@@ -81,13 +81,13 @@ def install_public_global_plot_plugin(
     monkeypatch.setattr(
         explainer.plugin_manager,
         "resolve_plot_plugin",
-        lambda *, explicit_style=None, renderer_override=None: resolve_calls.append(
-            (explicit_style, renderer_override)
-        )
-        or (
-            PlotPlugin(),
-            explicit_style or "plot_spec.default",
-            (explicit_style or "plot_spec.default", "legacy"),
+        lambda *, explicit_style=None, renderer_override=None: (
+            resolve_calls.append((explicit_style, renderer_override))
+            or (
+                PlotPlugin(),
+                explicit_style or "plot_spec.default",
+                (explicit_style or "plot_spec.default", "legacy"),
+            )
         ),
     )
     return resolve_calls
@@ -133,8 +133,9 @@ def test_should_use_plotspec_default_for_chain_based_plotters_when_use_legacy_is
     monkeypatch.setattr(
         plotting,
         "_render_instance_plot_plugin",
-        lambda explanation, explicit_style=None, **kwargs: captured_styles.append(explicit_style)
-        or {"style": explicit_style},
+        lambda explanation, explicit_style=None, **kwargs: (
+            captured_styles.append(explicit_style) or {"style": explicit_style}
+        ),
     )
     monkeypatch.setattr(
         plotting.legacy,

@@ -71,6 +71,6 @@ class TestFeatureFilterConfigResolution:
         monkeypatch.setenv("CE_FEATURE_FILTER", "off")
 
         cfg = FeatureFilterConfig.from_base_and_env(config_manager=mgr)
-        assert (
-            cfg.enabled is True
-        ), "Snapshot must reflect the state at ConfigManager construction time"
+        assert cfg.enabled is True, (
+            "Snapshot must reflect the state at ConfigManager construction time"
+        )

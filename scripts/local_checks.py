@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import suppress
+import importlib.util
 import json
 import os
 import platform
@@ -47,6 +48,40 @@ class ProfilePlan:
 
 def _python_cmd(*args: str) -> list[str]:
     return [sys.executable, *args]
+
+
+def _dependency_audit_command() -> list[str]:
+    """Return the preferred dependency-audit command for this environment."""
+    if shutil.which("pip-audit") is not None:
+        return [
+            "pip-audit",
+            "-r",
+            "requirements.txt",
+            "-r",
+            "docs/requirements-doc.txt",
+            "--ignore-vuln",
+            "GHSA-xm59-rqc7-hhvf",
+        ]
+    if importlib.util.find_spec("pip_audit") is not None:
+        return _python_cmd(
+            "-m",
+            "pip_audit",
+            "-r",
+            "requirements.txt",
+            "-r",
+            "docs/requirements-doc.txt",
+            "--ignore-vuln",
+            "GHSA-xm59-rqc7-hhvf",
+        )
+    return [
+        "pip-audit",
+        "-r",
+        "requirements.txt",
+        "-r",
+        "docs/requirements-doc.txt",
+        "--ignore-vuln",
+        "GHSA-xm59-rqc7-hhvf",
+    ]
 
 
 def _is_python_build_module_step(command: list[str]) -> bool:
@@ -868,15 +903,7 @@ def _release_steps(
         [
             Step(
                 "Dependency audit",
-                [
-                    "pip-audit",
-                    "-r",
-                    "requirements.txt",
-                    "-r",
-                    "docs/requirements-doc.txt",
-                    "--ignore-vuln",
-                    "GHSA-xm59-rqc7-hhvf",
-                ],
+                _dependency_audit_command(),
             ),
             Step(
                 "Notebook audit",
@@ -1070,12 +1097,16 @@ def _pyproject_release_version() -> str:
     return str(payload["project"]["version"])
 
 
-def _release_task_checklist_state(plan_path: Path) -> tuple[dict[int, dict[str, int | bool]], list[str]]:
+def _release_task_checklist_state(
+    plan_path: Path,
+) -> tuple[dict[int, dict[str, int | bool]], list[str]]:
     """Parse per-task verification checklist completion state from the release plan."""
     text = plan_path.read_text(encoding="utf-8")
 
     header_pattern = re.compile(r"^##\s+(\d+)\)\s+", re.MULTILINE)
-    checklist_header_pattern = re.compile(r"^###\s+\d+\.\d+\s+Verification checklist\s*$", re.MULTILINE)
+    checklist_header_pattern = re.compile(
+        r"^###\s+\d+\.\d+\s+Verification checklist\s*$", re.MULTILINE
+    )
     checklist_item_pattern = re.compile(r"^\s*[-*]\s*\[([ xX])\]\s+", re.MULTILINE)
 
     task_sections = list(header_pattern.finditer(text))
@@ -1213,7 +1244,9 @@ def _run_release_twine_check() -> int:
     if not artifacts:
         print("ERROR: No build artifacts found under dist/ for twine validation.")
         return 1
-    return _run_step(Step("Release artifact validation", _python_cmd("-m", "twine", "check", *artifacts)))
+    return _run_step(
+        Step("Release artifact validation", _python_cmd("-m", "twine", "check", *artifacts))
+    )
 
 
 def _run_release_wheel_smoke() -> int:
@@ -1298,7 +1331,9 @@ def run_release_preflight(*, plan_path: Path | None = None) -> int:
 
     steps = [
         Step("Full pytest suite", _python_cmd("-m", "pytest", "-q")),
-        Step("Editable install (release tree)", _python_cmd("-m", "pip", "install", "-e", ".[dev]")),
+        Step(
+            "Editable install (release tree)", _python_cmd("-m", "pip", "install", "-e", ".[dev]")
+        ),
         Step(
             "Editable install version smoke",
             _python_cmd("-c", "import calibrated_explanations as ce; print(ce.__version__)"),
@@ -1379,7 +1414,9 @@ def run_release_finalize(*, plan_path: Path | None = None) -> int:
         return 1
 
     if payload.get("exit_status") != 0 or not payload.get("preflight_passed"):
-        print("ERROR: The latest release-preflight run did not pass. Re-run `make release-preflight`.")
+        print(
+            "ERROR: The latest release-preflight run did not pass. Re-run `make release-preflight`."
+        )
         return 1
 
     readiness_rc, _ = _run_release_readiness_guard(resolved_plan)

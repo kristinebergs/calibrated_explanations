@@ -139,17 +139,17 @@ def test_should_not_have_config_ini_at_legacy_path() -> None:
 
 def test_should_not_have_task_field_on_explainer_config() -> None:
     cfg = ExplainerConfig(model=RandomForestClassifier())
-    assert (
-        "task" not in ExplainerConfig.__dataclass_fields__
-    ), "task field must be removed from ExplainerConfig (v0.11.3)"
+    assert "task" not in ExplainerConfig.__dataclass_fields__, (
+        "task field must be removed from ExplainerConfig (v0.11.3)"
+    )
     assert not hasattr(cfg, "task")
 
 
 def test_should_not_have_parallel_workers_field_on_explainer_config() -> None:
     cfg = ExplainerConfig(model=RandomForestClassifier())
-    assert (
-        "parallel_workers" not in ExplainerConfig.__dataclass_fields__
-    ), "parallel_workers field must be removed from ExplainerConfig (v0.11.3)"
+    assert "parallel_workers" not in ExplainerConfig.__dataclass_fields__, (
+        "parallel_workers field must be removed from ExplainerConfig (v0.11.3)"
+    )
     assert not hasattr(cfg, "parallel_workers")
 
 
@@ -160,9 +160,9 @@ def test_should_not_have_task_method_on_explainer_builder() -> None:
 
 def test_should_not_have_parallel_workers_method_on_explainer_builder() -> None:
     b = ExplainerBuilder(RandomForestClassifier())
-    assert not hasattr(
-        b, "parallel_workers"
-    ), "parallel_workers() method must be removed from ExplainerBuilder (v0.11.3)"
+    assert not hasattr(b, "parallel_workers"), (
+        "parallel_workers() method must be removed from ExplainerBuilder (v0.11.3)"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -177,9 +177,9 @@ def test_perf_cache_docstring_mentions_ce_cache_precedence() -> None:
 
 def test_perf_parallel_docstring_mentions_ce_parallel_precedence() -> None:
     doc = inspect.getdoc(ExplainerBuilder.perf_parallel) or ""
-    assert (
-        "CE_PARALLEL" in doc
-    ), "perf_parallel() docstring must document CE_PARALLEL env-var precedence"
+    assert "CE_PARALLEL" in doc, (
+        "perf_parallel() docstring must document CE_PARALLEL env-var precedence"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -213,7 +213,7 @@ def test_from_config_docstring_does_not_claim_intentionally_minimal() -> None:
     from calibrated_explanations.core.wrap_explainer import WrapCalibratedExplainer
 
     doc = inspect.getdoc(WrapCalibratedExplainer.from_config) or ""
-    assert (
-        "Intentionally minimal" not in doc
-    ), "from_config() docstring must not claim 'Intentionally minimal' — wiring is substantial"
+    assert "Intentionally minimal" not in doc, (
+        "from_config() docstring must not claim 'Intentionally minimal' — wiring is substantial"
+    )
     assert "task" not in doc or "task" in doc.lower(), True  # no strict task-field reference needed

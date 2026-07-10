@@ -73,9 +73,9 @@ def test_should_produce_golden_domain_model_when_legacy_to_domain():
         assert actual.feature == expected.feature, f"Rule {i}: feature mismatch"
         assert actual.rule == expected.rule, f"Rule {i}: rule text mismatch"
         assert actual.rule_weight == expected.rule_weight, f"Rule {i}: rule_weight mismatch"
-        assert (
-            actual.rule_prediction == expected.rule_prediction
-        ), f"Rule {i}: rule_prediction mismatch"
+        assert actual.rule_prediction == expected.rule_prediction, (
+            f"Rule {i}: rule_prediction mismatch"
+        )
 
 
 def test_should_produce_golden_legacy_payload_when_domain_to_legacy():
@@ -122,6 +122,6 @@ def test_should_round_trip_domain_to_legacy_to_domain_without_data_loss():
     ):
         assert r_actual.feature == r_expected.feature, f"Round-trip rule {i}: feature mismatch"
         assert r_actual.rule == r_expected.rule, f"Round-trip rule {i}: rule text mismatch"
-        assert (
-            r_actual.rule_weight == r_expected.rule_weight
-        ), f"Round-trip rule {i}: rule_weight mismatch"
+        assert r_actual.rule_weight == r_expected.rule_weight, (
+            f"Round-trip rule {i}: rule_weight mismatch"
+        )

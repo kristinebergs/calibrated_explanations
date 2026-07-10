@@ -17,10 +17,7 @@ from calibrated_explanations.testing import parity_compare
 
 
 def _json_files(root: Path) -> dict[str, Path]:
-    return {
-        str(path.relative_to(root)).replace("\\", "/"): path
-        for path in root.rglob("*.json")
-    }
+    return {str(path.relative_to(root)).replace("\\", "/"): path for path in root.rglob("*.json")}
 
 
 def _load_json(path: Path) -> Any:

@@ -27,6 +27,7 @@ import json
 @dataclass
 class ImportViolation:
     """Represents a single import graph violation."""
+
     file_path: str
     line_number: int
     imported_from: str
@@ -40,94 +41,86 @@ class BoundaryConfig:
     """Configuration for ADR-001 boundary rules."""
 
     # Top-level packages in the architecture
-    top_level_packages: Set[str] = field(default_factory=lambda: {
-        'core',
-        'calibration',
-        'explanations',
-        'plugins',
-        'viz',
-        'plotting',
-        'cache',
-        'parallel',
-        'schema',
-        'schemas',
-        'utils',
-        'api',
-        'legacy',
-        'integrations',
-        'logging',
-        'serialization',
-        'perf',
-        'testing',
-        'templates',
-    })
+    top_level_packages: Set[str] = field(
+        default_factory=lambda: {
+            "core",
+            "calibration",
+            "explanations",
+            "plugins",
+            "viz",
+            "plotting",
+            "cache",
+            "parallel",
+            "schema",
+            "schemas",
+            "utils",
+            "api",
+            "legacy",
+            "integrations",
+            "logging",
+            "serialization",
+            "perf",
+            "testing",
+            "templates",
+        }
+    )
 
     # Intentional cross-sibling imports (allowed exceptions)
     # Format: (from_package, to_package) → [allowed_module_paths]
     # See development/adrs/ADR-001-core-decomposition-boundaries.md for rationale
-    allowed_cross_sibling: Dict[Tuple[str, str], List[str]] = field(default_factory=lambda: {
-        # --- Pattern 2: Orchestrator Pattern (ADR-001) ---
-        # Explanations orchestrates calibration and core
-        ('explanations', 'calibration'): [],
-        ('explanations', 'core'): [],
-
-        # --- Pattern 3: Interface/Protocol Definition ---
-        # Plugins implement interfaces defined in core. Allow plugins to
-        # import core internals required for adapter implementations.
-        ('plugins', 'core'): [],
-
-        # --- Pattern 4: Shared Utilities & Schema ---
-        # Everyone can use utils and schema
-        ('*', 'utils'): [],
-        ('*', 'schema'): [],
-
-        # --- Pattern 5: Visualization Layer ---
-        # Viz needs to understand what it is visualizing
-        ('viz', 'explanations'): [],
-        ('viz', 'core'): [],
-
-        # --- Pattern 6: Orchestration & Runtime Facades ---
-        # CalibratedExplainer orchestrates plugins/calibration/cache/parallel at runtime
-        ('core', 'calibration'): [],
-        ('core', 'plugins'): [],
-        ('core', 'explanations'): [],
-        ('core', 'cache'): [],
-        ('core', 'parallel'): [],
-        ('core', 'integrations'): [],
-        ('core', 'api'): [],
-
-        # Calibration uses core domain models
-        ('calibration', 'core'): [],
-
-        # --- Pattern 7: Cache/Parallel shared services ---
-        ('calibration', 'cache'): [],
-        ('parallel', 'cache'): [],
-
-        # --- Pattern 8: Plugin adapter bridge ---
-        # In-tree adapters wrap legacy implementations while ADR-015 matures
-        ('plugins', 'explanations'): [],
-        ('plugins', 'viz'): [],
-        ('plugins', 'calibration'): [],
-        ('plugins', 'legacy'): [],
-
-        # --- Pattern 9: Visualization hooks from explanations ---
-        ('explanations', 'viz'): [],
-
-        # --- Pattern 10: Plugin discovery from explanations ---
-        ('explanations', 'plugins'): [],
-
-        # --- Pattern 6: Legacy & Backward Compatibility ---
-        # Legacy code is allowed to break rules until v2.0
-        ('legacy', '*'): [],
-
-        # --- Specific Module Allowances (Granular) ---
-        # Core uses API for parameter validation (Facade)
-        ('core', 'api'): [],
-
-        # Integrations adapters
-        ('integrations', 'explanations'): [],
-        ('integrations', 'core'): [],
-    })
+    allowed_cross_sibling: Dict[Tuple[str, str], List[str]] = field(
+        default_factory=lambda: {
+            # --- Pattern 2: Orchestrator Pattern (ADR-001) ---
+            # Explanations orchestrates calibration and core
+            ("explanations", "calibration"): [],
+            ("explanations", "core"): [],
+            # --- Pattern 3: Interface/Protocol Definition ---
+            # Plugins implement interfaces defined in core. Allow plugins to
+            # import core internals required for adapter implementations.
+            ("plugins", "core"): [],
+            # --- Pattern 4: Shared Utilities & Schema ---
+            # Everyone can use utils and schema
+            ("*", "utils"): [],
+            ("*", "schema"): [],
+            # --- Pattern 5: Visualization Layer ---
+            # Viz needs to understand what it is visualizing
+            ("viz", "explanations"): [],
+            ("viz", "core"): [],
+            # --- Pattern 6: Orchestration & Runtime Facades ---
+            # CalibratedExplainer orchestrates plugins/calibration/cache/parallel at runtime
+            ("core", "calibration"): [],
+            ("core", "plugins"): [],
+            ("core", "explanations"): [],
+            ("core", "cache"): [],
+            ("core", "parallel"): [],
+            ("core", "integrations"): [],
+            ("core", "api"): [],
+            # Calibration uses core domain models
+            ("calibration", "core"): [],
+            # --- Pattern 7: Cache/Parallel shared services ---
+            ("calibration", "cache"): [],
+            ("parallel", "cache"): [],
+            # --- Pattern 8: Plugin adapter bridge ---
+            # In-tree adapters wrap legacy implementations while ADR-015 matures
+            ("plugins", "explanations"): [],
+            ("plugins", "viz"): [],
+            ("plugins", "calibration"): [],
+            ("plugins", "legacy"): [],
+            # --- Pattern 9: Visualization hooks from explanations ---
+            ("explanations", "viz"): [],
+            # --- Pattern 10: Plugin discovery from explanations ---
+            ("explanations", "plugins"): [],
+            # --- Pattern 6: Legacy & Backward Compatibility ---
+            # Legacy code is allowed to break rules until v2.0
+            ("legacy", "*"): [],
+            # --- Specific Module Allowances (Granular) ---
+            # Core uses API for parameter validation (Facade)
+            ("core", "api"): [],
+            # Integrations adapters
+            ("integrations", "explanations"): [],
+            ("integrations", "core"): [],
+        }
+    )
 
     # Packages that cannot import from each other
     # By default we don't hard-fail on cycles here; the allowed_cross_sibling
@@ -137,14 +130,18 @@ class BoundaryConfig:
     forbidden_cycles: Set[Tuple[str, str]] = field(default_factory=lambda: set())
 
     # Strict mode disallows even allowed_cross_sibling imports in specific files
-    strict_modules: Set[str] = field(default_factory=lambda: {
-        'core/calibrated_explainer.py',  # Should use TYPE_CHECKING for cross-sibling imports
-        'core/strategy_manager.py',
-    })
+    strict_modules: Set[str] = field(
+        default_factory=lambda: {
+            "core/calibrated_explainer.py",  # Should use TYPE_CHECKING for cross-sibling imports
+            "core/strategy_manager.py",
+        }
+    )
     # Files to ignore entirely for ADR-001 checks (whitelist)
-    ignored_files: Set[str] = field(default_factory=lambda: {
-        'ce_agent_utils.py',
-    })
+    ignored_files: Set[str] = field(
+        default_factory=lambda: {
+            "ce_agent_utils.py",
+        }
+    )
 
 
 def extract_imports(file_path: Path) -> List[Tuple[str, int]]:
@@ -155,7 +152,7 @@ def extract_imports(file_path: Path) -> List[Tuple[str, int]]:
     """
     type_checking_blocks: List[Tuple[int, int]] = []
     try:
-        tree = ast.parse(file_path.read_text(encoding='utf-8'))
+        tree = ast.parse(file_path.read_text(encoding="utf-8"))
     except (SyntaxError, UnicodeDecodeError) as e:
         print(f"Warning: Could not parse {file_path}: {e}")
         return []
@@ -165,9 +162,9 @@ def extract_imports(file_path: Path) -> List[Tuple[str, int]]:
     # Track TYPE_CHECKING blocks so we can skip type-only imports.
     for node in ast.walk(tree):
         if isinstance(node, ast.If):
-            if isinstance(node.test, ast.Name) and node.test.id == 'TYPE_CHECKING':
+            if isinstance(node.test, ast.Name) and node.test.id == "TYPE_CHECKING":
                 start = node.lineno
-                end = getattr(node, 'end_lineno', start)
+                end = getattr(node, "end_lineno", start)
                 type_checking_blocks.append((start, end))
 
     for node in ast.walk(tree):
@@ -178,10 +175,10 @@ def extract_imports(file_path: Path) -> List[Tuple[str, int]]:
                     continue
                 imports.append((alias.name, node.lineno))
         elif isinstance(node, ast.ImportFrom):
-            module = node.module or ''
+            module = node.module or ""
             # Handle relative imports
             if node.level > 0:  # Relative import
-                relative_prefix = '.' * node.level
+                relative_prefix = "." * node.level
                 if any(start <= node.lineno <= end for start, end in type_checking_blocks):
                     continue
                 imports.append((f"{relative_prefix}{module}", node.lineno))
@@ -201,11 +198,11 @@ def get_top_level_package(module_path: str) -> Optional[str]:
         'utils.helpers' -> 'utils'
         'calibration.venn_abers' -> 'calibration'
     """
-    if not module_path or module_path.startswith('.'):
+    if not module_path or module_path.startswith("."):
         return None
 
-    parts = module_path.split('.')
-    if parts[0].startswith('calibrated_explanations'):
+    parts = module_path.split(".")
+    if parts[0].startswith("calibrated_explanations"):
         # Absolute import: calibrated_explanations.core.xyz
         if len(parts) > 1:
             return parts[1]
@@ -226,14 +223,14 @@ def resolve_relative_import(source_file: Path, relative_import: str) -> Optional
         Absolute module path or None if unresolvable.
     """
     # Count leading dots
-    dots = len(relative_import) - len(relative_import.lstrip('.'))
-    module_part = relative_import[dots:] if dots < len(relative_import) else ''
+    dots = len(relative_import) - len(relative_import.lstrip("."))
+    module_part = relative_import[dots:] if dots < len(relative_import) else ""
 
     # Determine source module path
     try:
         # Assume source is under src/calibrated_explanations/
-        rel_path = source_file.relative_to(Path('src/calibrated_explanations'))
-        source_parts = ['calibrated_explanations'] + list(rel_path.parent.parts)
+        rel_path = source_file.relative_to(Path("src/calibrated_explanations"))
+        source_parts = ["calibrated_explanations"] + list(rel_path.parent.parts)
     except ValueError:
         return None
 
@@ -245,12 +242,14 @@ def resolve_relative_import(source_file: Path, relative_import: str) -> Optional
 
     # Add the relative module part
     if module_part:
-        resolved_parts.extend(module_part.split('.'))
+        resolved_parts.extend(module_part.split("."))
 
-    return '.'.join(resolved_parts)
+    return ".".join(resolved_parts)
 
 
-def check_import_violations(src_dir: Path, config: BoundaryConfig, *, strict: bool = False) -> List[ImportViolation]:
+def check_import_violations(
+    src_dir: Path, config: BoundaryConfig, *, strict: bool = False
+) -> List[ImportViolation]:
     """Scan all Python files and check for import violations.
 
     Args:
@@ -262,9 +261,9 @@ def check_import_violations(src_dir: Path, config: BoundaryConfig, *, strict: bo
     """
     violations = []
 
-    for py_file in src_dir.rglob('*.py'):
+    for py_file in src_dir.rglob("*.py"):
         # Skip __pycache__ and test files
-        if '__pycache__' in py_file.parts or py_file.name.startswith('test_'):
+        if "__pycache__" in py_file.parts or py_file.name.startswith("test_"):
             continue
 
         # Skip files explicitly ignored by the BoundaryConfig (allowlist)
@@ -274,13 +273,13 @@ def check_import_violations(src_dir: Path, config: BoundaryConfig, *, strict: bo
 
         imports = extract_imports(py_file)
         # Make the source module an absolute calibrated_explanations module path
-        rel_path = py_file.relative_to(src_dir).as_posix().replace('/', '.').replace('.py', '')
+        rel_path = py_file.relative_to(src_dir).as_posix().replace("/", ".").replace(".py", "")
         source_module = f"calibrated_explanations.{rel_path}"
         source_pkg = get_top_level_package(source_module)
 
         for imp, line in imports:
             # Resolve relative imports
-            if imp.startswith('.'):
+            if imp.startswith("."):
                 resolved = resolve_relative_import(py_file, imp)
                 if not resolved:
                     continue
@@ -291,7 +290,9 @@ def check_import_violations(src_dir: Path, config: BoundaryConfig, *, strict: bo
             # and imports that don't involve two declared top-level packages.
             if not target_pkg or not source_pkg:
                 continue
-            if not (target_pkg in config.top_level_packages and source_pkg in config.top_level_packages):
+            if not (
+                target_pkg in config.top_level_packages and source_pkg in config.top_level_packages
+            ):
                 continue
 
             # Skip same-package imports
@@ -300,19 +301,21 @@ def check_import_violations(src_dir: Path, config: BoundaryConfig, *, strict: bo
 
             # Check forbidden cycles
             if (source_pkg, target_pkg) in config.forbidden_cycles:
-                violations.append(ImportViolation(
-                    file_path=str(py_file),
-                    line_number=line,
-                    imported_from=imp,
-                    importing_module=source_module,
-                    violation_type='circular',
-                    message=f"Forbidden import cycle: {source_pkg} -> {target_pkg}"
-                ))
+                violations.append(
+                    ImportViolation(
+                        file_path=str(py_file),
+                        line_number=line,
+                        imported_from=imp,
+                        importing_module=source_module,
+                        violation_type="circular",
+                        message=f"Forbidden import cycle: {source_pkg} -> {target_pkg}",
+                    )
+                )
                 continue
 
             # Check allowed cross-sibling imports
             allowed = config.allowed_cross_sibling.get((source_pkg, target_pkg))
-            wildcard_allowed = config.allowed_cross_sibling.get(('*', target_pkg))
+            wildcard_allowed = config.allowed_cross_sibling.get(("*", target_pkg))
 
             # If there is no explicit allowance configured for this pair,
             # default to permissive for now (the ADR allowlist should be
@@ -323,28 +326,32 @@ def check_import_violations(src_dir: Path, config: BoundaryConfig, *, strict: bo
 
             # If strict, even allowed imports may be forbidden in specific modules
             if strict and rel_path in config.strict_modules:
-                violations.append(ImportViolation(
-                    file_path=str(py_file),
-                    line_number=line,
-                    imported_from=imp,
-                    importing_module=source_module,
-                    violation_type='cross_sibling',
-                    message=f"Strict mode violation: {source_pkg} -> {target_pkg} in {rel_path}"
-                ))
+                violations.append(
+                    ImportViolation(
+                        file_path=str(py_file),
+                        line_number=line,
+                        imported_from=imp,
+                        importing_module=source_module,
+                        violation_type="cross_sibling",
+                        message=f"Strict mode violation: {source_pkg} -> {target_pkg} in {rel_path}",
+                    )
+                )
                 continue
 
             # If allowed list is empty or wildcard, accept all; otherwise check module path
             allowed_list = allowed if allowed is not None else wildcard_allowed
             if allowed_list:
                 if not any(imp.startswith(p) for p in allowed_list):
-                    violations.append(ImportViolation(
-                        file_path=str(py_file),
-                        line_number=line,
-                        imported_from=imp,
-                        importing_module=source_module,
-                        violation_type='cross_sibling',
-                        message=f"Import not in allowlist: {imp}"
-                    ))
+                    violations.append(
+                        ImportViolation(
+                            file_path=str(py_file),
+                            line_number=line,
+                            imported_from=imp,
+                            importing_module=source_module,
+                            violation_type="cross_sibling",
+                            message=f"Import not in allowlist: {imp}",
+                        )
+                    )
 
     return violations
 
@@ -352,18 +359,20 @@ def check_import_violations(src_dir: Path, config: BoundaryConfig, *, strict: bo
 def write_report(violations: List[ImportViolation], output_path: Path) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     payload = [violation.__dict__ for violation in violations]
-    with output_path.open('w', encoding='utf-8') as f:
+    with output_path.open("w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2)
 
 
 def main():
     parser = argparse.ArgumentParser(description="Check import graph for ADR-001 compliance")
     parser.add_argument("--strict", action="store_true", help="Enable strict mode")
-    parser.add_argument("--report", action="store_true", help="Write JSON report to reports/import_graph.json")
+    parser.add_argument(
+        "--report", action="store_true", help="Write JSON report to reports/import_graph.json"
+    )
     parser.add_argument("--fix", action="store_true", help="Attempt to auto-fix simple violations")
     args = parser.parse_args()
 
-    src_dir = Path('src/calibrated_explanations')
+    src_dir = Path("src/calibrated_explanations")
     if not src_dir.exists():
         print(f"Source directory not found: {src_dir}")
         sys.exit(2)
@@ -372,7 +381,7 @@ def main():
     violations = check_import_violations(src_dir, config, strict=args.strict)
 
     if args.report:
-        write_report(violations, Path('reports/import_graph.json'))
+        write_report(violations, Path("reports/import_graph.json"))
         print(f"Import graph report written to reports/import_graph.json")
 
     if violations:
@@ -384,5 +393,5 @@ def main():
     print("No import violations detected.")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

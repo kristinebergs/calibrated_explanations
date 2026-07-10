@@ -60,7 +60,7 @@ def test_should_fail_release_readiness_when_any_release_gate_task_is_pending(
 ) -> None:
     """Release readiness should stop when any task checklist has unchecked items."""
     # Arrange
-    plan_path = tmp_path / "v0.11.6_plan.md"
+    plan_path = tmp_path / "release_readiness_fixture.md"
     write_release_plan(plan_path, unchecked_tasks={41})
     monotonic_values = count(10)
     monkeypatch.chdir(tmp_path)
@@ -91,7 +91,7 @@ def test_should_write_release_preflight_report_when_release_gate_passes(
 ) -> None:
     """Release preflight should emit a reusable handoff report on success."""
     # Arrange
-    plan_path = tmp_path / "v0.11.6_plan.md"
+    plan_path = tmp_path / "release_readiness_fixture.md"
     monotonic_values = count(100)
     commands_seen: list[str] = []
     write_release_plan(plan_path)
@@ -104,7 +104,11 @@ def test_should_write_release_preflight_report_when_release_gate_passes(
     monkeypatch.setattr(local_checks, "_current_git_branch", lambda: "main")
     monkeypatch.setattr(local_checks, "_current_git_status_porcelain", lambda: "M CHANGELOG.md")
     monkeypatch.setattr(local_checks, "_pyproject_release_version", lambda: "0.11.6")
-    monkeypatch.setattr(local_checks, "_release_notebook_steps", lambda: [local_checks.Step("Release notebooks", ["python", "-m", "fake"] )])
+    monkeypatch.setattr(
+        local_checks,
+        "_release_notebook_steps",
+        lambda: [local_checks.Step("Release notebooks", ["python", "-m", "fake"])],
+    )
     monkeypatch.setattr(local_checks, "_run_step", fake_run_step)
     monkeypatch.setattr(local_checks, "_run_release_twine_check", lambda: 0)
     monkeypatch.setattr(local_checks, "_run_release_wheel_smoke", lambda: 0)
@@ -146,7 +150,7 @@ def test_should_fail_release_finalize_when_preflight_report_is_missing(
 ) -> None:
     """Release finalize must refuse to continue without a successful preflight report."""
     # Arrange
-    plan_path = tmp_path / "v0.11.6_plan.md"
+    plan_path = tmp_path / "release_readiness_fixture.md"
     write_release_plan(plan_path)
     monkeypatch.chdir(tmp_path)
 
@@ -163,7 +167,7 @@ def test_should_fail_release_finalize_when_worktree_changed_since_preflight(
 ) -> None:
     """Release finalize must invalidate stale preflight snapshots."""
     # Arrange
-    plan_path = tmp_path / "v0.11.6_plan.md"
+    plan_path = tmp_path / "release_readiness_fixture.md"
     write_release_plan(plan_path)
     report_path = tmp_path / local_checks.RELEASE_PREFLIGHT_REPORT
     report_path.parent.mkdir(parents=True, exist_ok=True)
@@ -196,7 +200,7 @@ def test_should_pass_release_finalize_when_snapshot_and_plan_still_match(
 ) -> None:
     """Release finalize should unlock the manual phase only for a matching green snapshot."""
     # Arrange
-    plan_path = tmp_path / "v0.11.6_plan.md"
+    plan_path = tmp_path / "release_readiness_fixture.md"
     write_release_plan(plan_path)
     report_path = tmp_path / local_checks.RELEASE_PREFLIGHT_REPORT
     report_path.parent.mkdir(parents=True, exist_ok=True)

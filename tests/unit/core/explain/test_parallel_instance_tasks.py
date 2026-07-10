@@ -117,9 +117,9 @@ def test_tasks_omit_explainer_when_worker_initializer_present(monkeypatch):
     captured = getattr(fake_map, "captured", [])
     assert captured, "Expected tasks to be submitted"
     for _, _, state in captured:
-        assert (
-            "explainer" not in state
-        ), "Explainer should not be shipped when worker_initializer is present"
+        assert "explainer" not in state, (
+            "Explainer should not be shipped when worker_initializer is present"
+        )
 
 
 def test_worker_harness_used_when_present():

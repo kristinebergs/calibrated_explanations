@@ -47,8 +47,7 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for <3.11
 
 # Core imports (no cross-sibling dependencies)
 from ..calibration.interval_wrappers import is_fast_interval_collection
-from ..utils import check_is_fitted, convert_targets_to_numeric, safe_isinstance
-from ..utils.helper import assert_threshold
+from ..utils import assert_threshold, check_is_fitted, convert_targets_to_numeric, safe_isinstance
 
 from ..utils.exceptions import (
     DataShapeError,

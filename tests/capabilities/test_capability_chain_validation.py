@@ -665,12 +665,12 @@ def test_should_not_have_manual_registry_in_generate_capability_evidence() -> No
     if not script.exists():
         return  # Deleted — compliant
     text = script.read_text(encoding="utf-8")
-    assert (
-        "_RUNNERS" not in text
-    ), "generate_capability_evidence.py still contains a manual _RUNNERS registry"
-    assert not re.search(
-        r"^(?:import|from)\s+tif_", text, re.MULTILINE
-    ), "generate_capability_evidence.py has direct TIF module imports"
+    assert "_RUNNERS" not in text, (
+        "generate_capability_evidence.py still contains a manual _RUNNERS registry"
+    )
+    assert not re.search(r"^(?:import|from)\s+tif_", text, re.MULTILINE), (
+        "generate_capability_evidence.py has direct TIF module imports"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -995,9 +995,9 @@ def test_should_pass_when_active_tif_spec_has_committed_evidence(
     (raw_dir / "CE-EVID-TEST-001-20260622.json").write_text(json.dumps(evid), encoding="utf-8")
 
     errors, _ = vcc.run_checks()
-    assert not any(
-        "CE-TIF-TEST-001" in e and "no committed raw evidence" in e for e in errors
-    ), errors
+    assert not any("CE-TIF-TEST-001" in e and "no committed raw evidence" in e for e in errors), (
+        errors
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1270,9 +1270,9 @@ def test_should_fail_when_curated_evidence_has_unresolved_raw_evidence_ref(
     )
 
     errors, _ = vcc.run_checks()
-    assert any(
-        "CE-EVID-NONEXISTENT-001-20260622" in e and "exact match" in e for e in errors
-    ), errors
+    assert any("CE-EVID-NONEXISTENT-001-20260622" in e and "exact match" in e for e in errors), (
+        errors
+    )
 
 
 def test_should_pass_when_curated_tif_exempt_evidence_uses_none_raw_ref(
@@ -1325,9 +1325,9 @@ def test_should_not_have_manual_registry_in_generate_tif_evidence() -> None:
     assert script.exists(), "generate_tif_evidence.py not found"
     text = script.read_text(encoding="utf-8")
     assert "_RUNNERS" not in text, "generate_tif_evidence.py contains a manual _RUNNERS registry"
-    assert not re.search(
-        r"^(?:import|from)\s+tif_", text, re.MULTILINE
-    ), "generate_tif_evidence.py has direct TIF module imports"
+    assert not re.search(r"^(?:import|from)\s+tif_", text, re.MULTILINE), (
+        "generate_tif_evidence.py has direct TIF module imports"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1368,9 +1368,9 @@ def test_should_fail_when_active_tif_spec_declares_missing_entry_function(
     )
 
     errors, _ = vcc.run_checks()
-    assert any(
-        "run_nonexistent_scenario" in e and "not found" in e for e in errors
-    ), f"Expected entry-function-not-found error, got: {errors}"
+    assert any("run_nonexistent_scenario" in e and "not found" in e for e in errors), (
+        f"Expected entry-function-not-found error, got: {errors}"
+    )
 
 
 def test_should_pass_when_active_tif_spec_entry_functions_exist(
@@ -1405,9 +1405,9 @@ def test_should_pass_when_active_tif_spec_entry_functions_exist(
     )
 
     errors, _ = vcc.run_checks()
-    assert not any(
-        "run_scenario" in e and "not found" in e for e in errors
-    ), f"Unexpected entry-function errors: {errors}"
+    assert not any("run_scenario" in e and "not found" in e for e in errors), (
+        f"Unexpected entry-function errors: {errors}"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -1436,12 +1436,12 @@ def test_should_not_have_hardcoded_envelope_in_tif_executables() -> None:
                 f"{exec_path.name}: build_evidence_payload() missing 'spec_claim_ids' kwarg — "
                 "envelope metadata must be injected from the TIF spec, not hardcoded"
             )
-            assert (
-                "spec_requirement_ids" in arg_names
-            ), f"{exec_path.name}: build_evidence_payload() missing 'spec_requirement_ids' kwarg"
-            assert (
-                "spec_tif_id" in arg_names
-            ), f"{exec_path.name}: build_evidence_payload() missing 'spec_tif_id' kwarg"
+            assert "spec_requirement_ids" in arg_names, (
+                f"{exec_path.name}: build_evidence_payload() missing 'spec_requirement_ids' kwarg"
+            )
+            assert "spec_tif_id" in arg_names, (
+                f"{exec_path.name}: build_evidence_payload() missing 'spec_tif_id' kwarg"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -1517,9 +1517,9 @@ def test_should_warn_when_behavioral_requirement_exempted_without_rationale(
     )
 
     _, warnings = vcc.run_checks()
-    assert any(
-        "tif_exemption_rationale" in w and "CE-REQ-TEST-001" in w for w in warnings
-    ), warnings
+    assert any("tif_exemption_rationale" in w and "CE-REQ-TEST-001" in w for w in warnings), (
+        warnings
+    )
 
 
 def test_should_not_warn_when_behavioral_requirement_exempted_with_rationale(
@@ -1546,6 +1546,6 @@ def test_should_not_warn_when_behavioral_requirement_exempted_with_rationale(
     )
 
     _, warnings = vcc.run_checks()
-    assert not any(
-        "tif_exemption_rationale" in w and "CE-REQ-TEST-001" in w for w in warnings
-    ), warnings
+    assert not any("tif_exemption_rationale" in w and "CE-REQ-TEST-001" in w for w in warnings), (
+        warnings
+    )

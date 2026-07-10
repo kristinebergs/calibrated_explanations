@@ -7,6 +7,7 @@ than a full CI-grade benchmark.
 Usage:
     python scripts/perf/stream_benchmark.py --n 10000 --chunk 256 --format jsonl
 """
+
 from __future__ import annotations
 
 import argparse
@@ -53,8 +54,11 @@ def make_calibrated_explanations(n: int) -> CalibratedExplanations:
     collection = CalibratedExplanations(dummy_explainer, x, 0.5, bins)
     collection.explanations = [
         DummyExplanation(
-            i, x[i], predict=random.random(), interval=(random.random(), random.random()),
-            feature_weights=[random.random() for _ in range(10)]
+            i,
+            x[i],
+            predict=random.random(),
+            interval=(random.random(), random.random()),
+            feature_weights=[random.random() for _ in range(10)],
         )
         for i in range(n)
     ]
@@ -85,7 +89,7 @@ def run(n: int, chunk: int, fmt: str):
         "format": fmt,
         "elapsed_seconds": elapsed,
         "peak_memory_mb": peak / (1024 * 1024),
-        "telemetry": telemetry
+        "telemetry": telemetry,
     }
     print(json.dumps(results, indent=2))
 

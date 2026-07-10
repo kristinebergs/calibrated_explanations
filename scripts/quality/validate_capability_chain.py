@@ -83,9 +83,7 @@ _SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 _TIF_FORBIDDEN_IMPORT_RE = re.compile(
     r"from\s+calibrated_explanations\.core\.calibrated_explainer\b"
 )
-_TIF_DIRECT_CONSTRUCT_RE = re.compile(
-    r"\b(FactualExplanation|AlternativeExplanation)\s*\("
-)
+_TIF_DIRECT_CONSTRUCT_RE = re.compile(r"\b(FactualExplanation|AlternativeExplanation)\s*\(")
 # Private member access: ._ preceded by an identifier (but not in comments or strings — best effort).
 _TIF_PRIVATE_ACCESS_RE = re.compile(r"\w\._\w")
 
@@ -148,7 +146,9 @@ def _parse_tif_spec_metadata(spec_path: Path) -> dict[str, Any]:
     requirements_served: list[str] = re.findall(r"\|\s*(CE-REQ-[\w-]+)\s*\|", reqs_section)
 
     claims_section = _extract_section_text(text, "Claims served")
-    claims_served: list[str] = re.findall(r"^\s*[-*]\s+(CE-CAP-[\w-]+)", claims_section, re.MULTILINE)
+    claims_served: list[str] = re.findall(
+        r"^\s*[-*]\s+(CE-CAP-[\w-]+)", claims_section, re.MULTILINE
+    )
 
     adr_section = _extract_section_text(text, "ADR refs")
     adr_refs: list[str] = re.findall(r"^\s*[-*]\s+(ADR-\d+)", adr_section, re.MULTILINE)
@@ -206,12 +206,12 @@ def _parse_verification_targets(text: str) -> list[str]:
     for line in section.splitlines():
         stripped = re.sub(r"^[-*\s`]+", "", line.strip()).strip("`")
         if stripped.startswith("pytest:"):
-            raw = stripped[len("pytest:"):].strip()
+            raw = stripped[len("pytest:") :].strip()
             file_part = raw.split("::")[0].strip()
             if file_part:
                 paths.append(file_part)
         elif stripped.startswith("quality-gate:"):
-            cmd = stripped[len("quality-gate:"):].strip()
+            cmd = stripped[len("quality-gate:") :].strip()
             for tok in cmd.split():
                 if tok.endswith(".py") or tok.startswith("scripts/") or tok.startswith("tests/"):
                     paths.append(tok)
@@ -259,7 +259,9 @@ def _check_claims(errors: list[str], warnings: list[str]) -> dict[str, dict[str,
         if not claim_id:
             errors.append(f"claim {path.name}: claim_id is missing")
         elif claim_id != expected_id:
-            errors.append(f"claim {path.name}: claim_id '{claim_id}' != filename stem '{expected_id}'")
+            errors.append(
+                f"claim {path.name}: claim_id '{claim_id}' != filename stem '{expected_id}'"
+            )
 
         if not data.get("owner"):
             errors.append(f"claim {path.name}: owner is missing or empty")
@@ -299,7 +301,9 @@ def _check_requirements(
         if not req_id:
             errors.append(f"req {path.name}: requirement_id not found in metadata table")
         elif req_id != expected_id:
-            errors.append(f"req {path.name}: requirement_id '{req_id}' != filename stem '{expected_id}'")
+            errors.append(
+                f"req {path.name}: requirement_id '{req_id}' != filename stem '{expected_id}'"
+            )
 
         obligation_type = table.get("obligation_type", "")
         vstatus = table.get("verification_status", "")
@@ -351,7 +355,9 @@ def _check_requirements(
         for tif_id in tif_refs:
             spec = _TIF_DIR / f"{tif_id}.md"
             if not spec.exists():
-                errors.append(f"req {path.name}: tif_ref '{tif_id}' spec not found at {spec.relative_to(_REPO_ROOT)}")
+                errors.append(
+                    f"req {path.name}: tif_ref '{tif_id}' spec not found at {spec.relative_to(_REPO_ROOT)}"
+                )
 
         # Check verification targets exist on disk
         if vstatus == "verified":
@@ -467,9 +473,7 @@ def _check_readme_tif_inventory(
             continue
         for field in ("executable", "evidence_builder", "evidence_key", "verification_type"):
             if not meta.get(field):
-                errors.append(
-                    f"tif {spec_path.name}: active spec missing required field '{field}'"
-                )
+                errors.append(f"tif {spec_path.name}: active spec missing required field '{field}'")
         active_specs[tif_id] = meta
 
     if not readme.exists():
@@ -710,14 +714,10 @@ def _check_tif_claim_reachability(
         served_reqs = spec_meta.get("requirements_served", [])
         for claim_id in spec_meta.get("claims_served", []):
             if claim_id not in claims:
-                errors.append(
-                    f"tif {tif_id}: claims_served '{claim_id}' not found in claims"
-                )
+                errors.append(f"tif {tif_id}: claims_served '{claim_id}' not found in claims")
                 continue
             reachable = any(
-                claim_id in reqs[r].get("claim_refs", [])
-                for r in served_reqs
-                if r in reqs
+                claim_id in reqs[r].get("claim_refs", []) for r in served_reqs if r in reqs
             )
             if not reachable:
                 errors.append(
@@ -770,7 +770,9 @@ def _check_raw_evidence(
 
         evid_id = data.get("evidence_id", "")
         if evid_id != path.stem:
-            errors.append(f"evidence {path.name}: evidence_id '{evid_id}' != filename stem '{path.stem}'")
+            errors.append(
+                f"evidence {path.name}: evidence_id '{evid_id}' != filename stem '{path.stem}'"
+            )
         evidence_ids.add(path.stem)
 
         # claim_ids
@@ -787,13 +789,17 @@ def _check_raw_evidence(
             errors.append(f"evidence {path.name}: requirement_ids is empty")
         for rid in ev_reqs:
             if rid not in req_ids:
-                errors.append(f"evidence {path.name}: requirement_id '{rid}' not found in requirements")
+                errors.append(
+                    f"evidence {path.name}: requirement_id '{rid}' not found in requirements"
+                )
 
         # tif_ids for behavioral evidence
         vtype = data.get("verification_type", "")
         if vtype in _BEHAVIORAL_EVIDENCE_TYPES:
             if not data.get("tif_ids"):
-                errors.append(f"evidence {path.name}: behavioral verification_type '{vtype}' but tif_ids is empty")
+                errors.append(
+                    f"evidence {path.name}: behavioral verification_type '{vtype}' but tif_ids is empty"
+                )
 
         # commit_sha format
         sha = data.get("commit_sha", "")
@@ -880,7 +886,6 @@ def _check_raw_evidence_vs_tif_specs(
                     )
 
 
-
 def _check_curated_evidence(
     errors: list[str],
     warnings: list[str],
@@ -921,8 +926,7 @@ def _check_curated_evidence(
                         if r.strip().startswith("CE-REQ-")
                     ]
                     non_exempt = [
-                        r for r in curated_req_ids
-                        if r in reqs and not reqs[r].get("tif_exemption")
+                        r for r in curated_req_ids if r in reqs and not reqs[r].get("tif_exemption")
                     ]
                     if non_exempt:
                         errors.append(

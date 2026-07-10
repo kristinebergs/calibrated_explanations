@@ -2135,13 +2135,13 @@ def _plot_alternative_dict(  # pragma: no cover  # ADR-023: multiclass visualiza
 
     if explanation.get_class_labels() is None:
         if explanation.get_explainer().is_multiclass():
-            ax_main.set_xlabel(f'Probability for class \'{explanation.prediction["classes"]}\'')
+            ax_main.set_xlabel(f"Probability for class '{explanation.prediction['classes']}'")
         else:
             ax_main.set_xlabel("Probability for the positive class")
     elif explanation.get_explainer().is_multiclass():
         # pylint: disable=line-too-long
         ax_main.set_xlabel(
-            f'Probability for class \'{explanation.get_class_labels()[explanation.prediction["classes"]]}\''
+            f"Probability for class '{explanation.get_class_labels()[explanation.prediction['classes']]}'"
         )
     else:
         ax_main.set_xlabel(f"Probability for class '{explanation.get_class_labels()[1]}'")

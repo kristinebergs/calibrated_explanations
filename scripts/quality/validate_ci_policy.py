@@ -51,7 +51,9 @@ class ValidationResult:
 
 
 def _run_git(args: list[str], repo_root: Path) -> str:
-    result = subprocess.run(["git", *args], cwd=repo_root, text=True, check=True, capture_output=True)
+    result = subprocess.run(
+        ["git", *args], cwd=repo_root, text=True, check=True, capture_output=True
+    )
     return result.stdout.strip()
 
 
@@ -61,7 +63,9 @@ def _changed_files(base_sha: str, head_sha: str, repo_root: Path) -> list[Path]:
 
 
 def _diff_is_metadata_only(base_sha: str, head_sha: str, file_path: Path, repo_root: Path) -> bool:
-    diff = _run_git(["diff", "--unified=0", f"{base_sha}..{head_sha}", "--", file_path.as_posix()], repo_root)
+    diff = _run_git(
+        ["diff", "--unified=0", f"{base_sha}..{head_sha}", "--", file_path.as_posix()], repo_root
+    )
     changed_lines: list[str] = []
     for line in diff.splitlines():
         if line.startswith(("+++", "---", "@@")):
@@ -73,7 +77,9 @@ def _diff_is_metadata_only(base_sha: str, head_sha: str, file_path: Path, repo_r
         return True
 
     allowed_patterns = (r"^$", r"^#", r"^name:\s*", r"^run-name:\s*")
-    return all(any(re.match(pattern, line) for pattern in allowed_patterns) for line in changed_lines)
+    return all(
+        any(re.match(pattern, line) for pattern in allowed_patterns) for line in changed_lines
+    )
 
 
 def _is_experimental(file_path: Path, text: str) -> bool:
@@ -98,9 +104,13 @@ def _check_reusables(file_path: Path, text: str, errors: list[str]) -> None:
 
 def _check_permissions(file_path: Path, text: str, errors: list[str]) -> None:
     if "permissions:" not in text:
-        errors.append(f"{file_path.as_posix()}: permissions block is required (default contents: read).")
+        errors.append(
+            f"{file_path.as_posix()}: permissions block is required (default contents: read)."
+        )
     if "contents: read" not in text:
-        errors.append(f"{file_path.as_posix()}: contents: read must be present for least privilege.")
+        errors.append(
+            f"{file_path.as_posix()}: contents: read must be present for least privilege."
+        )
     if file_path.name != "maintenance.yml" and re.search(r"\b\w+:\s*write\b", text):
         errors.append(f"{file_path.as_posix()}: write permissions only allowed in maintenance.yml.")
 
@@ -111,7 +121,9 @@ def _check_pip_constraints(file_path: Path, text: str, errors: list[str]) -> Non
         if re.search(r"\bpip install\s+--upgrade\s+pip\b", stripped):
             continue
         if "pip install" in stripped and "-c constraints.txt" not in stripped:
-            errors.append(f"{file_path.as_posix()}: pip install must include -c constraints.txt -> '{stripped}'.")
+            errors.append(
+                f"{file_path.as_posix()}: pip install must include -c constraints.txt -> '{stripped}'."
+            )
 
 
 def _check_action_sha_pins(file_path: Path, text: str, errors: list[str]) -> None:
@@ -146,7 +158,9 @@ def _check_heavy_gating(file_path: Path, text: str, errors: list[str]) -> None:
     has_manual_or_schedule = "workflow_dispatch:" in text or "schedule:" in text
     has_paths = "paths:" in text or "paths-ignore:" in text
     if not has_manual_or_schedule and not has_paths:
-        errors.append(f"{file_path.as_posix()}: heavy workflow requires schedule/workflow_dispatch or path filters.")
+        errors.append(
+            f"{file_path.as_posix()}: heavy workflow requires schedule/workflow_dispatch or path filters."
+        )
 
 
 def _check_report_path_guard_sync(
@@ -197,8 +211,14 @@ def _load_event(event_path: Path | None) -> dict:
     return json.loads(event_path.read_text(encoding="utf-8"))
 
 
-def _check_pr_metadata(changed_files: list[Path], event_payload: dict, errors: list[str], warnings: list[str]) -> None:
-    if not any(path.as_posix().startswith(".github/workflows/") or path.as_posix() == "scripts/local_checks.py" for path in changed_files):
+def _check_pr_metadata(
+    changed_files: list[Path], event_payload: dict, errors: list[str], warnings: list[str]
+) -> None:
+    if not any(
+        path.as_posix().startswith(".github/workflows/")
+        or path.as_posix() == "scripts/local_checks.py"
+        for path in changed_files
+    ):
         return
 
     pr_payload = event_payload.get("pull_request")
@@ -211,20 +231,30 @@ def _check_pr_metadata(changed_files: list[Path], event_payload: dict, errors: l
         if item not in body:
             errors.append(f"PR body missing required CI checklist item text: '{item}'.")
 
-    labels = {label.get("name", "") for label in pr_payload.get("labels", []) if isinstance(label, dict)}
+    labels = {
+        label.get("name", "") for label in pr_payload.get("labels", []) if isinstance(label, dict)
+    }
     if not labels.intersection({"ci:workflow", "ci:cleanup", "ci-experimental"}):
         errors.append("PR must include one of labels: ci:workflow, ci:cleanup, ci-experimental.")
 
 
-def validate_policy(base_sha: str, head_sha: str, repo_root: Path, event_path: Path | None = None) -> ValidationResult:
+def validate_policy(
+    base_sha: str, head_sha: str, repo_root: Path, event_path: Path | None = None
+) -> ValidationResult:
     errors: list[str] = []
     warnings: list[str] = []
 
     changed_files = _changed_files(base_sha, head_sha, repo_root)
-    workflow_files = [p for p in changed_files if p.as_posix().startswith(".github/workflows/") and p.suffix in {".yml", ".yaml"}]
+    workflow_files = [
+        p
+        for p in changed_files
+        if p.as_posix().startswith(".github/workflows/") and p.suffix in {".yml", ".yaml"}
+    ]
 
     if not workflow_files and Path("scripts/local_checks.py") not in changed_files:
-        return ValidationResult(errors=[], warnings=["No CI-governed files changed; policy checks skipped."])
+        return ValidationResult(
+            errors=[], warnings=["No CI-governed files changed; policy checks skipped."]
+        )
 
     strict_workflow_change_detected = False
 
@@ -233,7 +263,9 @@ def validate_policy(base_sha: str, head_sha: str, repo_root: Path, event_path: P
         if not abs_path.exists():
             continue
         if _diff_is_metadata_only(base_sha, head_sha, rel_path, repo_root):
-            warnings.append(f"{rel_path.as_posix()}: metadata-only diff detected; strict workflow checks skipped.")
+            warnings.append(
+                f"{rel_path.as_posix()}: metadata-only diff detected; strict workflow checks skipped."
+            )
             continue
 
         strict_workflow_change_detected = True
@@ -277,7 +309,9 @@ def main() -> int:
         print(f"[ci-policy][error] {error}")
 
     if result.errors and not args.advisory:
-        print("[ci-policy] Failed. Remediation: use approved reusables, enforce constraints, and complete PR checklist.")
+        print(
+            "[ci-policy] Failed. Remediation: use approved reusables, enforce constraints, and complete PR checklist."
+        )
         return 1
     if result.errors and args.advisory:
         print("[ci-policy] Advisory mode: violations detected but not blocking.")

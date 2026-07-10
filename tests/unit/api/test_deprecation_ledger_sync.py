@@ -138,9 +138,9 @@ def test_history_table_guarded_wrappers_removed_in_v0_11_3():
     # Find rows that mention explain_guarded_factual or explore_guarded_alternatives
     for line in history_section.splitlines():
         if "explain_guarded_factual" in line or "explore_guarded_alternatives" in line:
-            assert (
-                "v0.11.3" in line
-            ), f"Guarded wrapper history row should show removal in v0.11.3, got: {line}"
-            assert (
-                "v1.0.0" not in line or "v0.11.3" in line
-            ), f"Guarded wrapper history row incorrectly shows v1.0.0 removal: {line}"
+            assert "v0.11.3" in line, (
+                f"Guarded wrapper history row should show removal in v0.11.3, got: {line}"
+            )
+            assert "v1.0.0" not in line or "v0.11.3" in line, (
+                f"Guarded wrapper history row incorrectly shows v1.0.0 removal: {line}"
+            )
