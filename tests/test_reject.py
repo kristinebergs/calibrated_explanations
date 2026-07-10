@@ -561,6 +561,17 @@ def test_wrapper_metadata_contains_required_contract_keys():
     assert len(res.metadata["source_indices"]) == len(res.explanations)
 
 
+def test_should_expose_documented_reject_metadata_keys_when_policy_envelope_returned():
+    wrapper, x_query = train_wrapper()
+
+    result = wrapper.explain_factual(x_query[:10], reject_policy=RejectPolicy.FLAG)
+    metadata = result.metadata_full()
+
+    assert {"ambiguity_mask", "novelty_mask", "prediction_set_size", "epsilon"}.issubset(
+        metadata.keys()
+    )
+
+
 def test_wrapper_slice_preserves_original_batch_counts():
     wrapper, x_query = train_wrapper()
     res = wrapper.explain_factual(x_query[:12], reject_policy=RejectPolicy.FLAG)
