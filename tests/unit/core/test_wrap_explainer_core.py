@@ -518,6 +518,58 @@ def test_should_raise_validation_error_when_core_explainer_receives_single_class
     assert exc_info.value.details.get("model_class_count") == 2
 
 
+def test_should_raise_validation_error_when_wrapper_calibrate_receives_disjoint_classification_targets():
+    dataset = make_binary_dataset()
+    x_prop_train, y_prop_train, x_cal, y_cal, *_rest = dataset
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    wrapper = WrapCalibratedExplainer(model)
+    wrapper.fit(x_prop_train, y_prop_train)
+    disjoint_y_cal = np.where(y_cal == y_cal[0], y_cal[0], 2)
+
+    with pytest.raises(ValidationError) as exc_info:
+        wrapper.calibrate(x_cal, disjoint_y_cal, mode="classification")
+
+    assert "subset of the fitted learner classes" in str(exc_info.value)
+    assert exc_info.value.details is not None
+    assert exc_info.value.details.get("model_classes") == [0, 1]
+    assert exc_info.value.details.get("unknown_classes") == [2]
+
+
+@pytest.mark.parametrize("method_name", ["predict", "predict_proba"])
+def test_should_raise_validation_error_when_wrapper_classification_prediction_receives_threshold(
+    method_name,
+):
+    dataset = make_binary_dataset()
+    (
+        x_prop_train,
+        y_prop_train,
+        x_cal,
+        y_cal,
+        x_test,
+        _y_test,
+        _,
+        _,
+        categorical_features,
+        feature_names,
+    ) = dataset
+
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    wrapper = WrapCalibratedExplainer(model)
+    wrapper.fit(x_prop_train, y_prop_train)
+    wrapper.calibrate(
+        x_cal,
+        y_cal,
+        mode="classification",
+        feature_names=feature_names,
+        categorical_features=categorical_features,
+    )
+
+    method = getattr(wrapper, method_name)
+
+    with pytest.raises(ValidationError, match="only supported for mode='regression'"):
+        method(x_test[:2], threshold=(3, 1))
+
+
 @pytest.mark.parametrize("method_name", ["predict", "predict_proba"])
 def test_should_raise_configuration_error_when_unknown_kwargs_are_passed_to_uncalibrated_prediction_paths(
     method_name,

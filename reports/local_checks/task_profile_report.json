@@ -1,15 +1,15 @@
 {
   "commands_run": [
-    "python -m ruff check src/calibrated_explanations/plugins/cli.py tests/plugins/test_cli.py tests/plugins/test_cli_additional.py",
-    "python -m ruff format --check src/calibrated_explanations/plugins/cli.py tests/plugins/test_cli.py tests/plugins/test_cli_additional.py",
+    "python -m ruff check src/calibrated_explanations/core/prediction/orchestrator.py src/calibrated_explanations/core/wrap_explainer.py tests/unit/core/test_wrap_explainer_core.py tests/unit/core/test_calibrated_explainer_more_paths.py",
+    "python -m ruff format --check src/calibrated_explanations/core/prediction/orchestrator.py src/calibrated_explanations/core/wrap_explainer.py tests/unit/core/test_wrap_explainer_core.py tests/unit/core/test_calibrated_explainer_more_paths.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python -m pytest -q tests/plugins/test_cli.py tests/plugins/test_cli_additional.py -o addopts= --no-cov"
+    "python -m pytest -q tests/unit/core/test_wrap_explainer_core.py tests/unit/core/test_calibrated_explainer_more_paths.py -o addopts= --no-cov"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-10T17:50:57.118202+00:00",
+  "generated_at": "2026-07-10T18:07:04.205215+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -47,5 +47,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 43
+  "task_id": 44
 }

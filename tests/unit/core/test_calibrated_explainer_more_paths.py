@@ -2,6 +2,7 @@ import logging
 import numpy as np
 import pytest
 
+from calibrated_explanations.core.calibrated_explainer import CalibratedExplainer
 from tests.helpers.model_utils import get_classification_model, get_regression_model
 from tests.helpers.dataset_utils import make_binary_dataset, make_regression_dataset
 from tests.helpers.explainer_utils import initiate_explainer
@@ -241,6 +242,50 @@ def test_regression_public_paths_reject_invalid_interval_threshold_tuples(
             method(x_test[:2], threshold=threshold)
         else:
             method(x_test[:2], threshold=threshold)
+
+
+def test_should_raise_validation_error_when_core_explainer_receives_disjoint_classification_targets():
+    dataset = make_binary_dataset()
+    x_prop_train, y_prop_train, x_cal, y_cal, *_rest = dataset
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    disjoint_y_cal = np.where(y_cal == y_cal[0], y_cal[0], 2)
+
+    with pytest.raises(ValidationError) as exc_info:
+        CalibratedExplainer(model, x_cal, disjoint_y_cal, mode="classification")
+
+    assert "subset of the fitted learner classes" in str(exc_info.value)
+    assert exc_info.value.details is not None
+    assert exc_info.value.details.get("model_classes") == [0, 1]
+    assert exc_info.value.details.get("unknown_classes") == [2]
+
+
+@pytest.mark.parametrize("method_name", ["predict", "predict_proba"])
+def test_should_raise_validation_error_when_core_classification_prediction_receives_threshold(
+    method_name,
+):
+    dataset = make_binary_dataset()
+    (
+        x_prop_train,
+        y_prop_train,
+        x_cal,
+        y_cal,
+        x_test,
+        _y_test,
+        _,
+        _,
+        categorical_features,
+        feature_names,
+    ) = dataset
+
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    cal_exp = initiate_explainer(
+        model, x_cal, y_cal, feature_names, categorical_features, mode="classification"
+    )
+
+    method = getattr(cal_exp, method_name)
+
+    with pytest.raises(ValidationError, match="only supported for mode='regression'"):
+        method(x_test[:2], threshold=(3, 1))
 
 
 @pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives"])

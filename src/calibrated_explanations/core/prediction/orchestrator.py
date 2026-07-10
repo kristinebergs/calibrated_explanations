@@ -453,6 +453,15 @@ class PredictionOrchestrator:
         if feature is None and self.explainer.is_fast():
             feature = self.explainer.num_features  # Use the calibrator defined using x_cal
         if self.explainer.mode == "classification":
+            if threshold is not None:
+                raise ValidationError(
+                    "The threshold parameter is only supported for mode='regression'.",
+                    details={
+                        "param": "threshold",
+                        "mode": self.explainer.mode,
+                        "surface": "PredictionOrchestrator.predict",
+                    },
+                )
             if self.explainer.is_multiclass():
                 if self.explainer.is_fast():
                     predict, low, high, new_classes = self.explainer.interval_learner[

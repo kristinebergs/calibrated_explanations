@@ -14,6 +14,7 @@
 
 ### Fixed
 
+- Classification `predict(...)` and `predict_proba(...)` now fail fast when `threshold=` is supplied on classification explainers instead of silently ignoring the parameter. This matches the existing explain-path validation and closes a call-time configuration seam where even malformed tuples such as `threshold=(3, 1)` previously returned ordinary classification outputs. Classification calibration also now rejects `y_cal` labels outside the fitted learner's `classes_`, with a `ValidationError` details payload listing both the calibration labels and learner label set, so calibration cannot silently relabel the task from the calibration slice alone.
 - Plugin CLI and default narrative text now avoid non-ASCII banner/template glyphs that could crash redirected Windows output. `ce plugins ...` no longer prints the `🔒` banner prefix, and the built-in narrative wording now uses ASCII-safe markers (`[!]`, `- weight ~`) so `cp1252`-encoded stdout paths do not raise `UnicodeEncodeError` before users can inspect plugin metadata or print explanation narratives.
 - README and QUICK_API example coverage now has an executable integration smoke test, the README fairness snippet calibrates Mondrian bins before binned explanations, and the optional modality shims now point users to installable companion packages (`pip install ce-audio` / `pip install ce-vision`) instead of nonexistent extras.
 - `make local-checks-task TASK=<n>` now respects an explicit empty `lint_targets = []`

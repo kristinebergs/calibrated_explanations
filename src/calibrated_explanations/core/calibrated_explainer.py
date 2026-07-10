@@ -2253,12 +2253,13 @@ class CalibratedExplainer:
 
             - threshold : float, int, or array-like of shape (n_samples,), optional, default=None
                 Specifies the threshold for probabilistic regression. Returns calibrated probabilities
-                P(y <= threshold) for regression tasks. This parameter is ignored for classification tasks.
+                P(y <= threshold) for regression tasks. Classification calls with this
+                parameter raise ``ValidationError``.
 
             - low_high_percentiles : tuple of two floats, optional, default=(5, 95)
                 The lower and upper percentiles used to calculate the prediction interval for regression tasks.
                 Determines the breadth of the interval based on the distribution of the predictions.
-                This parameter is ignored for classification tasks and when threshold is provided.
+                This parameter is only used for regression tasks without ``threshold=``.
 
         Raises
         ------
@@ -2293,7 +2294,8 @@ class CalibratedExplainer:
 
         Notes
         -----
-        The `threshold` and `low_high_percentiles` parameters are only used for regression tasks.
+        Classification calls with `threshold=` raise `ValidationError`. `low_high_percentiles`
+        is only used for regression tasks without `threshold=`.
         """
         # strip plotting-only keys that callers may pass (plot()'s kwargs flow into
         # predict() via plotting.plot_global(); see ADR-038 5C)
@@ -2481,7 +2483,9 @@ class CalibratedExplainer:
         calibrated : bool, default=True
             If True, the calibrator is used for prediction. If False, the underlying learner is used for prediction.
         threshold : float, int or array-like of shape (n_samples,), optional, default=None
-            Threshold values used with regression to get probability of being below the threshold. Only applicable to regression.
+            Threshold values used with regression to get probability of being below the
+            threshold. Classification calls with this parameter raise
+            ``ValidationError``.
 
         Raises
         ------
@@ -2519,7 +2523,7 @@ class CalibratedExplainer:
 
         Notes
         -----
-        The `threshold` parameter is only used for regression tasks.
+        Classification calls with `threshold=` raise `ValidationError`.
         """
         # strip plotting-only keys that callers may pass
         kwargs.pop("show", None)
@@ -2620,6 +2624,15 @@ class CalibratedExplainer:
 
             # Classification - multiclass
             elif self.is_multiclass():
+                if threshold is not None:
+                    raise ValidationError(
+                        "The threshold parameter is only supported for mode='regression'.",
+                        details={
+                            "param": "threshold",
+                            "mode": self.mode,
+                            "surface": "CalibratedExplainer.predict_proba",
+                        },
+                    )
                 if is_fast_interval_collection(self.interval_learner):
                     proba, low, high, _ = self.interval_learner[-1].predict_proba(
                         x, output_interval=True, **kwargs
@@ -2632,6 +2645,15 @@ class CalibratedExplainer:
 
             # Classification - binary
             else:
+                if threshold is not None:
+                    raise ValidationError(
+                        "The threshold parameter is only supported for mode='regression'.",
+                        details={
+                            "param": "threshold",
+                            "mode": self.mode,
+                            "surface": "CalibratedExplainer.predict_proba",
+                        },
+                    )
                 if is_fast_interval_collection(self.interval_learner):
                     proba, low, high = self.interval_learner[-1].predict_proba(
                         x, output_interval=True, **kwargs

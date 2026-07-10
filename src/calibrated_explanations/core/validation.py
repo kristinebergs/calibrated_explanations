@@ -47,27 +47,44 @@ def validate_non_empty(value: Any, name: str) -> None:
 
 
 def validate_classification_calibration_targets(y: Any, *, learner: Any | None = None) -> None:
-    """Ensure classification calibration data spans at least two classes."""
+    """Ensure classification calibration data spans at least two known classes."""
     y_arr = _as_1d_array(y)
     unique_classes = np.unique(y_arr)
-    if unique_classes.shape[0] >= 2:
-        return
-
     details: dict[str, Any] = {
         "param": "y_cal",
-        "requirement": "at least two classes in calibration data",
         "unique_class_count": int(unique_classes.shape[0]),
         "unique_classes": np.asarray(unique_classes).tolist(),
     }
-    if learner is not None and hasattr(learner, "classes_"):
-        learner_classes = np.asarray(learner.classes_)
-        details["model_class_count"] = int(learner_classes.shape[0])
-        details["model_classes"] = learner_classes.tolist()
+    if unique_classes.shape[0] < 2:
+        details["requirement"] = "at least two classes in calibration data"
+        if learner is not None and hasattr(learner, "classes_"):
+            learner_classes = np.asarray(learner.classes_)
+            details["model_class_count"] = int(learner_classes.shape[0])
+            details["model_classes"] = learner_classes.tolist()
 
-    raise ValidationError(
-        "Classification calibration requires at least two unique target classes in y_cal.",
-        details=details,
-    )
+        raise ValidationError(
+            "Classification calibration requires at least two unique target classes in y_cal.",
+            details=details,
+        )
+
+    if learner is not None and hasattr(learner, "classes_"):
+        learner_classes = np.asarray(learner.classes_).reshape(-1)
+        if learner_classes.size == 0:
+            return
+        unknown_classes = np.setdiff1d(unique_classes, learner_classes)
+        if unknown_classes.size > 0:
+            details.update(
+                {
+                    "requirement": "calibration labels must be a subset of learner.classes_",
+                    "model_class_count": int(learner_classes.shape[0]),
+                    "model_classes": learner_classes.tolist(),
+                    "unknown_classes": np.asarray(unknown_classes).tolist(),
+                }
+            )
+            raise ValidationError(
+                "Classification calibration labels must be a subset of the fitted learner classes.",
+                details=details,
+            )
 
 
 def validate_inputs(
