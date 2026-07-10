@@ -10,6 +10,7 @@ style fit/calibrate/explain surface for downstream users and integrations.
 from __future__ import annotations
 
 import base64
+import copy
 import hashlib
 import json
 import logging as _logging
@@ -446,94 +447,131 @@ class WrapCalibratedExplainer:
                 )
             mc = mondrian_categorizer
 
-        # Normalize kwargs at the public boundary; warn and strip alias keys only
-        kwargs = self._normalize_public_kwargs(
-            kwargs, allowed=_CALIBRATE_KWARGS, surface="WrapCalibratedExplainer.calibrate"
-        )
-        reuse_conditional = bool(kwargs.pop("reuse_conditional", reuse_conditional))
-        validate_param_combination(kwargs)
-        # Lightweight validation (does not alter behavior)
-        validate_model(self.learner)
-        preprocessor_metadata = self._build_preprocessor_metadata()
-        # Optional preprocessing: ensure preprocessor is fitted (fit here if needed), then transform
-        x_cal_local = x_calibration
-        if self._preprocessor is not None:
-            if not self._pre_fitted:
-                self._logger.info("Fitting preprocessor on calibration data")
-                x_cal_local = self._pre_fit_preprocess(x_cal_local)
-            else:
-                x_cal_local = self._pre_transform(x_cal_local, stage="calibrate")
-            # Optional second transform call to ensure deterministic persistence
-            # accounting in tests (ignore failures defensively)
-            with suppress(Exception):  # pragma: no cover - defensive
-                _ = self._pre_transform(x_calibration, stage="calibrate_check")
-        validate_inputs_matrix(x_cal_local, y_calibration, require_y=True, allow_nan=False)
-        supplied = {
-            "bins": kwargs.get("bins") is not None,
-            "mc": mc is not None,
-            "reuse_conditional": reuse_conditional,
-        }
-        if sum(supplied.values()) > 1:
-            provided = [name for name, present in supplied.items() if present]
-            raise ValidationError(
-                "Specify exactly one conditional calibration channel: bins, mc, or reuse_conditional.",
-                details={
-                    "provided": provided,
-                    "requirement": "one conditional channel per calibrate call",
-                },
+        snapshot = self._snapshot_calibration_state()
+        stage = "surface_validation"
+        try:
+            # Normalize kwargs at the public boundary; warn and strip alias keys only
+            kwargs = self._normalize_public_kwargs(
+                kwargs, allowed=_CALIBRATE_KWARGS, surface="WrapCalibratedExplainer.calibrate"
             )
-        if reuse_conditional:
-            if self.mc is None:
+            reuse_conditional = bool(kwargs.pop("reuse_conditional", reuse_conditional))
+            validate_param_combination(kwargs)
+            # Lightweight validation (does not alter behavior)
+            validate_model(self.learner)
+            preprocessor_metadata = self._build_preprocessor_metadata()
+
+            stage = "preprocessor_fit_transform"
+            # Optional preprocessing: ensure preprocessor is fitted (fit here if needed), then transform
+            x_cal_local = x_calibration
+            if self._preprocessor is not None:
+                if not self._pre_fitted:
+                    self._logger.info("Fitting preprocessor on calibration data")
+                    x_cal_local = self._pre_fit_preprocess(x_cal_local)
+                else:
+                    x_cal_local = self._pre_transform(x_cal_local, stage="calibrate")
+                # Optional second transform call to ensure deterministic persistence
+                # accounting in tests (ignore failures defensively)
+                with suppress(Exception):  # pragma: no cover - defensive
+                    _ = self._pre_transform(x_calibration, stage="calibrate_check")
+            validate_inputs_matrix(x_cal_local, y_calibration, require_y=True, allow_nan=False)
+
+            stage = "conditional_calibration"
+            supplied = {
+                "bins": kwargs.get("bins") is not None,
+                "mc": mc is not None,
+                "reuse_conditional": reuse_conditional,
+            }
+            if sum(supplied.values()) > 1:
+                provided = [name for name, present in supplied.items() if present]
                 raise ValidationError(
-                    "reuse_conditional=True requires a stored Mondrian categorizer; "
-                    "inline bins cannot transfer to a new calibration set, so pass fresh bins=.",
-                    details={"requirement": "stored mc required for reuse_conditional"},
+                    "Specify exactly one conditional calibration channel: bins, mc, or reuse_conditional.",
+                    details={
+                        "provided": provided,
+                        "requirement": "one conditional channel per calibrate call",
+                    },
                 )
-            mc = self.mc
-        if mc is not None:
-            self.mc = mc
-            derived_bins = _apply_conditional_categorizer(mc, x_cal_local)
-            kwargs["bins"] = _normalize_conditional_bins(
-                derived_bins, n_samples=len(np.asarray(x_cal_local))
-            )
-        elif kwargs.get("bins") is not None:
-            self.mc = None
-            kwargs["bins"] = _normalize_conditional_bins(
-                kwargs["bins"], n_samples=len(np.asarray(x_cal_local))
-            )
-        else:
-            self.mc = None
-            kwargs["bins"] = None
-        if preprocessor_metadata is not None:
-            kwargs.setdefault("preprocessor_metadata", preprocessor_metadata)
-        self._logger.info("Calibrating with %s samples", getattr(x_calibration, "shape", ["?"])[0])
 
-        # A call-time value wins over the wrapper-level performance attributes.
-        kwargs.setdefault("perf_cache", getattr(self, "perf_cache", None))
-        kwargs.setdefault("perf_parallel", getattr(self, "_perf_parallel", None))
-        if "mode" not in kwargs:
-            kwargs["mode"] = (
-                "classification" if "predict_proba" in dir(self.learner) else "regression"
-            )
-        if kwargs["mode"] == "classification":
-            validate_classification_calibration_targets(y_calibration, learner=self.learner)
+            candidate_mc = None
+            candidate_bins = None
+            if reuse_conditional:
+                if self.mc is None:
+                    raise ValidationError(
+                        "reuse_conditional=True requires a stored Mondrian categorizer; "
+                        "inline bins cannot transfer to a new calibration set, so pass fresh bins=.",
+                        details={"requirement": "stored mc required for reuse_conditional"},
+                    )
+                candidate_mc = self.mc
+            elif mc is not None:
+                candidate_mc = mc
 
-        # Only invalidate the previous calibration once every validation gate has
-        # passed; a rejected calibrate() call must not discard a working explainer.
-        self.calibrated = False
-        self.explainer = CalibratedExplainer(
-            self.learner,
-            x_cal_local,
-            y_calibration,
-            **kwargs,
-        )
-        # Propagate internal feature filter config to explainer when available
-        if self.explainer is not None and hasattr(self, "_feature_filter_config"):
-            self.explainer.feature_filter_config = self._feature_filter_config
+            if candidate_mc is not None:
+                derived_bins = _apply_conditional_categorizer(candidate_mc, x_cal_local)
+                candidate_bins = _normalize_conditional_bins(
+                    derived_bins, n_samples=len(np.asarray(x_cal_local))
+                )
+            elif kwargs.get("bins") is not None:
+                candidate_bins = _normalize_conditional_bins(
+                    kwargs["bins"], n_samples=len(np.asarray(x_cal_local))
+                )
+
+            candidate_kwargs = dict(kwargs)
+            candidate_kwargs["bins"] = candidate_bins
+            if preprocessor_metadata is not None:
+                candidate_kwargs.setdefault("preprocessor_metadata", preprocessor_metadata)
+
+            self._logger.info(
+                "Calibrating with %s samples", getattr(x_calibration, "shape", ["?"])[0]
+            )
+
+            # A call-time value wins over the wrapper-level performance attributes.
+            candidate_kwargs.setdefault("perf_cache", getattr(self, "perf_cache", None))
+            candidate_kwargs.setdefault("perf_parallel", getattr(self, "_perf_parallel", None))
+            if "mode" not in candidate_kwargs:
+                candidate_kwargs["mode"] = (
+                    "classification" if "predict_proba" in dir(self.learner) else "regression"
+                )
+
+            stage = "target_validation"
+            if candidate_kwargs["mode"] == "classification":
+                validate_classification_calibration_targets(y_calibration, learner=self.learner)
+
+            stage = "explainer_construction"
+            candidate_explainer = CalibratedExplainer(
+                self.learner,
+                x_cal_local,
+                y_calibration,
+                **candidate_kwargs,
+            )
+
+            stage = "post_construction_configuration"
+            self._finalize_candidate_calibration(candidate_explainer, preprocessor_metadata)
+
+        except (
+            ConfigurationError,
+            DataShapeError,
+            IncompatibleStateError,
+            NotFittedError,
+            ValidationError,
+        ):
+            self._restore_calibration_state(snapshot)
+            raise
+        except (
+            Exception
+        ) as exc:  # adr002_allow - normalize calibration-path failures to CE exceptions
+            self._restore_calibration_state(snapshot)
+            raise ConfigurationError(
+                f"Calibration failed during {stage}: {exc}",
+                details={
+                    "stage": stage,
+                    "original_error_type": type(exc).__name__,
+                    "original_error": str(exc),
+                },
+            ) from exc
+
+        # Commit only after every validation and construction step succeeds.
+        self.mc = candidate_mc
+        self.explainer = candidate_explainer
         self.calibrated = True
-        if preprocessor_metadata is not None and self.explainer is not None:
-            with suppress(AttributeError):
-                self.explainer.set_preprocessor_metadata(preprocessor_metadata)
         return self
 
     @property
@@ -1218,6 +1256,40 @@ class WrapCalibratedExplainer:
             self.explainer.reinitialize(self.learner)
             self.calibrated = True
         return self
+
+    def _snapshot_calibration_state(self) -> dict[str, Any]:
+        """Capture wrapper state that must survive a rejected recalibration."""
+        preprocessor_snapshot = self._preprocessor
+        if preprocessor_snapshot is not None and not self._pre_fitted:
+            with suppress(Exception):  # pragma: no cover - best-effort rollback snapshot
+                preprocessor_snapshot = copy.deepcopy(preprocessor_snapshot)
+        return {
+            "calibrated": self.calibrated,
+            "explainer": self.explainer,
+            "mc": self.mc,
+            "preprocessor": preprocessor_snapshot,
+            "pre_fitted": self._pre_fitted,
+        }
+
+    def _restore_calibration_state(self, snapshot: Mapping[str, Any]) -> None:
+        """Restore wrapper state after a rejected recalibration attempt."""
+        self.calibrated = bool(snapshot["calibrated"])
+        self.explainer = snapshot["explainer"]
+        self.mc = snapshot["mc"]
+        self._preprocessor = snapshot["preprocessor"]
+        self._pre_fitted = bool(snapshot["pre_fitted"])
+
+    def _finalize_candidate_calibration(
+        self,
+        candidate_explainer: CalibratedExplainer,
+        preprocessor_metadata: Mapping[str, Any] | None,
+    ) -> None:
+        """Apply wrapper-owned runtime configuration to a candidate explainer."""
+        if hasattr(self, "_feature_filter_config"):
+            candidate_explainer.feature_filter_config = self._feature_filter_config
+        if preprocessor_metadata is not None:
+            with suppress(AttributeError):
+                candidate_explainer.set_preprocessor_metadata(preprocessor_metadata)
 
     def _format_proba_output(self, proba: Any, uq_interval: bool) -> Any:
         """Format probability output (with optional trivial intervals) without duplicating logic."""

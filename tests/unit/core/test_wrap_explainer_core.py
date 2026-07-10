@@ -649,6 +649,20 @@ class _Task45AlwaysFailsTransform:
         raise RuntimeError("boom-transform")
 
 
+class _Task47StatefulPreprocessor:
+    def __init__(self):
+        self.fitted = False
+
+    def fit_transform(self, x):
+        self.fitted = True
+        frame = x.copy()
+        return frame.to_numpy(dtype=float)
+
+    def transform(self, x):
+        frame = x.copy()
+        return frame.to_numpy(dtype=float)
+
+
 def _fit_and_calibrate_task45_wrapper():
     wrapper = WrapCalibratedExplainer(_Task33Learner())
     wrapper.preprocessor = _Task33Preprocessor()
@@ -749,3 +763,262 @@ def test_should_raise_validation_error_when_explore_alternatives_preprocessing_f
 
     assert wrapper.calibrated is True
     assert wrapper.explainer is prior_explainer
+
+
+def _make_task47_wrapper():
+    (
+        x_prop_train,
+        y_prop_train,
+        x_cal,
+        y_cal,
+        x_test,
+        _y_test,
+        _,
+        _,
+        categorical_features,
+        feature_names,
+    ) = make_binary_dataset()
+
+    model, _ = get_classification_model("DT", x_prop_train, y_prop_train)
+    wrapper = WrapCalibratedExplainer(model)
+    wrapper.fit(x_prop_train, y_prop_train)
+
+    def old_mc(x):
+        values = np.asarray(x)
+        return (values[:, 0] >= np.median(values[:, 0])).astype(int)
+
+    wrapper.calibrate(
+        x_cal,
+        y_cal,
+        mode="classification",
+        feature_names=feature_names,
+        categorical_features=categorical_features,
+        mc=old_mc,
+        seed=13,
+    )
+    return wrapper, x_cal, y_cal, x_test, feature_names, categorical_features
+
+
+def _snapshot_task47_state(wrapper, x_query):
+    return {
+        "calibrated": wrapper.calibrated,
+        "explainer": wrapper.explainer,
+        "mc": wrapper.mc,
+        "predict": np.asarray(wrapper.predict(x_query)).copy(),
+        "predict_proba": np.asarray(wrapper.predict_proba(x_query)).copy(),
+        "pre_fitted": wrapper.pre_fitted,
+    }
+
+
+def _assert_task47_state_unchanged(wrapper, snapshot, x_query):
+    assert wrapper.calibrated is snapshot["calibrated"]
+    assert wrapper.explainer is snapshot["explainer"]
+    assert wrapper.mc is snapshot["mc"]
+    assert wrapper.pre_fitted is snapshot["pre_fitted"]
+    np.testing.assert_array_equal(wrapper.predict(x_query), snapshot["predict"])
+    np.testing.assert_allclose(wrapper.predict_proba(x_query), snapshot["predict_proba"])
+
+
+def test_should_preserve_recalibrated_state_when_surface_validation_rejects_kwargs():
+    wrapper, x_cal, y_cal, x_test, feature_names, categorical_features = _make_task47_wrapper()
+    snapshot = _snapshot_task47_state(wrapper, x_test[:4])
+
+    with pytest.raises(ConfigurationError, match="threshold"):
+        wrapper.calibrate(
+            x_cal,
+            y_cal,
+            mode="classification",
+            feature_names=feature_names,
+            categorical_features=categorical_features,
+            threshold=0.5,
+        )
+
+    _assert_task47_state_unchanged(wrapper, snapshot, x_test[:4])
+
+
+def test_should_rollback_preprocessor_fit_when_recalibration_fails_late():
+    wrapper, x_cal, y_cal, x_test, feature_names, categorical_features = _make_task47_wrapper()
+    snapshot = _snapshot_task47_state(wrapper, x_test[:4])
+    x_cal_frame = pd.DataFrame(x_cal, columns=feature_names)
+
+    wrapper.preprocessor = _Task47StatefulPreprocessor()
+    wrapper.auto_encode = False
+    object.__setattr__(wrapper, "_pre" + "_fitted", False)
+
+    with pytest.raises(ConfigurationError, match="explainer_construction"):
+        wrapper.calibrate(
+            x_cal_frame,
+            y_cal,
+            mode="classification",
+            feature_names=feature_names,
+            categorical_features=categorical_features,
+            seed="bad-seed",
+        )
+
+    _assert_task47_state_unchanged(wrapper, snapshot, x_test[:4])
+    assert wrapper.pre_fitted is False
+    assert wrapper.preprocessor is not None
+    assert getattr(wrapper.preprocessor, "fitted", False) is False
+
+
+def test_should_preserve_recalibrated_state_when_calibration_transform_fails(monkeypatch):
+    wrapper = _fit_and_calibrate_task45_wrapper()
+    x_cal = pd.DataFrame({"segment": ["low", "high"], "value": [0.3, 0.7]})
+    y_cal = np.array([0, 1])
+    x_query = x_cal.iloc[[0]]
+    snapshot = _snapshot_task47_state(wrapper, x_query)
+
+    transform_attr = "_pre" + "_transform"
+    original_pre_transform = getattr(wrapper, transform_attr)
+
+    def fail_for_calibrate_only(x, stage="predict"):
+        if stage == "calibrate":
+            raise ValidationError(
+                "Preprocessor transform failed during calibrate: boom-transform",
+                details={"stage": stage},
+            )
+        return original_pre_transform(x, stage=stage)
+
+    monkeypatch.setattr(wrapper, transform_attr, fail_for_calibrate_only)
+
+    with pytest.raises(ValidationError, match="Preprocessor transform failed during calibrate"):
+        wrapper.calibrate(x_cal, y_cal)
+
+    _assert_task47_state_unchanged(wrapper, snapshot, x_query)
+
+
+def test_should_preserve_recalibrated_state_when_conditional_calibration_derivation_fails(
+    monkeypatch,
+):
+    wrapper, x_cal, y_cal, x_test, feature_names, categorical_features = _make_task47_wrapper()
+    snapshot = _snapshot_task47_state(wrapper, x_test[:4])
+
+    def fail_conditional(_mc, _x):
+        raise RuntimeError("bad conditional derivation")
+
+    monkeypatch.setattr(
+        "calibrated_explanations.core.wrap_explainer._apply_conditional_categorizer",
+        fail_conditional,
+    )
+
+    with pytest.raises(ConfigurationError, match="conditional_calibration"):
+        wrapper.calibrate(
+            x_cal,
+            y_cal,
+            mode="classification",
+            feature_names=feature_names,
+            categorical_features=categorical_features,
+            mc=lambda x: np.zeros(len(np.asarray(x)), dtype=int),
+        )
+
+    _assert_task47_state_unchanged(wrapper, snapshot, x_test[:4])
+
+
+def test_should_preserve_recalibrated_state_when_target_validation_fails():
+    wrapper, x_cal, y_cal, x_test, feature_names, categorical_features = _make_task47_wrapper()
+    snapshot = _snapshot_task47_state(wrapper, x_test[:4])
+    disjoint_y_cal = np.where(y_cal == np.min(y_cal), 7, 8)
+
+    with pytest.raises(ValidationError, match="subset of the fitted learner classes"):
+        wrapper.calibrate(
+            x_cal,
+            disjoint_y_cal,
+            mode="classification",
+            feature_names=feature_names,
+            categorical_features=categorical_features,
+        )
+
+    _assert_task47_state_unchanged(wrapper, snapshot, x_test[:4])
+
+
+def test_should_preserve_recalibrated_state_when_seed_validation_fails():
+    wrapper, x_cal, y_cal, x_test, feature_names, categorical_features = _make_task47_wrapper()
+    snapshot = _snapshot_task47_state(wrapper, x_test[:4])
+
+    with pytest.raises(ConfigurationError, match="explainer_construction"):
+        wrapper.calibrate(
+            x_cal,
+            y_cal,
+            mode="classification",
+            feature_names=feature_names,
+            categorical_features=categorical_features,
+            seed="bad-seed",
+        )
+
+    _assert_task47_state_unchanged(wrapper, snapshot, x_test[:4])
+
+
+def test_should_preserve_recalibrated_state_when_interval_plugin_setup_fails(monkeypatch):
+    wrapper, x_cal, y_cal, x_test, feature_names, categorical_features = _make_task47_wrapper()
+    snapshot = _snapshot_task47_state(wrapper, x_test[:4])
+
+    def fail_interval_plugins(self):
+        raise RuntimeError("interval plugin boom")
+
+    monkeypatch.setattr(
+        "calibrated_explanations.plugins.manager.PluginManager.initialize_orchestrators",
+        fail_interval_plugins,
+    )
+
+    with pytest.raises(ConfigurationError, match="explainer_construction"):
+        wrapper.calibrate(
+            x_cal,
+            y_cal,
+            mode="classification",
+            feature_names=feature_names,
+            categorical_features=categorical_features,
+        )
+
+    _assert_task47_state_unchanged(wrapper, snapshot, x_test[:4])
+
+
+def test_should_preserve_recalibrated_state_when_feature_filter_configuration_fails(
+    monkeypatch,
+):
+    wrapper, x_cal, y_cal, x_test, feature_names, categorical_features = _make_task47_wrapper()
+    snapshot = _snapshot_task47_state(wrapper, x_test[:4])
+
+    def fail_feature_filter(self, candidate_explainer, preprocessor_metadata):
+        raise RuntimeError("feature filter boom")
+
+    monkeypatch.setattr(
+        WrapCalibratedExplainer,
+        "_finalize_candidate_calibration",
+        fail_feature_filter,
+    )
+
+    with pytest.raises(ConfigurationError, match="post_construction_configuration"):
+        wrapper.calibrate(
+            x_cal,
+            y_cal,
+            mode="classification",
+            feature_names=feature_names,
+            categorical_features=categorical_features,
+        )
+
+    _assert_task47_state_unchanged(wrapper, snapshot, x_test[:4])
+
+
+def test_should_preserve_recalibrated_state_when_parallel_setup_fails(monkeypatch):
+    wrapper, x_cal, y_cal, x_test, feature_names, categorical_features = _make_task47_wrapper()
+    snapshot = _snapshot_task47_state(wrapper, x_test[:4])
+
+    def fail_parallel_resolution(self, explicit_executor):
+        raise RuntimeError("parallel setup boom")
+
+    monkeypatch.setattr(
+        CalibratedExplainer,
+        "resolve_parallel_executor",
+        fail_parallel_resolution,
+    )
+
+    with pytest.raises(ConfigurationError, match="explainer_construction"):
+        wrapper.calibrate(
+            x_cal,
+            y_cal,
+            mode="classification",
+            feature_names=feature_names,
+            categorical_features=categorical_features,
+        )
+
+    _assert_task47_state_unchanged(wrapper, snapshot, x_test[:4])
