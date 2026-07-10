@@ -12,37 +12,37 @@
     },
     {
       "file": "ce_agent_utils.py",
-      "line": 787,
+      "line": 781,
       "message_snippet": "get_uncalibrated_predictions returns raw learner outputs that bypass CE calibrat",
       "category": "ALLOWLISTED"
     },
     {
       "file": "ce_agent_utils.py",
-      "line": 891,
+      "line": 885,
       "message_snippet": "",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/calibrated_explainer.py",
-      "line": 352,
+      "line": 369,
       "message_snippet": "condition_source not provided; defaulting to 'prediction' in v0.10.3. Pass condi",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/calibrated_explainer.py",
-      "line": 1674,
+      "line": 1718,
       "message_snippet": "_use_plugin has no effect on guarded explanation methods",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/calibrated_explainer.py",
-      "line": 1796,
+      "line": 1848,
       "message_snippet": "_use_plugin has no effect on guarded explanation methods",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/calibrated_explainer.py",
-      "line": 2403,
+      "line": 2457,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
@@ -210,235 +210,235 @@
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 894,
+      "line": 897,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1459,
+      "line": 1462,
       "message_snippet": "Reject threshold mismatch detected; reinitializing reject learner with call thre",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1552,
+      "line": 1554,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1772,
+      "line": 1774,
       "message_snippet": "Reject prediction fallback engaged: predict_set returned unexpected shape; using",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1974,
+      "line": 1976,
       "message_snippet": "",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 2352,
+      "line": 2354,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1707,
+      "line": 1709,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1750,
+      "line": 1752,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 2475,
+      "line": 2477,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 2525,
+      "line": 2527,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1236,
+      "line": 1239,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "core/reject/orchestrator.py",
-      "line": 1274,
+      "line": 1277,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 4175,
+      "line": 4206,
       "message_snippet": "The add_conjunctions method is currently not supported for `FastExplanation`, ma",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 4192,
+      "line": 4223,
       "message_snippet": "The add_new_rule_condition method is currently not supported for `FastExplanatio",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 1436,
+      "line": 1457,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 1442,
+      "line": 1463,
       "message_snippet": "Alternatives for all categorical features are already included",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 1452,
+      "line": 1473,
       "message_snippet": "Rule already included",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 1545,
+      "line": 1566,
       "message_snippet": "The alternative explanation is identical to the original explanation",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 2389,
+      "line": 2415,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 3957,
+      "line": 3988,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 4343,
+      "line": 4379,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 1468,
+      "line": 1489,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 1477,
+      "line": 1498,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 1816,
+      "line": 1837,
       "message_snippet": "",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 1823,
+      "line": 1844,
       "message_snippet": "",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 2300,
+      "line": 2321,
       "message_snippet": "",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 2308,
+      "line": 2329,
       "message_snippet": "",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 2505,
+      "line": 2531,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 2765,
+      "line": 2791,
       "message_snippet": "",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 2772,
+      "line": 2798,
       "message_snippet": "",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 3848,
+      "line": 3874,
       "message_snippet": "",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 3860,
+      "line": 3886,
       "message_snippet": "",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 336,
+      "line": 351,
       "message_snippet": "Prediction interval invariant violated: low > high",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanation.py",
-      "line": 344,
+      "line": 359,
       "message_snippet": "Prediction invariant violated: predict not in [low, high]",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanations.py",
-      "line": 2888,
+      "line": 2921,
       "message_snippet": "No explanations found",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanations.py",
-      "line": 2920,
+      "line": 2953,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanations.py",
-      "line": 2980,
+      "line": 3013,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanations.py",
-      "line": 3190,
+      "line": 3223,
       "message_snippet": "<f-string>",
       "category": "ALLOWLISTED"
     },
     {
       "file": "explanations/explanations.py",
-      "line": 2023,
+      "line": 2055,
       "message_snippet": "Deepcopy of explainer failed; using original instance for frozen wrapper",
       "category": "ALLOWLISTED"
     },
@@ -456,7 +456,7 @@
     },
     {
       "file": "explanations/reject.py",
-      "line": 1145,
+      "line": 1147,
       "message_snippet": "Reject result is missing source_indices metadata; derived mapping from policy/re",
       "category": "ALLOWLISTED"
     },
@@ -624,13 +624,13 @@
     },
     {
       "file": "viz/narrative_plugin.py",
-      "line": 148,
+      "line": 149,
       "message_snippet": "Narrative template fallback: default template used because provided relative pat",
       "category": "ALLOWLISTED"
     },
     {
       "file": "viz/narrative_plugin.py",
-      "line": 159,
+      "line": 160,
       "message_snippet": "Narrative template fallback: default template used because provided absolute pat",
       "category": "ALLOWLISTED"
     },

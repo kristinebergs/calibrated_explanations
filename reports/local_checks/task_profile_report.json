@@ -1,13 +1,15 @@
 {
   "commands_run": [
+    "python -m ruff check src/calibrated_explanations/core/reject/orchestrator.py tests/unit/core/test_reject.py tests/unit/test_reject_prediction_api.py",
+    "python -m ruff format --check src/calibrated_explanations/core/reject/orchestrator.py tests/unit/core/test_reject.py tests/unit/test_reject_prediction_api.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python scripts/quality/check_agent_instruction_consistency.py"
+    "python -m pytest -q tests/unit/core/test_reject.py tests/unit/test_reject_prediction_api.py -o addopts= --no-cov"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-10T07:23:56.590827+00:00",
+  "generated_at": "2026-07-10T08:52:21.185370+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -45,5 +47,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 38
+  "task_id": 40
 }

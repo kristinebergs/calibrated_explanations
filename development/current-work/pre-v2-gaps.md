@@ -3,7 +3,8 @@
 Status: complete — dispositioned into `v0.11.6_plan.md` Tasks 23–28 (2026-07-09;
 originally numbered 24–29, renumbered when the plan moved release preparation to
 Task 30 and added the Task 29 test-quality correction; release preparation has since
-moved again to Task 39 when the 2026-07-09 third-pass audit inserted Tasks 30–38)
+moved again to Task 39 when the 2026-07-09 third-pass audit inserted Tasks 30–38,
+and to Task 45 when the 2026-07-10 fourth-pass audit inserted Tasks 39–44)
 Date: 2026-07-09
 
 > **Disposition (2026-07-09; task ids updated to the renumbered plan):** the findings
