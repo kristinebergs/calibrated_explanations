@@ -7,6 +7,10 @@ Task 36 extends that gate to cover:
 - ``CITATION.cff`` version metadata
 - ``METADATA.json`` version metadata
 
+Task 55 extends the gate further to cover prose Python-floor claims in
+user-facing docs (``README.md``, compliance playbooks) against
+``pyproject.toml``'s ``requires-python``.
+
 Policy
 ------
 - Runtime, installed package metadata, and docs ``release`` must agree after
@@ -14,6 +18,9 @@ Policy
 - ``CITATION.cff`` and ``METADATA.json`` are release-facing metadata and must
   track the base release version derived from ``pyproject.toml``. They may omit
   the development suffix during the pre-tag window.
+- Every "Python >= X.Y" / "Python ≥ X.Y" prose claim in the tracked
+  user-facing docs listed in ``PYTHON_FLOOR_DOC_TARGETS`` must state the same
+  floor as ``requires-python``.
 """
 
 from __future__ import annotations
@@ -73,6 +80,49 @@ def _pyproject_version() -> str:
     return str(payload["project"]["version"])
 
 
+def _pyproject_requires_python_floor() -> str:
+    pyproject_path = REPO_ROOT / "pyproject.toml"
+    payload = tomllib.loads(pyproject_path.read_text(encoding="utf-8"))
+    requires_python = str(payload["project"]["requires-python"])
+    match = re.search(r">=\s*(?P<floor>\d+\.\d+)", requires_python)
+    if match is None:
+        raise RuntimeError(
+            f"Could not parse a '>=X.Y' floor from requires-python={requires_python!r}."
+        )
+    return match.group("floor")
+
+
+PYTHON_FLOOR_DOC_TARGETS = (
+    "README.md",
+    "docs/practitioner/playbooks/eu-ai-act-compliance.md",
+)
+
+PYTHON_FLOOR_CLAIM_PATTERN = re.compile(r"Python\s*(?:>=|≥)\s*(?P<floor>\d+\.\d+)")
+
+
+def _doc_python_floor_claims(*, requires_python_floor: str) -> list[str]:
+    """Return violation strings for stale Python-floor prose claims in docs."""
+    errors: list[str] = []
+    for relative_path in PYTHON_FLOOR_DOC_TARGETS:
+        doc_path = REPO_ROOT / relative_path
+        if not doc_path.exists():
+            errors.append(f"{relative_path} is a declared Python-floor doc target but is missing.")
+            continue
+        text = doc_path.read_text(encoding="utf-8")
+        matches = list(PYTHON_FLOOR_CLAIM_PATTERN.finditer(text))
+        if not matches:
+            errors.append(f"{relative_path} no longer states a 'Python >= X.Y' floor claim.")
+            continue
+        for match in matches:
+            claimed = match.group("floor")
+            if claimed != requires_python_floor:
+                errors.append(
+                    f"{relative_path} claims Python >= {claimed}, but pyproject.toml "
+                    f"requires-python floor is {requires_python_floor}."
+                )
+    return errors
+
+
 def _citation_version() -> str:
     citation_path = REPO_ROOT / "CITATION.cff"
     text = citation_path.read_text(encoding="utf-8")
@@ -130,6 +180,7 @@ def _evaluate_alignment(*, allow_normalized: bool) -> tuple[dict[str, str], list
     docs_version = _docs_version()
     citation_raw = _citation_version()
     metadata_json_raw = _metadata_json_version()
+    requires_python_floor = _pyproject_requires_python_floor()
 
     observed = {
         "pyproject_version": pyproject_raw,
@@ -140,6 +191,7 @@ def _evaluate_alignment(*, allow_normalized: bool) -> tuple[dict[str, str], list
         "docs_version": docs_version,
         "citation_version": citation_raw,
         "metadata_json_version": metadata_json_raw,
+        "requires_python_floor": requires_python_floor,
     }
 
     errors: list[str] = []
@@ -182,6 +234,8 @@ def _evaluate_alignment(*, allow_normalized: bool) -> tuple[dict[str, str], list
             "(dev suffix omitted by policy)."
         )
 
+    errors.extend(_doc_python_floor_claims(requires_python_floor=requires_python_floor))
+
     return observed, errors
 
 
@@ -214,6 +268,7 @@ def main() -> int:
     print(f"docs/conf.py version:      {observed['docs_version']}")
     print(f"CITATION.cff version:      {observed['citation_version']}")
     print(f"METADATA.json version:     {observed['metadata_json_version']}")
+    print(f"requires-python floor:     {observed['requires_python_floor']}")
 
     if not errors:
         print("PASS: version sources align with the documented Task 36 policy.")

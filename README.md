@@ -179,7 +179,7 @@ BibTeX entries are available in [`CITATION.cff`](CITATION.cff).
 pip install calibrated-explanations
 ```
 
-- Python ≥ 3.8
+- Python ≥ 3.10
 - scikit-learn ≥ 1.3
 - crepes ≥ 0.8.0 (conformal calibration backend)
 - venn-abers ≥ 1.4.0 (Venn-Abers calibration)

@@ -91,7 +91,7 @@ boosting libraries such as XGBoost, LightGBM, and CatBoost via sklearn wrappers)
    recommended size ≥ 200 instances for reliable interval coverage.
 3. A **proper training set** `(x_proper, y_proper)` — used only for fitting the
    internal calibration layer.
-4. Python ≥ 3.9 and `calibrated_explanations` installed
+4. Python ≥ 3.10 and `calibrated_explanations` installed
    (`pip install calibrated_explanations`).
 
 ---
