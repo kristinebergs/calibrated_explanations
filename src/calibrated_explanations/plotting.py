@@ -305,6 +305,48 @@ def _warn_and_log_plotspec_fallback(message: str) -> None:
     warnings.warn(message, UserWarning, stacklevel=2)
 
 
+# pre-v4 S4-H6: closed set of built-in ``plot_global`` keyword arguments.
+# Anything outside this set used to be forwarded silently (or with only an
+# INFO log, mirroring the S4-H3 explain-kwarg black hole) through both the
+# legacy and PlotSpec renderers; a misspelled kwarg such as ``filter_topp``
+# would be accepted without any signal.
+_PLOT_GLOBAL_KWARGS = frozenset(
+    {
+        "show",
+        "bins",
+        "use_legacy",
+        "style_override",
+        "style",
+        "path",
+        "save_ext",
+        "renderer",
+        "low_high_percentiles",
+    }
+)
+
+
+def _reject_unconsumed_plot_kwargs(
+    surface: str, kwargs: Mapping[str, Any], *, allowed: frozenset[str]
+) -> None:
+    """Emit the governed fallback signal for plot kwargs outside ``allowed``.
+
+    CONTRIBUTOR_INSTRUCTIONS.md §5: leftover keys are not built-in and are
+    only forwarded to downstream renderers/plugins, so a misspelling must be
+    visible (``UserWarning`` + INFO), not silently dropped or INFO-only.
+    """
+    unconsumed = sorted(set(kwargs) - allowed)
+    if not unconsumed:
+        return
+    message = (
+        f"{surface} received keyword argument(s) not recognised as built-in "
+        f"plot arguments: {unconsumed}. They will be forwarded to downstream "
+        "renderers/plugins; if this is a typo of a built-in argument "
+        f"({sorted(allowed)}), it will be silently ignored by the renderer."
+    )
+    logging.getLogger(__name__).info(message)
+    warnings.warn(message, UserWarning, stacklevel=3)
+
+
 def validate_plot_artifact(artifact: Any, *, identifier: str) -> None:
     """ADR-036 §5: validate canonical PlotSpec artifacts before renderer invocation.
 
@@ -1772,6 +1814,8 @@ def plot_global(explainer, x, y=None, threshold=None, **kwargs):
     **kwargs : dict
         Additional keyword arguments.
     """
+    _reject_unconsumed_plot_kwargs("plot_global", kwargs, allowed=_PLOT_GLOBAL_KWARGS)
+
     show = kwargs.get("show", True)
     bins = kwargs.get("bins")
     use_legacy = kwargs.get("use_legacy")
@@ -1783,18 +1827,14 @@ def plot_global(explainer, x, y=None, threshold=None, **kwargs):
         selected_style, use_legacy = _select_default_plot_style(explainer, explicit_style)
     else:
         selected_style = explicit_style
-    if use_legacy:
-        from .viz import _matplotlib_compat as legacy
 
-        legacy.plot_global(explainer, x, y, threshold, **kwargs)
-        return
-
-    path = kwargs.get("path")
-    save_ext_value = kwargs.get("save_ext")
-    if isinstance(save_ext_value, (list, tuple)):
-        save_ext_value = tuple(save_ext_value)
-
-    # Gather model outputs in the same way legacy code did
+    # pre-v4 S4-H6: gather and validate model outputs once, ahead of the
+    # use_legacy dispatch, so both the legacy and PlotSpec renderers observe
+    # the same validated prediction payload. Previously the legacy branch
+    # returned immediately and only validated *inside* legacy.plot_global,
+    # which itself validated only after a "not show and no matplotlib"
+    # no-op check -- so plot(..., threshold=<invalid>, use_legacy=True,
+    # show=False) silently skipped validation entirely.
     is_regularized = True
     if "predict_proba" not in dir(explainer.learner) and threshold is None:
         predict, (low, high) = explainer.predict(x, uq_interval=True, bins=bins)
@@ -1805,6 +1845,27 @@ def plot_global(explainer, x, y=None, threshold=None, **kwargs):
             x, uq_interval=True, threshold=threshold, bins=bins
         )
         predict = None
+
+    validated_payload = {
+        "proba": proba,
+        "predict": predict,
+        "low": low,
+        "high": high,
+        "is_regularized": is_regularized,
+    }
+
+    if use_legacy:
+        from .viz import _matplotlib_compat as legacy
+
+        legacy.plot_global(
+            explainer, x, y, threshold, _validated_payload=validated_payload, **kwargs
+        )
+        return
+
+    path = kwargs.get("path")
+    save_ext_value = kwargs.get("save_ext")
+    if isinstance(save_ext_value, (list, tuple)):
+        save_ext_value = tuple(save_ext_value)
 
     uncertainty = (
         (np.array(high) - np.array(low)) if (low is not None and high is not None) else None
@@ -1850,7 +1911,9 @@ def plot_global(explainer, x, y=None, threshold=None, **kwargs):
         )
         from .viz import _matplotlib_compat as legacy
 
-        legacy.plot_global(explainer, x, y, threshold, **kwargs)
+        legacy.plot_global(
+            explainer, x, y, threshold, _validated_payload=validated_payload, **kwargs
+        )
         return
     else:
         context = PlotRenderContext(
@@ -1883,7 +1946,9 @@ def plot_global(explainer, x, y=None, threshold=None, **kwargs):
                 )
                 from .viz import _matplotlib_compat as legacy
 
-                legacy.plot_global(explainer, x, y, threshold, **kwargs)
+                legacy.plot_global(
+                    explainer, x, y, threshold, _validated_payload=validated_payload, **kwargs
+                )
                 return
         else:
             return result

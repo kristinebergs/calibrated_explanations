@@ -1024,7 +1024,13 @@ def test_should_raise_configuration_error_when_collection_to_narrative_uses_unkn
 
 
 def test_should_log_forwarded_plot_kwargs_for_collection_surface(calibrated_collection, caplog):
-    with caplog.at_level(logging.INFO, logger="calibrated_explanations.explanations.explanations"):
+    # pre-v4 S4-H6 (Task 54): a misspelled plot-only kwarg must be governed
+    # (INFO log + UserWarning), not the previous INFO-only forwarding that
+    # made it indistinguishable from a genuinely consumed extension kwarg.
+    with (
+        caplog.at_level(logging.INFO, logger="calibrated_explanations.explanations.explanations"),
+        pytest.warns(UserWarning, match="filter_topp"),
+    ):
         calibrated_collection.plot(filter_topp=3)
 
     assert any("forwarding plot keyword arguments" in record.message for record in caplog.records)

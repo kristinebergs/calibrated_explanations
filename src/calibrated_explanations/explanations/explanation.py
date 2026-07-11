@@ -52,14 +52,23 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def _log_forwarded_plot_kwargs(surface: str, kwargs: dict[str, Any], *, allowed: set[str]) -> None:
+    """Emit the governed fallback signal for plot kwargs outside ``allowed``.
+
+    pre-v4 S4-H6: this used to be an INFO-only log, making a misspelled
+    plot-only kwarg (e.g. ``filter_topp``) indistinguishable from a
+    genuinely consumed extension kwarg. CONTRIBUTOR_INSTRUCTIONS.md §5
+    requires a ``UserWarning`` alongside the INFO log for any fallback.
+    """
     forwarded = sorted(set(kwargs) - allowed)
     if not forwarded:
         return
-    _LOGGER.info(
-        "%s forwarding plot keyword arguments to downstream renderers/plugins: %s",
-        surface,
-        forwarded,
+    message = (
+        f"{surface} forwarding plot keyword arguments to downstream "
+        f"renderers/plugins: {forwarded}. If this is a typo of a built-in "
+        f"argument ({sorted(allowed)}), it will be silently ignored by the renderer."
     )
+    _LOGGER.info(message)
+    warnings.warn(message, UserWarning, stacklevel=3)
 
 
 @dataclass

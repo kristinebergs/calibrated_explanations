@@ -617,25 +617,37 @@ def plot_global(explainer, x, y=None, threshold=None, **kwargs):
     show = kwargs.get("show", True)
     if y is not None:
         y = np.asarray(y)
+    # pre-v4 S4-H6: consume the caller-supplied, already-validated prediction
+    # payload when present instead of unconditionally re-deriving it below --
+    # re-derivation used to run only after the "not show and no matplotlib"
+    # no-op check, which let an invalid threshold silently skip validation
+    # whenever a caller plotted with show=False.
+    validated_payload = kwargs.pop("_validated_payload", None)
     # If we're not showing and matplotlib is not available, treat as no-op.
     if not show and plt is None:
         return
     # Otherwise require matplotlib to proceed with plotting
     _require_matplotlib()
-    # Only forward prediction-relevant kwargs; plot-only keys (show, path,
-    # save_ext, style, style_override, use_legacy, renderer, ...) would be
-    # rejected by the fail-fast kwarg gates on predict/predict_proba (ADR-038).
-    prediction_kwargs = {
-        key: kwargs[key] for key in ("bins", "low_high_percentiles") if key in kwargs
-    }
-    is_regularized = True
-    if "predict_proba" not in dir(explainer.learner) and threshold is None:
-        predict, (low, high) = explainer.predict(x, uq_interval=True, **prediction_kwargs)
-        is_regularized = False
+    if validated_payload is not None:
+        is_regularized = validated_payload["is_regularized"]
+        predict = validated_payload["predict"]
+        proba = validated_payload["proba"]
+        low, high = validated_payload["low"], validated_payload["high"]
     else:
-        proba, (low, high) = explainer.predict_proba(
-            x, uq_interval=True, threshold=threshold, bins=kwargs.get("bins")
-        )
+        # Only forward prediction-relevant kwargs; plot-only keys (show, path,
+        # save_ext, style, style_override, use_legacy, renderer, ...) would be
+        # rejected by the fail-fast kwarg gates on predict/predict_proba (ADR-038).
+        prediction_kwargs = {
+            key: kwargs[key] for key in ("bins", "low_high_percentiles") if key in kwargs
+        }
+        is_regularized = True
+        if "predict_proba" not in dir(explainer.learner) and threshold is None:
+            predict, (low, high) = explainer.predict(x, uq_interval=True, **prediction_kwargs)
+            is_regularized = False
+        else:
+            proba, (low, high) = explainer.predict_proba(
+                x, uq_interval=True, threshold=threshold, bins=kwargs.get("bins")
+            )
     uncertainty = np.array(high - low)
 
     marker_size = 50

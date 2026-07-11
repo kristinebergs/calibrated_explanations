@@ -433,6 +433,87 @@ class TestLegacyGlobalPlotKwargForwarding:
         assert compat.plt.get_fignums(), "legacy plot must actually render a figure"
 
 
+@pytest.mark.viz
+class TestUnifiedPlotPredictionValidationContract:
+    """Task 54 (pre-v4 S4-H6): predict/predict_proba/plot(use_legacy=False)/
+    plot(use_legacy=True) must reject an invalid ``threshold`` identically,
+    and a misspelled plot-only kwarg must produce a governed signal (INFO +
+    UserWarning) on every plot path instead of silently forwarding."""
+
+    @pytest.fixture(autouse=True)
+    def _agg_backend(self, monkeypatch):
+        matplotlib = pytest.importorskip("matplotlib")
+        matplotlib.use("Agg", force=True)
+        from calibrated_explanations.viz import _matplotlib_compat as compat
+        from calibrated_explanations.viz._matplotlib_compat import (
+            _require_matplotlib as require_matplotlib,
+        )
+
+        require_matplotlib()
+        monkeypatch.setattr(compat.plt, "show", lambda *args, **kwargs: None)
+        yield
+        compat.plt.close("all")
+
+    @pytest.mark.parametrize("show", [True, False])
+    @pytest.mark.parametrize("use_legacy", [False, True])
+    def test_classification_threshold_rejected_on_all_four_surfaces(
+        self, cls_wrapper, use_legacy, show
+    ):
+        wrapper, x_test = cls_wrapper
+        with pytest.raises(ValidationError, match="only supported for mode='regression'"):
+            wrapper.predict(x_test[:2], threshold=0.5)
+        with pytest.raises(ValidationError, match="only supported for mode='regression'"):
+            wrapper.predict_proba(x_test[:2], threshold=0.5)
+        # pre-v4 S4-H6: this used to silently no-op for use_legacy=True,
+        # show=False -- the exact combination that let the bug slip past
+        # earlier verification.
+        with pytest.raises(ValidationError, match="only supported for mode='regression'"):
+            wrapper.plot(x_test[:2], threshold=0.5, use_legacy=use_legacy, show=show)
+
+    @pytest.mark.parametrize("use_legacy", [False, True])
+    def test_misspelled_plot_kwarg_emits_governed_fallback_signal_on_wrapper_plot(
+        self, cls_wrapper, use_legacy
+    ):
+        wrapper, x_test = cls_wrapper
+        with pytest.warns(UserWarning, match="filter_topp"):
+            wrapper.plot(x_test[:2], filter_topp=1, use_legacy=use_legacy, show=False)
+
+    def test_legacy_and_plotspec_plot_paths_consume_the_same_validated_payload(
+        self, monkeypatch, reg_wrapper
+    ):
+        """The legacy renderer must receive the exact prediction payload the
+        wrapper/core validation produced, instead of independently
+        re-deriving (and potentially bypassing validation for) its own."""
+        from calibrated_explanations.viz import _matplotlib_compat as compat
+
+        wrapper, x_test = reg_wrapper
+        captured = {}
+        original = compat.plot_global
+
+        def spy(*args, **kwargs):
+            captured["payload"] = kwargs.get("_validated_payload")
+            return original(*args, **kwargs)
+
+        monkeypatch.setattr(compat, "plot_global", spy)
+
+        wrapper.plot(x_test[:2], threshold=0.0, use_legacy=True, show=True)
+        legacy_payload = captured["payload"]
+        assert legacy_payload is not None
+
+        direct_proba, (direct_low, direct_high) = wrapper.explainer.predict_proba(
+            x_test[:2], uq_interval=True, threshold=0.0, bins=None
+        )
+        np.testing.assert_allclose(legacy_payload["proba"], direct_proba)
+        np.testing.assert_allclose(legacy_payload["low"], direct_low)
+        np.testing.assert_allclose(legacy_payload["high"], direct_high)
+
+    def test_misspelled_plot_kwarg_emits_governed_fallback_signal_on_item_plot(self, cls_wrapper):
+        wrapper, x_test = cls_wrapper
+        explanations = wrapper.explain_factual(x_test[:2])
+        with pytest.warns(UserWarning, match="filter_topp"):
+            explanations[0].plot(filter_topp=1, show=False)
+
+
 def _selected_probability_from_predict_proba(proba_result, *, class_index):
     proba_payload = getattr(proba_result, "prediction", proba_result)
     if isinstance(proba_payload, tuple):

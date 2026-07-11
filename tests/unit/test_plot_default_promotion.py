@@ -560,9 +560,34 @@ def test_should_preserve_legacy_opt_out_for_global(
         lambda *args, **kwargs: legacy_calls.append((args, kwargs)),
     )
 
-    plotting.plot_global(SimpleNamespace(), x=[1, 2], show=False, use_legacy=True)
+    class Learner:
+        def predict_proba(self) -> None:
+            return None
+
+    # pre-v4 S4-H6: plot_global now validates the prediction payload before
+    # dispatching to the legacy renderer (previously it dispatched first and
+    # let the legacy path re-derive/validate independently, which silently
+    # skipped validation whenever show=False), so the fake explainer needs a
+    # working predict_proba surface even for the legacy opt-out path.
+    explainer = SimpleNamespace(
+        learner=Learner(),
+        predict_proba=lambda x, uq_interval=True, threshold=None, bins=None: (
+            [0.4, 0.6],
+            ([0.3, 0.5], [0.5, 0.7]),
+        ),
+    )
+
+    plotting.plot_global(explainer, x=[1, 2], show=False, use_legacy=True)
 
     assert legacy_calls
+    _, legacy_kwargs = legacy_calls[0]
+    assert legacy_kwargs["_validated_payload"] == {
+        "proba": [0.4, 0.6],
+        "predict": None,
+        "low": [0.3, 0.5],
+        "high": [0.5, 0.7],
+        "is_regularized": True,
+    }
 
 
 def test_should_preserve_configured_legacy_opt_out_for_global_without_fallback_warning_when_manager_prefers_legacy(
