@@ -4,6 +4,13 @@ from __future__ import annotations
 
 from calibrated_explanations.core.calibrated_explainer import CalibratedExplainer
 
+from tests.helpers.explainer_internals import (
+    get_lime_helper,
+    get_shap_helper,
+    set_lime_helper,
+    set_shap_helper,
+)
+
 
 class DummyHelper:
     def __init__(self) -> None:
@@ -41,8 +48,8 @@ class DummyPerfExecutor:
 def build_explainer_stub() -> tuple[CalibratedExplainer, DummyPluginManager]:
     explainer = object.__new__(CalibratedExplainer)
     explainer.latest_explanation = object()
-    explainer.lime_helper = DummyHelper()
-    explainer.shap_helper = DummyHelper()
+    set_lime_helper(explainer, DummyHelper())
+    set_shap_helper(explainer, DummyHelper())
     plugin_manager = DummyPluginManager()
     explainer.plugin_manager = plugin_manager
     explainer.perf_parallel = None
@@ -56,8 +63,8 @@ def test_should_clear_latest_and_helper_plugin_state_when_reset_called() -> None
     explainer.reset()
 
     assert explainer.latest_explanation is None
-    assert explainer.lime_helper.reset_calls == 1
-    assert explainer.shap_helper.reset_calls == 1
+    assert get_lime_helper(explainer).reset_calls == 1
+    assert get_shap_helper(explainer).reset_calls == 1
     assert plugin_manager.clear_instances_calls == 1
     assert plugin_manager.clear_identifiers_calls == 1
     assert plugin_manager.clear_bridge_calls == 1
@@ -72,8 +79,8 @@ def test_should_reset_runtime_state_and_close_pool_when_close_called() -> None:
     explainer.close()
 
     assert explainer.latest_explanation is None
-    assert explainer.lime_helper.reset_calls == 1
-    assert explainer.shap_helper.reset_calls == 1
+    assert get_lime_helper(explainer).reset_calls == 1
+    assert get_shap_helper(explainer).reset_calls == 1
     assert plugin_manager.clear_instances_calls == 1
     assert explainer.perf_parallel is None
 

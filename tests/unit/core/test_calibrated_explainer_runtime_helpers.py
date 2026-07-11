@@ -9,6 +9,12 @@ from calibrated_explanations.core.calibrated_explainer import (
     CalibratedExplainer,
 )
 
+from tests.helpers.explainer_internals import (
+    set_pyproject_explanations,
+    set_pyproject_intervals,
+    set_pyproject_plots,
+)
+
 
 def stub_explainer(explainer_factory, mode: str = "classification") -> CalibratedExplainer:
     """Construct a fully initialized explainer instance for unit tests."""
@@ -27,9 +33,9 @@ def stub_explainer(explainer_factory, mode: str = "classification") -> Calibrate
         ("factual", "alternative", "fast"),
         None,
     )
-    explainer.pyproject_explanations = {}
-    explainer.pyproject_intervals = {}
-    explainer.pyproject_plots = {}
+    set_pyproject_explanations(explainer, {})
+    set_pyproject_intervals(explainer, {})
+    set_pyproject_plots(explainer, {})
     explainer.plugin_manager.plot_style_override = None
     explainer.plugin_manager.explanation_plugin_fallbacks = {}
     return explainer

@@ -1058,15 +1058,6 @@ class CalibratedExplainer:
         self._preprocessor_metadata = value
 
     @property
-    def feature_names_internal(self) -> Any:
-        """Public alias for `_feature_names`."""
-        return self._feature_names
-
-    @feature_names_internal.setter
-    def feature_names_internal(self, value: Any) -> None:
-        self._feature_names = value
-
-    @property
     def perf_parallel(self) -> bool:
         """Public alias for `_perf_parallel`."""
         return self._perf_parallel
@@ -1074,98 +1065,6 @@ class CalibratedExplainer:
     @perf_parallel.setter
     def perf_parallel(self, value: bool) -> None:
         self._perf_parallel = value
-
-    @property
-    def get_sigma_test(self) -> bool:
-        """Public alias for `_get_sigma_test`."""
-        return self._get_sigma_test
-
-    @get_sigma_test.setter
-    def get_sigma_test(self, value: bool) -> None:
-        self._get_sigma_test = value
-
-    def initialize_interval_learner_for_fast_explainer(self, *args, **kwargs) -> Any:
-        """Public alias for internal interval learner initialization."""
-        return self._initialize_interval_learner_for_fast_explainer(*args, **kwargs)
-
-    @property
-    def bridge_monitors(self) -> Dict[str, Any]:
-        """Public alias for `_bridge_monitors`."""
-        return self._bridge_monitors
-
-    @bridge_monitors.setter
-    def bridge_monitors(self, value: Dict[str, Any]) -> None:
-        """Set the bridge monitors."""
-        self.require_plugin_manager().bridge_monitors = value
-
-    @property
-    def explanation_plugin_instances(self) -> Dict[str, Any]:
-        """Public alias for `_explanation_plugin_instances`."""
-        return self._explanation_plugin_instances
-
-    @explanation_plugin_instances.setter
-    def explanation_plugin_instances(self, value: Dict[str, Any]) -> None:
-        """Set the explanation plugin instances."""
-        self.require_plugin_manager().explanation_plugin_instances = value
-
-    @property
-    def pyproject_explanations(self) -> Dict[str, Any] | None:
-        """Public alias for `_pyproject_explanations`."""
-        return self._pyproject_explanations
-
-    @pyproject_explanations.setter
-    def pyproject_explanations(self, value: Dict[str, Any] | None) -> None:
-        self._pyproject_explanations = value
-
-    @property
-    def pyproject_intervals(self) -> Dict[str, Any] | None:
-        """Public alias for `_pyproject_intervals`."""
-        return self._pyproject_intervals
-
-    @pyproject_intervals.setter
-    def pyproject_intervals(self, value: Dict[str, Any] | None) -> None:
-        self._pyproject_intervals = value
-
-    @property
-    def pyproject_plots(self) -> Dict[str, Any] | None:
-        """Public alias for `_pyproject_plots`."""
-        return self._pyproject_plots
-
-    @pyproject_plots.setter
-    def pyproject_plots(self, value: Dict[str, Any] | None) -> None:
-        self._pyproject_plots = value
-
-    @property
-    def lime_helper(self) -> Any:
-        """Public alias for `_lime_helper`."""
-        return self._lime_helper
-
-    @lime_helper.setter
-    def lime_helper(self, value: Any) -> None:
-        """Set the LIME helper."""
-        self._lime_helper = value
-
-    @lime_helper.deleter
-    def lime_helper(self) -> None:
-        """Delete the LIME helper."""
-        if hasattr(self, "_lime_helper"):
-            del self._lime_helper
-
-    @property
-    def shap_helper(self) -> Any:
-        """Public alias for `_shap_helper`."""
-        return self._shap_helper
-
-    @shap_helper.setter
-    def shap_helper(self, value: Any) -> None:
-        """Set the SHAP helper."""
-        self._shap_helper = value
-
-    @shap_helper.deleter
-    def shap_helper(self) -> None:
-        """Delete the SHAP helper."""
-        if hasattr(self, "_shap_helper"):
-            del self._shap_helper
 
     @property
     def initialized(self) -> bool:
@@ -1176,15 +1075,6 @@ class CalibratedExplainer:
     def initialized(self, value: bool) -> None:
         """Set the initialization state of the explainer."""
         self._initialized = value
-
-    @property
-    def is_initialized(self) -> bool:
-        """Public check for whether the explainer has been initialized.
-
-        .. deprecated:: 0.10.1
-            Use :attr:`initialized` instead.
-        """
-        return self.initialized
 
     @property
     def last_explanation_mode(self) -> str | None:
@@ -1280,15 +1170,7 @@ class CalibratedExplainer:
         if not self.is_fast():
             try:
                 self._fast = True
-                # Prefer calling the public method name so unit tests that patch
-                # `initialize_interval_learner_for_fast_explainer` observe the
-                # raised exception. Fall back to the name-mangled implementation
-                # if the public alias is absent.
-                init_fn = getattr(self, "initialize_interval_learner_for_fast_explainer", None)
-                if callable(init_fn):
-                    init_fn()
-                else:
-                    self._initialize_interval_learner_for_fast_explainer()
+                self._initialize_interval_learner_for_fast_explainer()
             except Exception:  # adr002_allow
                 self._fast = False
                 raise

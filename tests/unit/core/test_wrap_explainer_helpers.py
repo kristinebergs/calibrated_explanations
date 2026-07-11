@@ -15,6 +15,18 @@ from calibrated_explanations.utils.exceptions import (
     ValidationError,
 )
 from calibrated_explanations.core.wrap_explainer import WrapCalibratedExplainer
+from tests.helpers.explainer_internals import (
+    build_preprocessor_metadata,
+    extract_preprocessor_snapshot,
+    finalize_fit,
+    format_proba_output,
+    maybe_preprocess_for_inference,
+    normalize_auto_encode_flag,
+    normalize_public_kwargs,
+    pre_fit_preprocess,
+    pre_transform,
+    serialise_preprocessor_value,
+)
 
 
 class PredictOnlyLearner:
@@ -77,19 +89,19 @@ def wrapper() -> WrapCalibratedExplainer:
 def test_normalize_public_kwargs_rejects_removed_aliases(wrapper: WrapCalibratedExplainer) -> None:
     payload = {"threshold": 0.3, "alpha": (1, 99), "irrelevant": "value"}
     with pytest.raises(ConfigurationError, match="removed in v0.11.0"):
-        wrapper.normalize_public_kwargs(payload, allowed={"threshold"})
+        normalize_public_kwargs(wrapper, payload, allowed={"threshold"})
     assert payload["alpha"] == (1, 99)
     assert payload["irrelevant"] == "value"
 
 
 def test_normalize_auto_encode_flag_variants(wrapper: WrapCalibratedExplainer) -> None:
-    assert wrapper.normalize_auto_encode_flag() == "auto"
+    assert normalize_auto_encode_flag(wrapper) == "auto"
     wrapper.auto_encode = True
-    assert wrapper.normalize_auto_encode_flag() == "true"
+    assert normalize_auto_encode_flag(wrapper) == "true"
     wrapper.auto_encode = "FALSE"
-    assert wrapper.normalize_auto_encode_flag() == "false"
+    assert normalize_auto_encode_flag(wrapper) == "false"
     wrapper.auto_encode = "unexpected"
-    assert wrapper.normalize_auto_encode_flag() == "auto"
+    assert normalize_auto_encode_flag(wrapper) == "auto"
 
 
 def test_serialise_preprocessor_value_handles_nested_structures(
@@ -104,7 +116,7 @@ def test_serialise_preprocessor_value_handles_nested_structures(
         "sequence": (1, 2, 3),
         "array_like": BadToList(),
     }
-    serialised = wrapper.serialise_preprocessor_value(payload)
+    serialised = serialise_preprocessor_value(wrapper, payload)
     assert serialised == {
         "numbers": [1, 2],
         "sequence": [1, 2, 3],
@@ -114,7 +126,7 @@ def test_serialise_preprocessor_value_handles_nested_structures(
 
 def test_extract_preprocessor_snapshot(wrapper: WrapCalibratedExplainer) -> None:
     preprocessor = RecordingPreprocessor()
-    snapshot = wrapper.extract_preprocessor_snapshot(preprocessor)
+    snapshot = extract_preprocessor_snapshot(wrapper, preprocessor)
     assert snapshot is not None
     assert set(snapshot) == {"custom", "categories", "transformers", "feature_names_out", "mapping"}
     assert snapshot["custom"] == {"snap": [1, 2]}
@@ -127,11 +139,11 @@ def test_extract_preprocessor_snapshot(wrapper: WrapCalibratedExplainer) -> None
 def test_build_preprocessor_metadata_with_and_without_preprocessor(
     wrapper: WrapCalibratedExplainer,
 ) -> None:
-    assert wrapper.build_preprocessor_metadata() is None
+    assert build_preprocessor_metadata(wrapper) is None
 
     wrapper.preprocessor = RecordingPreprocessor()
     wrapper.auto_encode = False
-    metadata = wrapper.build_preprocessor_metadata()
+    metadata = build_preprocessor_metadata(wrapper)
     assert metadata is not None
     assert metadata["auto_encode"] == "false"
     assert metadata["transformer_id"].endswith(":RecordingPreprocessor")
@@ -143,15 +155,15 @@ def test_pre_fit_preprocess_and_transform_stages(wrapper: WrapCalibratedExplaine
     wrapper.preprocessor = preprocessor
 
     x = np.array([[1, 2], [3, 4]])
-    x_fit = wrapper.pre_fit_preprocess(x)
+    x_fit = pre_fit_preprocess(wrapper, x)
     assert np.array_equal(x_fit, x * 2)
     assert preprocessor.fit_called_with
 
-    x_transformed = wrapper.pre_transform(x)
+    x_transformed = pre_transform(wrapper, x)
     assert np.array_equal(x_transformed, x + 1)
     assert preprocessor.transform_called_with
 
-    x_inference = wrapper.maybe_preprocess_for_inference(x)
+    x_inference = maybe_preprocess_for_inference(wrapper, x)
     assert np.array_equal(x_inference, x + 1)
 
 
@@ -169,7 +181,7 @@ def test_pre_fit_preprocess_raises_validation_error_on_preprocessor_failure(
     x = np.array([[1, 2]])
 
     with pytest.raises(ValidationError, match="Preprocessor failed during fit"):
-        wrapper.pre_fit_preprocess(x)
+        pre_fit_preprocess(wrapper, x)
 
     # A rejected fit-preprocess call must not be recorded as fitted.
     assert not wrapper.pre_fitted
@@ -187,11 +199,11 @@ def test_pre_transform_raises_validation_error_on_preprocessor_failure(
 
     wrapper.preprocessor = FailingTransformPreprocessor()
     x = np.array([[1, 2]])
-    wrapper.pre_fit_preprocess(x)
+    pre_fit_preprocess(wrapper, x)
     assert wrapper.pre_fitted
 
     with pytest.raises(ValidationError, match="Preprocessor transform failed during predict"):
-        wrapper.pre_transform(x)
+        pre_transform(wrapper, x)
 
     # The preprocessor stays fitted; only the failed transform call is rejected.
     assert wrapper.pre_fitted
@@ -204,7 +216,7 @@ def test_finalize_fit_preserves_existing_explainer(wrapper: WrapCalibratedExplai
     wrapper.calibrated = True
     wrapper.learner = PredictProbaLearner()
 
-    wrapper.finalize_fit(reinitialize=True)
+    finalize_fit(wrapper, reinitialize=True)
 
     assert wrapper.fitted is True
     assert wrapper.calibrated is True
@@ -213,19 +225,19 @@ def test_finalize_fit_preserves_existing_explainer(wrapper: WrapCalibratedExplai
 
 def test_format_proba_output_variants(wrapper: WrapCalibratedExplainer) -> None:
     matrix = np.array([[0.1, 0.9], [0.2, 0.8]])
-    assert wrapper.format_proba_output(matrix, False) is matrix
+    assert format_proba_output(wrapper, matrix, False) is matrix
 
     multi = np.array([[0.1, 0.3, 0.6]])
-    result_multi = wrapper.format_proba_output(multi, True)
+    result_multi = format_proba_output(wrapper, multi, True)
     assert np.array_equal(result_multi[0], multi)
     assert np.array_equal(result_multi[1][0], multi)
 
     binary = np.array([[0.4, 0.6]])
-    _, intervals = wrapper.format_proba_output(binary, True)
+    _, intervals = format_proba_output(wrapper, binary, True)
     assert np.allclose(intervals[0], binary[:, 1])
 
     vector = np.array([0.1, 0.9])
-    _, fallback = wrapper.format_proba_output(vector, True)
+    _, fallback = format_proba_output(wrapper, vector, True)
     assert np.array_equal(fallback[0], vector)
 
 
@@ -376,13 +388,13 @@ def test_plot_uses_configured_defaults() -> None:
 def test_serialise_preprocessor_value_handles_none_and_objects(
     wrapper: WrapCalibratedExplainer,
 ) -> None:
-    assert wrapper.serialise_preprocessor_value(None) is None
+    assert serialise_preprocessor_value(wrapper, None) is None
 
     class Custom:
         pass
 
     custom = Custom()
-    assert wrapper.serialise_preprocessor_value(custom) == str(custom)
+    assert serialise_preprocessor_value(wrapper, custom) == str(custom)
 
 
 def test_pre_fit_preprocess_without_configured_preprocessor(
@@ -392,7 +404,7 @@ def test_pre_fit_preprocess_without_configured_preprocessor(
     wrapper.auto_encode = False
     wrapper.preprocessor = None
 
-    assert wrapper.pre_fit_preprocess(data) is data
+    assert pre_fit_preprocess(wrapper, data) is data
 
 
 def test_pre_fit_preprocess_uses_two_step_transform(wrapper: WrapCalibratedExplainer) -> None:
@@ -410,7 +422,7 @@ def test_pre_fit_preprocess_uses_two_step_transform(wrapper: WrapCalibratedExpla
     wrapper.preprocessor = preprocessor
     data = np.array([[1, 2]])
 
-    transformed = wrapper.pre_fit_preprocess(data)
+    transformed = pre_fit_preprocess(wrapper, data)
 
     assert wrapper.pre_fitted is True
     assert preprocessor.fit_args
@@ -461,7 +473,7 @@ def test_pre_fit_preprocess_auto_mode_uses_builtin_encoder(
     wrapper.auto_encode = "auto"
     data = np.array([["a"], ["b"], ["a"]], dtype=object)
 
-    transformed = wrapper.pre_fit_preprocess(data)
+    transformed = pre_fit_preprocess(wrapper, data)
 
     assert wrapper.pre_fitted is True
     assert wrapper.preprocessor is not None
@@ -482,10 +494,10 @@ def test_unseen_category_policy_error_raises_validation_error(
         unseen_category_policy="error",
     )
     wrapper = WrapCalibratedExplainer.from_config(cfg)
-    wrapper.pre_fit_preprocess(np.array([["a"], ["b"]], dtype=object))
+    pre_fit_preprocess(wrapper, np.array([["a"], ["b"]], dtype=object))
 
     with pytest.raises(ValidationError, match="Unseen category encountered"):
-        wrapper.maybe_preprocess_for_inference(np.array([["c"]], dtype=object))
+        maybe_preprocess_for_inference(wrapper, np.array([["c"]], dtype=object))
 
 
 def test_unseen_category_policy_ignore_returns_sentinel_value(
@@ -500,9 +512,9 @@ def test_unseen_category_policy_ignore_returns_sentinel_value(
         unseen_category_policy="ignore",
     )
     wrapper = WrapCalibratedExplainer.from_config(cfg)
-    wrapper.pre_fit_preprocess(np.array([["a"], ["b"]], dtype=object))
+    pre_fit_preprocess(wrapper, np.array([["a"], ["b"]], dtype=object))
 
-    transformed = wrapper.maybe_preprocess_for_inference(np.array([["c"]], dtype=object))
+    transformed = maybe_preprocess_for_inference(wrapper, np.array([["c"]], dtype=object))
 
     assert transformed.shape == (1, 1)
     assert transformed[0, 0] == -1.0
@@ -515,4 +527,4 @@ def test_non_numeric_input_without_preprocessing_raises_actionable_error(
     wrapper.auto_encode = False
 
     with pytest.raises(ValidationError, match="Set auto_encode='auto'"):
-        wrapper.pre_fit_preprocess(np.array([["x"]], dtype=object))
+        pre_fit_preprocess(wrapper, np.array([["x"]], dtype=object))

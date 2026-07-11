@@ -17,6 +17,13 @@ from calibrated_explanations.utils.exceptions import (
     DataShapeError,
     ValidationError,
 )
+from tests.helpers.explainer_internals import (
+    build_preprocessor_metadata,
+    extract_preprocessor_snapshot,
+    format_proba_output,
+    normalize_public_kwargs,
+    serialise_preprocessor_value,
+)
 
 
 class _Task33Preprocessor:
@@ -54,13 +61,13 @@ class _Task33Learner:
 def test_serialise_preprocessor_value_various_types():
     # Provide a minimal 'fitted' learner so wrapper initializer proceeds
     w = WrapCalibratedExplainer(learner=SimpleNamespace(fitted=True))
-    assert w.serialise_preprocessor_value(None) is None
-    assert w.serialise_preprocessor_value({"a": 1}) == {"a": 1}
+    assert serialise_preprocessor_value(w, None) is None
+    assert serialise_preprocessor_value(w, {"a": 1}) == {"a": 1}
     # sets become lists
-    out = w.serialise_preprocessor_value({"s": {1, 2}})
+    out = serialise_preprocessor_value(w, {"s": {1, 2}})
     assert isinstance(out["s"], list)
     arr = np.array([1, 2, 3])
-    assert w.serialise_preprocessor_value(arr) == [1, 2, 3]
+    assert serialise_preprocessor_value(w, arr) == [1, 2, 3]
 
 
 def test_extract_preprocessor_snapshot_and_build_metadata():
@@ -84,9 +91,9 @@ def test_extract_preprocessor_snapshot_and_build_metadata():
     w = WrapCalibratedExplainer(learner=SimpleNamespace(fitted=True))
     w.auto_encode = True
     w.preprocessor = pre
-    snap = w.extract_preprocessor_snapshot(pre)
+    snap = extract_preprocessor_snapshot(w, pre)
     assert "custom" in snap or "categories" in snap
-    meta = w.build_preprocessor_metadata()
+    meta = build_preprocessor_metadata(w)
     assert meta is not None
     assert "transformer_id" in meta
 
@@ -94,23 +101,23 @@ def test_extract_preprocessor_snapshot_and_build_metadata():
 def test_format_proba_output_variants():
     w = WrapCalibratedExplainer(learner=SimpleNamespace(fitted=True))
     multiclass = np.ones((2, 3)) * 0.3
-    out = w.format_proba_output(multiclass, uq_interval=True)
+    out = format_proba_output(w, multiclass, uq_interval=True)
     assert isinstance(out, tuple) and len(out) == 2
 
     binary = np.array([[0.2, 0.8], [0.4, 0.6]])
-    outb = w.format_proba_output(binary, uq_interval=True)
+    outb = format_proba_output(w, binary, uq_interval=True)
     assert isinstance(outb[1][0], np.ndarray)
 
 
 def test_normalize_public_kwargs_and_import_mapping_stash(monkeypatch):
     w = WrapCalibratedExplainer(learner=SimpleNamespace(fitted=True))
     with pytest.raises(ConfigurationError, match="removed in v0.11.0"):
-        w.normalize_public_kwargs({"alpha": 0.1, "foo": 2})
+        normalize_public_kwargs(w, {"alpha": 0.1, "foo": 2})
     with pytest.raises(ConfigurationError, match="unknown keyword arguments"):
-        w.normalize_public_kwargs({"foo": 2})
+        normalize_public_kwargs(w, {"foo": 2})
 
     with pytest.raises(ConfigurationError, match="unknown keyword arguments"):
-        w.normalize_public_kwargs({"foo": 2, "threshold": 0.5}, allowed={"threshold"})
+        normalize_public_kwargs(w, {"foo": 2, "threshold": 0.5}, allowed={"threshold"})
 
     # import_preprocessor_mapping should warn when mapping cannot be applied
     mapping = {"a": 1}
@@ -141,7 +148,7 @@ def test_normalize_public_kwargs_accepts_documented_names(name):
     unknown-kwarg policy became fail-fast."""
     w = WrapCalibratedExplainer(learner=SimpleNamespace(fitted=True))
     assert name in _KNOWN_PUBLIC_KWARGS
-    res = w.normalize_public_kwargs({name: object()})
+    res = normalize_public_kwargs(w, {name: object()})
     assert name in res
 
 
@@ -166,7 +173,7 @@ def test_normalize_public_kwargs_rejects_dead_and_internal_only_names(name):
     w = WrapCalibratedExplainer(learner=SimpleNamespace(fitted=True))
     assert name not in _KNOWN_PUBLIC_KWARGS
     with pytest.raises(ConfigurationError, match="unknown keyword arguments"):
-        w.normalize_public_kwargs({name: object()})
+        normalize_public_kwargs(w, {name: object()})
 
 
 @pytest.mark.parametrize(
@@ -185,7 +192,7 @@ def test_should_raise_configuration_error_when_removed_guarded_kwarg_is_normaliz
     w = WrapCalibratedExplainer(learner=SimpleNamespace(fitted=True))
 
     with pytest.raises(ConfigurationError) as exc_info:
-        w.normalize_public_kwargs({removed_kwarg: value})
+        normalize_public_kwargs(w, {removed_kwarg: value})
     message = str(exc_info.value)
     assert "removed in v0.11.5" in message
     assert replacement in message
@@ -195,7 +202,7 @@ def test_should_raise_configuration_error_when_removed_reject_confidence_alias_i
     w = WrapCalibratedExplainer(learner=SimpleNamespace(fitted=True))
 
     with pytest.raises(ConfigurationError) as exc_info:
-        w.normalize_public_kwargs({"confidence": 0.5})
+        normalize_public_kwargs(w, {"confidence": 0.5})
     message = str(exc_info.value)
     assert "removed in v0.11.5" in message
     assert "reject_confidence" in message
@@ -307,7 +314,7 @@ def test_should_raise_configuration_error_when_removed_normalize_alias_is_normal
     w = WrapCalibratedExplainer(learner=SimpleNamespace(fitted=True))
 
     with pytest.raises(ConfigurationError) as exc_info:
-        w.normalize_public_kwargs({"normalize": True})
+        normalize_public_kwargs(w, {"normalize": True})
     message = str(exc_info.value)
     assert "removed in v0.11.5" in message
     assert "normalization" in message

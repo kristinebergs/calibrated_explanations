@@ -327,6 +327,16 @@ def adr030_ratification_steps() -> list[Step]:
                 "reports/quality/no_local_paths_report.json",
             ],
         ),
+        Step(
+            "Class-surface allowlist gate",
+            [
+                "python",
+                "scripts/quality/check_class_surface_allowlist.py",
+                "--check",
+                "--report",
+                "reports/quality/class_surface_allowlist_report.json",
+            ],
+        ),
     ]
 
 
@@ -339,6 +349,7 @@ def adr030_expected_reports() -> list[Path]:
         Path("reports/anti-pattern-analysis/test_helper_wrapper_report.json"),
         Path("reports/marker-hygiene/marker_hygiene_report.json"),
         Path("reports/quality/no_local_paths_report.json"),
+        Path("reports/quality/class_surface_allowlist_report.json"),
     ]
 
 
@@ -746,6 +757,15 @@ def _pr_steps(
                     "src/calibrated_explanations",
                     "--report",
                     "reports/anti-pattern-analysis/test_helper_wrapper_report.json",
+                ),
+            ),
+            Step(
+                "Class-surface allowlist gate",
+                _python_cmd(
+                    "scripts/quality/check_class_surface_allowlist.py",
+                    "--check",
+                    "--report",
+                    "reports/quality/class_surface_allowlist_report.json",
                 ),
             ),
             Step(

@@ -3,6 +3,15 @@ from unittest.mock import MagicMock
 import pytest
 from calibrated_explanations.core.calibrated_explainer import CalibratedExplainer
 
+from tests.helpers.explainer_internals import (
+    get_pyproject_explanations,
+    get_pyproject_intervals,
+    get_pyproject_plots,
+    set_pyproject_explanations,
+    set_pyproject_intervals,
+    set_pyproject_plots,
+)
+
 
 def make_stub_explainer_with_mock_pm():
     expl = object.__new__(CalibratedExplainer)
@@ -38,23 +47,39 @@ def test_removed_plugin_manager_aliases_fail_closed(monkeypatch: pytest.MonkeyPa
         "telemetry_interval_sources",
         "interval_plugin_identifiers",
         "interval_context_metadata",
+        # Task 49 (pre-v4 S4-H1): test-only public aliases removed; this
+        # explainer instance now has no CE-level property to delegate through
+        # for these — real access is `explainer.plugin_manager.<name>` (for
+        # bridge_monitors/explanation_plugin_instances, both genuinely public
+        # on PluginManager) or the reflection accessors below (for
+        # pyproject_* plain attributes, which have no public route).
+        "feature_names_internal",
+        "initialize_interval_learner_for_fast_explainer",
+        "bridge_monitors",
+        "explanation_plugin_instances",
+        "pyproject_explanations",
+        "pyproject_intervals",
+        "pyproject_plots",
+        "lime_helper",
+        "shap_helper",
+        "is_initialized",
     ):
         assert not hasattr(expl, name)
 
-    expl.bridge_monitors = {}
-    assert expl.bridge_monitors == {}
+    pm.bridge_monitors = {}
+    assert pm.bridge_monitors == {}
 
-    expl.explanation_plugin_instances = {}
+    pm.explanation_plugin_instances = {}
     assert pm.explanation_plugin_instances == {}
 
-    expl.pyproject_explanations = {}
-    assert pm.pyproject_explanations == {}
+    set_pyproject_explanations(expl, {})
+    assert get_pyproject_explanations(expl) == {}
 
-    expl.pyproject_intervals = {}
-    assert pm.pyproject_intervals == {}
+    set_pyproject_intervals(expl, {})
+    assert get_pyproject_intervals(expl) == {}
 
-    expl.pyproject_plots = {}
-    assert pm.pyproject_plots == {}
+    set_pyproject_plots(expl, {})
+    assert get_pyproject_plots(expl) == {}
 
 
 def test_internal_plugin_manager_aliases_delegate_to_manager():
@@ -91,11 +116,11 @@ def test_internal_plugin_manager_aliases_delegate_to_manager():
         delattr(expl, name)
 
 
-def test_feature_names_internal_alias():
+def test_feature_names_round_trips_through_public_property():
     expl, _ = make_stub_explainer_with_mock_pm()
     expl.feature_names = ["a", "b"]
-    assert expl.feature_names_internal == ["a", "b"]
-    expl.feature_names_internal = ["c"]
+    assert expl.feature_names == ["a", "b"]
+    expl.feature_names = ["c"]
     assert expl.feature_names == ["c"]
 
 
