@@ -23,6 +23,7 @@ def test_should_define_adr030_ratification_steps_in_expected_order() -> None:
         "ADR-030 test-helper export guard",
         "ADR-030 marker hygiene",
         "Generated report local-path guard",
+        "Class-surface allowlist gate",
     ]
     assert steps[0].command[0] == "python"
     assert steps[0].command[1] == "scripts/anti-pattern-analysis/scan_private_usage.py"
@@ -74,8 +75,9 @@ def test_should_write_timing_report_when_adr030_ratification_lane_passes(
         "ADR-030 test-helper export guard",
         "ADR-030 marker hygiene",
         "Generated report local-path guard",
+        "Class-surface allowlist gate",
     ]
-    assert [step["exit_code"] for step in payload["steps"]] == [0, 0, 0, 0, 0]
+    assert [step["exit_code"] for step in payload["steps"]] == [0, 0, 0, 0, 0, 0]
     assert all(step["elapsed_seconds"] >= 0 for step in payload["steps"])
     assert payload["total_elapsed_seconds"] >= 0
 

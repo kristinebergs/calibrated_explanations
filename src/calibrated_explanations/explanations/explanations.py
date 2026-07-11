@@ -2024,9 +2024,32 @@ class AlternativeExplanations(CalibratedExplanations):
 
 
 class FrozenCalibratedExplainer:
-    """A class that wraps an explainer to provide a read-only interface.
+    """A class that wraps a deep-copied snapshot of an explainer.
 
-    Prevents modification of the underlying explainer, ensuring its state remains unchanged.
+    On construction, the wrapped explainer is deep-copied via
+    :meth:`CalibratedExplainer.__deepcopy__`, which independently clones all
+    explanation-affecting mutable state -- the learner, plugin manager (and,
+    through it, the interval learner and prediction orchestrator), and NumPy
+    RNG -- so mutating anything reached through :attr:`explainer`/
+    :attr:`learner` (including calling ``.explainer.reset()``) cannot affect
+    the live explainer the snapshot was created from. A worker pool, a
+    lock-guarded performance cache, and the live explainer's
+    ``latest_explanation`` bookkeeping pointer are shared by reference rather
+    than deep-copied; see :meth:`CalibratedExplainer.__deepcopy__` for the
+    exact list and rationale (sharing them cannot leak explanation-affecting
+    mutation, since each explanation object already carries its own frozen
+    snapshot independently of that pointer).
+
+    Direct attribute assignment on this wrapper is blocked by
+    :meth:`__setattr__`, but this class does not prevent mutation of objects
+    *returned* by its accessors (for example calling a mutating method on
+    ``.learner``): "frozen" describes independence from the live explainer's
+    state, not immutability of the returned objects themselves.
+
+    If the deep-copy cannot be performed at all (for example because the
+    learner is truly unpicklable), construction falls back to sharing the
+    live explainer directly and emits a `UserWarning` -- in that case this
+    snapshot provides no isolation guarantee.
     """
 
     def __init__(self, explainer):
@@ -2039,24 +2062,20 @@ class FrozenCalibratedExplainer:
         """
         try:
             self._explainer = deepcopy(explainer)
-        except (
-            Exception
-        ):  # adr002_allow  # pragma: no cover - defensive fallback for unpickleable state
-            # Deepcopy of complex explainer objects can fail; log at DEBUG
-            # instead of emitting a RuntimeWarning to avoid noisy test output.
-            try:
-                import logging
-
-                logging.getLogger(__name__).debug(
-                    "Deepcopy of explainer failed; using original instance for frozen wrapper"
-                )
-            except Exception:  # adr002_allow
-                # If logging fails, fall back to warnings to preserve behavior
-                warnings.warn(
-                    "Deepcopy of explainer failed; using original instance for frozen wrapper",
-                    UserWarning,
-                    stacklevel=2,
-                )
+        except Exception as exc:  # adr002_allow  # pragma: no cover - defensive fallback
+            # Deepcopy of the wrapped explainer failed entirely, so this
+            # "frozen" snapshot would otherwise silently alias the live
+            # explainer, defeating its isolation guarantee. Per the
+            # fallback-visibility policy (CONTRIBUTOR_INSTRUCTIONS.md Sec. 5)
+            # this must be visible, not a silent downgrade: emit a
+            # UserWarning and an INFO log.
+            message = (
+                f"FrozenCalibratedExplainer could not deep-copy the wrapped explainer "
+                f"({exc!r}); falling back to the original (live) instance. This frozen "
+                "snapshot is NOT isolated: mutating it may affect the live explainer."
+            )
+            warnings.warn(message, UserWarning, stacklevel=2)
+            logging.getLogger(__name__).info(message)
             self._explainer = explainer
 
     @property

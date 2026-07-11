@@ -531,47 +531,74 @@ class CalibratedExplainer:
 
         self.init_time = time() - init_time
 
-    # TODO: Needs to be
     def __deepcopy__(self, memo):
-        """Safely deepcopy the explainer, handling circular references."""
+        """Safely deepcopy the explainer, handling circular references.
+
+        ``_perf_parallel`` (a worker pool/executor) and ``perf_cache`` (a
+        thread-safe cache guarded by a lock) are shared by reference with the
+        original instance: both hold unpicklable OS-level resources and
+        neither carries explanation-affecting state, so sharing them cannot
+        leak mutation between a copy (for example a
+        :class:`~calibrated_explanations.explanations.explanations.FrozenCalibratedExplainer`
+        snapshot) and the live explainer.
+
+        ``latest_explanation`` is also shared by reference, but for a
+        different reason: each individual explanation object already carries
+        its own :class:`FrozenCalibratedExplainer` snapshot (created when the
+        explanation was produced), so re-isolating the *explainer's* bookkeeping
+        pointer to its most recent explanation collection is redundant. It is
+        also unsafe to deep-copy: that collection embeds a
+        ``FrozenCalibratedExplainer`` wrapping a full explainer copy which, in
+        turn, has its own (older) ``latest_explanation``, and so on --
+        deep-copying this attribute walks and duplicates that entire chain on
+        every copy, which grows without bound across repeated explain calls on
+        the same explainer and makes deepcopy (and therefore
+        `FrozenCalibratedExplainer` construction) arbitrarily slow. Reassigning
+        ``latest_explanation`` (including via :meth:`reset`, which sets it to
+        ``None``) on a copy only rebinds that copy's own attribute and never
+        affects the original object shared by reference.
+
+        Every other attribute -- including ``learner``, ``rng``,
+        ``_plugin_manager`` (and, through it, the interval learner and
+        prediction orchestrator), and the LIME/SHAP integration helpers -- is
+        deep-copied so that mutating the copy can never affect the original.
+        """
         if id(self) in memo:
             return memo[id(self)]
         # Create a shallow copy without calling __init__
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
-        # Manually copy attributes
-        # Some attributes are runtime helpers or refer back into the explainer
-        # (plugin manager, parallel executor, caches, integration helpers, etc.).
-        # Deep-copying these can cause recursion or try to copy unpicklable objects.
-        # Shallow-copy them instead to preserve references and avoid recursion.
-        shallow_copy_keys = {
-            "_plugin_manager",
+
+        # These attributes are deliberately shared by reference rather than
+        # deep-copied; see the class-level rationale in the docstring above.
+        deliberately_shared_keys = {
             "_perf_parallel",
             "perf_cache",
-            "_lime_helper",
-            "_shap_helper",
-            "_predict_bridge",
             "latest_explanation",
-            "learner",
-            "predict_function",
-            "rng",
         }
 
         for k, v in self.__dict__.items():
-            if k in shallow_copy_keys:
-                # ADR002_ALLOW: swallowing to keep deepcopy best-effort.
+            if k in deliberately_shared_keys:
+                # ADR002_ALLOW: sharing is deliberate, not a fallback.
                 with contextlib.suppress(Exception):
                     setattr(result, k, v)
                 continue
 
             try:
                 setattr(result, k, copy.deepcopy(v, memo))
-            except (
-                Exception
-            ):  # ADR002_ALLOW: fallback to shallow copy when deepcopy fails.  # pragma: no cover
-                # Fallback: if deepcopy fails for any reason, keep original reference.
-                # ADR002_ALLOW: ignore attributes that cannot be copied.
+            except Exception as exc:  # ADR002_ALLOW: governed, visible fallback below.
+                # Fallback-visibility policy (CONTRIBUTOR_INSTRUCTIONS.md Sec.
+                # 5): a deepcopy failure must never be silently downgraded to
+                # sharing the original object -- emit a UserWarning and an
+                # INFO log so the reduced isolation guarantee is observable.
+                message = (
+                    f"CalibratedExplainer.__deepcopy__ could not deep-copy attribute "
+                    f"'{k}' ({exc!r}); falling back to sharing the original object. "
+                    "Mutating this attribute on the copy may affect the original."
+                )
+                warnings.warn(message, UserWarning, stacklevel=2)
+                logging.getLogger(__name__).info(message)
                 with contextlib.suppress(Exception):
                     setattr(result, k, v)
 

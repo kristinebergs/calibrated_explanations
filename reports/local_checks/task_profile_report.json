@@ -5,10 +5,11 @@
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
-    "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov"
+    "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
+    "python -m pytest -q tests/integration/test_doc_examples_smoke.py -o addopts= --no-cov"
   ],
-  "exit_status": 4,
-  "generated_at": "2026-07-11T07:52:43.189526+00:00",
+  "exit_status": 0,
+  "generated_at": "2026-07-11T13:03:19.643621+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
