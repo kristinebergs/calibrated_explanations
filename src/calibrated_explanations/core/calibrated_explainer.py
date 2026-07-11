@@ -54,8 +54,13 @@ from ..utils.exceptions import (
     ValidationError,
 )
 from .validation import (
+    normalize_mode,
+    validate_bool_parameter,
     validate_classification_calibration_targets,
+    validate_explainer_init_kwargs,
+    validate_features_to_ignore,
     validate_inputs_matrix,
+    validate_low_high_percentiles,
 )
 from .prediction.interval_summary import IntervalSummary, coerce_interval_summary
 from .prediction_helpers import resolve_conditional_bins
@@ -299,16 +304,21 @@ class CalibratedExplainer:
             self._preprocessor_metadata = None
         check_is_fitted(learner)
         self.learner = learner
+        validate_inputs_matrix(x_cal, y_cal, require_y=True, allow_nan=False)
+        mode, kwargs = validate_explainer_init_kwargs(
+            kwargs,
+            mode=mode,
+            n_features=int(np.asarray(x_cal).shape[1]),
+        )
         self.predict_function = kwargs.get("predict_function")
         if self.predict_function is None:
             self.predict_function = (
                 learner.predict_proba if mode == "classification" else learner.predict
             )
-        validate_inputs_matrix(x_cal, y_cal, require_y=True, allow_nan=False)
         # Optionally suppress or convert low-level crepes errors into clearer messages.
         # Caller can pass suppress_crepes_errors=True via kwargs to avoid raising on
         # crepes broadcasting/shape errors (useful for synthetic tiny datasets).
-        self.suppress_crepes_errors = bool(kwargs.get("suppress_crepes_errors", False))
+        self.suppress_crepes_errors = kwargs.get("suppress_crepes_errors", False)
         self.oob = kwargs.get("oob", False)
         self._categorical_value_counts_cache: Dict[int, Dict[Any, int]] | None = None
         self._numeric_sorted_cache: Dict[int, np.ndarray] | None = None
@@ -1600,8 +1610,20 @@ class CalibratedExplainer:
             kwargs,
             allowed=_EXPLAIN_KWARGS,
         )
+        if "multi_labels_enabled" in kwargs:
+            kwargs["multi_labels_enabled"] = validate_bool_parameter(
+                kwargs["multi_labels_enabled"],
+                param="multi_labels_enabled",
+            )
+        if features_to_ignore is not None:
+            features_to_ignore = validate_features_to_ignore(
+                features_to_ignore,
+                n_features=int(self.num_features),
+            )
         if threshold is not None and "regression" in self.mode:
             assert_threshold(threshold, x)
+        elif "regression" in self.mode:
+            low_high_percentiles = validate_low_high_percentiles(low_high_percentiles)
         bins = resolve_conditional_bins(x, bins, calibration_bins=self.bins)
         if guarded_options is not None:
             if not _use_plugin and kwargs.get("verbose", False):
@@ -1730,8 +1752,20 @@ class CalibratedExplainer:
             kwargs,
             allowed=_EXPLAIN_KWARGS,
         )
+        if "multi_labels_enabled" in kwargs:
+            kwargs["multi_labels_enabled"] = validate_bool_parameter(
+                kwargs["multi_labels_enabled"],
+                param="multi_labels_enabled",
+            )
+        if features_to_ignore is not None:
+            features_to_ignore = validate_features_to_ignore(
+                features_to_ignore,
+                n_features=int(self.num_features),
+            )
         if threshold is not None and "regression" in self.mode:
             assert_threshold(threshold, x)
+        elif "regression" in self.mode:
+            low_high_percentiles = validate_low_high_percentiles(low_high_percentiles)
         bins = resolve_conditional_bins(x, bins, calibration_bins=self.bins)
         if guarded_options is not None:
             if not _use_plugin and kwargs.get("verbose", False):
@@ -2085,6 +2119,7 @@ class CalibratedExplainer:
         ------
             ValueError: The mode can be either 'classification' or 'regression'.
         """
+        mode = normalize_mode(mode)
         self._initialized = False
         if mode == "classification":
             # assert 'predict_proba' in dir(self.learner), "The learner must have a predict_proba method."
@@ -2092,8 +2127,6 @@ class CalibratedExplainer:
         elif mode == "regression":
             # assert 'predict' in dir(self.learner), "The learner must have a predict method."
             self.num_classes = 0
-        else:
-            raise ValidationError("The mode must be either 'classification' or 'regression'.")
         self.mode = mode
         if initialize:
             self.prediction_orchestrator.interval_registry.initialize()  # type: ignore[attr-defined]
@@ -2222,6 +2255,14 @@ class CalibratedExplainer:
             kwargs["interval_summary"] = self.interval_summary
         else:
             kwargs["interval_summary"] = coerce_interval_summary(kwargs["interval_summary"])
+        if kwargs.get("threshold") is not None and "regression" in self.mode:
+            assert_threshold(kwargs["threshold"], x)
+        elif "regression" in self.mode:
+            validated_percentiles = validate_low_high_percentiles(
+                kwargs.get("low_high_percentiles", (5, 95))
+            )
+            if "low_high_percentiles" in kwargs:
+                kwargs["low_high_percentiles"] = validated_percentiles
 
         if not calibrated:
             if self.mode == "regression":
@@ -2437,6 +2478,8 @@ class CalibratedExplainer:
         )
         kwargs = canonicalize_kwargs(kwargs)
         validate_param_combination(kwargs)
+        if threshold is not None and "regression" in self.mode:
+            assert_threshold(threshold, x)
 
         # Inject default interval_summary if not provided
         kwargs.setdefault("interval_summary", self.interval_summary)

@@ -11,7 +11,9 @@ and accept optional details payloads.
 
 from __future__ import annotations
 
+import numbers
 import sys
+from collections.abc import Sequence
 from typing import Any, Literal, Type, cast
 
 import numpy as np
@@ -44,6 +46,295 @@ def validate_non_empty(value: Any, name: str) -> None:
     """Ensure that length-aware inputs are not empty."""
     if hasattr(value, "__len__") and len(value) == 0:
         raise ValidationError(f"Argument '{name}' must not be empty.")
+
+
+def normalize_mode(value: Any, *, param: str = "mode") -> str:
+    """Return a canonical explainer mode literal.
+
+    Parameters
+    ----------
+    value : Any
+        Candidate mode value.
+    param : str, default="mode"
+        Parameter name used in the structured error payload.
+
+    Returns
+    -------
+    str
+        Lower-case canonical mode (``"classification"`` or ``"regression"``).
+
+    Raises
+    ------
+    ValidationError
+        If ``value`` is not a supported mode string.
+    """
+    if not isinstance(value, str):
+        raise ValidationError(
+            "mode must be either 'classification' or 'regression'.",
+            details={"param": param, "value": value, "actual_type": type(value).__name__},
+        )
+    normalized = value.lower()
+    if normalized not in {"classification", "regression"}:
+        raise ValidationError(
+            "mode must be either 'classification' or 'regression'.",
+            details={"param": param, "value": value, "normalized": normalized},
+        )
+    return normalized
+
+
+def validate_bool_parameter(value: Any, *, param: str) -> bool:
+    """Require a real boolean instead of truthy/falsy coercion."""
+    if type(value) is not bool:  # noqa: E721 - reject bool-like subclasses/coercions explicitly
+        raise ValidationError(
+            f"{param} must be a boolean.",
+            details={"param": param, "value": value, "actual_type": type(value).__name__},
+        )
+    return value
+
+
+def validate_seed_parameter(value: Any, *, param: str = "seed") -> int:
+    """Require an integer random seed."""
+    if isinstance(value, bool) or not isinstance(value, numbers.Integral):
+        raise ValidationError(
+            "seed must be an integer.",
+            details={"param": param, "value": value, "actual_type": type(value).__name__},
+        )
+    return int(value)
+
+
+def validate_sample_percentiles(value: Any, *, param: str = "sample_percentiles") -> list[float]:
+    """Validate percentile checkpoints used by explanation summaries."""
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        raise ValidationError(
+            "sample_percentiles must be a non-empty sequence of numeric values between 0 and 100.",
+            details={"param": param, "value": value, "actual_type": type(value).__name__},
+        )
+    percentiles = list(value)
+    if not percentiles:
+        raise ValidationError(
+            "sample_percentiles must be a non-empty sequence of numeric values between 0 and 100.",
+            details={"param": param, "value": percentiles, "requirement": "non-empty"},
+        )
+
+    normalized: list[float] = []
+    for percentile in percentiles:
+        if isinstance(percentile, bool) or not isinstance(percentile, numbers.Real):
+            raise ValidationError(
+                "sample_percentiles must contain only numeric values.",
+                details={
+                    "param": param,
+                    "value": percentiles,
+                    "invalid_value": percentile,
+                    "actual_type": type(percentile).__name__,
+                },
+            )
+        numeric = float(percentile)
+        if not np.isfinite(numeric) or numeric < 0.0 or numeric > 100.0:
+            raise ValidationError(
+                "sample_percentiles values must be between 0 and 100.",
+                details={
+                    "param": param,
+                    "value": percentiles,
+                    "invalid_value": numeric,
+                    "allowed_range": [0.0, 100.0],
+                },
+            )
+        normalized.append(numeric)
+
+    if normalized != sorted(normalized):
+        raise ValidationError(
+            "sample_percentiles must be sorted in ascending order.",
+            details={"param": param, "value": percentiles},
+        )
+    return normalized
+
+
+def validate_low_high_percentiles(
+    value: Any,
+    *,
+    param: str = "low_high_percentiles",
+) -> tuple[float, float]:
+    """Validate regression interval percentile bounds."""
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        raise ValidationError(
+            "low_high_percentiles must be a sequence of exactly two numeric percentiles.",
+            details={"param": param, "value": value, "actual_type": type(value).__name__},
+        )
+
+    percentiles = list(value)
+    if len(percentiles) != 2:
+        raise ValidationError(
+            "low_high_percentiles must contain exactly two values.",
+            details={"param": param, "value": percentiles, "actual_length": len(percentiles)},
+        )
+    if any(
+        isinstance(percentile, bool) or not isinstance(percentile, numbers.Real)
+        for percentile in percentiles
+    ):
+        raise ValidationError(
+            "low_high_percentiles must contain only numeric values.",
+            details={
+                "param": param,
+                "value": percentiles,
+                "value_types": [type(percentile).__name__ for percentile in percentiles],
+            },
+        )
+
+    low = float(percentiles[0])
+    high = float(percentiles[1])
+    if low > high:
+        raise ValidationError(
+            "The low percentile must be smaller than (or equal to) the high percentile.",
+            details={"param": param, "low": low, "high": high},
+        )
+    if low == -np.inf and high == np.inf:
+        raise ValidationError(
+            "The percentiles cannot both be infinite.",
+            details={"param": param, "low": low, "high": high},
+        )
+    if low != -np.inf and not (0.0 < low <= 50.0):
+        raise ValidationError(
+            "The lower percentile must be between 0 and 50, or -np.inf for one-sided intervals.",
+            details={"param": param, "low": low},
+        )
+    if high != np.inf and not (50.0 <= high < 100.0):
+        raise ValidationError(
+            "The upper percentile must be between 50 and 100, or np.inf for one-sided intervals.",
+            details={"param": param, "high": high},
+        )
+    return (low, high)
+
+
+def validate_features_to_ignore(
+    value: Any,
+    *,
+    n_features: int,
+    param: str = "features_to_ignore",
+) -> list[int]:
+    """Validate a feature-index ignore list against the calibrated feature count."""
+    if value is None:
+        return []
+    if isinstance(value, (str, bytes)) or not isinstance(value, Sequence):
+        raise ValidationError(
+            "features_to_ignore must be a sequence of feature indices.",
+            details={"param": param, "value": value, "actual_type": type(value).__name__},
+        )
+
+    indices = list(value)
+    normalized: list[int] = []
+    for index in indices:
+        if isinstance(index, bool) or not isinstance(index, numbers.Integral):
+            raise ValidationError(
+                "features_to_ignore must contain only integer feature indices.",
+                details={
+                    "param": param,
+                    "value": indices,
+                    "invalid_value": index,
+                    "actual_type": type(index).__name__,
+                },
+            )
+        normalized.append(int(index))
+
+    invalid = [index for index in normalized if index < 0 or index >= n_features]
+    if invalid:
+        raise ValidationError(
+            "features_to_ignore contains indices outside the calibrated feature range.",
+            details={
+                "param": param,
+                "value": indices,
+                "invalid_indices": invalid,
+                "n_features": int(n_features),
+            },
+        )
+    return normalized
+
+
+def validate_fast_tuning_parameters(
+    *,
+    noise_type: Any,
+    scale_factor: Any,
+    severity: Any,
+) -> tuple[str, int, float]:
+    """Validate FAST perturbation controls before plugin construction."""
+    if not isinstance(noise_type, str) or noise_type not in {"uniform", "gaussian"}:
+        raise ValidationError(
+            "noise_type must be either 'uniform' or 'gaussian'.",
+            details={
+                "param": "noise_type",
+                "value": noise_type,
+                "allowed_values": ["uniform", "gaussian"],
+            },
+        )
+    if isinstance(scale_factor, bool) or not isinstance(scale_factor, numbers.Integral):
+        raise ValidationError(
+            "scale_factor must be a positive integer.",
+            details={
+                "param": "scale_factor",
+                "value": scale_factor,
+                "actual_type": type(scale_factor).__name__,
+            },
+        )
+    if int(scale_factor) <= 0:
+        raise ValidationError(
+            "scale_factor must be a positive integer.",
+            details={"param": "scale_factor", "value": int(scale_factor)},
+        )
+    if isinstance(severity, bool) or not isinstance(severity, numbers.Real):
+        raise ValidationError(
+            "severity must be a non-negative number.",
+            details={
+                "param": "severity",
+                "value": severity,
+                "actual_type": type(severity).__name__,
+            },
+        )
+    severity_value = float(severity)
+    if not np.isfinite(severity_value) or severity_value < 0.0:
+        raise ValidationError(
+            "severity must be a non-negative number.",
+            details={"param": "severity", "value": severity_value},
+        )
+    return noise_type, int(scale_factor), severity_value
+
+
+def validate_explainer_init_kwargs(
+    kwargs: dict[str, Any],
+    *,
+    mode: Any,
+    n_features: int,
+) -> tuple[str, dict[str, Any]]:
+    """Validate constructor/calibration kwargs at the public boundary."""
+    normalized_mode = normalize_mode(mode)
+    validated = dict(kwargs)
+
+    if "suppress_crepes_errors" in validated:
+        validated["suppress_crepes_errors"] = validate_bool_parameter(
+            validated["suppress_crepes_errors"], param="suppress_crepes_errors"
+        )
+    if "fast" in validated:
+        validated["fast"] = validate_bool_parameter(validated["fast"], param="fast")
+    if "seed" in validated:
+        validated["seed"] = validate_seed_parameter(validated["seed"])
+    if "sample_percentiles" in validated:
+        validated["sample_percentiles"] = validate_sample_percentiles(
+            validated["sample_percentiles"]
+        )
+    if "features_to_ignore" in validated:
+        validated["features_to_ignore"] = validate_features_to_ignore(
+            validated["features_to_ignore"],
+            n_features=n_features,
+        )
+    if {"noise_type", "scale_factor", "severity"} & validated.keys():
+        noise_type, scale_factor, severity = validate_fast_tuning_parameters(
+            noise_type=validated.get("noise_type", "uniform"),
+            scale_factor=validated.get("scale_factor", 5),
+            severity=validated.get("severity", 1),
+        )
+        validated["noise_type"] = noise_type
+        validated["scale_factor"] = scale_factor
+        validated["severity"] = severity
+
+    return normalized_mode, validated
 
 
 def validate_classification_calibration_targets(y: Any, *, learner: Any | None = None) -> None:
@@ -356,12 +647,20 @@ def validate(
 
 
 __all__ = [
+    "normalize_mode",
+    "validate_bool_parameter",
+    "validate_explainer_init_kwargs",
+    "validate_features_to_ignore",
+    "validate_low_high_percentiles",
     "validate_inputs",
     "validate_not_none",
     "validate_type",
     "validate_non_empty",
     "validate_inputs_matrix",
     "validate_model",
+    "validate_sample_percentiles",
+    "validate_seed_parameter",
+    "validate_fast_tuning_parameters",
     "validate_fit_state",
     "infer_task",
     "validate",

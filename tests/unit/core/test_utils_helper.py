@@ -161,8 +161,13 @@ def test_assert_threshold_handles_nested_structures():
 
     with pytest.raises(ValidationError):
         helper.assert_threshold((0.1,), [1])
-    with pytest.raises(AssertionError):
+    with pytest.raises(ValidationError) as exc_info:
         helper.assert_threshold([0.1, 0.2, 0.3], [1, 2])
+    assert exc_info.value.details == {
+        "param": "threshold",
+        "expected_length": 2,
+        "actual_length": 3,
+    }
     with pytest.raises(ValidationError):
         helper.assert_threshold({1: 2}, [1])
 

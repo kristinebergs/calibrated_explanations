@@ -45,7 +45,7 @@ from calibrated_explanations.core.wrap_explainer import (
     _PREDICT_KWARGS as WRAP_PREDICT_KWARGS,
     _PREDICT_PROBA_KWARGS as WRAP_PREDICT_PROBA_KWARGS,
 )
-from calibrated_explanations.utils.exceptions import ConfigurationError
+from calibrated_explanations.utils.exceptions import ConfigurationError, ValidationError
 
 
 @pytest.fixture(scope="module")
@@ -449,7 +449,7 @@ def _extract_narrative_probability(text):
     return float(match.group(1))
 
 
-def _assert_probability_surface_alignment(explanation, expected_probability):
+def assert_probability_surface_alignment(explanation, expected_probability):
     prediction = explanation.prediction
     json_prediction = explanation.calibrated_explanations.to_json()["explanations"][0]["prediction"]
     narrative = explanation.to_narrative(output_format="text", expertise_level="beginner")
@@ -473,7 +473,7 @@ def test_interval_summary_aligns_factual_prediction_payloads_with_predict_proba(
 
     explanation = wrapper.explain_factual(x_test[:1], interval_summary=summary)[0]
 
-    _assert_probability_surface_alignment(explanation, expected_probability)
+    assert_probability_surface_alignment(explanation, expected_probability)
 
 
 @pytest.mark.parametrize("summary", ["regularized_mean", "mean", "lower", "upper"])
@@ -488,7 +488,7 @@ def test_interval_summary_aligns_alternative_prediction_payloads_with_predict_pr
 
     explanation = wrapper.explore_alternatives(x_test[:1], interval_summary=summary)[0]
 
-    _assert_probability_surface_alignment(explanation, expected_probability)
+    assert_probability_surface_alignment(explanation, expected_probability)
 
 
 def test_interval_summary_propagates_through_direct_core_plugin_and_legacy_paths(cls_wrapper):
@@ -505,8 +505,8 @@ def test_interval_summary_propagates_through_direct_core_plugin_and_legacy_paths
         x_test[:1], interval_summary="lower", _use_plugin=False
     )[0]
 
-    _assert_probability_surface_alignment(plugin_explanation, expected_probability)
-    _assert_probability_surface_alignment(legacy_explanation, expected_probability)
+    assert_probability_surface_alignment(plugin_explanation, expected_probability)
+    assert_probability_surface_alignment(legacy_explanation, expected_probability)
 
 
 def test_interval_summary_aligns_reject_filtered_explanations_with_predict_proba(cls_wrapper):
@@ -528,7 +528,7 @@ def test_interval_summary_aligns_reject_filtered_explanations_with_predict_proba
         reject_confidence=0.8,
     )[0]
 
-    _assert_probability_surface_alignment(explanation, expected_probability)
+    assert_probability_surface_alignment(explanation, expected_probability)
 
 
 def test_interval_summary_changes_feature_effect_predictions(cls_wrapper):
@@ -554,7 +554,7 @@ def test_interval_summary_aligns_regression_threshold_explanations_with_predict_
         x_test[:1], threshold=threshold, interval_summary=summary
     )[0]
 
-    _assert_probability_surface_alignment(explanation, expected_probability)
+    assert_probability_surface_alignment(explanation, expected_probability)
 
 
 @pytest.mark.parametrize("summary", ["mean", "lower", "upper"])
@@ -570,4 +570,175 @@ def test_interval_summary_aligns_multiclass_prediction_payloads_with_predict_pro
 
     explanation = wrapper.explain_factual(x_test[:1], interval_summary=summary)[0]
 
-    _assert_probability_surface_alignment(explanation, expected_probability)
+    assert_probability_surface_alignment(explanation, expected_probability)
+
+
+def _snapshot_public_runtime_state(explainer: CalibratedExplainer) -> dict[str, object]:
+    return {
+        "mode": explainer.mode,
+        "suppress_crepes_errors": explainer.suppress_crepes_errors,
+        "seed": explainer.seed,
+        "sample_percentiles": list(explainer.sample_percentiles),
+        "features_to_ignore": list(explainer.features_to_ignore),
+        "fast": explainer.fast,
+        "noise_type": explainer.noise_type,
+        "scale_factor": explainer.scale_factor,
+        "severity": explainer.severity,
+    }
+
+
+def test_task50_mode_normalization_is_consistent_for_wrapper_and_direct_core(data):
+    x, y_cls, _ = data
+    model = RandomForestClassifier(n_estimators=10, random_state=0)
+    wrapper = WrapCalibratedExplainer(model)
+    wrapper.fit(x[:60], y_cls[:60])
+    wrapper.calibrate(x[60:100], y_cls[60:100], mode="Classification")
+
+    core = CalibratedExplainer(model, x[60:100], y_cls[60:100], mode="Classification")
+
+    assert wrapper.explainer is not None
+    assert wrapper.explainer.mode == "classification"
+    assert core.mode == "classification"
+
+
+@pytest.mark.parametrize(
+    ("invalid_kwargs", "param"),
+    [
+        ({"suppress_crepes_errors": "no"}, "suppress_crepes_errors"),
+        ({"fast": "yes"}, "fast"),
+        ({"sample_percentiles": []}, "sample_percentiles"),
+        ({"sample_percentiles": [80, 20]}, "sample_percentiles"),
+        ({"sample_percentiles": [101]}, "sample_percentiles"),
+        ({"features_to_ignore": [99]}, "features_to_ignore"),
+        ({"seed": "42"}, "seed"),
+        ({"fast": True, "noise_type": "laplace"}, "noise_type"),
+        ({"fast": True, "scale_factor": 0}, "scale_factor"),
+        ({"fast": True, "severity": -1}, "severity"),
+    ],
+)
+def test_task50_constructor_boundary_matrix_matches_between_wrapper_and_direct_core(
+    data, invalid_kwargs, param
+):
+    x, y_cls, _ = data
+    model = RandomForestClassifier(n_estimators=10, random_state=0)
+    wrapper = WrapCalibratedExplainer(model)
+    wrapper.fit(x[:60], y_cls[:60])
+    wrapper.calibrate(x[60:100], y_cls[60:100], mode="classification")
+
+    assert wrapper.explainer is not None
+    before = _snapshot_public_runtime_state(wrapper.explainer)
+    explainer_id = id(wrapper.explainer)
+
+    with pytest.raises(ValidationError) as wrap_exc:
+        wrapper.calibrate(x[60:100], y_cls[60:100], mode="classification", **invalid_kwargs)
+
+    with pytest.raises(ValidationError) as core_exc:
+        CalibratedExplainer(
+            model, x[60:100], y_cls[60:100], mode="classification", **invalid_kwargs
+        )
+
+    assert wrap_exc.value.details == core_exc.value.details
+    assert wrap_exc.value.details is not None
+    assert wrap_exc.value.details.get("param") == param
+    assert wrapper.calibrated
+    assert wrapper.explainer is not None
+    assert id(wrapper.explainer) == explainer_id
+    assert _snapshot_public_runtime_state(wrapper.explainer) == before
+
+
+@pytest.mark.parametrize(
+    ("call_kwargs", "param"),
+    [
+        ({"multi_labels_enabled": "yes"}, "multi_labels_enabled"),
+        ({"features_to_ignore": [99]}, "features_to_ignore"),
+    ],
+)
+def test_task50_classification_explain_invalid_values_match_between_wrapper_and_direct_core(
+    cls_wrapper, call_kwargs, param
+):
+    wrapper, x_test = cls_wrapper
+    core = wrapper.explainer
+    assert core is not None
+
+    before = _snapshot_public_runtime_state(core)
+
+    with pytest.raises(ValidationError) as wrap_exc:
+        wrapper.explain_factual(x_test[:2], **call_kwargs)
+    with pytest.raises(ValidationError) as core_exc:
+        core.explain_factual(x_test[:2], **call_kwargs)
+
+    assert wrap_exc.value.details == core_exc.value.details
+    assert wrap_exc.value.details is not None
+    assert wrap_exc.value.details.get("param") == param
+    assert _snapshot_public_runtime_state(core) == before
+
+
+def test_task50_regression_low_high_percentiles_short_tuple_matches_between_wrapper_and_direct_core(
+    reg_wrapper,
+):
+    wrapper, x_test = reg_wrapper
+    core = wrapper.explainer
+    assert core is not None
+
+    before = _snapshot_public_runtime_state(core)
+
+    with pytest.raises(ValidationError) as wrap_exc:
+        wrapper.explain_factual(x_test[:2], low_high_percentiles=(95,))
+    with pytest.raises(ValidationError) as core_exc:
+        core.explain_factual(x_test[:2], low_high_percentiles=(95,))
+
+    assert wrap_exc.value.details == core_exc.value.details
+    assert wrap_exc.value.details == {
+        "param": "low_high_percentiles",
+        "value": [95],
+        "actual_length": 1,
+    }
+    assert _snapshot_public_runtime_state(core) == before
+
+
+@pytest.mark.parametrize("method_name", ["predict", "predict_proba", "explain_factual"])
+def test_task50_threshold_length_mismatch_raises_validation_error_across_public_surfaces(
+    reg_wrapper, method_name
+):
+    wrapper, x_test = reg_wrapper
+    core = wrapper.explainer
+    assert core is not None
+    threshold = []
+    before = _snapshot_public_runtime_state(core)
+
+    def call(target):
+        method = getattr(target, method_name)
+        if method_name == "predict_proba":
+            return method(x_test[:2], threshold=threshold)
+        return method(x_test[:2], threshold=threshold)
+
+    with pytest.raises(ValidationError) as wrap_exc:
+        call(wrapper)
+    with pytest.raises(ValidationError) as core_exc:
+        call(core)
+
+    assert wrap_exc.value.details == core_exc.value.details
+    assert wrap_exc.value.details == {
+        "param": "threshold",
+        "expected_length": 2,
+        "actual_length": 0,
+    }
+    assert _snapshot_public_runtime_state(core) == before
+
+
+def test_task50_cleared_controls_remain_rejected(data):
+    x, _, y_reg = data
+    model = RandomForestRegressor(n_estimators=10, random_state=0)
+    wrapper = WrapCalibratedExplainer(model)
+    wrapper.fit(x[:60], y_reg[:60])
+
+    with pytest.raises(ValidationError, match="sample_percentiles must be sorted"):
+        wrapper.calibrate(x[60:100], y_reg[60:100], mode="regression", sample_percentiles=[75, 25])
+
+    with pytest.raises(ValidationError, match="condition_source must be either"):
+        wrapper.calibrate(
+            x[60:100],
+            y_reg[60:100],
+            mode="regression",
+            condition_source=" prediction ",
+        )

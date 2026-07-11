@@ -5,6 +5,8 @@ Centralizes small routines for safe imports, conversions, and metric
 calculations shared across calibrated explanations.
 """
 
+from __future__ import annotations
+
 import importlib
 import numbers
 import os
@@ -438,8 +440,13 @@ def assert_threshold(threshold, x):
         return threshold
     if isinstance(threshold, (list, np.ndarray)):
         if not (len(threshold) == np.asarray(x).shape[0]):
-            raise AssertionError(
-                "list thresholds must have the same length as the number of samples"
+            raise ValidationError(
+                "list thresholds must have the same length as the number of samples",
+                details={
+                    "param": "threshold",
+                    "expected_length": int(np.asarray(x).shape[0]),
+                    "actual_length": int(len(threshold)),
+                },
             )
         return [assert_threshold(t, [x[i]]) for i, t in enumerate(threshold)]
     raise ValidationError(

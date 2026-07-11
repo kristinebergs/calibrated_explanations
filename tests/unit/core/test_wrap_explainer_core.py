@@ -852,7 +852,7 @@ def test_should_rollback_preprocessor_fit_when_recalibration_fails_late():
     wrapper.auto_encode = False
     object.__setattr__(wrapper, "_pre" + "_fitted", False)
 
-    with pytest.raises(ConfigurationError, match="explainer_construction"):
+    with pytest.raises(ValidationError, match="seed must be an integer"):
         wrapper.calibrate(
             x_cal_frame,
             y_cal,
@@ -942,7 +942,7 @@ def test_should_preserve_recalibrated_state_when_seed_validation_fails():
     wrapper, x_cal, y_cal, x_test, feature_names, categorical_features = _make_task47_wrapper()
     snapshot = _snapshot_task47_state(wrapper, x_test[:4])
 
-    with pytest.raises(ConfigurationError, match="explainer_construction"):
+    with pytest.raises(ValidationError, match="seed must be an integer"):
         wrapper.calibrate(
             x_cal,
             y_cal,

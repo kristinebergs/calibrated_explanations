@@ -164,7 +164,7 @@ def test_constructor_reject_initialization_uses_orchestrator_path(
     )
 
 
-def test_invalid_features_to_ignore_falls_back_to_constant_features(
+def test_invalid_features_to_ignore_fails_fast_at_public_boundary(
     monkeypatch: pytest.MonkeyPatch,
     mock_learner,
     mock_identify_constant_features,
@@ -172,15 +172,17 @@ def test_invalid_features_to_ignore_falls_back_to_constant_features(
     monkeypatch.delenv("CE_DEPRECATIONS", raising=False)
     mock_identify_constant_features.return_value = np.asarray([1])
 
-    explainer = CalibratedExplainer(
-        mock_learner,
-        np.array([[1, 2], [2, 3]]),
-        np.array([0, 1]),
-        mode="classification",
-        features_to_ignore=["not-an-int"],
-    )
+    with pytest.raises(ValidationError, match="integer feature indices") as exc_info:
+        CalibratedExplainer(
+            mock_learner,
+            np.array([[1, 2], [2, 3]]),
+            np.array([0, 1]),
+            mode="classification",
+            features_to_ignore=["not-an-int"],
+        )
 
-    assert explainer.features_to_ignore == [1]
+    assert exc_info.value.details is not None
+    assert exc_info.value.details.get("param") == "features_to_ignore"
 
 
 def test_enable_fast_mode_resets_on_error(mock_learner):

@@ -70,7 +70,9 @@ from .prediction_helpers import (
     resolve_conditional_bins,
 )
 from .validation import (
+    validate_bool_parameter,
     validate_classification_calibration_targets,
+    validate_explainer_init_kwargs,
     validate_inputs_matrix,
     validate_model,
 )
@@ -454,7 +456,10 @@ class WrapCalibratedExplainer:
             kwargs = self._normalize_public_kwargs(
                 kwargs, allowed=_CALIBRATE_KWARGS, surface="WrapCalibratedExplainer.calibrate"
             )
-            reuse_conditional = bool(kwargs.pop("reuse_conditional", reuse_conditional))
+            reuse_conditional = validate_bool_parameter(
+                kwargs.pop("reuse_conditional", reuse_conditional),
+                param="reuse_conditional",
+            )
             validate_param_combination(kwargs)
             # Lightweight validation (does not alter behavior)
             validate_model(self.learner)
@@ -530,9 +535,15 @@ class WrapCalibratedExplainer:
                 candidate_kwargs["mode"] = (
                     "classification" if "predict_proba" in dir(self.learner) else "regression"
                 )
+            candidate_mode, candidate_kwargs = validate_explainer_init_kwargs(
+                candidate_kwargs,
+                mode=candidate_kwargs["mode"],
+                n_features=int(np.asarray(x_cal_local).shape[1]),
+            )
+            candidate_kwargs["mode"] = candidate_mode
 
             stage = "target_validation"
-            if candidate_kwargs["mode"] == "classification":
+            if candidate_mode == "classification":
                 validate_classification_calibration_targets(y_calibration, learner=self.learner)
 
             stage = "explainer_construction"
