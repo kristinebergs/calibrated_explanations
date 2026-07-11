@@ -8,6 +8,10 @@ from tests.helpers.dataset_utils import make_binary_dataset, make_regression_dat
 from tests.helpers.explainer_utils import initiate_explainer
 from calibrated_explanations.explanations import CalibratedExplanations
 from calibrated_explanations.explanations.reject import RejectResult, RejectPolicy
+from calibrated_explanations.plugins.builtins import (
+    LegacyAlternativeExplanationPlugin,
+    LegacyFactualExplanationPlugin,
+)
 from calibrated_explanations.utils.exceptions import ConfigurationError, ValidationError
 
 
@@ -666,7 +670,7 @@ def test_reject_metadata_contract_present_across_predict_proba_and_explain():
 # --- ADR-038 5C: fail-fast kwarg validation extended to CalibratedExplainer directly ---
 
 
-def _classification_explainer():
+def _classification_explainer(**plugin_kwargs):
     dataset = make_binary_dataset()
     (
         x_prop_train,
@@ -682,7 +686,13 @@ def _classification_explainer():
     ) = dataset
     model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
     cal_exp = initiate_explainer(
-        model, x_cal, y_cal, feature_names, categorical_features, mode="classification"
+        model,
+        x_cal,
+        y_cal,
+        feature_names,
+        categorical_features,
+        mode="classification",
+        **plugin_kwargs,
     )
     return cal_exp, x_test
 
@@ -750,21 +760,81 @@ def test_should_raise_configuration_error_for_cross_surface_kwargs_on_explain_me
         method(x_test[:2], **{kwarg_name: kwarg_value})
 
 
+class _RecordingKwargExplanationPluginMixin:
+    """Test-only mixin proving a declared explain-time kwarg is actually read
+    from ``ExplanationRequest.extras`` (pre-v4 S4-H3, Task 51 policy A) rather
+    than merely forwarded without being consumed."""
+
+    last_forwarded_value = None
+
+    def explain_batch(self, x, request):  # noqa: D102 - thin test override
+        type(self).last_forwarded_value = request.extras.get("some_plugin_specific_key")
+        return super().explain_batch(x, request)
+
+
+_EXPLAIN_KWARGS_SCHEMA = {
+    "version": 1,
+    "additional_properties": False,
+    "keys": {"some_plugin_specific_key": {"type": "int"}},
+}
+
+
+class _RecordingFactualPlugin(
+    _RecordingKwargExplanationPluginMixin, LegacyFactualExplanationPlugin
+):
+    plugin_meta = {
+        **LegacyFactualExplanationPlugin.plugin_meta,
+        "name": "tests.recording.factual",
+        "explain_kwargs_schema": _EXPLAIN_KWARGS_SCHEMA,
+    }
+
+
+class _RecordingAlternativePlugin(
+    _RecordingKwargExplanationPluginMixin, LegacyAlternativeExplanationPlugin
+):
+    plugin_meta = {
+        **LegacyAlternativeExplanationPlugin.plugin_meta,
+        "name": "tests.recording.alternative",
+        "explain_kwargs_schema": _EXPLAIN_KWARGS_SCHEMA,
+    }
+
+
+_RECORDING_PLUGIN_BY_METHOD = {
+    "explain_factual": ("factual_plugin", _RecordingFactualPlugin),
+    "explore_alternatives": ("alternative_plugin", _RecordingAlternativePlugin),
+}
+
+
 @pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives"])
-def test_explain_methods_still_forward_genuinely_unknown_kwargs_to_plugin(method_name):
-    """ADR-038 5C: a name unknown on every CalibratedExplainer surface is treated
-    as plugin-defined and must NOT raise (preserves the §3 exception)."""
-    cal_exp, x_test = _classification_explainer()
+def test_explain_methods_forward_and_consume_declared_plugin_kwargs(method_name):
+    """pre-v4 S4-H3 (Task 51 policy A): a plugin that declares a key via
+    plugin_meta['explain_kwargs_schema'] both receives it and actually reads it
+    from ExplanationRequest.extras -- not merely returns a non-empty explanation."""
+    plugin_kwarg, plugin_cls = _RECORDING_PLUGIN_BY_METHOD[method_name]
+    plugin_cls.last_forwarded_value = None
+    cal_exp, x_test = _classification_explainer(**{plugin_kwarg: plugin_cls()})
     method = getattr(cal_exp, method_name)
-    # Should not raise; the unrecognized key is forwarded toward the plugin.
     result = method(x_test[:2], some_plugin_specific_key=123)
     assert isinstance(result, CalibratedExplanations)
     assert len(result) == 2
+    assert plugin_cls.last_forwarded_value == 123
+
+
+@pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives"])
+def test_explain_methods_reject_unconsumed_plugin_kwargs(method_name):
+    """pre-v4 S4-H3 (Task 51 policy A): the selected plugin does not declare
+    'unknown_typo_kwarg' via plugin_meta['explain_kwargs_schema'], so the typo
+    must raise instead of silently vanishing into an INFO-only forwarding log."""
+    cal_exp, x_test = _classification_explainer()
+    method = getattr(cal_exp, method_name)
+    with pytest.raises(ConfigurationError, match="cannot accept explain-time"):
+        method(x_test[:2], unknown_typo_kwarg=123)
 
 
 @pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives"])
 def test_explain_methods_log_forwarded_plugin_kwargs(method_name, caplog):
-    cal_exp, x_test = _classification_explainer()
+    plugin_kwarg, plugin_cls = _RECORDING_PLUGIN_BY_METHOD[method_name]
+    cal_exp, x_test = _classification_explainer(**{plugin_kwarg: plugin_cls()})
     method = getattr(cal_exp, method_name)
 
     with caplog.at_level(

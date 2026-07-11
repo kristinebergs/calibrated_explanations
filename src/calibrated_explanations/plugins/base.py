@@ -202,55 +202,59 @@ def _schema_keys(schema: Mapping[str, Any]) -> Mapping[str, Any]:
     return keys
 
 
-def validate_plugin_config_schema(schema: Mapping[str, Any]) -> None:
+def validate_plugin_config_schema(
+    schema: Mapping[str, Any], *, field_name: str = "config_schema"
+) -> None:
     """Validate the provisional plugin config schema shape.
 
     The schema is a hardened integration surface, not a compatibility-frozen API.
+    ``field_name`` selects the ``plugin_meta`` key being validated (e.g.
+    ``"config_schema"`` for plugin construction options or
+    ``"explain_kwargs_schema"`` for explain-time keyword arguments), so error
+    messages point at the right key.
     """
     if not isinstance(schema, Mapping):
-        raise ValidationError("plugin_meta['config_schema'] must be a mapping")
+        raise ValidationError(f"plugin_meta[{field_name!r}] must be a mapping")
     version = schema.get("version", _PROVISIONAL_CONFIG_SCHEMA_VERSION)
     if version != _PROVISIONAL_CONFIG_SCHEMA_VERSION:
-        raise ValidationError("plugin_meta['config_schema']['version'] must be 1")
+        raise ValidationError(f"plugin_meta[{field_name!r}]['version'] must be 1")
     additional = schema.get("additional_properties", False)
     if not isinstance(additional, bool):
         raise ValidationError(
-            "plugin_meta['config_schema']['additional_properties'] must be a boolean"
+            f"plugin_meta[{field_name!r}]['additional_properties'] must be a boolean"
         )
     for key, entry in _schema_keys(schema).items():
         if not isinstance(key, str) or not key:
-            raise ValidationError("plugin_meta['config_schema']['keys'] names must be non-empty")
+            raise ValidationError(f"plugin_meta[{field_name!r}]['keys'] names must be non-empty")
         if not isinstance(entry, Mapping):
-            raise ValidationError(
-                f"plugin_meta['config_schema']['keys'][{key!r}] must be a mapping"
-            )
+            raise ValidationError(f"plugin_meta[{field_name!r}]['keys'][{key!r}] must be a mapping")
         raw_type = entry.get("type")
         if raw_type not in _CONFIG_SCHEMA_TYPES:
             raise ValidationError(
-                f"plugin_meta['config_schema']['keys'][{key!r}]['type'] must be one of "
+                f"plugin_meta[{field_name!r}]['keys'][{key!r}]['type'] must be one of "
                 f"{sorted(_CONFIG_SCHEMA_TYPES)}"
             )
         if "required" in entry and not isinstance(entry["required"], bool):
             raise ValidationError(
-                f"plugin_meta['config_schema']['keys'][{key!r}]['required'] must be a boolean"
+                f"plugin_meta[{field_name!r}]['keys'][{key!r}]['required'] must be a boolean"
             )
         if "sensitive" in entry and not isinstance(entry["sensitive"], bool):
             raise ValidationError(
-                f"plugin_meta['config_schema']['keys'][{key!r}]['sensitive'] must be a boolean"
+                f"plugin_meta[{field_name!r}]['keys'][{key!r}]['sensitive'] must be a boolean"
             )
         choices = entry.get("choices")
         if choices is not None:
             if isinstance(choices, str) or not isinstance(choices, Iterable):
                 raise ValidationError(
-                    f"plugin_meta['config_schema']['keys'][{key!r}]['choices'] must be a sequence"
+                    f"plugin_meta[{field_name!r}]['keys'][{key!r}]['choices'] must be a sequence"
                 )
             if not tuple(choices):
                 raise ValidationError(
-                    f"plugin_meta['config_schema']['keys'][{key!r}]['choices'] must not be empty"
+                    f"plugin_meta[{field_name!r}]['keys'][{key!r}]['choices'] must not be empty"
                 )
         if "default" in entry and not _config_value_matches_type(entry["default"], str(raw_type)):
             raise ValidationError(
-                f"plugin_meta['config_schema']['keys'][{key!r}]['default'] "
+                f"plugin_meta[{field_name!r}]['keys'][{key!r}]['default'] "
                 f"does not match type {raw_type!r}"
             )
 
@@ -323,6 +327,44 @@ def validate_plugin_config(
     return freeze_plugin_config(resolved)
 
 
+def reject_unconsumed_explain_kwargs(
+    *,
+    plugin_id: str,
+    plugin_meta: Mapping[str, Any],
+    kwargs: Mapping[str, Any],
+) -> None:
+    """Reject explain-time keyword arguments the selected plugin does not declare.
+
+    pre-v4 S4-H3 (Task 51, policy A): direct-core ``explain_factual``/
+    ``explain_alternative`` used to forward any unrecognised keyword argument
+    to the plugin's ``ExplanationRequest.extras`` with only an INFO log, so a
+    misspelled option and a genuinely consumed one were indistinguishable. A
+    plugin now must declare the keys it consumes via
+    ``plugin_meta['explain_kwargs_schema']`` (same shape as ``config_schema``);
+    anything else in *kwargs* raises ``ValidationError``.
+    """
+    if not kwargs:
+        return
+    schema = plugin_meta.get("explain_kwargs_schema")
+    if schema is None:
+        raise ValidationError(
+            f"Explanation plugin {plugin_id!r} does not declare "
+            "plugin_meta['explain_kwargs_schema'] and cannot accept explain-time "
+            f"keyword argument(s): {sorted(kwargs)}. Either remove these arguments "
+            "or have the plugin declare the keys it consumes."
+        )
+    validate_plugin_config_schema(schema, field_name="explain_kwargs_schema")
+    schema_entries = _schema_keys(schema)
+    additional_allowed = bool(schema.get("additional_properties", False))
+    unknown_keys = sorted(set(kwargs) - set(schema_entries))
+    if unknown_keys and not additional_allowed:
+        raise ValidationError(
+            f"Explanation plugin {plugin_id!r} received unrecognized explain-time "
+            f"keyword argument(s): {unknown_keys}. Declared "
+            f"explain_kwargs_schema keys: {sorted(schema_entries)}."
+        )
+
+
 def validate_plugin_meta(meta: Dict[str, Any]) -> None:
     """Validate minimal plugin metadata required by ADR-006."""
     # ADR-038 §5: plugin config surfaces exposed through the plugin contract
@@ -383,6 +425,15 @@ def validate_plugin_meta(meta: Dict[str, Any]) -> None:
     meta["data_modalities"] = _normalise_data_modalities(meta["data_modalities"])
     if "config_schema" in meta:
         validate_plugin_config_schema(meta["config_schema"])
+    # pre-v4 S4-H3 (Task 51, policy A): explanation plugins that want to accept
+    # explain-time keyword arguments (ExplanationRequest.extras) must declare
+    # which keys they consume. Unlike config_schema (constructor options), this
+    # is optional -- a plugin that never reads extras simply omits it, and the
+    # orchestrator then rejects any explain-time kwargs forwarded to it.
+    if "explain_kwargs_schema" in meta:
+        validate_plugin_config_schema(
+            meta["explain_kwargs_schema"], field_name="explain_kwargs_schema"
+        )
 
     # supports_guarded: boolean, defaults to False; only valid for explanation plugins.
     if "supports_guarded" in meta:
@@ -433,6 +484,7 @@ def validate_plugin_meta(meta: Dict[str, Any]) -> None:
 __all__ = [
     "ExplainerPlugin",
     "freeze_plugin_config",
+    "reject_unconsumed_explain_kwargs",
     "thaw_plugin_config",
     "validate_plugin_config",
     "validate_plugin_config_schema",

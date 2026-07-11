@@ -37,10 +37,11 @@ from ...plugins import (
     ExplanationRequest,
     ensure_builtin_plugins,
     find_explanation_descriptor,
+    reject_unconsumed_explain_kwargs,
     validate_explanation_batch,
 )
 from ...utils import EntropyDiscretizer, RegressorDiscretizer
-from ...utils.exceptions import CalibratedError, ConfigurationError, DataShapeError
+from ...utils.exceptions import CalibratedError, ConfigurationError, DataShapeError, ValidationError
 from ...utils.int_utils import as_int_array, coerce_to_int
 
 if TYPE_CHECKING:
@@ -48,6 +49,27 @@ if TYPE_CHECKING:
 
 _EXPLANATION_MODES: Tuple[str, ...] = ("factual", "alternative", "fast")
 _TELEMETRY_LOGGER = logging.getLogger("calibrated_explanations.telemetry.explanation")
+# pre-v4 S4-H3 (Task 51): extras keys that are part of CalibratedExplainer's
+# own officially recognized explain_factual/explore_alternatives surface
+# (`_EXPLAIN_KWARGS` in calibrated_explainer.py), or that this module itself
+# injects internally (e.g. explain_fast()/the FAST feature-filter pass always
+# call ``invoke("fast", ..., extras={"mode": "fast", ...})``) -- rather than
+# plugin-specific options. reject_confidence/interval_summary/
+# multi_labels_enabled are consumed by the orchestrator itself; verbose is
+# accepted but currently a no-op. These are always allowed regardless of what
+# the selected plugin declares via plugin_meta['explain_kwargs_schema'] --
+# only names outside this closed surface are subject to the plugin's declared
+# schema (ADR-038 §3).
+_FRAMEWORK_KNOWN_EXTRAS_KEYS: frozenset[str] = frozenset(
+    {
+        "reject_confidence",
+        "interval_summary",
+        "multi_labels_enabled",
+        "verbose",
+        "mode",
+        "invoked_by",
+    }
+)
 ensure_logging_context_filter()
 
 
@@ -736,6 +758,21 @@ class ExplanationOrchestrator:
                 return res
 
         plugin, _identifier = self.ensure_plugin(mode)
+        plugin_kwargs = {
+            key: value
+            for key, value in dict(extras or {}).items()
+            if key not in _FRAMEWORK_KNOWN_EXTRAS_KEYS
+        }
+        try:
+            reject_unconsumed_explain_kwargs(
+                plugin_id=str(
+                    getattr(plugin, "plugin_meta", {}).get("name") or _identifier or mode
+                ),
+                plugin_meta=getattr(plugin, "plugin_meta", {}) or {},
+                kwargs=plugin_kwargs,
+            )
+        except ValidationError as exc:
+            raise ConfigurationError(str(exc), details={"mode": mode}) from exc
         explainer_identifier = getattr(self.explainer, "explainer_id", None) or str(
             id(self.explainer)
         )
