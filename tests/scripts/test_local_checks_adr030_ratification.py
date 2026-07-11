@@ -242,3 +242,60 @@ command = "python scripts/quality/check_agent_instruction_consistency.py"
     assert all("ruff" not in command_text for command_text in commands_seen)
     assert any("check_import_graph.py" in command_text for command_text in commands_seen)
     assert any("check_adr002_compliance.py" in command_text for command_text in commands_seen)
+
+
+def test_should_enable_ruff_preview_for_markdown_task_lint_targets(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Task lint preflight should use Ruff preview mode when formatting Markdown."""
+    # Arrange
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_text(
+        """
+```toml ce-task-verification
+schema_version = 1
+
+[task.52]
+lint_targets = ["docs/migration/deprecations.md", "tests/integration/test_doc_examples_smoke.py"]
+
+[[task.52.steps]]
+name = "Doc smoke"
+command = "python -m pytest tests/integration/test_doc_examples_smoke.py -q"
+```
+""".strip(),
+        encoding="utf-8",
+    )
+    commands_seen: list[list[str]] = []
+
+    def fake_run_step(step: local_checks.Step) -> int:
+        commands_seen.append(step.command)
+        return 0
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(local_checks, "_run_step", fake_run_step)
+    monkeypatch.setattr(local_checks, "_mypy_targets", lambda: [])
+    monkeypatch.setattr(local_checks, "_pytest_supports_no_cov", lambda: True)
+    monkeypatch.setattr(local_checks.shutil, "which", lambda name: "tool" if name in {"mypy", "pre-commit"} else None)
+
+    # Act
+    monkeypatch.setattr(
+        local_checks.sys,
+        "argv",
+        [
+            "local_checks.py",
+            "--profile",
+            "task",
+            "--task",
+            "52",
+            "--plan",
+            str(plan_path),
+        ],
+    )
+    rc = local_checks.main()
+
+    # Assert
+    assert rc == 0
+    format_commands = [command for command in commands_seen if command[2:4] == ["ruff", "format"]]
+    assert len(format_commands) == 1
+    assert "--check" in format_commands[0]
+    assert "--preview" in format_commands[0]

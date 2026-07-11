@@ -600,8 +600,37 @@ longer disappear silently.
 surface for explain-time kwargs and rejects unknown names with `ConfigurationError`.
 Direct `CalibratedExplainer.explain_factual(...)` /
 `explore_alternatives(...)` keep the ADR-038 experimental plugin-forwarding seam
-for genuinely plugin-defined kwargs, and now emit an `INFO` log naming any keys
-that are forwarded.
+for genuinely plugin-defined kwargs: any name outside CE's own recognized
+`explain_factual`/`explore_alternatives` surface is forwarded to the *selected
+explanation plugin* and logged at `INFO`. As of pre-v4 S4-H3 (Task 51, policy A),
+forwarding alone is no longer enough to reach the plugin — the plugin must also
+*declare* the key via `plugin_meta['explain_kwargs_schema']` (same shape as
+`config_schema`; see "Config surface naming convention (ADR-038 §5)" below).
+A forwarded key the selected plugin does not declare — including the built-in
+`core.explanation.*` plugins, which declare no `explain_kwargs_schema` because
+they never read `ExplanationRequest.extras` — now raises `ConfigurationError`
+instead of silently vanishing, closing the gap where a misspelled kwarg
+(`typo_plugin_kee=123`) and a genuinely consumed one were indistinguishable at
+the API level. This makes the remaining direct-core-vs-wrapper divergence purely
+about *closed-surface* names (CE's own formal parameters): the wrapper enforces
+its exact allow-list, while direct-core additionally allows any name a selected
+plugin explicitly opts into via `explain_kwargs_schema`.
+
+```python
+# Plugin declares the explain-time kwargs it actually reads:
+plugin_meta = {
+    ...,
+    "explain_kwargs_schema": {
+        "version": 1,
+        "additional_properties": False,
+        "keys": {"my_option": {"type": "int"}},
+    },
+}
+
+def explain_batch(self, x, request):
+    my_option = request.extras.get("my_option")  # now provably consumed
+    ...
+```
 
 ---
 

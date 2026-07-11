@@ -1,15 +1,14 @@
 {
   "commands_run": [
-    "python -m ruff check src/calibrated_explanations/core/explain/orchestrator.py src/calibrated_explanations/plugins/base.py src/calibrated_explanations/plugins/__init__.py tests/unit/core/test_calibrated_explainer_more_paths.py",
-    "python -m ruff format --check src/calibrated_explanations/core/explain/orchestrator.py src/calibrated_explanations/plugins/base.py src/calibrated_explanations/plugins/__init__.py tests/unit/core/test_calibrated_explainer_more_paths.py",
+    "python -m ruff check docs/migration/deprecations.md docs/practitioner/advanced/use_plugins.md tests/integration/test_doc_examples_smoke.py",
+    "python -m ruff format --check --preview docs/migration/deprecations.md docs/practitioner/advanced/use_plugins.md tests/integration/test_doc_examples_smoke.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
-    "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python -m pytest -q tests/unit/core/test_calibrated_explainer_more_paths.py -o addopts= --no-cov"
+    "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov"
   ],
-  "exit_status": 0,
-  "generated_at": "2026-07-11T06:53:26.925105+00:00",
+  "exit_status": 4,
+  "generated_at": "2026-07-11T07:52:43.189526+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -47,5 +46,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 51
+  "task_id": 52
 }

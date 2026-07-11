@@ -618,9 +618,17 @@ def _ruff_check_command(*paths: str) -> list[str]:
     return _python_cmd("-m", "ruff", "check", *paths)
 
 
+def _requires_ruff_preview_for_format(*paths: str) -> bool:
+    """Return whether Ruff format should enable preview mode for the paths."""
+    return any(Path(path).suffix.lower() == ".md" for path in paths)
+
+
 def _ruff_format_check_command(*paths: str) -> list[str]:
     """Return the Ruff format-check command for the provided paths."""
-    return _python_cmd("-m", "ruff", "format", "--check", *paths)
+    command = ["-m", "ruff", "format", "--check"]
+    if _requires_ruff_preview_for_format(*paths):
+        command.append("--preview")
+    return _python_cmd(*command, *paths)
 
 
 def _pytest_no_cov_command(*args: str) -> list[str]:
