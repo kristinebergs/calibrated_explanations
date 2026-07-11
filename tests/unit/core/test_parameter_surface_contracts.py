@@ -434,7 +434,10 @@ class TestLegacyGlobalPlotKwargForwarding:
 
 
 def _selected_probability_from_predict_proba(proba_result, *, class_index):
-    proba = np.asarray(proba_result, dtype=float)
+    proba_payload = getattr(proba_result, "prediction", proba_result)
+    if isinstance(proba_payload, tuple):
+        proba_payload = proba_payload[0]
+    proba = np.asarray(proba_payload, dtype=float)
     if proba.ndim != 2:
         raise AssertionError(f"Expected a 2D probability matrix, got shape {proba.shape}")
     return float(proba[0, int(class_index)])
@@ -504,6 +507,28 @@ def test_interval_summary_propagates_through_direct_core_plugin_and_legacy_paths
 
     _assert_probability_surface_alignment(plugin_explanation, expected_probability)
     _assert_probability_surface_alignment(legacy_explanation, expected_probability)
+
+
+def test_interval_summary_aligns_reject_filtered_explanations_with_predict_proba(cls_wrapper):
+    wrapper, x_test = cls_wrapper
+    expected_probability = _selected_probability_from_predict_proba(
+        wrapper.predict_proba(
+            x_test[:1],
+            interval_summary="lower",
+            reject_policy="flag",
+            reject_confidence=0.8,
+        ),
+        class_index=1,
+    )
+
+    explanation = wrapper.explain_factual(
+        x_test[:1],
+        interval_summary="lower",
+        reject_policy="flag",
+        reject_confidence=0.8,
+    )[0]
+
+    _assert_probability_surface_alignment(explanation, expected_probability)
 
 
 def test_interval_summary_changes_feature_effect_predictions(cls_wrapper):
