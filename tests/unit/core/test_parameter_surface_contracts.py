@@ -21,6 +21,7 @@ per-method gates:
 from __future__ import annotations
 
 import inspect
+import re
 
 import numpy as np
 import pytest
@@ -78,6 +79,17 @@ def reg_wrapper(data):
     wrapper.fit(x[:60], y_reg[:60])
     wrapper.calibrate(x[60:100], y_reg[60:100])
     return wrapper, x[100:]
+
+
+@pytest.fixture(scope="module")
+def multiclass_wrapper():
+    rng = np.random.default_rng(7)
+    x = rng.normal(size=(150, 5))
+    y = np.digitize(x[:, 0] + 0.5 * x[:, 1], bins=[-0.4, 0.6]).astype(int)
+    wrapper = WrapCalibratedExplainer(RandomForestClassifier(n_estimators=20, random_state=7))
+    wrapper.fit(x[:75], y[:75])
+    wrapper.calibrate(x[75:120], y[75:120])
+    return wrapper, x[120:]
 
 
 @pytest.fixture(scope="module")
@@ -419,3 +431,118 @@ class TestLegacyGlobalPlotKwargForwarding:
         # predict_proba() and cause a ConfigurationError -- the plot still
         # completed and rendered a figure.
         assert compat.plt.get_fignums(), "legacy plot must actually render a figure"
+
+
+def _selected_probability_from_predict_proba(proba_result, *, class_index):
+    proba = np.asarray(proba_result, dtype=float)
+    if proba.ndim != 2:
+        raise AssertionError(f"Expected a 2D probability matrix, got shape {proba.shape}")
+    return float(proba[0, int(class_index)])
+
+
+def _extract_narrative_probability(text):
+    match = re.search(r"Calibrated [Pp]robability(?:[^:\n]*)?:\s*([0-9.]+)", text)
+    assert match is not None, text
+    return float(match.group(1))
+
+
+def _assert_probability_surface_alignment(explanation, expected_probability):
+    prediction = explanation.prediction
+    json_prediction = explanation.calibrated_explanations.to_json()["explanations"][0]["prediction"]
+    narrative = explanation.to_narrative(output_format="text", expertise_level="beginner")
+
+    assert prediction["predict"] == pytest.approx(expected_probability)
+    assert json_prediction["predict"] == pytest.approx(expected_probability)
+    assert _extract_narrative_probability(narrative) == pytest.approx(
+        expected_probability, abs=1e-3
+    )
+
+
+@pytest.mark.parametrize("summary", ["regularized_mean", "mean", "lower", "upper"])
+def test_interval_summary_aligns_factual_prediction_payloads_with_predict_proba(
+    cls_wrapper, summary
+):
+    wrapper, x_test = cls_wrapper
+    expected_probability = _selected_probability_from_predict_proba(
+        wrapper.predict_proba(x_test[:1], interval_summary=summary),
+        class_index=1,
+    )
+
+    explanation = wrapper.explain_factual(x_test[:1], interval_summary=summary)[0]
+
+    _assert_probability_surface_alignment(explanation, expected_probability)
+
+
+@pytest.mark.parametrize("summary", ["regularized_mean", "mean", "lower", "upper"])
+def test_interval_summary_aligns_alternative_prediction_payloads_with_predict_proba(
+    cls_wrapper, summary
+):
+    wrapper, x_test = cls_wrapper
+    expected_probability = _selected_probability_from_predict_proba(
+        wrapper.predict_proba(x_test[:1], interval_summary=summary),
+        class_index=1,
+    )
+
+    explanation = wrapper.explore_alternatives(x_test[:1], interval_summary=summary)[0]
+
+    _assert_probability_surface_alignment(explanation, expected_probability)
+
+
+def test_interval_summary_propagates_through_direct_core_plugin_and_legacy_paths(cls_wrapper):
+    wrapper, x_test = cls_wrapper
+    core = wrapper.explainer
+    assert core is not None
+    expected_probability = _selected_probability_from_predict_proba(
+        core.predict_proba(x_test[:1], interval_summary="lower"),
+        class_index=1,
+    )
+
+    plugin_explanation = core.explain_factual(x_test[:1], interval_summary="lower")[0]
+    legacy_explanation = core.explain_factual(
+        x_test[:1], interval_summary="lower", _use_plugin=False
+    )[0]
+
+    _assert_probability_surface_alignment(plugin_explanation, expected_probability)
+    _assert_probability_surface_alignment(legacy_explanation, expected_probability)
+
+
+def test_interval_summary_changes_feature_effect_predictions(cls_wrapper):
+    wrapper, x_test = cls_wrapper
+    lower = wrapper.explain_factual(x_test[:1], interval_summary="lower")[0]
+    upper = wrapper.explain_factual(x_test[:1], interval_summary="upper")[0]
+
+    assert not np.allclose(lower.feature_predict["predict"], upper.feature_predict["predict"])
+
+
+@pytest.mark.parametrize("summary", ["mean", "lower", "upper"])
+def test_interval_summary_aligns_regression_threshold_explanations_with_predict_proba(
+    reg_wrapper, summary
+):
+    wrapper, x_test = reg_wrapper
+    threshold = 0.0
+    expected_probability = _selected_probability_from_predict_proba(
+        wrapper.predict_proba(x_test[:1], threshold=threshold, interval_summary=summary),
+        class_index=1,
+    )
+
+    explanation = wrapper.explain_factual(
+        x_test[:1], threshold=threshold, interval_summary=summary
+    )[0]
+
+    _assert_probability_surface_alignment(explanation, expected_probability)
+
+
+@pytest.mark.parametrize("summary", ["mean", "lower", "upper"])
+def test_interval_summary_aligns_multiclass_prediction_payloads_with_predict_proba(
+    multiclass_wrapper, summary
+):
+    wrapper, x_test = multiclass_wrapper
+    predicted_class = int(wrapper.predict(x_test[:1], interval_summary=summary)[0])
+    expected_probability = _selected_probability_from_predict_proba(
+        wrapper.predict_proba(x_test[:1], interval_summary=summary),
+        class_index=predicted_class,
+    )
+
+    explanation = wrapper.explain_factual(x_test[:1], interval_summary=summary)[0]
+
+    _assert_probability_surface_alignment(explanation, expected_probability)

@@ -387,10 +387,9 @@ def explain_predict_step(
     # print(f"DEBUG: explainer.is_multiclass type: {type(explainer.is_multiclass)}")
 
     x_cal = explainer.x_cal
-    # Use the explainer's default interval summary for the base point
-    # prediction used in explanations. Per-call `interval_summary` controls
-    # how full-probabilities/intervals are summarised but should not alter
-    # the canonical point prediction embedded in factual explanations.
+    # Task 48: the caller-selected interval_summary must drive the canonical
+    # explanation prediction as well as the hidden full-probability payload.
+    # Otherwise a single explanation can expose contradictory probabilities.
     base_predict, base_low, base_high, predicted_class = (
         explainer.prediction_orchestrator.predict_internal(
             x,
@@ -398,7 +397,7 @@ def explain_predict_step(
             low_high_percentiles=low_high_percentiles,
             bins=bins,
             classes=labels,
-            interval_summary=None,
+            interval_summary=interval_summary,
         )
     )
 
@@ -608,6 +607,7 @@ def explain_predict_step(
         low_high_percentiles=low_high_percentiles,
         classes=perturbed_class,
         bins=perturbed_bins,
+        interval_summary=interval_summary,
     )
     predict = np.array(predict)
     low = np.array(low)
