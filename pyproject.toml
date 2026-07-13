@@ -344,12 +344,17 @@ exclude = [
 follow_imports = "skip"
 check_untyped_defs = false
 
+# 2026-07-13: `core.prediction_helpers` was un-declared from this strict-typing
+# scope (v0.11.6 Task 58, decision (b), pre-v5 M2). It had been listed here but
+# was never enforced by any gate (`scripts/local_checks.py::_mypy_targets` and
+# the CI "Phase 1B scope" step both only ever ran the three modules below), and
+# running the declared contract against it surfaces 10 pre-existing mypy
+# errors. Re-add it once those errors are fixed under a dedicated task.
 [[tool.mypy.overrides]]
 module = [
     "calibrated_explanations.core.exceptions",
     "calibrated_explanations.core.validation",
     "calibrated_explanations.api.params",
-    "calibrated_explanations.core.prediction_helpers",
 ]
 disallow_untyped_defs = true
 warn_return_any = true

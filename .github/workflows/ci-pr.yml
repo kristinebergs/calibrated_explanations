@@ -104,18 +104,15 @@ jobs:
         run: |
           set -e
           mypy --version
-          FILES=""
-          for f in \
-            src/calibrated_explanations/core/exceptions.py \
-            src/calibrated_explanations/core/validation.py \
-            src/calibrated_explanations/api/params.py; do
-            if [ -f "$f" ]; then FILES="$FILES $f"; fi
-          done
+          # Scope is derived from the pyproject.toml strict-mypy override so this
+          # step cannot drift from the local gate (v0.11.6 Task 58 / pre-v5 M2).
+          FILES="$(python scripts/local_checks.py --print-mypy-targets)"
           if [ -z "$FILES" ]; then
             echo "No Phase 1B typed files found; skipping mypy."
             exit 0
           fi
-          echo "Checking files:$FILES"
+          echo "Checking files:"
+          echo "$FILES"
           mypy $FILES --config-file pyproject.toml
 
   core-tests:

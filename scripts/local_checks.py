@@ -96,11 +96,24 @@ def _is_pre_commit_step(step: Step) -> bool:
     return head in {"pre-commit", "pre-commit.exe"}
 
 
+def _mypy_strict_override_modules() -> list[str]:
+    """Return the dotted module names declared in the pyproject strict-mypy override.
+
+    This is the single source of truth for the "Phase 1B" mypy scope; both
+    :func:`_mypy_targets` and CI derive their file list from it so the
+    declared and enforced scopes cannot drift (v0.11.6 Task 58 / pre-v5 M2).
+    """
+    payload = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+    for override in payload.get("tool", {}).get("mypy", {}).get("overrides", []):
+        modules = override.get("module")
+        if modules:
+            return list(modules)
+    return []
+
+
 def _mypy_targets() -> list[str]:
     candidates = [
-        "src/calibrated_explanations/core/exceptions.py",
-        "src/calibrated_explanations/core/validation.py",
-        "src/calibrated_explanations/api/params.py",
+        "src/" + module.replace(".", "/") + ".py" for module in _mypy_strict_override_modules()
     ]
     return [path for path in candidates if Path(path).is_file()]
 
@@ -1801,8 +1814,21 @@ def main() -> int:
         action="store_true",
         help="Validate the latest release-preflight snapshot before manual release steps.",
     )
+    parser.add_argument(
+        "--print-mypy-targets",
+        action="store_true",
+        help=(
+            "Print the declared-scope mypy target files (one per line), derived from "
+            "the pyproject.toml strict-mypy override, and exit. Lets CI consume the "
+            "same source of truth as the local gate (v0.11.6 Task 58 / pre-v5 M2)."
+        ),
+    )
     args = parser.parse_args()
 
+    if args.print_mypy_targets:
+        for target in _mypy_targets():
+            print(target)
+        return 0
     if args.uv_install_smoke:
         return _run_uv_install_smoke()
     if args.adr030_ratification:
