@@ -206,7 +206,8 @@ Nothing new from this pass rises above MEDIUM. The highest-risk open item remain
 new tasks — Task 57 (M1 docstring exception contracts), Task 58 (M2 mypy-scope
 alignment), and Task 59 (L1/L3/L4 LOW remainder cleanup, with L2 cross-referenced
 to Task 28 and I1 to Task 50). Release preparation was renumbered from Task 57
-to Task 60 and remains final.
+to Task 60 and remains final. (2026-07-13 update: the v1 CI consolidation was
+added as Task 60, so release preparation is now Task 61 and still final.)
 
 Original recommendations:
 
