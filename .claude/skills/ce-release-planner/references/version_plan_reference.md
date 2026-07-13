@@ -2,7 +2,7 @@
 
 Use this file as the canonical scaffold for release implementation plans under:
 
-- `docs/improvement/vX.Y.Z_plan.md`
+- `development/current-work/vX.Y.Z_plan.md`
 
 This reference exists so old detailed plan files can be removed while keeping
 the planning structure stable and repeatable.
@@ -188,11 +188,11 @@ and must be checked manually or via explicit invocations at milestone closure.
     this milestone reflected as closed; no open row still targets `vX.Y.Z`.
 11. `RELEASE_PLAN_v1.md` milestone closure: all vX.Y.Z tasks marked `[x]`; milestone section
     records closure date.
-12. `docs/improvement/` archive: review all files in `docs/improvement/` and its sub-folders;
+12. `development/current-work/` archive: review all files in `development/current-work/`;
     move obsolete plan files, completed-version artefacts, and superseded standalone design docs
-    to `docs/improvement/archive/` or delete. Only files that are active references for future
-    milestones should remain at the top level. (Already-superseded ADRs carry a `superseded`
-    filename prefix — no action needed for those.)
+    to `development/finished-work/` or delete. Only files that are active references for future
+    milestones should remain in `development/current-work/`. (Already-superseded ADRs carry a
+    `superseded` filename prefix — no action needed for those.)
 13. GitHub release draft: tag prepared; release notes drafted from CHANGELOG; PyPI release
     decision recorded in `RELEASE_PLAN_v1.md` under the packaging workflow section.
 
@@ -210,6 +210,6 @@ and must be checked manually or via explicit invocations at milestone closure.
     deprecations); removed symbols in history table.
 - [ ] `RELEASE_PLAN_status_appendix.md` has no open gap row targeting `vX.Y.Z`.
 - [ ] `RELEASE_PLAN_v1.md` vX.Y.Z milestone section marked closed with date.
-- [ ] `docs/improvement/` top level and sub-folders reviewed; obsolete artefacts archived or deleted.
+- [ ] `development/current-work/` reviewed; obsolete artefacts moved to `development/finished-work/` or deleted.
 - [ ] GitHub release draft exists with tag and CHANGELOG-sourced release notes.
 ```

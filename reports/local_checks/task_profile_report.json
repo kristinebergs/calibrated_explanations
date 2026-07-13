@@ -1,15 +1,16 @@
 {
   "commands_run": [
-    "python -m ruff check src/calibrated_explanations/__init__.py src/calibrated_explanations/core/calibrated_explainer.py src/calibrated_explanations/plugins/base.py src/calibrated_explanations/plugins/explanations.py src/calibrated_explanations/plugins/manager.py src/calibrated_explanations/plugins/registry.py tests/integration/core/test_fast_tuning_matrix.py tests/unit/core/test_calibrated_explainer_delegation.py tests/unit/test_lazy_init_coverage.py tests/unit/plugins/test_plugin_descriptors_pickle.py tests/unit/test_utils_perturbation.py",
-    "python -m ruff format --check src/calibrated_explanations/__init__.py src/calibrated_explanations/core/calibrated_explainer.py src/calibrated_explanations/plugins/base.py src/calibrated_explanations/plugins/explanations.py src/calibrated_explanations/plugins/manager.py src/calibrated_explanations/plugins/registry.py tests/integration/core/test_fast_tuning_matrix.py tests/unit/core/test_calibrated_explainer_delegation.py tests/unit/test_lazy_init_coverage.py tests/unit/plugins/test_plugin_descriptors_pickle.py tests/unit/test_utils_perturbation.py",
+    "python -m ruff check src/calibrated_explanations/core/wrap_explainer.py tests/unit/core/test_wrap_explainer_core.py",
+    "python -m ruff format --check src/calibrated_explanations/core/wrap_explainer.py tests/unit/core/test_wrap_explainer_core.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python -m pytest -q tests/integration/core/test_fast_tuning_matrix.py tests/unit/core/test_calibrated_explainer_delegation.py tests/unit/test_lazy_init_coverage.py tests/unit/plugins/test_plugin_descriptors_pickle.py tests/unit/test_utils_perturbation.py -o addopts= --no-cov"
+    "python -m pytest -q tests/unit/core/test_wrap_explainer_core.py tests/integration/test_doc_examples_smoke.py -o addopts= --no-cov",
+    "python scripts/quality/check_forbidden_doc_patterns.py --all-checks"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-13T06:19:33.720916+00:00",
+  "generated_at": "2026-07-13T06:36:31.878904+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -47,5 +48,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 56
+  "task_id": 59
 }

@@ -20,7 +20,7 @@ Most XAI tools — LIME, SHAP — explain whatever the model outputs. If the mod
 
 ## What Does the Output Look Like?
 
-Calling `explanation[0].to_narrative(output_format="text", expertise_level="advanced")` returns a structured text narrative. The output below is **(illustrative)** — a loan-approval context using the exact format produced at runtime:
+Calling `explanation[0].to_narrative(output_format="text", expertise_level="advanced")` returns a structured text narrative. The output below is **(illustrative)** — a loan-approval context showing the narrative's structure and content:
 
 ```text
 Factual Explanation:
@@ -30,13 +30,13 @@ Calibrated Probability: 0.840
 Prediction Interval: [0.710, 0.930]
 
 Factors impacting the calibrated probability for class APPROVE positively:
-annual_income (45200) >= 45000 — weight ≈ +0.312 [+0.198, +0.421]
-credit_history_years (5.2) >= 5 — weight ≈ +0.187 [+0.091, +0.284]
-outstanding_debt (2800) < 3000 — weight ≈ +0.143 [+0.055, +0.231]
-employment_status (permanent) = permanent — weight ≈ +0.098 [+0.012, +0.185]
+annual_income (45200) >= 45000 - weight ~ 0.312 [0.198, 0.421]
+credit_history_years (5.2) >= 5 - weight ~ 0.187 [0.091, 0.284]
+outstanding_debt (2800) < 3000 - weight ~ 0.143 [0.055, 0.231]
+employment_status (permanent) = permanent - weight ~ 0.098 [0.012, 0.185]
 
 Factors impacting the calibrated probability for class APPROVE negatively:
-missed_payments (3) > 2 — weight ≈ -0.201 [-0.334, -0.068]
+missed_payments (3) > 2 - weight ~ -0.201 [-0.334, -0.068]
 ```
 
 - The **Prediction Interval** `[0.710, 0.930]` shows the calibrated uncertainty range — narrow means high confidence, wide (e.g., `[0.12, 0.89]`) means the model is uncertain and the decision should be treated with caution.

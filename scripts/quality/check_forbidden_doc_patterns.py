@@ -135,6 +135,20 @@ CHECKS: dict[str, PatternCheck] = {
             excludes=(),
         ),
         PatternCheck(
+            name="removed-legacy-locations",
+            description=(
+                "Live skill/agent/docs surfaces must not reference the removed "
+                "docs/improvement/ or docs/standards/ directories (Task 59 L4)."
+            ),
+            patterns=(r"docs/improvement/", r"docs/standards/"),
+            includes=(
+                ".claude/skills/**/*.md",
+                ".github/agents/**/*.md",
+                "docs/**/*.md",
+            ),
+            excludes=_COMMON_EXCLUDES + ("docs/foundations/governance/release_notes.md",),
+        ),
+        PatternCheck(
             name="utf8-mojibake-needle",
             description=(
                 "Tracked text files must not contain the U+00E2 U+20AC "

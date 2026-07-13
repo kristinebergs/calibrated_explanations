@@ -377,5 +377,5 @@ exclude = [
 ]
 
 [tool.codespell]
-skip = "docs/_build,docs_old/_build,build,dist,tests/benchmarks,notebooks,docs/improvement/anti_pattern_gap_analysis.ipynb"
+skip = "docs/_build,docs_old/_build,build,dist,tests/benchmarks,notebooks"
 ignore-words-list = "dataframe,nd"

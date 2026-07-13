@@ -29,7 +29,7 @@
       "pattern": "missing-integration-marker"
     }
   ],
-  "generated_at": "2026-07-13T06:22:31+00:00",
+  "generated_at": "2026-07-13T06:24:36+00:00",
   "new_violations": 3,
   "tests_dir": "tests",
   "total_findings": 3,

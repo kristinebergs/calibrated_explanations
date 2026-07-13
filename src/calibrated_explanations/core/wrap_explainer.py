@@ -43,6 +43,7 @@ from ..utils.exceptions import (
     ConfigurationError,
     DataShapeError,
     IncompatibleStateError,
+    ModelNotSupportedError,
     NotFittedError,
     ValidationError,
 )
@@ -425,6 +426,8 @@ class WrapCalibratedExplainer:
             If the underlying learner has not been fitted via :meth:`fit`.
         ConfigurationError
             If both ``mc`` and ``mondrian_categorizer`` are specified.
+        ModelNotSupportedError
+            If the underlying learner does not implement ``predict``.
 
         Examples
         --------
@@ -561,6 +564,7 @@ class WrapCalibratedExplainer:
             ConfigurationError,
             DataShapeError,
             IncompatibleStateError,
+            ModelNotSupportedError,
             NotFittedError,
             ValidationError,
         ):

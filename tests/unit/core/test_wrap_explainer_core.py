@@ -15,6 +15,7 @@ from calibrated_explanations.core.wrap_explainer import (
 from calibrated_explanations.utils.exceptions import (
     ConfigurationError,
     DataShapeError,
+    ModelNotSupportedError,
     ValidationError,
 )
 from tests.helpers.explainer_internals import (
@@ -486,6 +487,28 @@ def test_should_raise_data_shape_error_when_core_explainer_receives_empty_calibr
     assert "at least one sample" in str(exc_info.value)
     assert exc_info.value.details is not None
     assert exc_info.value.details.get("requirement") == "non-empty calibration data"
+
+
+class _Task59NoPredictLearner:
+    def fit(self, x, y):
+        self.classes_ = np.array(sorted(set(y)))
+        return self
+
+    def predict_proba(self, x):
+        x_arr = np.asarray(x, dtype=float)
+        positive = x_arr[:, 0].astype(float)
+        return np.column_stack((1.0 - positive, positive))
+
+
+def test_should_raise_model_not_supported_error_when_wrapper_calibrate_learner_lacks_predict():
+    dataset = make_binary_dataset()
+    x_prop_train, y_prop_train, x_cal, y_cal, *_rest = dataset
+    learner = _Task59NoPredictLearner()
+    wrapper = WrapCalibratedExplainer(learner)
+    wrapper.fit(x_prop_train, y_prop_train)
+
+    with pytest.raises(ModelNotSupportedError):
+        wrapper.calibrate(x_cal, y_cal, mode="classification")
 
 
 def test_should_raise_validation_error_when_wrapper_calibrate_receives_single_class_targets():
