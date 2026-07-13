@@ -27,7 +27,7 @@ from typing import Any, Callable, Dict, List, Mapping, Sequence, Tuple
 
 from ..core.config_manager import ConfigManager, get_process_config_manager
 from ..utils.exceptions import ConfigurationError, ValidationError
-from .base import validate_plugin_config
+from .base import thaw_plugin_config, validate_plugin_config
 from .predict_monitor import PredictBridgeMonitor
 from .registry import (
     ensure_builtin_plugins,
@@ -204,6 +204,23 @@ class PluginManager:
         self._explanation_orchestrator: Any = None
         self._prediction_orchestrator: Any = None
         self._reject_orchestrator: Any = None
+
+    def __getstate__(self) -> Dict[str, Any]:
+        """Return pickle-safe manager state without serializing runtime caches."""
+        state = {key: thaw_plugin_config(value) for key, value in self.__dict__.items()}
+        state["_bridge_monitors"] = {}
+        state["_explanation_plugin_instances"] = OrderedDict()
+        return state
+
+    def __setstate__(self, state: Dict[str, Any]) -> None:
+        """Restore manager state and reinitialize runtime caches if needed."""
+        self.__dict__.update(state)
+        instances = getattr(self, "_explanation_plugin_instances", OrderedDict())
+        if not isinstance(instances, OrderedDict):
+            self._explanation_plugin_instances = OrderedDict(instances)
+        monitors = getattr(self, "_bridge_monitors", {})
+        if not isinstance(monitors, dict):
+            self._bridge_monitors = dict(monitors)
 
     @property
     def interval_plugin_hints(self) -> Dict[str, Tuple[str, ...]]:

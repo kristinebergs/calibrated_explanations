@@ -1,4 +1,5 @@
 import pickle
+from types import MappingProxyType
 
 from calibrated_explanations.plugins.registry import (
     ExplanationPluginDescriptor,
@@ -24,14 +25,14 @@ def test_plugin_descriptors_pickle_roundtrip():
     dumped = pickle.dumps(desc)
     loaded = pickle.loads(dumped)
     assert loaded.identifier == "ex1"
-    # After pickling the frozen dataclass metadata should be a plain dict
-    assert isinstance(loaded.metadata, dict)
+    # Descriptor metadata should remain frozen after round-tripping.
+    assert isinstance(loaded.metadata, MappingProxyType)
 
     desc2 = IntervalPluginDescriptor(identifier="int1", plugin=p, metadata=meta)
-    assert isinstance(pickle.loads(pickle.dumps(desc2)).metadata, dict)
+    assert isinstance(pickle.loads(pickle.dumps(desc2)).metadata, MappingProxyType)
 
     desc3 = PlotBuilderDescriptor(identifier="pb1", builder=p, metadata=meta)
-    assert isinstance(pickle.loads(pickle.dumps(desc3)).metadata, dict)
+    assert isinstance(pickle.loads(pickle.dumps(desc3)).metadata, MappingProxyType)
 
     desc4 = PlotRendererDescriptor(identifier="pr1", renderer=p, metadata=meta)
-    assert isinstance(pickle.loads(pickle.dumps(desc4)).metadata, dict)
+    assert isinstance(pickle.loads(pickle.dumps(desc4)).metadata, MappingProxyType)

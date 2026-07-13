@@ -605,10 +605,13 @@ class CalibratedExplainer:
         return result
 
     def __getstate__(self):
-        """Exclude runtime helpers when pickling."""
+        """Exclude runtime helpers and caches when pickling."""
         state = self.__dict__.copy()
         state["perf_cache"] = None
         state["_perf_parallel"] = None
+        state["_lime_helper"] = None
+        state["_shap_helper"] = None
+        state["latest_explanation"] = None
         return state
 
     def __setstate__(self, state):

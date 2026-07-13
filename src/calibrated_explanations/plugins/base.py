@@ -182,16 +182,23 @@ def freeze_plugin_config(value: Any) -> Any:
 
 
 def thaw_plugin_config(value: Any) -> Any:
-    """Recursively convert MappingProxyType to plain dict so the result is picklable.
+    """Recursively convert frozen plugin config values into pickle-safe containers.
 
     This is the inverse of :func:`freeze_plugin_config` for the purpose of
-    ``__getstate__`` implementations.  Tuples produced by freeze are walked
-    recursively; all other values are returned unchanged.
+    ``__getstate__`` implementations. ``MappingProxyType`` values become plain
+    ``dict`` objects, sequences are walked recursively, and mutable container
+    types are rebuilt without changing scalar payloads.
     """
     if isinstance(value, MappingProxyType):
         return {k: thaw_plugin_config(v) for k, v in value.items()}
+    if isinstance(value, dict):
+        return {k: thaw_plugin_config(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [thaw_plugin_config(item) for item in value]
     if isinstance(value, tuple):
         return tuple(thaw_plugin_config(item) for item in value)
+    if isinstance(value, set):
+        return {thaw_plugin_config(item) for item in value}
     return value
 
 

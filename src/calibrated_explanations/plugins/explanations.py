@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 else:
     CalibratedExplanationsType = object
 from ..utils.exceptions import ValidationError
-from .base import ExplainerPlugin, PluginMeta, freeze_plugin_config
+from .base import ExplainerPlugin, PluginMeta, freeze_plugin_config, thaw_plugin_config
 from .predict import PredictBridge
 
 
@@ -72,15 +72,14 @@ class ExplanationContext:
         object.__setattr__(self, "categorical_features", _freeze_value(self.categorical_features))
 
     def __getstate__(self):
-        """Get state for pickling.
+        """Return pickle-safe state for the frozen explanation context."""
+        return {key: thaw_plugin_config(value) for key, value in self.__dict__.items()}
 
-        Returns
-        -------
-        dict
-            The state dictionary.
-        """
-        # Convert mappingproxy to dict for pickling
-        return dict(self.__dict__)
+    def __setstate__(self, state):
+        """Restore state and re-freeze immutable context payloads."""
+        for key, value in state.items():
+            object.__setattr__(self, key, value)
+        self.__post_init__()
 
 
 class ExplainerHandle:
@@ -292,15 +291,14 @@ class ExplanationRequest:
         object.__setattr__(self, "extras", frozen_extras)
 
     def __getstate__(self):
-        """Get state for pickling.
+        """Return pickle-safe state for the frozen explanation request."""
+        return {key: thaw_plugin_config(value) for key, value in self.__dict__.items()}
 
-        Returns
-        -------
-        dict
-            The state dictionary.
-        """
-        # Convert mappingproxy to dict for pickling
-        return dict(self.__dict__)
+    def __setstate__(self, state):
+        """Restore state and re-freeze immutable request payloads."""
+        for key, value in state.items():
+            object.__setattr__(self, key, value)
+        self.__post_init__()
 
 
 @dataclass

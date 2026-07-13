@@ -1,9 +1,37 @@
 {
   "baseline_path": ".github/marker-hygiene-baseline.json",
-  "findings": [],
-  "generated_at": "2026-07-10T23:12:22+00:00",
-  "new_violations": 0,
+  "findings": [
+    {
+      "detail": "Test test_fast_tuning_knobs_should_change_public_fast_behavior_across_wrapper_core_load_and_recalibration in integration/ dir lacks @pytest.mark.integration (module or function level)",
+      "file": "integration/core/test_fast_tuning_matrix.py",
+      "file_hash": "sha256:b1ffb0a7b9d9784a2b320c095dce646ee94bbe93b63d53060076055a74ccceff",
+      "id": "sha256:0cb6d814af07adc365182cad132cc0761b5a76b96e26d22af60542fec2d46514",
+      "is_new": true,
+      "line": 156,
+      "pattern": "missing-integration-marker"
+    },
+    {
+      "detail": "Test test_sample_percentiles_should_change_explanation_surface_without_needing_exact_float_baselines in integration/ dir lacks @pytest.mark.integration (module or function level)",
+      "file": "integration/core/test_fast_tuning_matrix.py",
+      "file_hash": "sha256:b1ffb0a7b9d9784a2b320c095dce646ee94bbe93b63d53060076055a74ccceff",
+      "id": "sha256:412204cbebcaf72c038f6fd5a7af19e66e5723dbba29408350322899a787dc30",
+      "is_new": true,
+      "line": 193,
+      "pattern": "missing-integration-marker"
+    },
+    {
+      "detail": "Test test_ce_owned_pickle_boundaries_should_work_without_a_process_wide_mappingproxy_reducer in integration/ dir lacks @pytest.mark.integration (module or function level)",
+      "file": "integration/core/test_fast_tuning_matrix.py",
+      "file_hash": "sha256:b1ffb0a7b9d9784a2b320c095dce646ee94bbe93b63d53060076055a74ccceff",
+      "id": "sha256:801c48fc3fb8dc3197b1a9562176aa344c37ab37266471753d35d798f93f7046",
+      "is_new": true,
+      "line": 213,
+      "pattern": "missing-integration-marker"
+    }
+  ],
+  "generated_at": "2026-07-13T06:22:31+00:00",
+  "new_violations": 3,
   "tests_dir": "tests",
-  "total_findings": 0,
+  "total_findings": 3,
   "version": 1
 }
