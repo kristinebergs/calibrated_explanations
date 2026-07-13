@@ -188,6 +188,8 @@ where = [
 include = [
     "calibrated_explanations",
     "calibrated_explanations.*",
+    "external_plugins",
+    "external_plugins.*",
 ]
 
 [tool.setuptools.package-data]

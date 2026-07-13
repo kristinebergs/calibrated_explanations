@@ -1,8 +1,8 @@
 {
   "branch": "main",
   "exit_status": 1,
-  "generated_at": "2026-07-11T07:02:18.791181+00:00",
-  "git_status_porcelain": "M  docs/appendices/external_plugins.md\nM  docs/contributor/plugin-contract.md\nM  docs/migration/deprecations.md\nM  docs/practitioner/advanced/use_plugins.md\nM  reports/local_checks/task_profile_report.json\nM  tests/integration/test_doc_examples_smoke.py",
+  "generated_at": "2026-07-13T06:51:26.915661+00:00",
+  "git_status_porcelain": "",
   "manual_release_steps": [
     11,
     12,
@@ -22,7 +22,7 @@
   "steps": [
     {
       "command": "parse development/current-work/v0.11.6_plan.md release gate summary",
-      "elapsed_seconds": 0.38,
+      "elapsed_seconds": 0.208,
       "exit_code": 1,
       "name": "Release readiness guard"
     }
@@ -284,43 +284,43 @@
       "total_items": 5
     },
     "52": {
-      "all_items_checked": false,
-      "checked_items": 0,
+      "all_items_checked": true,
+      "checked_items": 6,
       "total_items": 6
     },
     "53": {
-      "all_items_checked": false,
-      "checked_items": 0,
+      "all_items_checked": true,
+      "checked_items": 4,
       "total_items": 4
     },
     "54": {
-      "all_items_checked": false,
-      "checked_items": 0,
+      "all_items_checked": true,
+      "checked_items": 5,
       "total_items": 5
     },
     "55": {
-      "all_items_checked": false,
-      "checked_items": 0,
+      "all_items_checked": true,
+      "checked_items": 4,
       "total_items": 4
     },
     "56": {
-      "all_items_checked": false,
-      "checked_items": 0,
+      "all_items_checked": true,
+      "checked_items": 4,
       "total_items": 4
     },
     "57": {
-      "all_items_checked": false,
-      "checked_items": 0,
+      "all_items_checked": true,
+      "checked_items": 5,
       "total_items": 5
     },
     "58": {
-      "all_items_checked": false,
-      "checked_items": 0,
+      "all_items_checked": true,
+      "checked_items": 5,
       "total_items": 5
     },
     "59": {
-      "all_items_checked": false,
-      "checked_items": 0,
+      "all_items_checked": true,
+      "checked_items": 5,
       "total_items": 5
     },
     "60": {
@@ -329,5 +329,5 @@
       "total_items": 11
     }
   },
-  "total_elapsed_seconds": 0.93
+  "total_elapsed_seconds": 0.52
 }
