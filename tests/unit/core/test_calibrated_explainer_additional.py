@@ -19,6 +19,8 @@ corresponding tests in this file MUST be removed at the same time:
 See calibrated_explainer.py docstrings for specific test locations.
 """
 
+import inspect
+import re
 from typing import Any
 
 import numpy as np
@@ -29,6 +31,7 @@ from calibrated_explanations.core.prediction.validation import check_interval_ru
 from tests.helpers.model_utils import DummyLearner
 
 
+from calibrated_explanations.core.calibrated_explainer import CalibratedExplainer
 from calibrated_explanations.core.explain.feature_task import (
     feature_task,
 )
@@ -37,6 +40,7 @@ from calibrated_explanations.core.explain.helpers import (
     merge_feature_result,
 )
 from calibrated_explanations.core.calibration_metrics import compute_calibrated_confusion_matrix
+from calibrated_explanations.utils import exceptions as ce_exceptions
 from calibrated_explanations.utils.exceptions import DataShapeError, ValidationError
 from calibrated_explanations.plugins import EXPLANATION_PROTOCOL_VERSION
 from calibrated_explanations.explanations import CalibratedExplanations
@@ -764,3 +768,44 @@ def test_compute_calibrated_confusion_matrix_kfold(monkeypatch: pytest.MonkeyPat
     init_calls = [c for c in calls if c[0] == "init"]
     predict_calls = [c for c in calls if c[0] == "predict"]
     assert len(init_calls) == len(predict_calls) == 4
+
+
+def _docstring_raises_names(func: Any) -> set[str]:
+    """Extract the exception class names listed in a numpydoc ``Raises`` section."""
+    doc = inspect.getdoc(func) or ""
+    if "Raises" not in doc:
+        return set()
+    section = doc.split("Raises", 1)[1]
+    section = section.split("Returns", 1)[0]
+    return set(re.findall(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*$", section, re.MULTILINE))
+
+
+@pytest.mark.parametrize(
+    "surface,expected_names",
+    [
+        (
+            CalibratedExplainer.predict,
+            {"NotFittedError", "ConfigurationError", "ValidationError"},
+        ),
+        (
+            CalibratedExplainer.predict_proba,
+            {"NotFittedError", "ConfigurationError", "ValidationError"},
+        ),
+        (CalibratedExplainer.explain_fast, {"ConfigurationError"}),
+    ],
+)
+def test_docstring_raises_sections_match_runtime_exception_taxonomy(
+    surface: Any, expected_names: set[str]
+) -> None:
+    """Regression guard for pre-v5 M1: documented exceptions must be real CE
+    exceptions the runtime actually raises, not stale RuntimeError/ValueError/
+    Warning claims left over from earlier refactors (Task 50 validation matrix).
+    """
+    documented = _docstring_raises_names(surface)
+    assert documented == expected_names, (
+        f"{surface.__qualname__} Raises section drifted from the runtime "
+        f"exception taxonomy: documented={documented}, expected={expected_names}"
+    )
+    for name in documented:
+        exc_cls = getattr(ce_exceptions, name)
+        assert issubclass(exc_cls, ce_exceptions.CalibratedError)

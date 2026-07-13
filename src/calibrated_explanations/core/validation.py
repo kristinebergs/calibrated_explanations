@@ -192,14 +192,14 @@ def validate_low_high_percentiles(
             "The percentiles cannot both be infinite.",
             details={"param": param, "low": low, "high": high},
         )
-    if low != -np.inf and not (0.0 < low <= 50.0):
+    if low != -np.inf and not (0.0 <= low <= 100.0):
         raise ValidationError(
-            "The lower percentile must be between 0 and 50, or -np.inf for one-sided intervals.",
+            "The lower percentile must be between 0 and 100, or -np.inf for one-sided intervals.",
             details={"param": param, "low": low},
         )
-    if high != np.inf and not (50.0 <= high < 100.0):
+    if high != np.inf and not (0.0 <= high <= 100.0):
         raise ValidationError(
-            "The upper percentile must be between 50 and 100, or np.inf for one-sided intervals.",
+            "The upper percentile must be between 0 and 100, or np.inf for one-sided intervals.",
             details={"param": param, "high": high},
         )
     return (low, high)

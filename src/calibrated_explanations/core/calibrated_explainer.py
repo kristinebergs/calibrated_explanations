@@ -1287,11 +1287,6 @@ class CalibratedExplainer:
         ----------
         value : array-like of shape (n_samples, n_features)
             The new calibration input data.
-
-        Raises
-        ------
-        ValueError
-            If the number of features in value does not match the existing calibration data.
         """
         from ..calibration.state import CalibrationState  # pylint: disable=import-outside-toplevel
 
@@ -1978,11 +1973,11 @@ class CalibratedExplainer:
 
         Raises
         ------
-        ValueError: The number of features in the test data must be the same as in the calibration data.
-        Warning: The threshold-parameter is only supported for mode='regression'.
-        ValueError: The length of the threshold parameter must be either a constant or the same as the number of
-            instances in x.
-        RuntimeError: Fast explanations are only possible if the explainer is a Fast Calibrated Explainer.
+        ConfigurationError
+            If plugin resolution, initialization, or invocation fails for the
+            fast-explanation plugin (for example, an unsupported model, a
+            feature-count mismatch, an invalid ``threshold`` value, or an
+            invalid batch returned by the plugin).
 
         Returns
         -------
@@ -2144,7 +2139,7 @@ class CalibratedExplainer:
 
         Raises
         ------
-            ValueError: The mode can be either 'classification' or 'regression'.
+            ValidationError: If ``mode`` is not 'classification' or 'regression'.
         """
         mode = normalize_mode(mode)
         self._initialized = False
@@ -2214,11 +2209,19 @@ class CalibratedExplainer:
 
         Raises
         ------
-        RuntimeError
-            If the learner has not been fitted prior to making predictions.
+        NotFittedError
+            If the explainer has not been fitted/calibrated prior to calling
+            ``predict``.
 
-        Warning
-            If the learner is not calibrated.
+        ConfigurationError
+            If unsupported, removed, or conflicting keyword arguments are
+            supplied.
+
+        ValidationError
+            If ``threshold`` or ``low_high_percentiles`` is invalid for the
+            configured mode (for example, a classification call with
+            ``threshold=``, or a threshold whose length does not match the
+            number of instances in ``x``).
 
         Returns
         -------
@@ -2448,17 +2451,18 @@ class CalibratedExplainer:
 
         Raises
         ------
-        RuntimeError
-            If the learner is not fitted before predicting.
+        NotFittedError
+            If the explainer has not been fitted/calibrated prior to calling
+            ``predict_proba``.
 
-        ValueError
-            If the `threshold` parameter's length does not match the number of instances in `x`, or if it is not a single constant value applicable to all instances.
+        ConfigurationError
+            If unsupported, removed, or conflicting keyword arguments are
+            supplied.
 
-        RuntimeError
-            If the learner is not fitted before predicting.
-
-        Warning
-            If the learner is not calibrated.
+        ValidationError
+            If ``threshold`` is invalid for the configured mode (for example,
+            a classification call with ``threshold=``, or a threshold whose
+            length does not match the number of instances in ``x``).
 
         Returns
         -------
