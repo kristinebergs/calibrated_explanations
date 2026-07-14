@@ -298,7 +298,7 @@ Every fallback must be visible to users. No silent fallbacks.
 | `development/standards/test-quality-method/` | ADR-030 quality method tooling — canonical location |
 | `tests/README.md` | Authoritative test guidance |
 | `CHANGELOG.md` | Changelog; update under `## [Unreleased]` for every change |
-| `Makefile` | Entry points: `make quick`, `make local-checks-task`, `make local-checks-pr`, `make local-checks-full`, `make local-checks-release`, `make ci-local-runblocks` |
+| `Makefile` | Entry points: `make quick`, `make local-checks-task`, `make local-checks-pr`, `make local-checks-full`, `make local-checks-release`, `make release-preflight`, `make release-finalize` |
 
 Removed legacy docs locations: docs/improvement/ and docs/standards/ were fully
 removed after migration to `development/`. Do not recreate them or add new
@@ -585,7 +585,7 @@ decisions. The ADR takes precedence over any plan document.
 | ADR-032 | Guarded Explanation Semantics | In-distribution / guarded mode |
 | ADR-033 | Modality Extension Plugin Contract and Packaging Strategy | Modality metadata, plugin API compatibility, resolver modality selection, or extension packaging/shim policy |
 | ADR-034 | Centralized Configuration Management | Runtime config reads, env/`pyproject.toml` precedence, strict config validation, or config export/governance events |
-| ADR-035 | CI Workflow Governance | Changes to `.github/workflows/**`, `.github/actions/ci-policy/**`, CI merge gates, or `scripts/local_checks.py` parity rules |
+| ADR-035 | CI Workflow Governance | Changes to `.github/workflows/**`, `.github/actions/**`, `scripts/quality/validate_ci_policy.py`, CI merge gates, or `scripts/local_checks.py` parity rules |
 | ADR-036 | PlotSpec Canonical Contract and Validation Boundary | PlotSpec canonical model, serialization boundaries, and validation contract changes |
 | ADR-037 | Visualization Extension and Rendering Governance | Plot builder/renderer governance and visualization extension changes |
 

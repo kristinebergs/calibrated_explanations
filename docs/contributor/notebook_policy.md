@@ -67,10 +67,10 @@ notebooks in scope.
 
 | Context | Mode | CLI flag | Enforcement |
 |---------|------|----------|-------------|
-| mainline (`main`) | `advisory` | `--mode advisory` | Nightly CI reports failures but never blocks. |
+| mainline (`main`) | `advisory` | `--mode advisory` | Weekly scheduled CI reports failures but never blocks. |
 | Before release | `blocking` | `--mode blocking` | Maintainer runs blocking mode before tagging; any `failed` or `timed_out` notebook must be resolved first. |
 
-The nightly CI job (`notebook-exec-report` in `ci-nightly.yml`) always runs in
+The scheduled CI job (`notebook-execution` in `scheduled.yml`) always runs in
 advisory mode. Release gating is the responsibility of the release manager.
 
 Before cutting a release, run the driver locally
@@ -116,4 +116,4 @@ assert errs == []
 - **ADR-012** — governing policy: `development/adrs/ADR-012-documentation-and-gallery-build-policy.md`
 - **ADR-010** — optional-dependency boundary: `development/adrs/ADR-010-optional-dependency-split.md`
 - **Release checklist** — resolve notebook failures before branching: `development/current-work/RELEASE_PLAN_v1.md`
-- **CI nightly job** — `notebook-exec-report` in `.github/workflows/ci-nightly.yml`
+- **Scheduled CI job** — `notebook-execution` in `.github/workflows/scheduled.yml`
