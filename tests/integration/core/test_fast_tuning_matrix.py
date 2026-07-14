@@ -13,6 +13,8 @@ from calibrated_explanations.core import CalibratedExplainer
 from tests.helpers.dataset_utils import read_csv_cached
 from tests.helpers.model_utils import get_regression_model
 
+pytestmark = pytest.mark.integration
+
 
 _FAST_NOISE_CONFIGS = (
     {

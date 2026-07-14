@@ -14,6 +14,10 @@ from pathlib import Path
 
 
 PACKAGE_NAME = "calibrated_explanations"
+# Deliberately shipped alongside the main package; the 2026-07-13 feedback-log
+# entry reverted commit 554c3110's accidental exclusion of external_plugins
+# from the wheel (see .github/copilot-feedback-log.md).
+EXPECTED_EXTRA_TOP_LEVEL_PACKAGES = frozenset({"external_plugins"})
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -85,6 +89,8 @@ def _top_level_packages(members: list[str]) -> tuple[list[str], list[str]]:
         root = member.split("/", 1)[0]
         if root == PACKAGE_NAME:
             wheel_packages.add(root)
+            continue
+        if root in EXPECTED_EXTRA_TOP_LEVEL_PACKAGES:
             continue
         if root.endswith(".dist-info") or root.endswith(".data"):
             continue

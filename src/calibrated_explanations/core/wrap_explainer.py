@@ -1010,11 +1010,12 @@ class WrapCalibratedExplainer:
         *,
         surface: str | None = None,
     ) -> dict[str, Any]:
-        """Normalize public kwargs; reject removed aliases, unknown names, and
-        (when ``allowed`` is given) names that are known on another method but
-        not valid for this one (ADR-038 5B).
+        """Normalize public kwargs and reject invalid names.
 
-        Unrecognized keys raise ``ConfigurationError`` (ADR-038 D3, fail-fast).
+        Rejects removed aliases, unknown names, and (when ``allowed`` is
+        given) names that are known on another method but not valid for this
+        one (ADR-038 5B). Unrecognized keys raise ``ConfigurationError``
+        (ADR-038 D3, fail-fast).
         """
         if not kwargs:
             return {}

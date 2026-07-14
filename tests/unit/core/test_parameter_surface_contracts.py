@@ -435,10 +435,12 @@ class TestLegacyGlobalPlotKwargForwarding:
 
 @pytest.mark.viz
 class TestUnifiedPlotPredictionValidationContract:
-    """Task 54 (pre-v4 S4-H6): predict/predict_proba/plot(use_legacy=False)/
-    plot(use_legacy=True) must reject an invalid ``threshold`` identically,
-    and a misspelled plot-only kwarg must produce a governed signal (INFO +
-    UserWarning) on every plot path instead of silently forwarding."""
+    """Unified validation contract (pre-v4 S4-H6, v0.11.6 task 54).
+
+    predict/predict_proba/plot(use_legacy=False)/plot(use_legacy=True) must
+    reject an invalid ``threshold`` identically, and a misspelled plot-only
+    kwarg must produce a governed signal (INFO + UserWarning) on every plot
+    path instead of silently forwarding."""
 
     @pytest.fixture(autouse=True)
     def _agg_backend(self, monkeypatch):
