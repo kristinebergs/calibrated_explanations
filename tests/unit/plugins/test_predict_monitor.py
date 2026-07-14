@@ -85,7 +85,7 @@ def test_should_raise_when_predict_monitor_interval_tuple_violates_bounds():
         monitor.predict_interval(np.array([[1.0]]), task="classification")
 
 
-def test_should_raise_when_predict_monitor_prediction_outside_interval():
+def test_should_raise_when_predict_monitor_regression_prediction_outside_interval():
     class BadPredictBridge(DummyBridge):
         def __init__(self) -> None:
             super().__init__()
@@ -98,7 +98,74 @@ def test_should_raise_when_predict_monitor_prediction_outside_interval():
     monitor = PredictBridgeMonitor(BadPredictBridge())
 
     with pytest.raises(ValidationError, match="predict not in \\[low, high\\]"):
-        monitor.predict(np.array([[1.0]]), mode="factual", task="classification")
+        monitor.predict(np.array([[1.0]]), mode="factual", task="regression")
+
+
+def test_should_allow_predict_monitor_classification_score_interval_payload():
+    class ClassificationBridge(DummyBridge):
+        def __init__(self) -> None:
+            super().__init__()
+            self.predictions["predict"] = {
+                "predict": np.asarray([0.9]),
+                "low": np.asarray([0.4]),
+                "high": np.asarray([0.6]),
+                "classes": np.asarray([1]),
+            }
+
+    monitor = PredictBridgeMonitor(ClassificationBridge())
+
+    payload = monitor.predict(np.array([[1.0]]), mode="factual", task="classification")
+
+    assert payload["classes"][0] == 1
+
+
+def test_should_return_when_predict_monitor_payload_has_empty_arrays():
+    class EmptyBridge(DummyBridge):
+        def __init__(self) -> None:
+            super().__init__()
+            self.predictions["predict"] = {
+                "predict": np.asarray([]),
+                "low": np.asarray([]),
+                "high": np.asarray([]),
+            }
+
+    monitor = PredictBridgeMonitor(EmptyBridge())
+
+    payload = monitor.predict(np.array([[1.0]]), mode="factual", task="regression")
+
+    assert payload["predict"].size == 0
+
+
+def test_should_return_when_predict_monitor_payload_is_non_numeric():
+    class NonNumericBridge(DummyBridge):
+        def __init__(self) -> None:
+            super().__init__()
+            self.predictions["predict"] = {
+                "predict": np.asarray(["class-a"], dtype=object),
+                "low": np.asarray(["low"], dtype=object),
+                "high": np.asarray(["high"], dtype=object),
+            }
+
+    monitor = PredictBridgeMonitor(NonNumericBridge())
+
+    payload = monitor.predict(np.array([[1.0]]), mode="factual", task="classification")
+
+    assert payload["predict"][0] == "class-a"
+
+
+def test_should_raise_when_predict_monitor_regression_interval_tuple_prediction_outside_bounds():
+    class RegressionIntervalBridge(DummyBridge):
+        def predict_interval(self, x, *, task, bins=None):
+            return (
+                np.asarray([0.9]),
+                np.asarray([0.4]),
+                np.asarray([0.6]),
+            )
+
+    monitor = PredictBridgeMonitor(RegressionIntervalBridge())
+
+    with pytest.raises(ValidationError, match="predict not in \\[low, high\\]"):
+        monitor.predict_interval(np.array([[1.0]]), task="regression")
 
 
 def test_predict_monitor_handles_conversion_errors(monkeypatch: pytest.MonkeyPatch):

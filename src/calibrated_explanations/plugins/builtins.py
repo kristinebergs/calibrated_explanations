@@ -154,14 +154,12 @@ class LegacyPredictBridge(PredictBridge):
                 diff = np.max(low_arr[valid_mask] - high_arr[valid_mask])
                 raise ValidationError(f"Interval invariant violated: low > high (max diff: {diff})")
 
-            # Check prediction is within bounds (with epsilon tolerance)
-            if task in {"classification", "regression"}:
+            # ADR-021: Regression predictions should lie inside their numeric
+            # interval bounds. Classification predict() may legitimately return
+            # class labels while low/high still describe calibrated score bounds.
+            if task == "regression":
                 preds_arr = np.asarray(preds)
                 if not np.issubdtype(preds_arr.dtype, np.number):
-                    if task == "classification":
-                        payload["classes"] = np.asarray(
-                            self.explainer.predict(x, calibrated=True, bins=bins)
-                        )
                     return payload
                 valid_pred_mask = valid_mask & ~np.isnan(preds_arr)
                 if np.any(valid_pred_mask) and not np.all(

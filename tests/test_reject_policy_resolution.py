@@ -116,11 +116,13 @@ def test_resolve_policy_spec_does_not_reinit_when_only_ignored_w_differs():
     assert explainer.calls == []
 
 
-def test_resolve_policy_spec_maps_entropy_to_default():
+def test_resolve_policy_spec_rejects_removed_entropy_alias():
     explainer = DummyExplainer()
-    resolved = resolve_policy_spec({"policy": "flag", "ncf": "entropy", "w": 0.4}, explainer)
-    assert resolved is RejectPolicy.FLAG
-    assert explainer.calls == []
+    with pytest.raises(
+        ValidationError,
+        match="Legacy ncf value 'entropy' is no longer supported; use ncf='default' instead.",
+    ):
+        _ = resolve_policy_spec({"policy": "flag", "ncf": "entropy", "w": 0.4}, explainer)
 
 
 @pytest.mark.parametrize("ncf", ["hinge", "margin"])

@@ -27,8 +27,9 @@ The payload includes:
 
 ## Rehydrate exported explanations
 
-`CalibratedExplanations.from_json()` returns domain-model objects that can be
-inspected or re-exported without rebuilding the explainer.
+`CalibratedExplanations.from_json()` returns an
+`ExportedExplanationCollection`. That exported collection can be inspected or
+re-exported without rebuilding the explainer.
 
 ```python
 from calibrated_explanations.explanations import CalibratedExplanations
@@ -40,6 +41,11 @@ for explanation in exported.explanations:
 
 Pair the parsed explanations with the collection metadata to keep the
 calibration context alongside downstream analytics or dashboards.
+
+Prefer the collection-level `batch.to_json()` / `CalibratedExplanations.from_json()`
+surface for user workflows. The top-level `calibrated_explanations.serialization`
+module is a low-level schema helper for domain-model `Explanation` objects, not
+the primary export entry point for runtime explanation collections.
 
 ## Persist rule tables
 

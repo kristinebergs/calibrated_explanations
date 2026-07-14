@@ -73,9 +73,9 @@ def test_should_return_super_explanations_when_default_params_collection(alterna
     """
     alts, X_test = alternatives
     result = alts.super_explanations()
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-SUPER-001: super_explanations() must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-SUPER-001: super_explanations() must return non-None"
+    )
     assert len(result) == len(X_test)
 
 
@@ -86,9 +86,9 @@ def test_should_return_super_explanations_when_only_ensured_true_collection(alte
     """
     alts, X_test = alternatives
     result = alts.super_explanations(only_ensured=True)
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-SUPER-001: super_explanations(only_ensured=True) must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-SUPER-001: super_explanations(only_ensured=True) must return non-None"
+    )
     assert len(result) == len(X_test)
 
 
@@ -96,9 +96,9 @@ def test_should_return_super_explanations_when_individual_explanation(alternativ
     """Verify CE-REQ-EXPL-FILTER-SUPER-001: super_explanations() on individual is non-None."""
     alts, _ = alternatives
     result = alts[0].super_explanations()
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-SUPER-001: super_explanations() on individual must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-SUPER-001: super_explanations() on individual must return non-None"
+    )
 
 
 def test_should_return_super_explanations_when_alias_super_used(alternatives):
@@ -121,9 +121,9 @@ def test_should_return_semi_explanations_when_default_params_collection(alternat
     """Verify CE-REQ-EXPL-FILTER-SEMI-001: semi_explanations() on collection is non-None."""
     alts, X_test = alternatives
     result = alts.semi_explanations()
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-SEMI-001: semi_explanations() must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-SEMI-001: semi_explanations() must return non-None"
+    )
     assert len(result) == len(X_test)
 
 
@@ -131,9 +131,9 @@ def test_should_return_semi_explanations_when_only_ensured_true_collection(alter
     """Verify CE-REQ-EXPL-FILTER-SEMI-001: semi_explanations(only_ensured=True) completes."""
     alts, X_test = alternatives
     result = alts.semi_explanations(only_ensured=True)
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-SEMI-001: semi_explanations(only_ensured=True) must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-SEMI-001: semi_explanations(only_ensured=True) must return non-None"
+    )
     assert len(result) == len(X_test)
 
 
@@ -141,9 +141,9 @@ def test_should_return_semi_explanations_when_individual_explanation(alternative
     """Verify CE-REQ-EXPL-FILTER-SEMI-001: semi_explanations() on individual is non-None."""
     alts, _ = alternatives
     result = alts[0].semi_explanations()
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-SEMI-001: semi_explanations() on individual must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-SEMI-001: semi_explanations() on individual must return non-None"
+    )
 
 
 def test_should_return_semi_explanations_when_alias_semi_used(alternatives):
@@ -163,9 +163,9 @@ def test_should_return_counter_explanations_when_default_params_collection(alter
     """Verify CE-REQ-EXPL-FILTER-COUNTER-001: counter_explanations() on collection is non-None."""
     alts, X_test = alternatives
     result = alts.counter_explanations()
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-COUNTER-001: counter_explanations() must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-COUNTER-001: counter_explanations() must return non-None"
+    )
     assert len(result) == len(X_test)
 
 
@@ -173,9 +173,9 @@ def test_should_return_counter_explanations_when_only_ensured_true_collection(al
     """Verify CE-REQ-EXPL-FILTER-COUNTER-001: counter_explanations(only_ensured=True) completes."""
     alts, X_test = alternatives
     result = alts.counter_explanations(only_ensured=True)
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-COUNTER-001: counter_explanations(only_ensured=True) must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-COUNTER-001: counter_explanations(only_ensured=True) must return non-None"
+    )
     assert len(result) == len(X_test)
 
 
@@ -183,18 +183,18 @@ def test_should_return_counter_explanations_when_individual_explanation(alternat
     """Verify CE-REQ-EXPL-FILTER-COUNTER-001: counter_explanations() on individual is non-None."""
     alts, _ = alternatives
     result = alts[0].counter_explanations()
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-COUNTER-001: counter_explanations() on individual must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-COUNTER-001: counter_explanations() on individual must return non-None"
+    )
 
 
 def test_should_return_counter_explanations_when_alias_counter_used(alternatives):
     """Verify CE-REQ-EXPL-FILTER-COUNTER-001: .counter() alias delegates to counter_explanations()."""
     alts, X_test = alternatives
     result = alts.counter()
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-COUNTER-001: .counter() alias must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-COUNTER-001: .counter() alias must return non-None"
+    )
     assert len(result) == len(X_test)
 
 
@@ -207,9 +207,9 @@ def test_should_return_ensured_explanations_when_default_params_collection(alter
     """Verify CE-REQ-EXPL-FILTER-ENSURED-001: ensured_explanations() on collection is non-None."""
     alts, X_test = alternatives
     result = alts.ensured_explanations()
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-ENSURED-001: ensured_explanations() must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-ENSURED-001: ensured_explanations() must return non-None"
+    )
     assert len(result) == len(X_test)
 
 
@@ -221,9 +221,9 @@ def test_should_return_ensured_explanations_when_include_potential_false_collect
     """
     alts, X_test = alternatives
     result = alts.ensured_explanations(include_potential=False)
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-ENSURED-001: ensured_explanations(include_potential=False) must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-ENSURED-001: ensured_explanations(include_potential=False) must return non-None"
+    )
     assert len(result) == len(X_test)
 
 
@@ -231,18 +231,18 @@ def test_should_return_ensured_explanations_when_individual_explanation(alternat
     """Verify CE-REQ-EXPL-FILTER-ENSURED-001: ensured_explanations() on individual is non-None."""
     alts, _ = alternatives
     result = alts[0].ensured_explanations()
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-ENSURED-001: ensured_explanations() on individual must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-ENSURED-001: ensured_explanations() on individual must return non-None"
+    )
 
 
 def test_should_return_ensured_explanations_when_alias_ensured_used(alternatives):
     """Verify CE-REQ-EXPL-FILTER-ENSURED-001: .ensured() alias delegates to ensured_explanations()."""
     alts, X_test = alternatives
     result = alts.ensured()
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-ENSURED-001: .ensured() alias must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-ENSURED-001: .ensured() alias must return non-None"
+    )
     assert len(result) == len(X_test)
 
 
@@ -255,9 +255,9 @@ def test_should_return_pareto_explanations_when_default_params_collection(altern
     """Verify CE-REQ-EXPL-FILTER-PARETO-001: pareto_explanations() on collection is non-None."""
     alts, X_test = alternatives
     result = alts.pareto_explanations()
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-PARETO-001: pareto_explanations() must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-PARETO-001: pareto_explanations() must return non-None"
+    )
     assert len(result) == len(X_test)
 
 
@@ -268,9 +268,9 @@ def test_should_return_pareto_explanations_when_include_potential_false_collecti
     """
     alts, X_test = alternatives
     result = alts.pareto_explanations(include_potential=False)
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-PARETO-001: pareto_explanations(include_potential=False) must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-PARETO-001: pareto_explanations(include_potential=False) must return non-None"
+    )
     assert len(result) == len(X_test)
 
 
@@ -278,9 +278,9 @@ def test_should_return_pareto_explanations_when_individual_explanation(alternati
     """Verify CE-REQ-EXPL-FILTER-PARETO-001: pareto_explanations() on individual is non-None."""
     alts, _ = alternatives
     result = alts[0].pareto_explanations()
-    assert (
-        result is not None
-    ), "CE-REQ-EXPL-FILTER-PARETO-001: pareto_explanations() on individual must return non-None"
+    assert result is not None, (
+        "CE-REQ-EXPL-FILTER-PARETO-001: pareto_explanations() on individual must return non-None"
+    )
 
 
 def test_should_return_pareto_explanations_when_alias_pareto_used(alternatives):

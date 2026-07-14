@@ -42,6 +42,17 @@ factual = explainer.explain_factual(X_query)
 alternatives = explainer.explore_alternatives(X_query)
 ```
 
+## Reject-aware prediction note
+
+When `predict(...)` or `predict_proba(...)` is called with a non-`NONE`
+`reject_policy`, the return value is a `RejectResult` envelope. For
+`ONLY_ACCEPTED` and `ONLY_REJECTED`, `result.prediction` remains full-batch;
+use `result.metadata["source_indices"]` and `result.metadata["matched_count"]`
+to identify the matched subset. Reject-enabled `explain_factual(...)` and
+`explore_alternatives(...)` return reject-aware collections
+(`RejectCalibratedExplanations` / `RejectAlternativeExplanations`), not a
+`RejectResult` envelope.
+
 ## Classification
 
 ```python

@@ -6,6 +6,7 @@ report suitable for feeding into minimal test generation.
 Usage:
   python scripts/over_testing/gap_analyzer.py --line-csv reports/over-testing/line_coverage_counts.csv
 """
+
 from __future__ import annotations
 
 import argparse
@@ -68,7 +69,7 @@ def main(argv=None):
         blocks = find_contiguous_zero_blocks(lines_map, args.threshold)
         if blocks:
             for s, e in blocks:
-                print(f"{fpath},{s},{e},{e-s+1}")
+                print(f"{fpath},{s},{e},{e - s + 1}")
 
 
 if __name__ == "__main__":

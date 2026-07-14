@@ -3,8 +3,10 @@ import runpy
 import sys
 from types import SimpleNamespace
 
+import numpy as np
 import pytest
 
+from calibrated_explanations.core.narrative_generator import NarrativeGenerator
 from calibrated_explanations.plugins import cli
 
 
@@ -207,6 +209,69 @@ def test_main_list_flow(monkeypatch, capsys):
     output = capsys.readouterr().out
     assert "Optional tooling" in output
     assert "Plot builders" in output
+    output.encode("cp1252", errors="strict")
+
+
+def test_main_list_output_should_be_cp1252_safe(monkeypatch, capsys):
+    monkeypatch.setattr(cli, "list_explanation_descriptors", lambda *, trusted_only: [])
+    monkeypatch.setattr(cli, "list_interval_descriptors", lambda *, trusted_only: [])
+    monkeypatch.setattr(cli, "list_plot_builder_descriptors", lambda *, trusted_only: [])
+    monkeypatch.setattr(cli, "list_plot_renderer_descriptors", lambda *, trusted_only: [])
+    monkeypatch.setattr(cli, "list_plot_style_descriptors", lambda: [])
+
+    exit_code = cli.main(["list"])
+
+    assert exit_code == 0
+    output = capsys.readouterr().out
+    output.encode("cp1252", errors="strict")
+
+
+def test_default_narrative_output_should_be_cp1252_safe():
+    gen = NarrativeGenerator()
+    gen.templates = {
+        "narrative_templates": {
+            "binary_classification": {
+                "factual": {
+                    "advanced": "\n".join(
+                        [
+                            "Prediction: {label}",
+                            "Calibrated Probability: {calibrated_pred}",
+                            "Prediction Interval: [{pred_interval_lower}, {pred_interval_upper}]",
+                            "{feature_name} ({feature_actual_value}) {condition} - weight ~ {feature_weight} [{feature_weight_low}, {feature_weight_high}]",
+                        ]
+                    )
+                }
+            }
+        }
+    }
+
+    explanation = SimpleNamespace()
+    explanation.get_rules = lambda: {
+        "classes": 1,
+        "base_predict": [0.8],
+        "base_predict_low": [0.1],
+        "base_predict_high": [0.5],
+        "rule": ["age > 40"],
+        "value": ["52"],
+        "weight": [0.2],
+        "weight_low": [-0.1],
+        "weight_high": [0.3],
+        "feature": [0],
+        "predict_low": [0.1],
+        "predict_high": [0.5],
+    }
+    explanation.get_class_labels = lambda: {0: "0", 1: "1"}
+    explanation.prediction_probabilities = np.array([[0.2, 0.8]])
+
+    narrative = gen.generate_narrative(
+        explanation,
+        "binary_classification",
+        explanation_type="factual",
+        expertise_level="advanced",
+    )
+
+    assert "Prediction: 1" in narrative
+    narrative.encode("cp1252", errors="strict")
 
 
 def test_cli_module_main_entry(monkeypatch):

@@ -1,27 +1,30 @@
 # CLI reference
 
-The package ships a CLI entry point, `ce.plugins`, for inspecting and managing
-registered plugins.
+The canonical plugin-management CLI is `ce plugins`. The dotted `ce.plugins`
+entry point remains available as a compatibility alias.
 
 ## Entry point
 
 Install the project and run:
 
 ```bash
+ce plugins --help
+```
+
+Compatibility alias:
+
+```bash
 ce.plugins --help
 ```
 
-The CLI is backed by `calibrated_explanations.plugins.cli:main`.
+Both entry points are backed by `calibrated_explanations.plugins.cli:main`.
 
 ## Common commands
 
-- `ce.plugins list all` – list registered explanation, interval, and plot plugins.
-- `ce.plugins list --plots` – list only plot plugins with their IDs and trust
-  status.
-- `ce.plugins validate-plot --builder <id>` – validate a plot builder's metadata
-  and PlotSpec compatibility.
-- `ce.plugins set-default --plot-style <id>` – persist the default plot style
-  (for example, via `pyproject.toml` config).
+- `ce plugins list all` - list registered explanation, interval, and plot plugins.
+- `ce plugins list --plots` - list only plot plugins with their IDs and trust status.
+- `ce plugins validate-plot --builder <id>` - validate a plot builder's metadata and PlotSpec compatibility.
+- `ce plugins set-default --plot-style <id>` - persist the default plot style (for example, via `pyproject.toml` config).
 
 ## Related documentation
 

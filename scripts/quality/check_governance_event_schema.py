@@ -218,9 +218,7 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
 
-    decision_enum = set(
-        schema.get("properties", {}).get("decision", {}).get("enum", [])
-    )
+    decision_enum = set(schema.get("properties", {}).get("decision", {}).get("enum", []))
     missing_decisions = sorted(REQUIRED_DECISIONS - decision_enum)
     if missing_decisions:
         findings.append(
@@ -240,15 +238,14 @@ def main(argv: list[str] | None = None) -> int:
             )
         )
 
-    event_type_enum = set(
-        config_schema.get("properties", {}).get("event_type", {}).get("enum", [])
-    )
+    event_type_enum = set(config_schema.get("properties", {}).get("event_type", {}).get("enum", []))
     missing_event_types = sorted(REQUIRED_CONFIG_EVENT_TYPES - event_type_enum)
     if missing_event_types:
         findings.append(
             Finding(
                 "error",
-                "Config schema missing required event_type values: " + ", ".join(missing_event_types),
+                "Config schema missing required event_type values: "
+                + ", ".join(missing_event_types),
             )
         )
 

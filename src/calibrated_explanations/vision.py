@@ -10,5 +10,5 @@ try:
 except ImportError:
     raise MissingExtensionError(
         "calibrated_explanations.vision requires the 'ce-vision' package. "
-        "Install with: pip install calibrated_explanations[vision]"
+        "Install with: pip install ce-vision"
     ) from None

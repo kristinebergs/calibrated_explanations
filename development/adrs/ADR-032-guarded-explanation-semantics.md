@@ -32,8 +32,8 @@ This ADR therefore defines guarded mode as a CE-compatible extension with a sing
      - `explain_factual(..., guarded_options=GuardedOptions())` for guarded factual explanations.
      - `explore_alternatives(..., guarded_options=GuardedOptions())` for guarded alternatives.
      - Import: `from calibrated_explanations.explanations.guarded_options import GuardedOptions`
-     - The deprecated `guarded=True` boolean kwarg still works but emits `DeprecationWarning`
-       and will be **removed in v1.0.0**.  Do NOT use it in new code.
+     - The legacy `guarded=True` boolean kwarg was removed in v0.11.5.
+       Use `guarded_options=GuardedOptions()` in all current code.
    - `explain_guarded_factual(...)` and `explore_guarded_alternatives(...)` were deprecated
      compatibility wrappers.  **Removed in v0.11.3** (Task 15 Workstream A, 2026-06-13):
      wrappers were introduced already-deprecated in v0.11.3 Task 13, so removal within the
@@ -141,8 +141,8 @@ Negative / Risks:
 - Users must understand that emitted guarded intervals reflect this candidate-level guard rule, not whole-interval certification.
 - Calibration-feature divergence now fails fast instead of degrading with a warning.
 - Fast explainers cannot use guarded entrypoints at all; users who need guarded filtering must use a standard (non-fast) explainer.
-- The deprecated `guarded=True` boolean kwarg must not be used in new code.
-  Use `guarded_options=GuardedOptions()` instead.  Remove all `guarded=True` usage before v1.0.0.
+- The removed `guarded=True` boolean kwarg must not be used in new code.
+  Use `guarded_options=GuardedOptions()` instead.
 
 ## Addendum: Guarded Auditability
 To support transparent guarded diagnostics without breaking CE payload contracts:

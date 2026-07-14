@@ -4,6 +4,7 @@ Produces CSV output with: filename, has_assertion, uses_private_member, has_slow
 
 Usage: python scripts/over_testing/evaluate_cov_fill_adr030.py
 """
+
 from __future__ import annotations
 import ast
 import csv
@@ -26,7 +27,9 @@ def analyze_file(path: Path) -> dict:
         if isinstance(node, ast.Assert):
             has_assert = True
         if isinstance(node, ast.Call):
-            func = getattr(node.func, "id", None) or getattr(getattr(node.func, "attr", None), "__str__", None)
+            func = getattr(node.func, "id", None) or getattr(
+                getattr(node.func, "attr", None), "__str__", None
+            )
             if func in {"raises", "warns"}:
                 has_assert = True
         if isinstance(node, ast.Attribute):
@@ -50,7 +53,9 @@ def main() -> int:
     files = sorted((Path("tests/generated")).glob("test_cov_fill_*.py"))
     OUT.parent.mkdir(parents=True, exist_ok=True)
     with OUT.open("w", newline="", encoding="utf-8") as fh:
-        writer = csv.DictWriter(fh, fieldnames=["file", "has_assertion", "uses_private_member", "has_marker"])
+        writer = csv.DictWriter(
+            fh, fieldnames=["file", "has_assertion", "uses_private_member", "has_marker"]
+        )
         writer.writeheader()
         for f in files:
             r = analyze_file(f.resolve())

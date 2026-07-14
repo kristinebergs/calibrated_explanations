@@ -14,7 +14,7 @@ from sklearn.datasets import make_classification, make_regression
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 
 from calibrated_explanations.core.wrap_explainer import WrapCalibratedExplainer
-from calibrated_explanations.utils.exceptions import IncompatibleStateError
+from calibrated_explanations.utils.exceptions import IncompatibleStateError, ValidationError
 
 
 def assert_payload_close(left: Any, right: Any) -> None:
@@ -56,6 +56,57 @@ def test_save_and_load_state_roundtrip_classification(tmp_path: Path) -> None:
     reloaded = restored.predict_proba(x_test, uq_interval=True)
 
     assert_payload_close(baseline, reloaded)
+
+
+class _Task45RoundTripPreprocessor:
+    """Deterministic numeric preprocessor used to prove fail-fast preprocessing
+    behavior survives a save_state/load_state round trip (bug-list/pre-v4 S4-B1)."""
+
+    def fit_transform(self, x: Any) -> Any:
+        return np.asarray(x, dtype=float) + 1.0
+
+    def transform(self, x: Any) -> Any:
+        return np.asarray(x, dtype=float) + 1.0
+
+
+class _Task45AlwaysFailsTransform:
+    def transform(self, x: Any) -> Any:
+        raise RuntimeError("boom-transform")
+
+
+def test_reloaded_state_still_fails_fast_when_preprocessor_transform_fails(
+    tmp_path: Path,
+) -> None:
+    """A rejected preprocessing call must fail fast even after a state round trip,
+    and must not disturb the restored wrapper's calibrated lifecycle state."""
+    x, y = make_classification(
+        n_samples=96,
+        n_features=6,
+        n_informative=4,
+        n_redundant=0,
+        random_state=7,
+    )
+    x_train, y_train = x[:48], y[:48]
+    x_cal, y_cal = x[48:72], y[48:72]
+    x_test = x[72:84]
+
+    wrapper = WrapCalibratedExplainer(RandomForestClassifier(n_estimators=24, random_state=3))
+    wrapper.preprocessor = _Task45RoundTripPreprocessor()
+    wrapper.fit(x_train, y_train)
+    wrapper.calibrate(x_cal, y_cal, seed=13)
+
+    state_dir = tmp_path / "preprocessing_failure_state"
+    wrapper.save_state(state_dir)
+    restored = WrapCalibratedExplainer.load_state(state_dir)
+    assert restored.calibrated is True
+
+    restored.preprocessor = _Task45AlwaysFailsTransform()
+    with pytest.raises(ValidationError, match="Preprocessor transform failed during inference"):
+        restored.predict_proba(x_test)
+
+    # The rejected call must not silently fall back to raw features or
+    # disturb the restored wrapper's calibrated lifecycle state.
+    assert restored.calibrated is True
 
 
 def test_should_pickle_silently_when_conditional_mc_is_absent(tmp_path: Path) -> None:

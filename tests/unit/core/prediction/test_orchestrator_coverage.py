@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 import numpy as np
+from calibrated_explanations.core.prediction.interval_summary import IntervalSummary
 from calibrated_explanations.core.prediction.orchestrator import PredictionOrchestrator
 from calibrated_explanations.utils.exceptions import (
     DataShapeError,
@@ -17,6 +18,10 @@ def mock_explainer():
     explainer.is_fast.return_value = False
     # Use a simple attribute for initialized to allow toggling in tests
     explainer.initialized = True
+    # A real explainer always resolves interval_summary to a valid member before the
+    # orchestrator sees it (calibrated_explainer.py __init__); coerce_interval_summary
+    # now fail-fasts on unrecognized input, so the mock must reflect that invariant.
+    explainer.interval_summary = IntervalSummary.REGULARIZED_MEAN
     return explainer
 
 

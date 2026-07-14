@@ -174,9 +174,7 @@ def _iter_import_bridge_records(tree: ast.AST, rel: str) -> list[ViolationRecord
                 line=getattr(node, "lineno", 1),
                 symbol=module,
                 violation_kind="utility_import_bridge",
-                allowed_reason="approved_helper_split_bridge"
-                if allowed
-                else "",
+                allowed_reason="approved_helper_split_bridge" if allowed else "",
                 workstream="utility_split" if allowed else "",
             )
         )

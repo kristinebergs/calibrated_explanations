@@ -33,9 +33,9 @@ def test_interval_header_spec__should_preserve_bounds_and_labels():
     )
 
     # Domain invariant: bounds ordering
-    assert (
-        header.low <= header.pred <= header.high
-    ), f"Bounds must satisfy low≤pred≤high: {header.low}≤{header.pred}≤{header.high}"
+    assert header.low <= header.pred <= header.high, (
+        f"Bounds must satisfy low≤pred≤high: {header.low}≤{header.pred}≤{header.high}"
+    )
 
     # Domain invariant: specific bound values
     assert header.pred == 0.75
@@ -55,9 +55,9 @@ def test_interval_header_spec__should_preserve_bounds_and_labels():
     # Domain invariant: visual attributes are valid types
     assert header.dual is False
     assert isinstance(header.uncertainty_color, str) and header.uncertainty_color == "#cccccc"
-    assert (
-        0.0 <= header.uncertainty_alpha <= 1.0
-    ), f"Alpha must be in [0, 1], got {header.uncertainty_alpha}"
+    assert 0.0 <= header.uncertainty_alpha <= 1.0, (
+        f"Alpha must be in [0, 1], got {header.uncertainty_alpha}"
+    )
 
 
 def test_bar_item_and_panel__should_preserve_structure_and_values():
@@ -90,9 +90,9 @@ def test_bar_item_and_panel__should_preserve_structure_and_values():
     # Domain invariant: interval bounds ordering
     assert isinstance(bar.interval_low, (int, float))
     assert isinstance(bar.interval_high, (int, float))
-    assert (
-        bar.interval_low <= bar.value <= bar.interval_high
-    ), f"Bar value ({bar.value}) must lie in [{bar.interval_low}, {bar.interval_high}]"
+    assert bar.interval_low <= bar.value <= bar.interval_high, (
+        f"Bar value ({bar.value}) must lie in [{bar.interval_low}, {bar.interval_high}]"
+    )
     assert bar.interval_low == -0.8
     assert bar.interval_high == -0.2
 
@@ -111,9 +111,9 @@ def test_bar_item_and_panel__should_preserve_structure_and_values():
     assert isinstance(panel.ylabel, str) and panel.ylabel == "Feature"
 
     # Domain invariant: default solid_on_interval_crosses_zero
-    assert (
-        panel.solid_on_interval_crosses_zero is True
-    ), "Panel default for solid_on_interval_crosses_zero should be True"
+    assert panel.solid_on_interval_crosses_zero is True, (
+        "Panel default for solid_on_interval_crosses_zero should be True"
+    )
 
 
 def test_plotspec_collects_header_and_body__should_preserve_references():

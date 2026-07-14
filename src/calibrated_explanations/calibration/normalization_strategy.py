@@ -5,6 +5,8 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any
 
+from ..utils.exceptions import ValidationError
+
 
 class NormalizationStrategy(Enum):
     """Strategy for normalizing multiclass OvR Venn-Abers probability intervals.
@@ -62,10 +64,13 @@ class NormalizationStrategy(Enum):
 
 
 def coerce_normalization_strategy(value: Any) -> NormalizationStrategy:
-    """Return a validated NormalizationStrategy, defaulting to SCALE.
+    """Return a validated NormalizationStrategy.
 
     Accepts a ``NormalizationStrategy`` member or its string value
-    (case-insensitive). Any unrecognised value falls back to SCALE.
+    (case-insensitive). Any other input -- including a bool (the removed
+    legacy ``normalize=True/False`` passthrough), an unrecognised string, or
+    ``None`` -- raises ``ValidationError`` rather than silently falling back
+    to ``SCALE``.
 
     Parameters
     ----------
@@ -76,6 +81,12 @@ def coerce_normalization_strategy(value: Any) -> NormalizationStrategy:
     -------
     NormalizationStrategy
         The resolved strategy.
+
+    Raises
+    ------
+    ValidationError
+        If ``value`` is not a ``NormalizationStrategy`` member or a matching
+        string value.
     """
     if isinstance(value, NormalizationStrategy):
         return value
@@ -84,7 +95,16 @@ def coerce_normalization_strategy(value: Any) -> NormalizationStrategy:
             return NormalizationStrategy(value.lower())
         except ValueError:
             pass
-    return NormalizationStrategy.SCALE
+    valid_values = [member.value for member in NormalizationStrategy]
+    raise ValidationError(
+        f"Invalid normalization strategy: {value!r}. Expected one of "
+        f"{valid_values} or a NormalizationStrategy member.",
+        details={
+            "param": "normalization",
+            "value": repr(value),
+            "valid_values": valid_values,
+        },
+    )
 
 
 __all__ = ["NormalizationStrategy", "coerce_normalization_strategy"]

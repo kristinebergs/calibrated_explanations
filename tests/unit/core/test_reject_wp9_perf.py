@@ -117,7 +117,7 @@ def test_only_rejected_explain_fn_receives_subset_rows(monkeypatch):
 
     expected = int(_HALF_REJECTED.sum())
     assert received_sizes == [expected], (
-        f"ONLY_REJECTED: explain_fn should have received {expected} rows, " f"got {received_sizes}"
+        f"ONLY_REJECTED: explain_fn should have received {expected} rows, got {received_sizes}"
     )
 
 
@@ -136,7 +136,7 @@ def test_only_accepted_explain_fn_receives_subset_rows(monkeypatch):
 
     expected = int((~_HALF_REJECTED).sum())
     assert received_sizes == [expected], (
-        f"ONLY_ACCEPTED: explain_fn should have received {expected} rows, " f"got {received_sizes}"
+        f"ONLY_ACCEPTED: explain_fn should have received {expected} rows, got {received_sizes}"
     )
 
 
@@ -153,9 +153,9 @@ def test_flag_explain_fn_receives_all_rows(monkeypatch):
 
     o.apply_policy(RejectPolicy.FLAG, x, explain_fn=_explain_fn)
 
-    assert received_sizes == [
-        len(x)
-    ], f"FLAG: explain_fn should have received all {len(x)} rows, got {received_sizes}"
+    assert received_sizes == [len(x)], (
+        f"FLAG: explain_fn should have received all {len(x)} rows, got {received_sizes}"
+    )
 
 
 def test_subset_explain_row_count_scales_with_rejection_rate(monkeypatch):
@@ -180,9 +180,9 @@ def test_subset_explain_row_count_scales_with_rejection_rate(monkeypatch):
         RejectPolicy.ONLY_REJECTED, x, explain_fn=lambda a, **_: rows_low.append(len(a)) or a
     )
 
-    assert (
-        rows_high[0] > rows_low[0]
-    ), "Higher rejection rate must cause explain_fn to receive more rows for ONLY_REJECTED"
+    assert rows_high[0] > rows_low[0], (
+        "Higher rejection rate must cause explain_fn to receive more rows for ONLY_REJECTED"
+    )
     assert rows_high[0] == int(high_mask.sum())
     assert rows_low[0] == int(low_mask.sum())
 
@@ -226,9 +226,9 @@ def test_prediction_set_opt_in_populates_for_subset_policies(monkeypatch):
 
     for policy in (RejectPolicy.ONLY_REJECTED, RejectPolicy.ONLY_ACCEPTED):
         result = o.apply_policy(policy, x, explain_fn=lambda a, **_: a, include_prediction_set=True)
-        assert (
-            result.metadata["prediction_set"] is not None
-        ), f"{policy}: prediction_set should be populated when include_prediction_set=True"
+        assert result.metadata["prediction_set"] is not None, (
+            f"{policy}: prediction_set should be populated when include_prediction_set=True"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -288,7 +288,7 @@ def test_subset_policy_faster_than_flag_proportionally(monkeypatch, rejection_fr
     # Subset must be cheaper. Allow 20 % timing slack for scheduler noise.
     tolerance = 0.20
     assert t_subset < t_flag * (1 + tolerance), (
-        f"ONLY_REJECTED ({rejection_frac*100:.0f}% rejected) took {t_subset:.3f}s "
+        f"ONLY_REJECTED ({rejection_frac * 100:.0f}% rejected) took {t_subset:.3f}s "
         f"but FLAG took {t_flag:.3f}s — expected subset to be faster"
     )
 

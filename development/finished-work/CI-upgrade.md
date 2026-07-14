@@ -1,4 +1,11 @@
-> **Finished:** CI modular architecture migration is complete (all legacy workflow wrappers removed). Ongoing CI governance policy is codified in ADR-035 (`development/adrs/ADR-035-ci-workflow-governance.md`), which references this file as its implementation appendix. This document is retained as the migration evidence record and operational playbook that preceded ADR-035 closure.
+> **Finished:** CI modular architecture migration is complete, and the modular
+> inventory itself was superseded by the **v1 consolidation** (v0.11.6 Task 60,
+> 2026-07-13) recorded at the end of this document. Ongoing CI governance
+> policy is codified in ADR-035 (`development/adrs/ADR-035-ci-workflow-governance.md`),
+> which references this file as its implementation appendix. Everything between
+> this note and the "v1 consolidation record" section describes the
+> pre-consolidation architecture and is retained as historical migration
+> evidence only.
 
 # CI Upgrade Operations Guide
 
@@ -140,3 +147,84 @@ When workflow entrypoints change under `.github/workflows/`:
 - update `scripts/local_checks.py` for equivalent local reproduction,
 - keep `make local-checks-pr` and `make local-checks` behavior aligned,
 - document changed commands in the milestone plan/checklist.
+
+---
+
+## v1 consolidation record (v0.11.6 Task 60, 2026-07-13)
+
+The 14-file modular inventory described above accumulated overlapping
+responsibilities and duplicate executions. It was replaced by a three-workflow
+architecture on branch `ci/v1-consolidation`. ADR-035 sections 2–5 are the
+authoritative statement of the resulting policy; this section is the migration
+evidence.
+
+### Original inventory and keep/fold/delete decisions
+
+| Legacy file | Decision | Rationale / destination |
+|---|---|---|
+| `ci-pr.yml` | fold | PR gates now come from the repository-owned profile `make local-checks-pr` run by `ci.yml` `pr-gate` (Python 3.10) + `tests-newest` (3.13). The lint/audit steps that only existed in YAML (ruff `--select N`, nbqa notebooks, pydocstyle, agent-instruction consistency) moved *into* the PR profile so local and CI cannot drift. Governance-schema stays a path-sensitive `ci.yml` job. `uv-install-smoke` (pip-vs-uv timing) was deleted from CI; the local lane `make uv-install-smoke` remains. Feature-branch push runs (duplicates of PR runs) were dropped. The evaluation/ freeze guard moved into the PR profile. |
+| `ci-main.yml` | fold | Coverage + Codecov + per-module gates moved to `ci.yml` `coverage` (main pushes). Duplicated audits (anti-pattern, marker hygiene, private-member, instruction consistency) were removed from the main path — the PR profile already gates them pre-merge. Perf guard, core-vs-extras parity, and over-testing density (a second near-full coverage-context run per main push) moved to weekly `scheduled.yml`. Docs build moved to `ci.yml` `docs-build` (strict). |
+| `ci-full.yml` | fold | Viz tests → path-sensitive `ci.yml` `viz-tests` (one job instead of core re-run + viz). Manual parity run → `scheduled.yml` `parity-reference` (also `workflow_dispatch`). |
+| `ci-nightly.yml` | fold | All jobs → `scheduled.yml`, daily → weekly. `continue-on-error` shields on examples/notebooks removed: the notebook driver is advisory-with-artifact by its own `--mode advisory` contract; examples smoke is now a real failing check. |
+| `ci-policy.yml` + `.github/actions/ci-policy/` | fold | Replaced by the always-run `policy` job in `ci.yml` executing the blocking full-inventory validator directly (no composite indirection, no diff-based advisory mode). |
+| `deprecation-check.yml` | delete | Ran the full unit suite a second time on every PR. v1 zero-active-deprecation enforcement is the ledger gate in the PR profile (`scripts/local_checks.py --deprecation-ledger`); the focused-test lane remains via `--deprecation-closure` (release profile). |
+| `ci-release-docs.yml` | delete | This mirror does not cut release branches. Strict docs are enforced on every docs-touching PR and main push (`ci.yml` `docs-build`, `-W --keep-going`) and in `make local-checks-release` / `release-preflight`. |
+| `dependency-submission.yml` | delete | Required `contents: write` on every main push, violating the single-write-workflow rule. GitHub's native dependency graph continues to index the Python manifests; if snapshot-based submission is ever needed again it must satisfy ADR-035's fourth-workflow bar. |
+| `sync-skills.yml` | delete | OSS CI must not check out `generic-skill-library`, depend on private skill repositories, or auto-commit agent skill content. The validator now rejects any such reference (regression guard). Skill promotion happens in the private source repository or via reviewed PRs. |
+| `update_baseline.yml` | delete | Duplicate of the maintenance baseline task; consolidated into `maintenance.yml` (which also had its broken `scripts/check_perf_micro.py` path fixed to `scripts/perf/check_perf_micro.py` and its no-op `regen-docs` option removed). |
+| `reusable-python-test.yml` | delete | Inlined; Python setup + constrained installs centralized in the `setup-ce-python` composite action. |
+| `reusable-build-docs.yml` | delete | Inlined into `ci.yml` `docs-build` and `scheduled.yml` `docs-linkcheck`. |
+| `reusable-run-make.yml` | delete | No callers. |
+
+### Final inventory
+
+| Workflow | Name | Jobs | Triggers |
+|---|---|---|---|
+| `ci.yml` | `CI` | `policy`, `changes`, `pr-gate`, `tests-newest`, `viz-tests` (path), `docs-build` (path/main), `packaging` (path), `governance-schema` (path), `required` (aggregate), `coverage` (main), `package-validation` (main) | `pull_request` → main, `push` → main, `workflow_dispatch` |
+| `scheduled.yml` | `Scheduled assurance` | `full-matrix-tests` (3.10–3.13), `viz-tests`, `parity-reference`, `parity-core-vs-extras`, `perf-regression`, `notebook-execution`, `examples-smoke`, `docs-linkcheck`, `over-testing-analysis`, `dependency-audit` | weekly cron (Mon 03:00 UTC), `workflow_dispatch` |
+| `maintenance.yml` | `Maintenance` | `update-baseline` (only write-capable job; opens reviewable PR; unique branch; requires reason) | `workflow_dispatch` only |
+
+Required branch-protection check: **`CI / required`**. Local reproduction:
+`make local-checks-pr` (PR gate), `make test-viz` (viz job),
+`python -m sphinx -W --keep-going -b html docs docs/_build/html` (docs job),
+`make local-checks-full` / `make local-checks-release` (main/heavier assurance),
+`make check-ci-policy` (policy job), `make uv-install-smoke` (removed CI lane).
+
+### Before/after quantification
+
+Counts derive from the workflow definitions themselves; per-run duration
+history was not API-accessible from the implementation environment (no
+authenticated `gh`), which is why no wall-clock speedup numbers are claimed.
+
+| Metric | Before | After |
+|---|---|---|
+| Top-level workflow files | 14 | 3 |
+| Jobs triggered by an ordinary source PR (src+tests, non-viz) | 11–12 (`ci-pr` lint, mypy, 4× core-tests, uv-smoke, private-member, anti-pattern, governance filter, evaluation-freeze; plus `deprecation-check`), duplicated again when a feature-branch push accompanied the PR | 5–6 (`policy`, `changes`, `pr-gate`, `tests-newest`, `required`; specialists only when paths match); no push duplication |
+| Complete/near-complete pytest executions per ordinary PR | 5 (4 matrix versions + deprecation-check unit suite) | 2 (PR profile on 3.10, suite on 3.13) |
+| Dependency installations per ordinary PR | ~10 | 3–4 |
+| Complete/near-complete pytest executions per main push | 2 (coverage + over-testing contexts) plus parity/perf/audit jobs | 1 (coverage) |
+| Python environments in routine paths | 3.10–3.13 on every PR | 3.10 + 3.13 on PRs; full matrix weekly |
+| Duplicated static checks | audits run in both `ci-pr` and `ci-main`; policy in a separate workflow | once, in the PR profile |
+| Scheduled heavy jobs | daily (`ci-nightly`, 4 jobs) | weekly (`scheduled.yml`, 10 jobs incl. work moved off PR/main paths) |
+| Write-permission workflows | 3 (`maintenance`, `update_baseline`, `dependency-submission`) plus `sync-skills` (write) | 1 (`maintenance.yml`) |
+
+### Remaining platform-admin actions
+
+1. Branch protection: require exactly `CI / required`; remove the former
+   required checks (`CI — Pull Request checks / *`, `ci-policy/validate-workflows`).
+2. Optional: revisit Dependabot-alert expectations tied to the removed
+   dependency-submission snapshots (native dependency graph remains).
+
+### Deferred / unresolved risks
+
+- `actionlint` is not installed in the implementation environment and is not
+  yet a governed CI-development dependency; workflow YAML is validated by
+  PyYAML parsing (`run_ci_locally.py`), the full-inventory validator, and
+  GitHub's own schema validation on push. Adding a pinned actionlint step to
+  the `policy` job is a candidate follow-up.
+- External-action SHA pins were carried over verbatim from the
+  pre-consolidation workflows (same SHAs, same upstreams); version comments
+  reflect the tag family current when the pins were adopted.
+- PR-time parity-harness gating on `requirements.txt`/`constraints.txt`
+  changes (status-appendix risk #3) remains future work; the weekly
+  `parity-reference` job is still the earliest automated signal.

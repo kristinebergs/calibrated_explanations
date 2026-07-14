@@ -7,7 +7,7 @@
 # unaffected, so classification/multiclass fixtures are not pinned by this.
 #
 # This file is layered ONLY on top of the project-wide constraints.txt in the
-# ci-nightly.yml `parity-reference` job (`pip install -c constraints.txt
+# scheduled.yml `parity-reference` job (`pip install -c constraints.txt
 # -c tests/parity_reference/constraints.txt`). It intentionally does NOT
 # change the project-wide scikit-learn floor (constraints.txt / requirements.txt
 # remain scikit-learn>=1.3) — that floor is a general-compatibility statement,

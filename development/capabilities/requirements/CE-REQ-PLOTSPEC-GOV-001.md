@@ -20,7 +20,7 @@ ADR-036 and ADR-037 PlotSpec governance: canonical PlotSpec round-trip behavior,
 ## Observable behavior
 
 - PlotSpec artifacts serialize and round-trip through the canonical model.
-- PlotSpec schema and primitive tests validate supported artifact shapes.
+- PlotSpec packaged schema and primitive tests validate supported artifact shapes.
 - Invalid PlotSpec-shaped artifacts raise before renderer invocation.
 - Non-PlotSpec artifacts pass through the validation boundary unchanged.
 
@@ -38,7 +38,7 @@ Automated pytest tests for PlotSpec schema, round-trip, and renderer-boundary va
 ## Verification targets
 
 - pytest: tests/unit/viz/test_plotspec_roundtrip_and_headless.py::test_global_roundtrip_preserves_entries
-- pytest: tests/unit/viz/test_plotspec_schema_and_primitives.py::test_example_plotspec_validates
+- pytest: tests/unit/viz/test_plotspec_schema_and_primitives.py::test_runtime_plotspec_payloads_validate_against_packaged_schema
 - pytest: tests/unit/viz/test_plot_plugin_validation_boundary.py::test_plotspec_shaped_invalid_artifact_raises_before_render
 - pytest: tests/unit/viz/test_plot_plugin_validation_boundary.py::test_non_plotspec_artifact_passes_through
 

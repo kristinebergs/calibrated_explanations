@@ -39,7 +39,9 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _run_step(command: list[str], label: str, allow_failure: bool, env: dict[str, str] | None = None) -> int:
+def _run_step(
+    command: list[str], label: str, allow_failure: bool, env: dict[str, str] | None = None
+) -> int:
     print(f"\n==> {label}")
     print(" ".join(command))
     result = subprocess.run(command, check=False, env=env)

@@ -28,6 +28,15 @@ if TYPE_CHECKING:
     from ..explanations import AlternativeExplanations, CalibratedExplanations
     from ..plugins.manager import PluginManager
 
+from ..api.params import (
+    reject_cross_surface_kwargs,
+    reject_removed_aliases,
+    reject_removed_guarded_kwargs,
+    reject_removed_normalization_kwarg,
+    reject_removed_reject_kwargs,
+    reject_unknown_public_kwargs,
+)
+
 try:
     import tomllib as _tomllib
 except ModuleNotFoundError:  # pragma: no cover - fallback for <3.11
@@ -38,11 +47,20 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for <3.11
 
 # Core imports (no cross-sibling dependencies)
 from ..calibration.interval_wrappers import is_fast_interval_collection
-from ..utils import check_is_fitted, convert_targets_to_numeric, safe_isinstance
+from ..utils import assert_threshold, check_is_fitted, convert_targets_to_numeric, safe_isinstance
 
 from ..utils.exceptions import (
     DataShapeError,
     ValidationError,
+)
+from .validation import (
+    normalize_mode,
+    validate_bool_parameter,
+    validate_classification_calibration_targets,
+    validate_explainer_init_kwargs,
+    validate_features_to_ignore,
+    validate_inputs_matrix,
+    validate_low_high_percentiles,
 )
 from .prediction.interval_summary import IntervalSummary, coerce_interval_summary
 from .prediction_helpers import resolve_conditional_bins
@@ -56,6 +74,148 @@ from .prediction_helpers import resolve_conditional_bins
 # - api.params (canonicalize_kwargs, etc.) - lazy in param handling
 # - plugins (IntervalCalibratorContext, PluginManager, LegacyPredictBridge) - lazy in __init__
 # - utils.discretizers (EntropyDiscretizer, RegressorDiscretizer) - lazy in validation
+
+# ADR-038 5C: extends the D3/5A/5B fail-fast policy (previously WrapCalibratedExplainer
+# only) to CalibratedExplainer itself, so direct users of this class (bypassing the
+# wrapper) get the same protection. __init__/predict/predict_proba are closed
+# surfaces (any unrecognized name raises via reject_unknown_public_kwargs).
+# explain_factual/explore_alternatives retain the ADR-038 §3 experimental
+# plugin-forwarding exception: a name genuinely unknown anywhere is treated as
+# plugin-defined and passed through; only names known on one of the *closed*
+# surfaces below but not valid here are rejected (reject_cross_surface_kwargs).
+# explain_fast has no **kwargs at all (already fully typed) and needs no set.
+
+# These allow-lists are the single source of truth for kwargs accepted on each
+# CalibratedExplainer surface. WrapCalibratedExplainer derives its own per-method
+# gates from them (v0.11.6 Task 5D) -- never redefine the same surface in both
+# modules, or the two gates will drift apart (a name accepted here must also be
+# accepted by the wrapper).
+
+# Explicit formal parameters of CalibratedExplainer.__init__ (besides
+# learner/x_cal/y_cal). They never reach __init__'s **kwargs, but callers that
+# forward a kwargs dict (WrapCalibratedExplainer.calibrate) accept them by name,
+# and the cross-surface check needs them as "known elsewhere". Kept in sync with
+# the signature by tests/unit/core/test_parameter_surface_contracts.py.
+_INIT_EXPLICIT_PARAMS: frozenset[str] = frozenset(
+    {
+        "mode",
+        "feature_names",
+        "categorical_features",
+        "categorical_labels",
+        "class_labels",
+        "bins",
+        "difficulty_estimator",
+    }
+)
+
+# used by: CalibratedExplainer.__init__ only.
+_INIT_KWARGS: frozenset[str] = frozenset(
+    {
+        "perf_cache",
+        "perf_parallel",
+        "preprocessor_metadata",
+        "predict_function",
+        "suppress_crepes_errors",
+        "oob",
+        "seed",
+        "sample_percentiles",
+        "verbose",
+        "interval_summary",
+        "fast",
+        "noise_type",
+        "scale_factor",
+        "severity",
+        "condition_source",
+        "features_to_ignore",
+        "reject",
+        "default_reject_policy",
+        "factual_plugin",
+        "alternative_plugin",
+        "fast_plugin",
+        "interval_plugin",
+        "fast_interval_plugin",
+        "plot_style",
+    }
+)
+
+# used by: CalibratedExplainer.predict only. uq_interval/calibrated are already
+# explicit named parameters and never reach **kwargs. "_ce_skip_reject" is an
+# internal escape hatch used by core/explain/orchestrator.py; "show"/
+# "style_override" are stripped defensively before validation (see predict()),
+# not allow-listed, since plot()'s kwargs flow into predict() via plot_global().
+_PREDICT_KWARGS: frozenset[str] = frozenset(
+    {
+        "threshold",
+        "low_high_percentiles",
+        "bins",
+        "classes",
+        "feature",
+        "reject_policy",
+        "reject_confidence",
+        "interval_summary",
+        "_ce_skip_reject",
+    }
+)
+
+# used by: CalibratedExplainer.predict_proba only. uq_interval/calibrated/
+# threshold are already explicit named parameters and never reach **kwargs.
+_PREDICT_PROBA_KWARGS: frozenset[str] = frozenset(
+    {
+        "bins",
+        "reject_policy",
+        "reject_confidence",
+        "interval_summary",
+        "normalization",
+        "_ce_skip_reject",
+    }
+)
+
+# used by: explain_factual() and explore_alternatives() (identical surface).
+# guarded_options/reject_policy/_use_plugin are already explicit named
+# parameters and never reach **kwargs; listed here only for readers.
+_EXPLAIN_KWARGS: frozenset[str] = frozenset(
+    {
+        "threshold",
+        "low_high_percentiles",
+        "bins",
+        "features_to_ignore",
+        "guarded_options",
+        "reject_policy",
+        "reject_confidence",  # active only when reject_policy is set
+        "multi_labels_enabled",  # EXPERIMENTAL, ADR-038 §3
+        "interval_summary",  # EXPERIMENTAL, ADR-038 §3
+        "verbose",
+    }
+)
+
+# Reference set for the explain_factual/explore_alternatives cross-surface check:
+# names known on a *closed* CalibratedExplainer surface. A name in this set but
+# not in _EXPLAIN_KWARGS is cross-method contamination and is rejected; a name
+# in neither is treated as plugin-defined and passed through untouched (ADR-038
+# §3 exception). Includes __init__/predict/predict_proba's own explicit formal
+# parameter names (mode, feature_names, ...) even though those never reach
+# **kwargs on their own methods -- they still need to be recognized as
+# "known elsewhere" so e.g. explain_factual(x, mode="regression") is rejected
+# instead of silently treated as a plugin-forwarded key.
+_CLOSED_SURFACE_KWARGS: frozenset[str] = (
+    _INIT_KWARGS
+    | _PREDICT_KWARGS
+    | _PREDICT_PROBA_KWARGS
+    | _INIT_EXPLICIT_PARAMS
+    | {
+        "uq_interval",
+        "calibrated",
+    }
+)
+
+
+def _log_forwarded_explain_kwargs(
+    logger: logging.Logger, surface: str, kwargs: dict[str, Any], *, allowed: frozenset[str]
+) -> None:
+    forwarded = sorted(set(kwargs) - allowed)
+    if not forwarded:
+        return
+    logger.info("%s forwarding explanation keyword arguments to plugins: %s", surface, forwarded)
 
 
 class CalibratedExplainer:
@@ -124,6 +284,14 @@ class CalibratedExplainer:
             import logging
             logging.getLogger("calibrated_explanations").setLevel(logging.INFO)
         """
+        reject_removed_aliases(kwargs)
+        reject_removed_guarded_kwargs(kwargs)
+        reject_removed_reject_kwargs(kwargs)
+        reject_removed_normalization_kwarg(kwargs)
+        reject_unknown_public_kwargs(
+            kwargs, allowed=_INIT_KWARGS, surface="CalibratedExplainer.__init__"
+        )
+
         perf_cache = kwargs.pop("perf_cache", None)
         perf_parallel = kwargs.pop("perf_parallel", None)
 
@@ -136,6 +304,12 @@ class CalibratedExplainer:
             self._preprocessor_metadata = None
         check_is_fitted(learner)
         self.learner = learner
+        validate_inputs_matrix(x_cal, y_cal, require_y=True, allow_nan=False)
+        mode, kwargs = validate_explainer_init_kwargs(
+            kwargs,
+            mode=mode,
+            n_features=int(np.asarray(x_cal).shape[1]),
+        )
         self.predict_function = kwargs.get("predict_function")
         if self.predict_function is None:
             self.predict_function = (
@@ -144,7 +318,7 @@ class CalibratedExplainer:
         # Optionally suppress or convert low-level crepes errors into clearer messages.
         # Caller can pass suppress_crepes_errors=True via kwargs to avoid raising on
         # crepes broadcasting/shape errors (useful for synthetic tiny datasets).
-        self.suppress_crepes_errors = bool(kwargs.get("suppress_crepes_errors", False))
+        self.suppress_crepes_errors = kwargs.get("suppress_crepes_errors", False)
         self.oob = kwargs.get("oob", False)
         self._categorical_value_counts_cache: Dict[int, Dict[Any, int]] | None = None
         self._numeric_sorted_cache: Dict[int, np.ndarray] | None = None
@@ -155,13 +329,22 @@ class CalibratedExplainer:
                 if (
                     len(y_oob_proba.shape) == 1 or y_oob_proba.shape[1] == 1
                 ):  # Binary classification
-                    y_oob = (y_oob_proba > 0.5).astype(np.dtype(y_cal.dtype))
+                    y_oob_idx = (np.ravel(y_oob_proba) > 0.5).astype(int)
                 else:  # Multiclass classification
-                    y_oob = np.argmax(y_oob_proba, axis=1)
-                    if safe_isinstance(y_cal, "pandas.core.arrays.categorical.Categorical"):
-                        y_oob = y_cal.categories[y_oob]
+                    y_oob_idx = np.argmax(y_oob_proba, axis=1)
+                if safe_isinstance(y_cal, "pandas.core.arrays.categorical.Categorical"):
+                    y_oob = y_cal.categories[y_oob_idx]
+                else:
+                    classes_ = np.asarray(getattr(self.learner, "classes_", None))
+                    if classes_.ndim == 1 and classes_.size >= 2:
+                        # Map OOB class indices back through the fitted
+                        # learner's class labels instead of casting the raw
+                        # integer index to y_cal's dtype, which silently
+                        # produced wrong labels (e.g. "0"/"1" digit strings)
+                        # for non-contiguous-numeric or string class spaces.
+                        y_oob = classes_[y_oob_idx]
                     else:
-                        y_oob = y_oob.astype(np.dtype(y_cal.dtype))
+                        y_oob = y_oob_idx.astype(np.dtype(y_cal.dtype))
             else:
                 y_oob = self.learner.oob_prediction_
             if len(x_cal) != len(y_oob):
@@ -171,6 +354,8 @@ class CalibratedExplainer:
             y_cal = y_oob
         self.x_cal = x_cal
         self.y_cal = y_cal
+        if mode == "classification":
+            validate_classification_calibration_targets(self.y_cal, learner=self.learner)
 
         # Initialize RNG with seed
         from ..utils import set_rng_seed  # pylint: disable=import-outside-toplevel
@@ -248,20 +433,39 @@ class CalibratedExplainer:
         self._feature_names = list(feature_names)
 
         if mode == "classification":
-            if any(isinstance(val, str) for val in self.y_cal) or any(
-                isinstance(val, (np.str_, np.object_)) for val in self.y_cal
-            ):
-                self.y_cal_numeric, self.label_map = convert_targets_to_numeric(self.y_cal)
-                self.y_cal = self.y_cal_numeric  # save to _y_cal to avoid append
+            original_class_values = np.unique(np.asarray(self.y_cal))
+            self.y_cal_numeric, self.label_map = convert_targets_to_numeric(self.y_cal)
+            self.y_cal = self.y_cal_numeric  # save to _y_cal to avoid append
+            self.original_class_values = np.asarray(original_class_values)
+            if self.label_map is not None:
                 if self.class_labels is None:
-                    self.class_labels = {v: k for k, v in self.label_map.items()}
-            else:
-                self.label_map = None
-                if self.class_labels is None:
-                    self.class_labels = {int(label): str(label) for label in np.unique(self.y_cal)}
+                    self.class_labels = {
+                        int(encoded_label): str(original_label)
+                        for original_label, encoded_label in self.label_map.items()
+                    }
+                elif isinstance(self.class_labels, Mapping):
+                    normalized_class_labels = {}
+                    for original_label, encoded_label in self.label_map.items():
+                        if original_label in self.class_labels:
+                            normalized_class_labels[int(encoded_label)] = self.class_labels[
+                                original_label
+                            ]
+                        elif str(original_label) in self.class_labels:
+                            normalized_class_labels[int(encoded_label)] = self.class_labels[
+                                str(original_label)
+                            ]
+                        elif int(encoded_label) in self.class_labels:
+                            normalized_class_labels[int(encoded_label)] = self.class_labels[
+                                int(encoded_label)
+                            ]
+                    if len(normalized_class_labels) == len(self.label_map):
+                        self.class_labels = normalized_class_labels
+            elif self.class_labels is None:
+                self.class_labels = {int(label): str(label) for label in np.unique(self.y_cal)}
         else:
             self.label_map = None
             self.class_labels = None
+            self.original_class_values = None
 
         self.discretizer: Any = None
         self.discretized_X_cal: Optional[np.ndarray] = None
@@ -327,57 +531,87 @@ class CalibratedExplainer:
 
         self.init_time = time() - init_time
 
-    # TODO: Needs to be
     def __deepcopy__(self, memo):
-        """Safely deepcopy the explainer, handling circular references."""
+        """Safely deepcopy the explainer, handling circular references.
+
+        ``_perf_parallel`` (a worker pool/executor) and ``perf_cache`` (a
+        thread-safe cache guarded by a lock) are shared by reference with the
+        original instance: both hold unpicklable OS-level resources and
+        neither carries explanation-affecting state, so sharing them cannot
+        leak mutation between a copy (for example a
+        :class:`~calibrated_explanations.explanations.explanations.FrozenCalibratedExplainer`
+        snapshot) and the live explainer.
+
+        ``latest_explanation`` is also shared by reference, but for a
+        different reason: each individual explanation object already carries
+        its own :class:`FrozenCalibratedExplainer` snapshot (created when the
+        explanation was produced), so re-isolating the *explainer's* bookkeeping
+        pointer to its most recent explanation collection is redundant. It is
+        also unsafe to deep-copy: that collection embeds a
+        ``FrozenCalibratedExplainer`` wrapping a full explainer copy which, in
+        turn, has its own (older) ``latest_explanation``, and so on --
+        deep-copying this attribute walks and duplicates that entire chain on
+        every copy, which grows without bound across repeated explain calls on
+        the same explainer and makes deepcopy (and therefore
+        `FrozenCalibratedExplainer` construction) arbitrarily slow. Reassigning
+        ``latest_explanation`` (including via :meth:`reset`, which sets it to
+        ``None``) on a copy only rebinds that copy's own attribute and never
+        affects the original object shared by reference.
+
+        Every other attribute -- including ``learner``, ``rng``,
+        ``_plugin_manager`` (and, through it, the interval learner and
+        prediction orchestrator), and the LIME/SHAP integration helpers -- is
+        deep-copied so that mutating the copy can never affect the original.
+        """
         if id(self) in memo:
             return memo[id(self)]
         # Create a shallow copy without calling __init__
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
-        # Manually copy attributes
-        # Some attributes are runtime helpers or refer back into the explainer
-        # (plugin manager, parallel executor, caches, integration helpers, etc.).
-        # Deep-copying these can cause recursion or try to copy unpicklable objects.
-        # Shallow-copy them instead to preserve references and avoid recursion.
-        shallow_copy_keys = {
-            "_plugin_manager",
+
+        # These attributes are deliberately shared by reference rather than
+        # deep-copied; see the class-level rationale in the docstring above.
+        deliberately_shared_keys = {
             "_perf_parallel",
             "perf_cache",
-            "_lime_helper",
-            "_shap_helper",
-            "_predict_bridge",
             "latest_explanation",
-            "learner",
-            "predict_function",
-            "rng",
         }
 
         for k, v in self.__dict__.items():
-            if k in shallow_copy_keys:
-                # ADR002_ALLOW: swallowing to keep deepcopy best-effort.
+            if k in deliberately_shared_keys:
+                # ADR002_ALLOW: sharing is deliberate, not a fallback.
                 with contextlib.suppress(Exception):
                     setattr(result, k, v)
                 continue
 
             try:
                 setattr(result, k, copy.deepcopy(v, memo))
-            except (
-                Exception
-            ):  # ADR002_ALLOW: fallback to shallow copy when deepcopy fails.  # pragma: no cover
-                # Fallback: if deepcopy fails for any reason, keep original reference.
-                # ADR002_ALLOW: ignore attributes that cannot be copied.
+            except Exception as exc:  # ADR002_ALLOW: governed, visible fallback below.
+                # Fallback-visibility policy (CONTRIBUTOR_INSTRUCTIONS.md Sec.
+                # 5): a deepcopy failure must never be silently downgraded to
+                # sharing the original object -- emit a UserWarning and an
+                # INFO log so the reduced isolation guarantee is observable.
+                message = (
+                    f"CalibratedExplainer.__deepcopy__ could not deep-copy attribute "
+                    f"'{k}' ({exc!r}); falling back to sharing the original object. "
+                    "Mutating this attribute on the copy may affect the original."
+                )
+                warnings.warn(message, UserWarning, stacklevel=2)
+                logging.getLogger(__name__).info(message)
                 with contextlib.suppress(Exception):
                     setattr(result, k, v)
 
         return result
 
     def __getstate__(self):
-        """Exclude runtime helpers when pickling."""
+        """Exclude runtime helpers and caches when pickling."""
         state = self.__dict__.copy()
         state["perf_cache"] = None
         state["_perf_parallel"] = None
+        state["_lime_helper"] = None
+        state["_shap_helper"] = None
+        state["latest_explanation"] = None
         return state
 
     def __setstate__(self, state):
@@ -864,15 +1098,6 @@ class CalibratedExplainer:
         self._preprocessor_metadata = value
 
     @property
-    def feature_names_internal(self) -> Any:
-        """Public alias for `_feature_names`."""
-        return self._feature_names
-
-    @feature_names_internal.setter
-    def feature_names_internal(self, value: Any) -> None:
-        self._feature_names = value
-
-    @property
     def perf_parallel(self) -> bool:
         """Public alias for `_perf_parallel`."""
         return self._perf_parallel
@@ -880,98 +1105,6 @@ class CalibratedExplainer:
     @perf_parallel.setter
     def perf_parallel(self, value: bool) -> None:
         self._perf_parallel = value
-
-    @property
-    def get_sigma_test(self) -> bool:
-        """Public alias for `_get_sigma_test`."""
-        return self._get_sigma_test
-
-    @get_sigma_test.setter
-    def get_sigma_test(self, value: bool) -> None:
-        self._get_sigma_test = value
-
-    def initialize_interval_learner_for_fast_explainer(self, *args, **kwargs) -> Any:
-        """Public alias for internal interval learner initialization."""
-        return self._initialize_interval_learner_for_fast_explainer(*args, **kwargs)
-
-    @property
-    def bridge_monitors(self) -> Dict[str, Any]:
-        """Public alias for `_bridge_monitors`."""
-        return self._bridge_monitors
-
-    @bridge_monitors.setter
-    def bridge_monitors(self, value: Dict[str, Any]) -> None:
-        """Set the bridge monitors."""
-        self.require_plugin_manager().bridge_monitors = value
-
-    @property
-    def explanation_plugin_instances(self) -> Dict[str, Any]:
-        """Public alias for `_explanation_plugin_instances`."""
-        return self._explanation_plugin_instances
-
-    @explanation_plugin_instances.setter
-    def explanation_plugin_instances(self, value: Dict[str, Any]) -> None:
-        """Set the explanation plugin instances."""
-        self.require_plugin_manager().explanation_plugin_instances = value
-
-    @property
-    def pyproject_explanations(self) -> Dict[str, Any] | None:
-        """Public alias for `_pyproject_explanations`."""
-        return self._pyproject_explanations
-
-    @pyproject_explanations.setter
-    def pyproject_explanations(self, value: Dict[str, Any] | None) -> None:
-        self._pyproject_explanations = value
-
-    @property
-    def pyproject_intervals(self) -> Dict[str, Any] | None:
-        """Public alias for `_pyproject_intervals`."""
-        return self._pyproject_intervals
-
-    @pyproject_intervals.setter
-    def pyproject_intervals(self, value: Dict[str, Any] | None) -> None:
-        self._pyproject_intervals = value
-
-    @property
-    def pyproject_plots(self) -> Dict[str, Any] | None:
-        """Public alias for `_pyproject_plots`."""
-        return self._pyproject_plots
-
-    @pyproject_plots.setter
-    def pyproject_plots(self, value: Dict[str, Any] | None) -> None:
-        self._pyproject_plots = value
-
-    @property
-    def lime_helper(self) -> Any:
-        """Public alias for `_lime_helper`."""
-        return self._lime_helper
-
-    @lime_helper.setter
-    def lime_helper(self, value: Any) -> None:
-        """Set the LIME helper."""
-        self._lime_helper = value
-
-    @lime_helper.deleter
-    def lime_helper(self) -> None:
-        """Delete the LIME helper."""
-        if hasattr(self, "_lime_helper"):
-            del self._lime_helper
-
-    @property
-    def shap_helper(self) -> Any:
-        """Public alias for `_shap_helper`."""
-        return self._shap_helper
-
-    @shap_helper.setter
-    def shap_helper(self, value: Any) -> None:
-        """Set the SHAP helper."""
-        self._shap_helper = value
-
-    @shap_helper.deleter
-    def shap_helper(self) -> None:
-        """Delete the SHAP helper."""
-        if hasattr(self, "_shap_helper"):
-            del self._shap_helper
 
     @property
     def initialized(self) -> bool:
@@ -982,15 +1115,6 @@ class CalibratedExplainer:
     def initialized(self, value: bool) -> None:
         """Set the initialization state of the explainer."""
         self._initialized = value
-
-    @property
-    def is_initialized(self) -> bool:
-        """Public check for whether the explainer has been initialized.
-
-        .. deprecated:: 0.10.1
-            Use :attr:`initialized` instead.
-        """
-        return self.initialized
 
     @property
     def last_explanation_mode(self) -> str | None:
@@ -1086,15 +1210,7 @@ class CalibratedExplainer:
         if not self.is_fast():
             try:
                 self._fast = True
-                # Prefer calling the public method name so unit tests that patch
-                # `initialize_interval_learner_for_fast_explainer` observe the
-                # raised exception. Fall back to the name-mangled implementation
-                # if the public alias is absent.
-                init_fn = getattr(self, "initialize_interval_learner_for_fast_explainer", None)
-                if callable(init_fn):
-                    init_fn()
-                else:
-                    self._initialize_interval_learner_for_fast_explainer()
+                self._initialize_interval_learner_for_fast_explainer()
             except Exception:  # adr002_allow
                 self._fast = False
                 raise
@@ -1174,11 +1290,6 @@ class CalibratedExplainer:
         ----------
         value : array-like of shape (n_samples, n_features)
             The new calibration input data.
-
-        Raises
-        ------
-        ValueError
-            If the number of features in value does not match the existing calibration data.
         """
         from ..calibration.state import CalibrationState  # pylint: disable=import-outside-toplevel
 
@@ -1508,6 +1619,36 @@ class CalibratedExplainer:
             When ``reject_policy`` is non-``None``, returns
             :class:`~calibrated_explanations.explanations.reject.RejectCalibratedExplanations`.
         """
+        reject_removed_aliases(kwargs)
+        reject_removed_guarded_kwargs(kwargs)
+        reject_removed_reject_kwargs(kwargs)
+        reject_removed_normalization_kwarg(kwargs)
+        reject_cross_surface_kwargs(
+            kwargs,
+            allowed=_EXPLAIN_KWARGS,
+            closed_surface_names=_CLOSED_SURFACE_KWARGS,
+            surface="CalibratedExplainer.explain_factual",
+        )
+        _log_forwarded_explain_kwargs(
+            logging.getLogger(__name__),
+            "CalibratedExplainer.explain_factual",
+            kwargs,
+            allowed=_EXPLAIN_KWARGS,
+        )
+        if "multi_labels_enabled" in kwargs:
+            kwargs["multi_labels_enabled"] = validate_bool_parameter(
+                kwargs["multi_labels_enabled"],
+                param="multi_labels_enabled",
+            )
+        if features_to_ignore is not None:
+            features_to_ignore = validate_features_to_ignore(
+                features_to_ignore,
+                n_features=int(self.num_features),
+            )
+        if threshold is not None and "regression" in self.mode:
+            assert_threshold(threshold, x)
+        elif "regression" in self.mode:
+            low_high_percentiles = validate_low_high_percentiles(low_high_percentiles)
         bins = resolve_conditional_bins(x, bins, calibration_bins=self.bins)
         if guarded_options is not None:
             if not _use_plugin and kwargs.get("verbose", False):
@@ -1620,6 +1761,36 @@ class CalibratedExplainer:
         When ``guarded_options`` is non-``None``, per-instance explanations are
         :class:`~calibrated_explanations.explanations.guarded_explanation.GuardedAlternativeExplanation`.
         """
+        reject_removed_aliases(kwargs)
+        reject_removed_guarded_kwargs(kwargs)
+        reject_removed_reject_kwargs(kwargs)
+        reject_removed_normalization_kwarg(kwargs)
+        reject_cross_surface_kwargs(
+            kwargs,
+            allowed=_EXPLAIN_KWARGS,
+            closed_surface_names=_CLOSED_SURFACE_KWARGS,
+            surface="CalibratedExplainer.explore_alternatives",
+        )
+        _log_forwarded_explain_kwargs(
+            logging.getLogger(__name__),
+            "CalibratedExplainer.explore_alternatives",
+            kwargs,
+            allowed=_EXPLAIN_KWARGS,
+        )
+        if "multi_labels_enabled" in kwargs:
+            kwargs["multi_labels_enabled"] = validate_bool_parameter(
+                kwargs["multi_labels_enabled"],
+                param="multi_labels_enabled",
+            )
+        if features_to_ignore is not None:
+            features_to_ignore = validate_features_to_ignore(
+                features_to_ignore,
+                n_features=int(self.num_features),
+            )
+        if threshold is not None and "regression" in self.mode:
+            assert_threshold(threshold, x)
+        elif "regression" in self.mode:
+            low_high_percentiles = validate_low_high_percentiles(low_high_percentiles)
         bins = resolve_conditional_bins(x, bins, calibration_bins=self.bins)
         if guarded_options is not None:
             if not _use_plugin and kwargs.get("verbose", False):
@@ -1805,11 +1976,11 @@ class CalibratedExplainer:
 
         Raises
         ------
-        ValueError: The number of features in the test data must be the same as in the calibration data.
-        Warning: The threshold-parameter is only supported for mode='regression'.
-        ValueError: The length of the threshold parameter must be either a constant or the same as the number of
-            instances in x.
-        RuntimeError: Fast explanations are only possible if the explainer is a Fast Calibrated Explainer.
+        ConfigurationError
+            If plugin resolution, initialization, or invocation fails for the
+            fast-explanation plugin (for example, an unsupported model, a
+            feature-count mismatch, an invalid ``threshold`` value, or an
+            invalid batch returned by the plugin).
 
         Returns
         -------
@@ -1971,8 +2142,9 @@ class CalibratedExplainer:
 
         Raises
         ------
-            ValueError: The mode can be either 'classification' or 'regression'.
+            ValidationError: If ``mode`` is not 'classification' or 'regression'.
         """
+        mode = normalize_mode(mode)
         self._initialized = False
         if mode == "classification":
             # assert 'predict_proba' in dir(self.learner), "The learner must have a predict_proba method."
@@ -1980,8 +2152,6 @@ class CalibratedExplainer:
         elif mode == "regression":
             # assert 'predict' in dir(self.learner), "The learner must have a predict method."
             self.num_classes = 0
-        else:
-            raise ValidationError("The mode must be either 'classification' or 'regression'.")
         self.mode = mode
         if initialize:
             self.prediction_orchestrator.interval_registry.initialize()  # type: ignore[attr-defined]
@@ -2032,20 +2202,29 @@ class CalibratedExplainer:
 
             - threshold : float, int, or array-like of shape (n_samples,), optional, default=None
                 Specifies the threshold for probabilistic regression. Returns calibrated probabilities
-                P(y <= threshold) for regression tasks. This parameter is ignored for classification tasks.
+                P(y <= threshold) for regression tasks. Classification calls with this
+                parameter raise ``ValidationError``.
 
             - low_high_percentiles : tuple of two floats, optional, default=(5, 95)
                 The lower and upper percentiles used to calculate the prediction interval for regression tasks.
                 Determines the breadth of the interval based on the distribution of the predictions.
-                This parameter is ignored for classification tasks and when threshold is provided.
+                This parameter is only used for regression tasks without ``threshold=``.
 
         Raises
         ------
-        RuntimeError
-            If the learner has not been fitted prior to making predictions.
+        NotFittedError
+            If the explainer has not been fitted/calibrated prior to calling
+            ``predict``.
 
-        Warning
-            If the learner is not calibrated.
+        ConfigurationError
+            If unsupported, removed, or conflicting keyword arguments are
+            supplied.
+
+        ValidationError
+            If ``threshold`` or ``low_high_percentiles`` is invalid for the
+            configured mode (for example, a classification call with
+            ``threshold=``, or a threshold whose length does not match the
+            number of instances in ``x``).
 
         Returns
         -------
@@ -2072,8 +2251,14 @@ class CalibratedExplainer:
 
         Notes
         -----
-        The `threshold` and `low_high_percentiles` parameters are only used for regression tasks.
+        Classification calls with `threshold=` raise `ValidationError`. `low_high_percentiles`
+        is only used for regression tasks without `threshold=`.
         """
+        # strip plotting-only keys that callers may pass (plot()'s kwargs flow into
+        # predict() via plotting.plot_global(); see ADR-038 5C)
+        kwargs.pop("show", None)
+        kwargs.pop("style_override", None)
+
         from .prediction_helpers import (  # pylint: disable=import-outside-toplevel
             handle_uncalibrated_regression_prediction,
             handle_uncalibrated_classification_prediction,
@@ -2085,17 +2270,32 @@ class CalibratedExplainer:
         from ..api.params import (
             canonicalize_kwargs,
             reject_removed_aliases,
+            reject_removed_reject_kwargs,
             validate_param_combination,
         )
 
         # reject removed aliases and normalize kwargs
         reject_removed_aliases(kwargs)
+        reject_removed_guarded_kwargs(kwargs)
+        reject_removed_reject_kwargs(kwargs)
+        reject_removed_normalization_kwarg(kwargs)
+        reject_unknown_public_kwargs(
+            kwargs, allowed=_PREDICT_KWARGS, surface="CalibratedExplainer.predict"
+        )
         kwargs = canonicalize_kwargs(kwargs)
         validate_param_combination(kwargs)
         if "interval_summary" not in kwargs or kwargs["interval_summary"] is None:
             kwargs["interval_summary"] = self.interval_summary
         else:
             kwargs["interval_summary"] = coerce_interval_summary(kwargs["interval_summary"])
+        if kwargs.get("threshold") is not None and "regression" in self.mode:
+            assert_threshold(kwargs["threshold"], x)
+        elif "regression" in self.mode:
+            validated_percentiles = validate_low_high_percentiles(
+                kwargs.get("low_high_percentiles", (5, 95))
+            )
+            if "low_high_percentiles" in kwargs:
+                kwargs["low_high_percentiles"] = validated_percentiles
 
         if not calibrated:
             if self.mode == "regression":
@@ -2156,6 +2356,7 @@ class CalibratedExplainer:
                 high,
                 new_classes,
                 self.is_multiclass(),
+                original_class_values=self.original_class_values,
                 label_map=self.label_map,
                 class_labels=self.class_labels,
                 uq_interval=uq_interval,
@@ -2163,10 +2364,7 @@ class CalibratedExplainer:
 
         # Reject policy active: use orchestrator to apply policy and return RejectResult envelope
         bins_arg = kwargs.pop("bins", None)
-        _old_conf = kwargs.pop("confidence", None)
-        confidence_arg = kwargs.pop(
-            "reject_confidence", _old_conf if _old_conf is not None else 0.95
-        )
+        confidence_arg = kwargs.pop("reject_confidence", 0.95)
         rr = self.reject_orchestrator.apply_policy(
             policy,
             x,
@@ -2212,6 +2410,7 @@ class CalibratedExplainer:
                         high,
                         new_classes,
                         self.is_multiclass(),
+                        original_class_values=self.original_class_values,
                         label_map=self.label_map,
                         class_labels=self.class_labels,
                         uq_interval=uq_interval,
@@ -2249,21 +2448,24 @@ class CalibratedExplainer:
         calibrated : bool, default=True
             If True, the calibrator is used for prediction. If False, the underlying learner is used for prediction.
         threshold : float, int or array-like of shape (n_samples,), optional, default=None
-            Threshold values used with regression to get probability of being below the threshold. Only applicable to regression.
+            Threshold values used with regression to get probability of being below the
+            threshold. Classification calls with this parameter raise
+            ``ValidationError``.
 
         Raises
         ------
-        RuntimeError
-            If the learner is not fitted before predicting.
+        NotFittedError
+            If the explainer has not been fitted/calibrated prior to calling
+            ``predict_proba``.
 
-        ValueError
-            If the `threshold` parameter's length does not match the number of instances in `x`, or if it is not a single constant value applicable to all instances.
+        ConfigurationError
+            If unsupported, removed, or conflicting keyword arguments are
+            supplied.
 
-        RuntimeError
-            If the learner is not fitted before predicting.
-
-        Warning
-            If the learner is not calibrated.
+        ValidationError
+            If ``threshold`` is invalid for the configured mode (for example,
+            a classification call with ``threshold=``, or a threshold whose
+            length does not match the number of instances in ``x``).
 
         Returns
         -------
@@ -2287,7 +2489,7 @@ class CalibratedExplainer:
 
         Notes
         -----
-        The `threshold` parameter is only used for regression tasks.
+        Classification calls with `threshold=` raise `ValidationError`.
         """
         # strip plotting-only keys that callers may pass
         kwargs.pop("show", None)
@@ -2296,20 +2498,26 @@ class CalibratedExplainer:
         from ..api.params import (
             canonicalize_kwargs,
             reject_removed_aliases,
+            reject_removed_reject_kwargs,
             validate_param_combination,
         )
 
         # reject removed aliases and normalize kwargs
         reject_removed_aliases(kwargs)
+        reject_removed_guarded_kwargs(kwargs)
+        reject_removed_reject_kwargs(kwargs)
+        reject_removed_normalization_kwarg(kwargs)
+        reject_unknown_public_kwargs(
+            kwargs, allowed=_PREDICT_PROBA_KWARGS, surface="CalibratedExplainer.predict_proba"
+        )
         kwargs = canonicalize_kwargs(kwargs)
         validate_param_combination(kwargs)
+        if threshold is not None and "regression" in self.mode:
+            assert_threshold(threshold, x)
 
         # Inject default interval_summary if not provided
         kwargs.setdefault("interval_summary", self.interval_summary)
-        _old_conf = kwargs.pop("confidence", None)
-        confidence_arg = kwargs.pop(
-            "reject_confidence", _old_conf if _old_conf is not None else 0.95
-        )
+        confidence_arg = kwargs.pop("reject_confidence", 0.95)
 
         # Resolve reject policy (per-call override else explainer default)
         from .reject.policy import RejectPolicy as _RejectPolicy
@@ -2384,6 +2592,15 @@ class CalibratedExplainer:
 
             # Classification - multiclass
             elif self.is_multiclass():
+                if threshold is not None:
+                    raise ValidationError(
+                        "The threshold parameter is only supported for mode='regression'.",
+                        details={
+                            "param": "threshold",
+                            "mode": self.mode,
+                            "surface": "CalibratedExplainer.predict_proba",
+                        },
+                    )
                 if is_fast_interval_collection(self.interval_learner):
                     proba, low, high, _ = self.interval_learner[-1].predict_proba(
                         x, output_interval=True, **kwargs
@@ -2396,6 +2613,15 @@ class CalibratedExplainer:
 
             # Classification - binary
             else:
+                if threshold is not None:
+                    raise ValidationError(
+                        "The threshold parameter is only supported for mode='regression'.",
+                        details={
+                            "param": "threshold",
+                            "mode": self.mode,
+                            "surface": "CalibratedExplainer.predict_proba",
+                        },
+                    )
                 if is_fast_interval_collection(self.interval_learner):
                     proba, low, high = self.interval_learner[-1].predict_proba(
                         x, output_interval=True, **kwargs

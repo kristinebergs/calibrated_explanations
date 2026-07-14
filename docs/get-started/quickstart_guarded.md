@@ -34,7 +34,7 @@ The only workflow difference is passing `guarded_options=GuardedOptions()` to th
 - Use `explain_factual(..., guarded_options=GuardedOptions())` instead of `explain_factual(...)`.
 - Use `explore_alternatives(..., guarded_options=GuardedOptions())` instead of `explore_alternatives(...)`.
 
-> **Migration**: `guarded=True` is deprecated (removed v1.0.0). Use `guarded_options=GuardedOptions()` everywhere.
+> **Migration**: `guarded=True` was removed in v0.11.5. Use `guarded_options=GuardedOptions()` everywhere.
 
 ## 1. Load data and split sets
 

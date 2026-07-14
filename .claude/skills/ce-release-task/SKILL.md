@@ -52,7 +52,7 @@ current version plan.
 
 9. Implement the code changes following CE coding standards.
 10. Write tests per the `ce-test-author` rubric.
-11. Run `make local-checks-pr` to validate.
+11. Run `make local-checks-task TASK=<n>` to validate task closure. Use `make local-checks-pr` separately for PR preflight.
 12. If tests fail, diagnose and fix before proceeding.
 
 ### Phase 4: Verification

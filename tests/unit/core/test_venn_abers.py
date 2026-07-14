@@ -2,12 +2,15 @@
 
 from __future__ import annotations
 
+import warnings
+
 import numpy as np
 import pytest
 
 from calibrated_explanations.core import ConfigurationError
 from calibrated_explanations.calibration import venn_abers as venn_abers_module
 from calibrated_explanations.calibration import VennAbers
+from calibrated_explanations.utils.exceptions import ValidationError
 
 
 class StubVennAbers:
@@ -185,3 +188,35 @@ def test_binary_predict_rounds_probabilities():
     calibrated, low, high = interval
     assert calibrated.shape == (2, 2)
     assert low.shape == high.shape == (2,)
+
+
+def test_predict_proba_rejects_removed_normalize_bool_passthrough():
+    """The removed `normalize=True/False` legacy passthrough (v0.11.5) must fail fast
+    rather than silently resolving to SCALE (bug-list Finding 3)."""
+
+    x_cal = np.array([[0.0], [1.0], [2.0]])
+    y_cal = np.array([0, 1, 0])
+    learner = DummyLearner(np.array([[0.6, 0.4], [0.35, 0.65], [0.45, 0.55]]))
+
+    calibrator = VennAbers(x_cal, y_cal, learner)
+
+    with pytest.raises(ValidationError):
+        calibrator.predict_proba(np.array([[3.0]]), normalize=True)
+    with pytest.raises(ValidationError):
+        calibrator.predict_proba(np.array([[3.0]]), normalize=False)
+
+
+def test_should_preserve_global_warning_filters_when_fitting_and_predicting():
+    """Venn-Abers RuntimeWarning suppression must not leak into global warning state."""
+
+    x_cal = np.array([[0.0], [1.0], [2.0]])
+    y_cal = np.array([0, 1, 0])
+    learner = DummyLearner(np.array([[0.6, 0.4], [0.35, 0.65], [0.45, 0.55]]))
+
+    baseline_filters = list(warnings.filters)
+    calibrator = VennAbers(x_cal, y_cal, learner)
+    assert warnings.filters == baseline_filters
+
+    baseline_after_fit = list(warnings.filters)
+    _ = calibrator.predict_proba(np.array([[3.0], [4.0]]), output_interval=True)
+    assert warnings.filters == baseline_after_fit

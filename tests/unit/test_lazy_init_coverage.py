@@ -1,3 +1,6 @@
+import subprocess
+import sys
+
 import pytest
 
 
@@ -14,18 +17,31 @@ def test_plotting_deprecation_warning(monkeypatch) -> None:
     assert plotting_module is not None
 
 
-def test_mappingproxy_reducer_registration_failure_is_non_fatal(monkeypatch) -> None:
-    import copyreg
-    import importlib
+def test_import_does_not_register_process_wide_mappingproxy_reducer() -> None:
+    script = """
+import copyreg
+import pickle
+from types import MappingProxyType
 
-    import calibrated_explanations
-
-    def fail_registration(*_args, **_kwargs):
-        raise TypeError("simulated reducer registration failure")
-
-    monkeypatch.setattr(copyreg, "pickle", fail_registration)
-    reloaded = importlib.reload(calibrated_explanations)
-    assert reloaded is not None
+before = copyreg.dispatch_table.get(MappingProxyType)
+import calibrated_explanations
+after = copyreg.dispatch_table.get(MappingProxyType)
+assert before is after
+try:
+    pickle.dumps(MappingProxyType({'demo': 1}))
+except TypeError:
+    pass
+else:
+    raise AssertionError('standalone MappingProxyType unexpectedly became picklable')
+print('ok')
+"""
+    completed = subprocess.run(
+        [sys.executable, "-c", script],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.stdout.strip() == "ok"
 
 
 def test_unknown_package_attribute_raises_attribute_error() -> None:

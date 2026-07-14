@@ -33,8 +33,8 @@ or explanation output.
     ```
     `GuardedOptions` fields: `confidence` (default 0.9), `n_neighbors`, `normalize`,
     `merge_adjacent`. Do NOT use the REMOVED methods `explain_guarded_factual(X)` /
-    `explore_guarded_alternatives(X)` (deleted v0.11.3) or the deprecated `guarded=True`
-    boolean kwarg (emits `DeprecationWarning`; removed in v1.0.0).
+    `explore_guarded_alternatives(X)` (deleted v0.11.3) or the removed `guarded=True`
+    boolean kwarg (removed in v0.11.5; raises `ConfigurationError` as of v0.11.6).
 6. **Calibrated by default** – Do not return uncalibrated outputs unless explicitly
    requested.
 7. **Conjunctions** – `explanations.add_conjunctions(...)` or
@@ -268,6 +268,9 @@ Every fallback must be visible to users. No silent fallbacks.
 - Emit an `INFO` log entry summarising the fallback decision.
 - Applies to: parallel → sequential execution, plugin fallback chains, cache backend
   fallbacks, visualization simplifications.
+- Exception: an internal best-effort fallback may remain non-user-visible only when
+  `scripts/quality/check_warning_policy.py` records a site-specific exemption with a
+  concrete reason and the strongest available logger signal.
 - When introducing a new fallback, update `CHANGELOG.md`.
 
 ---
@@ -295,7 +298,7 @@ Every fallback must be visible to users. No silent fallbacks.
 | `development/standards/test-quality-method/` | ADR-030 quality method tooling — canonical location |
 | `tests/README.md` | Authoritative test guidance |
 | `CHANGELOG.md` | Changelog; update under `## [Unreleased]` for every change |
-| `Makefile` | Entry points: `make test`, `make ci-local` |
+| `Makefile` | Entry points: `make quick`, `make local-checks-task`, `make local-checks-pr`, `make local-checks-full`, `make local-checks-release`, `make release-preflight`, `make release-finalize` |
 
 Removed legacy docs locations: docs/improvement/ and docs/standards/ were fully
 removed after migration to `development/`. Do not recreate them or add new
@@ -319,6 +322,15 @@ Proposing a new root directory requires a PR rationale and an update to this fil
 
 All agent platforms (Codex, GitHub Copilot, Claude Code, Gemini, and others)
 must treat `.claude/skills/` as the canonical repository skill catalog.
+
+Other skill trees such as `.agents/skills/`, `.github/skills/`, and
+`.codex/skills/` are compatibility or platform-local surfaces only. Shared CE
+skills must not be maintained independently there; keep the authoritative
+content under `.claude/skills/` and treat any extra non-canonical skills as
+explicit platform-only differences.
+For shared CE skills, shadow trees should contain only a shim `SKILL.md` that
+redirects to the canonical `.claude/skills/<skill>/SKILL.md` path; do not ship
+duplicated `assets/`, `references/`, or `scripts/` there.
 
 ### Skill discovery and use
 
@@ -419,12 +431,20 @@ python -m pytest --version  # must be present
 ### Routine local validation
 
 ```bash
-# Fast PR-scope checks (lint + type-check + core tests + policy scanners)
-# This is the primary local validation path — run before every commit.
+# Inner-loop checks while editing
+make quick
+
+# Focused release-task verification before marking a task complete
+make local-checks-task TASK=<n>
+
+# Blocking PR-scope preflight before opening/updating a PR
 make local-checks-pr
 
-# Full local CI including main-branch gates (coverage, perf, over-testing)
-make local-checks
+# Heavy local gate for merge-readiness or maintainer-requested final validation
+make local-checks-full
+
+# Release-boundary local validation only
+make local-checks-release
 
 # Run tests only
 make test
@@ -454,8 +474,9 @@ make governance-status-local
 set it after the full test suite passes. The `schema_checks` fields are
 populated from local report files and reflect the last time those scripts ran.
 
-`make local-checks-pr` calls `make governance-status-local` internally,
-so after a full local checks run the artifact will have real ruff/mypy results.
+`make quick`, `make local-checks-task`, and `make local-checks-pr` do not
+populate this artifact automatically. Run `make governance-status-local`
+whenever you need fresh local `ruff`/`mypy` results recorded in the artifact.
 
 Before any implementation work:
 1. Read `development/README.md` to identify the current development map and
@@ -564,7 +585,7 @@ decisions. The ADR takes precedence over any plan document.
 | ADR-032 | Guarded Explanation Semantics | In-distribution / guarded mode |
 | ADR-033 | Modality Extension Plugin Contract and Packaging Strategy | Modality metadata, plugin API compatibility, resolver modality selection, or extension packaging/shim policy |
 | ADR-034 | Centralized Configuration Management | Runtime config reads, env/`pyproject.toml` precedence, strict config validation, or config export/governance events |
-| ADR-035 | CI Workflow Governance | Changes to `.github/workflows/**`, `.github/actions/ci-policy/**`, CI merge gates, or `scripts/local_checks.py` parity rules |
+| ADR-035 | CI Workflow Governance | Changes to `.github/workflows/**`, `.github/actions/**`, `scripts/quality/validate_ci_policy.py`, CI merge gates, or `scripts/local_checks.py` parity rules |
 | ADR-036 | PlotSpec Canonical Contract and Validation Boundary | PlotSpec canonical model, serialization boundaries, and validation contract changes |
 | ADR-037 | Visualization Extension and Rendering Governance | Plot builder/renderer governance and visualization extension changes |
 

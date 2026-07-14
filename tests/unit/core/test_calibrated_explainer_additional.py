@@ -19,6 +19,8 @@ corresponding tests in this file MUST be removed at the same time:
 See calibrated_explainer.py docstrings for specific test locations.
 """
 
+import inspect
+import re
 from typing import Any
 
 import numpy as np
@@ -29,6 +31,7 @@ from calibrated_explanations.core.prediction.validation import check_interval_ru
 from tests.helpers.model_utils import DummyLearner
 
 
+from calibrated_explanations.core.calibrated_explainer import CalibratedExplainer
 from calibrated_explanations.core.explain.feature_task import (
     feature_task,
 )
@@ -37,6 +40,7 @@ from calibrated_explanations.core.explain.helpers import (
     merge_feature_result,
 )
 from calibrated_explanations.core.calibration_metrics import compute_calibrated_confusion_matrix
+from calibrated_explanations.utils import exceptions as ce_exceptions
 from calibrated_explanations.utils.exceptions import DataShapeError, ValidationError
 from calibrated_explanations.plugins import EXPLANATION_PROTOCOL_VERSION
 from calibrated_explanations.explanations import CalibratedExplanations
@@ -50,6 +54,25 @@ def test_oob_predictions_binary(monkeypatch: pytest.MonkeyPatch) -> None:
     explainer = make_mock_explainer(monkeypatch, learner, x_cal, y_cal, oob=True)
 
     assert np.array_equal(explainer.y_cal, np.array([0, 1, 1]))
+
+
+def test_oob_predictions_binary_string_labels_use_learner_classes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """OOB label recovery must map recovered class indices through
+    ``learner.classes_`` rather than casting the raw integer index straight
+    to ``y_cal``'s dtype. Casting previously turned string labels such as
+    "False"/"True" into digit strings ("0"/"1") that do not exist in the
+    calibration data, which the calibration-target subset validation now
+    correctly rejects."""
+    learner = DummyLearner(oob_decision_function=np.array([[0.8, 0.2], [0.2, 0.8], [0.9, 0.1]]))
+    learner.classes_ = np.array(["False", "True"])
+    x_cal = np.arange(3).reshape(-1, 1)
+    y_cal = np.array(["False", "True", "False"])
+    explainer = make_mock_explainer(monkeypatch, learner, x_cal, y_cal, oob=True)
+
+    assert np.array_equal(explainer.y_cal, np.array([0, 1, 0]))
+    assert explainer.class_labels == {0: "False", 1: "True"}
 
 
 def test_oob_predictions_multiclass_categorical(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -323,7 +346,7 @@ def test_explain_parallel_instances_empty_and_combined(monkeypatch: pytest.Monke
     from calibrated_explanations.core.explain._shared import ExplainConfig, ExplainRequest
 
     # create a simple explainer instance used by the fake sequential execute
-    explainer = make_mock_explainer(monkeypatch, DummyLearner(), np.ones((1, 2)), np.array([0]))
+    explainer = make_mock_explainer(monkeypatch, DummyLearner(), np.ones((2, 2)), np.array([0, 1]))
 
     # Empty instances -> early return via plugin
     req_empty = ExplainRequest(
@@ -432,7 +455,7 @@ def test_instance_parallel_task_calls_explain(monkeypatch: pytest.MonkeyPatch) -
 
     # Single chunk will delegate to sequential plugin via InstanceParallelExplainExecutor
     # create a small explainer instance for the plugin to attach results to
-    explainer = make_mock_explainer(monkeypatch, DummyLearner(), np.ones((1, 2)), np.array([0]))
+    explainer = make_mock_explainer(monkeypatch, DummyLearner(), np.ones((2, 2)), np.array([0, 1]))
 
     req = ExplainRequest(
         x=np.asarray([[1.0, 2.0]]),
@@ -745,3 +768,44 @@ def test_compute_calibrated_confusion_matrix_kfold(monkeypatch: pytest.MonkeyPat
     init_calls = [c for c in calls if c[0] == "init"]
     predict_calls = [c for c in calls if c[0] == "predict"]
     assert len(init_calls) == len(predict_calls) == 4
+
+
+def _docstring_raises_names(func: Any) -> set[str]:
+    """Extract the exception class names listed in a numpydoc ``Raises`` section."""
+    doc = inspect.getdoc(func) or ""
+    if "Raises" not in doc:
+        return set()
+    section = doc.split("Raises", 1)[1]
+    section = section.split("Returns", 1)[0]
+    return set(re.findall(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*$", section, re.MULTILINE))
+
+
+@pytest.mark.parametrize(
+    "surface,expected_names",
+    [
+        (
+            CalibratedExplainer.predict,
+            {"NotFittedError", "ConfigurationError", "ValidationError"},
+        ),
+        (
+            CalibratedExplainer.predict_proba,
+            {"NotFittedError", "ConfigurationError", "ValidationError"},
+        ),
+        (CalibratedExplainer.explain_fast, {"ConfigurationError"}),
+    ],
+)
+def test_docstring_raises_sections_match_runtime_exception_taxonomy(
+    surface: Any, expected_names: set[str]
+) -> None:
+    """Regression guard for pre-v5 M1: documented exceptions must be real CE
+    exceptions the runtime actually raises, not stale RuntimeError/ValueError/
+    Warning claims left over from earlier refactors (Task 50 validation matrix).
+    """
+    documented = _docstring_raises_names(surface)
+    assert documented == expected_names, (
+        f"{surface.__qualname__} Raises section drifted from the runtime "
+        f"exception taxonomy: documented={documented}, expected={expected_names}"
+    )
+    for name in documented:
+        exc_cls = getattr(ce_exceptions, name)
+        assert issubclass(exc_cls, ce_exceptions.CalibratedError)

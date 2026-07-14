@@ -5,6 +5,7 @@ template referencing the file and line range to be covered. These are templates
 for manual completion (they intentionally do NOT implement black-box assertions
 automatically). Use them as a starting point when adding minimal focused tests.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -37,7 +38,11 @@ def test_fill_gap_{idx}():
 
 def main(argv=None):
     p = argparse.ArgumentParser()
-    p.add_argument("--gaps-csv", required=True, help="CSV of gaps as produced by gap_analyzer: file,start,end,len")
+    p.add_argument(
+        "--gaps-csv",
+        required=True,
+        help="CSV of gaps as produced by gap_analyzer: file,start,end,len",
+    )
     p.add_argument("--out-dir", default="tests/generated", help="output directory for templates")
     args = p.parse_args(argv)
 
@@ -71,11 +76,15 @@ def main(argv=None):
                 module = fp.rsplit(".py", 1)[0].lstrip("./").replace("/", ".")
                 module = f"calibrated_explanations.{module}"
             else:
-                module = f"calibrated_explanations.{fp.rsplit('.py',1)[0]}"
+                module = f"calibrated_explanations.{fp.rsplit('.py', 1)[0]}"
 
             fname = out_dir / f"test_cov_fill_{idx:03d}.py"
             with open(fname, "w", encoding="utf-8") as of:
-                of.write(TEMPLATE.format(file=file, start=start, end=end, length=length, idx=idx, module=module))
+                of.write(
+                    TEMPLATE.format(
+                        file=file, start=start, end=end, length=length, idx=idx, module=module
+                    )
+                )
             print(f"wrote {fname}")
 
 

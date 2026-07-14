@@ -14,6 +14,7 @@ This tool is intentionally conservative: estimated coverage after removals is
 computed by subtracting `unique_lines` contributed by removed tests from the
 baseline covered lines count.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -87,7 +88,9 @@ def read_baseline_counts(path: str) -> Tuple[int, int]:
         if covered is None or total is None:
             for r in rows:
                 if "summary" in (r.get("file", "") or "").lower():
-                    covered = int(r.get("covered_lines", r.get("covered", r.get("covered_count", 0)) or 0))
+                    covered = int(
+                        r.get("covered_lines", r.get("covered", r.get("covered_count", 0)) or 0)
+                    )
                     total = int(r.get("total_lines", r.get("total", r.get("total_count", 0)) or 0))
                     break
         # Heuristic: rows represent individual lines with a hit field
@@ -114,7 +117,12 @@ def load_remove_list(path: str) -> List[str]:
         return [line.strip() for line in fh if line.strip() and not line.startswith("#")]
 
 
-def estimate_after_removal(baseline_covered: int, baseline_total: int, per_test: Dict[str, Dict[str, float]], remove: List[str]) -> Tuple[float, int, int]:
+def estimate_after_removal(
+    baseline_covered: int,
+    baseline_total: int,
+    per_test: Dict[str, Dict[str, float]],
+    remove: List[str],
+) -> Tuple[float, int, int]:
     removed_unique = 0
     for t in remove:
         info = per_test.get(t)
@@ -127,7 +135,9 @@ def estimate_after_removal(baseline_covered: int, baseline_total: int, per_test:
     return pct, new_covered, baseline_total
 
 
-def recommend_removals(per_test: Dict[str, Dict[str, float]], budget: int = 500) -> List[Tuple[str, float]]:
+def recommend_removals(
+    per_test: Dict[str, Dict[str, float]], budget: int = 500
+) -> List[Tuple[str, float]]:
     # Recommend tests sorted by value_score = unique_lines / runtime (low is better for removal)
     rows = []
     for name, info in per_test.items():
@@ -142,23 +152,34 @@ def recommend_removals(per_test: Dict[str, Dict[str, float]], budget: int = 500)
 def main(argv=None):
     p = argparse.ArgumentParser()
     p.add_argument("--per-test", help="CSV with per-test unique_lines and runtime", required=True)
-    p.add_argument("--baseline", help="Baseline coverage CSV or JSON (line_coverage_counts.csv)", required=True)
+    p.add_argument(
+        "--baseline", help="Baseline coverage CSV or JSON (line_coverage_counts.csv)", required=True
+    )
     p.add_argument("--remove-list", help="File with tests to remove (one per line)")
-    p.add_argument("--recommend", action="store_true", help="Output recommended low-value tests for removal")
+    p.add_argument(
+        "--recommend", action="store_true", help="Output recommended low-value tests for removal"
+    )
     p.add_argument("--budget", type=int, default=500, help="Max recommendations to output")
     args = p.parse_args(argv)
 
     per_test = read_per_test_csv(args.per_test)
     baseline_covered, baseline_total = read_baseline_counts(args.baseline)
 
-    print(f"baseline covered={baseline_covered} total={baseline_total} pct={baseline_covered/baseline_total:.4f}")
+    print(
+        f"baseline covered={baseline_covered} total={baseline_total} pct={baseline_covered / baseline_total:.4f}"
+    )
 
     remove = load_remove_list(args.remove_list) if args.remove_list else []
     if remove:
-        pct, new_cov, tot = estimate_after_removal(baseline_covered, baseline_total, per_test, remove)
+        pct, new_cov, tot = estimate_after_removal(
+            baseline_covered, baseline_total, per_test, remove
+        )
         print(f"after removing {len(remove)} tests -> covered={new_cov}/{tot} pct={pct:.4f}")
         if pct < 0.90:
-            print("WARNING: estimated coverage below 90% — do NOT apply these removals unless you add tests to restore coverage.", file=sys.stderr)
+            print(
+                "WARNING: estimated coverage below 90% — do NOT apply these removals unless you add tests to restore coverage.",
+                file=sys.stderr,
+            )
     if args.recommend:
         recs = recommend_removals(per_test, budget=args.budget)
         print("#recommended_removals,score")

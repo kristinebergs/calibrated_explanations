@@ -44,13 +44,13 @@ Applicable workflow: fit-calibrate-explore_alternatives-counter_explanations.
 
 **Default parameters (only_ensured=False, include_potential=True):**
 
-Collection: `alternatives.counter_explanations()` Ã¢â€ â€™ non-None, `len == len(X_test)`.
+Collection: `alternatives.counter_explanations()` → non-None, `len == len(X_test)`.
 
-Individual: `alternatives[0].counter_explanations()` Ã¢â€ â€™ non-None.
+Individual: `alternatives[0].counter_explanations()` → non-None.
 
 **With only_ensured=True:**
 
-Collection: `alternatives.counter_explanations(only_ensured=True)` Ã¢â€ â€™ non-None, `len == len(X_test)`.
+Collection: `alternatives.counter_explanations(only_ensured=True)` → non-None, `len == len(X_test)`.
 
 **Alias check:** `alternatives.counter()` produces a result equal in structure to `alternatives.counter_explanations()`.
 

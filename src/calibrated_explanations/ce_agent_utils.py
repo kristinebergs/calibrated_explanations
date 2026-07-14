@@ -25,7 +25,6 @@ from .core.exceptions import (
     NotFittedError,
     ValidationError,
 )
-from .utils.deprecations import deprecate
 
 LOGGER = logging.getLogger("calibrated_explanations.core.agents")
 
@@ -54,13 +53,6 @@ CE_FIRST_POLICY: Mapping[str, Any] = {
         "not_fitted": "Wrapper must be fitted before calibration or explanation.",
         "not_calibrated": "Wrapper must be calibrated before prediction or explanation.",
     },
-}
-
-
-_NARRATIVE_FORMAT_TO_EXPERTISE: Mapping[str, str] = {
-    "short": "beginner",
-    "bullet": "intermediate",
-    "long": "advanced",
 }
 
 
@@ -573,17 +565,19 @@ def explain_and_narrate(
     expertise_level : str, default="beginner"
         Narrative detail level: "beginner", "intermediate", or "advanced".
     narrative_format : str, optional
-        Deprecated alias for ``expertise_level`` using legacy names
-        ("short" → "beginner", "bullet" → "intermediate", "long" → "advanced").
-        If provided, takes precedence over ``expertise_level`` with a warning.
+        Removed legacy alias for ``expertise_level``.
+        Use ``expertise_level="beginner"|"intermediate"|"advanced"`` instead.
     """
     if narrative_format is not None:
-        deprecate(
-            "narrative_format is deprecated; use expertise_level='beginner'|'intermediate'|'advanced'.",
-            key="ce_agent_utils.narrative_format",
-            stacklevel=2,
+        raise ConfigurationError(
+            "narrative_format was removed in v0.11.6; use expertise_level='beginner'|'intermediate'|'advanced'.",
+            details={
+                "parameter": "narrative_format",
+                "removed_in": "v0.11.6",
+                "replacement": "expertise_level",
+                "allowed_values": ["beginner", "intermediate", "advanced"],
+            },
         )
-        expertise_level = _NARRATIVE_FORMAT_TO_EXPERTISE.get(narrative_format, expertise_level)
     _emit("ce.explain.start", mode=mode)
     return enforce_ce_first_and_execute(
         _explain_and_narrate_impl,

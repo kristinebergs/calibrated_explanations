@@ -37,7 +37,7 @@ from ._trust import (
     trust_debug_checks_enabled,
     update_trusted_identifier,
 )
-from .base import ExplainerPlugin, _normalise_modality, validate_plugin_meta
+from .base import ExplainerPlugin, _normalise_modality, thaw_plugin_config, validate_plugin_meta
 from .trust_policy import DefaultPluginTrustPolicy, PluginTrustPolicy
 
 _REGISTRY: List[ExplainerPlugin] = []
@@ -702,15 +702,14 @@ class ExplanationPluginDescriptor:
         object.__setattr__(self, "metadata", _freeze_meta(self.metadata))
 
     def __getstate__(self):
-        """Get state for pickling.
+        """Return pickle-safe state for explanation plugin descriptors."""
+        return {key: thaw_plugin_config(value) for key, value in self.__dict__.items()}
 
-        Returns
-        -------
-        dict
-            The state dictionary.
-        """
-        # Convert mappingproxy to dict for pickling
-        return dict(self.__dict__)
+    def __setstate__(self, state):
+        """Restore descriptor state and re-freeze metadata."""
+        for key, value in state.items():
+            object.__setattr__(self, key, value)
+        self.__post_init__()
 
 
 @dataclass(frozen=True)
@@ -728,15 +727,14 @@ class IntervalPluginDescriptor:
         object.__setattr__(self, "metadata", _freeze_meta(self.metadata))
 
     def __getstate__(self):
-        """Get state for pickling.
+        """Return pickle-safe state for interval plugin descriptors."""
+        return {key: thaw_plugin_config(value) for key, value in self.__dict__.items()}
 
-        Returns
-        -------
-        dict
-            The state dictionary.
-        """
-        # Convert mappingproxy to dict for pickling
-        return dict(self.__dict__)
+    def __setstate__(self, state):
+        """Restore descriptor state and re-freeze metadata."""
+        for key, value in state.items():
+            object.__setattr__(self, key, value)
+        self.__post_init__()
 
 
 _EXPLANATION_PLUGINS: Dict[str, ExplanationPluginDescriptor] = {}
@@ -761,15 +759,14 @@ class PlotBuilderDescriptor:
         object.__setattr__(self, "metadata", _freeze_meta(self.metadata))
 
     def __getstate__(self):
-        """Get state for pickling.
+        """Return pickle-safe state for plot builder descriptors."""
+        return {key: thaw_plugin_config(value) for key, value in self.__dict__.items()}
 
-        Returns
-        -------
-        dict
-            The state dictionary.
-        """
-        # Convert mappingproxy to dict for pickling
-        return dict(self.__dict__)
+    def __setstate__(self, state):
+        """Restore descriptor state and re-freeze metadata."""
+        for key, value in state.items():
+            object.__setattr__(self, key, value)
+        self.__post_init__()
 
 
 @dataclass(frozen=True)
@@ -787,15 +784,14 @@ class PlotRendererDescriptor:
         object.__setattr__(self, "metadata", _freeze_meta(self.metadata))
 
     def __getstate__(self):
-        """Get state for pickling.
+        """Return pickle-safe state for plot renderer descriptors."""
+        return {key: thaw_plugin_config(value) for key, value in self.__dict__.items()}
 
-        Returns
-        -------
-        dict
-            The state dictionary.
-        """
-        # Convert mappingproxy to dict for pickling
-        return dict(self.__dict__)
+    def __setstate__(self, state):
+        """Restore descriptor state and re-freeze metadata."""
+        for key, value in state.items():
+            object.__setattr__(self, key, value)
+        self.__post_init__()
 
 
 @dataclass(frozen=True)
@@ -810,15 +806,14 @@ class PlotStyleDescriptor:
         object.__setattr__(self, "metadata", _freeze_meta(self.metadata))
 
     def __getstate__(self):
-        """Get state for pickling.
+        """Return pickle-safe state for plot style descriptors."""
+        return {key: thaw_plugin_config(value) for key, value in self.__dict__.items()}
 
-        Returns
-        -------
-        dict
-            The state dictionary.
-        """
-        # Convert mappingproxy to dict for pickling
-        return dict(self.__dict__)
+    def __setstate__(self, state):
+        """Restore descriptor state and re-freeze metadata."""
+        for key, value in state.items():
+            object.__setattr__(self, key, value)
+        self.__post_init__()
 
 
 _PLOT_BUILDERS: Dict[str, PlotBuilderDescriptor] = {}
@@ -1709,15 +1704,8 @@ class PluginDiscoveryRecord:
     details: Mapping[str, Any] = field(default_factory=dict, repr=False)
 
     def __getstate__(self):
-        """Get state for pickling.
-
-        Returns
-        -------
-        dict
-            The state dictionary.
-        """
-        # Convert mappingproxy to dict for pickling
-        return dict(self.__dict__)
+        """Return pickle-safe state for discovery records."""
+        return {key: thaw_plugin_config(value) for key, value in self.__dict__.items()}
 
 
 @dataclass

@@ -89,7 +89,7 @@ class PredictBridgeMonitor(PredictBridge):
         """
         self._calls.append("predict")
         result = self._bridge.predict(x, mode=mode, task=task, bins=bins)
-        self._validate_invariants(result)
+        self._validate_invariants(result, task=task)
         return result
 
     def predict_interval(
@@ -126,11 +126,11 @@ class PredictBridgeMonitor(PredictBridge):
                 "low": result[1],
                 "high": result[2],
             }
-            self._validate_invariants(payload)
+            self._validate_invariants(payload, task=task)
         return result
 
-    def _validate_invariants(self, payload: Mapping[str, Any]) -> None:
-        """Enforce low <= predict <= high invariant.
+    def _validate_invariants(self, payload: Mapping[str, Any], *, task: str = "") -> None:
+        """Enforce calibrated interval invariants.
 
         Parameters
         ----------
@@ -177,16 +177,17 @@ class PredictBridgeMonitor(PredictBridge):
                     },
                 )
 
-            epsilon = 1e-9
-            if not np.all((low - epsilon <= predict) & (predict <= high + epsilon)):
-                raise ValidationError(
-                    "Prediction invariant violated: predict not in [low, high]. This may indicate poor calibration or inconsistent point predictions.",
-                    details={
-                        "predict": predict.tolist(),
-                        "low": low.tolist(),
-                        "high": high.tolist(),
-                    },
-                )
+            if task == "regression":
+                epsilon = 1e-9
+                if not np.all((low - epsilon <= predict) & (predict <= high + epsilon)):
+                    raise ValidationError(
+                        "Prediction invariant violated: predict not in [low, high]. This may indicate poor calibration or inconsistent point predictions.",
+                        details={
+                            "predict": predict.tolist(),
+                            "low": low.tolist(),
+                            "high": high.tolist(),
+                        },
+                    )
         except BaseException:
             exc_type = sys.exc_info()[0]
             if exc_type not in (TypeError, ValueError):

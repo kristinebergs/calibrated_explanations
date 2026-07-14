@@ -1,7 +1,7 @@
 """Red-team tests for reject NCF implementations.
 
-These tests exercise the public NCF contract ``{default, ensured}`` plus
-legacy ``entropy`` input mapping to ``default``.
+These tests exercise the public NCF contract ``{default, ensured}`` and
+fail-fast handling for removed legacy inputs.
 """
 
 from __future__ import annotations
@@ -213,8 +213,7 @@ def test_predict_reject_breakdown_runs_for_all_ncfs(monkeypatch):
     expl = ExplainerStub()
     orchestrator = orch.RejectOrchestrator(expl)
 
-    for ncf in ("default", "ensured", "entropy"):
-        # Include legacy 'entropy' mapping alongside public values.
+    for ncf in ("default", "ensured"):
         orchestrator.initialize_reject_learner(ncf=ncf, w=0.5)
         breakdown = orchestrator.predict_reject_breakdown([[0], [1], [2]], confidence=0.95)
 
@@ -572,13 +571,24 @@ def test_w_zero_raises_for_ensured_ncf(monkeypatch):
         orchestrator.initialize_reject_learner(ncf="ensured", w=0.0)
 
 
-def test_w_zero_allowed_for_default_and_entropy(monkeypatch):
+def test_w_zero_allowed_for_default(monkeypatch):
     """w is accepted/ignored for non-ensured default NCF mode."""
     _, orchestrator = make_stub(monkeypatch)
     orchestrator.initialize_reject_learner(ncf="default", w=0.0)
-    orchestrator.initialize_reject_learner(ncf="entropy", w=0.0)
     assert orchestrator.explainer.reject_ncf == "default"
     assert abs(orchestrator.explainer.reject_ncf_w - 0.0) < 1e-8
+
+
+def test_entropy_ncf_input_raises_validation_error(monkeypatch):
+    """Removed legacy entropy input must fail fast with default migration guidance."""
+    from calibrated_explanations.utils.exceptions import ValidationError  # noqa: PLC0415
+
+    _, orchestrator = make_stub(monkeypatch)
+    with pytest.raises(
+        ValidationError,
+        match="Legacy ncf value 'entropy' is no longer supported; use ncf='default' instead.",
+    ):
+        orchestrator.initialize_reject_learner(ncf="entropy", w=0.0)
 
 
 @pytest.mark.parametrize("bad_w", [-0.01, 1.01])
@@ -601,8 +611,8 @@ def test_removed_explicit_ncf_inputs_raise_validation_error(monkeypatch, ncf):
         orchestrator.initialize_reject_learner(ncf=ncf, w=0.5)
 
 
-def test_default_entropy_breakdown_invariant_to_w(monkeypatch):
-    """default/entropy public reject breakdown must be invariant to w."""
+def test_default_breakdown_invariant_to_w(monkeypatch):
+    """default public reject breakdown must be invariant to w."""
 
     class StubIntervalLearner:
         def predict_proba(self, x, bins=None):
@@ -653,12 +663,6 @@ def test_default_entropy_breakdown_invariant_to_w(monkeypatch):
     orchestrator.initialize_reject_learner(ncf="default", w=0.9)
     default_high = orchestrator.predict_reject_breakdown(x, confidence=0.95)
     assert np.array_equal(default_low["prediction_set_size"], default_high["prediction_set_size"])
-
-    orchestrator.initialize_reject_learner(ncf="entropy", w=0.1)
-    entropy_low = orchestrator.predict_reject_breakdown(x, confidence=0.95)
-    orchestrator.initialize_reject_learner(ncf="entropy", w=0.9)
-    entropy_high = orchestrator.predict_reject_breakdown(x, confidence=0.95)
-    assert np.array_equal(entropy_low["prediction_set_size"], entropy_high["prediction_set_size"])
 
 
 @pytest.mark.parametrize("bad_confidence", [0.0, 1.0, -0.1, 1.1])

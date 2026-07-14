@@ -5,6 +5,7 @@ from __future__ import annotations
 import ast
 import re
 from pathlib import Path
+from tests.helpers.capability_utils import markdown_table_value
 
 
 BEHAVIORAL_OBLIGATION_TYPES = {
@@ -47,11 +48,6 @@ def _yaml_list(text: str, key: str) -> list[str]:
     if not match:
         return []
     return [line.split("-", 1)[1].strip() for line in match.group(1).splitlines()]
-
-
-def _metadata_value(text: str, field: str) -> str:
-    match = re.search(rf"^\| {re.escape(field)} \| ([^|]+) \|", text, re.MULTILINE)
-    return match.group(1).strip() if match else ""
 
 
 def _section(text: str, heading: str) -> str:
@@ -145,8 +141,8 @@ def test_should_validate_adr_claim_requirement_link_metadata() -> None:
                 errors.append(f"{claim_id} references missing requirement {req_id}")
                 continue
             req_text = req_path.read_text(encoding="utf-8")
-            claim_refs = _metadata_value(req_text, "claim_refs")
-            adr_refs = _metadata_value(req_text, "adr_refs")
+            claim_refs = markdown_table_value(req_text, "claim_refs") or ""
+            adr_refs = markdown_table_value(req_text, "adr_refs") or ""
             if claim_id not in claim_refs:
                 errors.append(f"{req_id} does not link back to {claim_id}")
             if not adr_refs:
@@ -169,11 +165,13 @@ def test_should_require_executable_evidence_when_behavioral_requirement_is_imple
 
     for req_path in sorted(req_dir.glob("CE-REQ-*.md")):
         req_text = req_path.read_text(encoding="utf-8")
-        requirement_id = _metadata_value(req_text, "requirement_id") or req_path.stem
-        obligation_type = _metadata_value(req_text, "obligation_type")
-        verification_status = _metadata_value(req_text, "verification_status")
-        adr_refs = _metadata_value(req_text, "adr_refs")
-        gap_ref = _metadata_value(req_text, "gap_ref") or _metadata_value(req_text, "adr_gap_ref")
+        requirement_id = markdown_table_value(req_text, "requirement_id") or req_path.stem
+        obligation_type = markdown_table_value(req_text, "obligation_type") or ""
+        verification_status = markdown_table_value(req_text, "verification_status") or ""
+        adr_refs = markdown_table_value(req_text, "adr_refs") or ""
+        gap_ref = markdown_table_value(req_text, "gap_ref") or markdown_table_value(
+            req_text, "adr_gap_ref"
+        )
         evidence_text = "\n".join(
             [
                 _section(req_text, "Verification method"),
@@ -238,7 +236,7 @@ def test_should_reference_existing_pytest_targets_when_requirements_cite_tests()
         (root / "development" / "capabilities" / "requirements").glob("CE-REQ-*.md")
     ):
         req_text = req_path.read_text(encoding="utf-8")
-        requirement_id = _metadata_value(req_text, "requirement_id") or req_path.stem
+        requirement_id = markdown_table_value(req_text, "requirement_id") or req_path.stem
         for test_file, test_node_id in PYTEST_TARGET_RE.findall(req_text):
             if test_file not in test_index:
                 errors.append(f"{requirement_id} cites missing test file {test_file}")

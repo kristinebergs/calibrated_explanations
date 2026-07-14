@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import pytest
 
 from calibrated_explanations.calibration.normalization_strategy import (
     NormalizationStrategy,
     coerce_normalization_strategy,
 )
+from calibrated_explanations.utils.exceptions import ValidationError
 
 
 def test_should_return_strategy_member_unchanged() -> None:
@@ -16,13 +18,28 @@ def test_should_return_strategy_member_unchanged() -> None:
     )
 
 
-def test_should_fall_back_to_scale_for_boolean_values() -> None:
-    assert coerce_normalization_strategy(True) is NormalizationStrategy.SCALE
-    assert coerce_normalization_strategy(False) is NormalizationStrategy.SCALE
-
-
-def test_should_coerce_strings_and_fallback_for_unknown_values() -> None:
+def test_should_coerce_valid_strings_case_insensitively() -> None:
     assert coerce_normalization_strategy("SCALE") is NormalizationStrategy.SCALE
     assert coerce_normalization_strategy("coherence") is NormalizationStrategy.COHERENCE
-    assert coerce_normalization_strategy("not-a-strategy") is NormalizationStrategy.SCALE
-    assert coerce_normalization_strategy(object()) is NormalizationStrategy.SCALE
+
+
+def test_should_raise_validation_error_for_boolean_values() -> None:
+    with pytest.raises(ValidationError):
+        coerce_normalization_strategy(True)
+    with pytest.raises(ValidationError):
+        coerce_normalization_strategy(False)
+
+
+def test_should_raise_validation_error_for_unknown_string() -> None:
+    with pytest.raises(ValidationError):
+        coerce_normalization_strategy("not-a-strategy")
+
+
+def test_should_raise_validation_error_for_unrecognized_type() -> None:
+    with pytest.raises(ValidationError):
+        coerce_normalization_strategy(object())
+
+
+def test_should_raise_validation_error_for_none() -> None:
+    with pytest.raises(ValidationError):
+        coerce_normalization_strategy(None)

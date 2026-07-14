@@ -207,7 +207,7 @@ def run_prediction_tif_scenario(
 
 
 _DATASET_ID = (
-    "sklearn make_regression n_samples=150 n_features=4 " "n_informative=3 noise=10 random_seed=42"
+    "sklearn make_regression n_samples=150 n_features=4 n_informative=3 noise=10 random_seed=42"
 )
 
 

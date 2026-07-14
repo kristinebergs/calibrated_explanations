@@ -146,8 +146,8 @@ def _plot_probabilistic(
     resolved_explainer = _resolve_explainer(explanation)
     if explanation.is_thresholded():
         if np.isscalar(explanation.y_threshold):
-            ax_negative.set_yticklabels(labels=[f"P(y>{float(explanation.y_threshold) :.2f})"])
-            ax_positive.set_yticklabels(labels=[f"P(y<={float(explanation.y_threshold) :.2f})"])
+            ax_negative.set_yticklabels(labels=[f"P(y>{float(explanation.y_threshold):.2f})"])
+            ax_positive.set_yticklabels(labels=[f"P(y<={float(explanation.y_threshold):.2f})"])
         else:  # interval threshold
             ax_negative.set_yticklabels(
                 labels=[
@@ -161,20 +161,20 @@ def _plot_probabilistic(
             )  # pylint: disable=line-too-long
     elif explanation.get_class_labels() is None:
         if getattr(resolved_explainer, "is_multiclass", lambda: False)():  # pylint: disable=protected-access
-            ax_negative.set_yticklabels(labels=[f'P(y!={explanation.prediction["classes"]})'])
-            ax_positive.set_yticklabels(labels=[f'P(y={explanation.prediction["classes"]})'])
+            ax_negative.set_yticklabels(labels=[f"P(y!={explanation.prediction['classes']})"])
+            ax_positive.set_yticklabels(labels=[f"P(y={explanation.prediction['classes']})"])
         else:
             ax_negative.set_yticklabels(labels=["P(y=0)"])
             ax_positive.set_yticklabels(labels=["P(y=1)"])
     elif explanation.is_multiclass:  # pylint: disable=protected-access
         ax_negative.set_yticklabels(
             labels=[
-                f'P(y!={explanation.get_class_labels()[int(explanation.prediction["classes"])]})'
+                f"P(y!={explanation.get_class_labels()[int(explanation.prediction['classes'])]})"
             ]
         )  # pylint: disable=line-too-long
         ax_positive.set_yticklabels(
             labels=[
-                f'P(y={explanation.get_class_labels()[int(explanation.prediction["classes"])]})'
+                f"P(y={explanation.get_class_labels()[int(explanation.prediction['classes'])]})"
             ]
         )  # pylint: disable=line-too-long
     else:
@@ -590,13 +590,13 @@ def plot_alternative(
     else:
         if explanation.get_class_labels() is None:
             if getattr(resolved_explainer, "is_multiclass", lambda: False)():  # pylint: disable=protected-access
-                ax_main.set_xlabel(f'Probability for class \'{explanation.prediction["classes"]}\'')
+                ax_main.set_xlabel(f"Probability for class '{explanation.prediction['classes']}'")
             else:
                 ax_main.set_xlabel("Probability for the positive class")
         elif getattr(resolved_explainer, "is_multiclass", lambda: False)():  # pylint: disable=protected-access
             # pylint: disable=line-too-long
             ax_main.set_xlabel(
-                f'Probability for class \'{explanation.get_class_labels()[explanation.prediction["classes"]]}\''
+                f"Probability for class '{explanation.get_class_labels()[explanation.prediction['classes']]}'"
             )
         else:
             ax_main.set_xlabel(f"Probability for class '{explanation.get_class_labels()[1]}'")
@@ -617,19 +617,37 @@ def plot_global(explainer, x, y=None, threshold=None, **kwargs):
     show = kwargs.get("show", True)
     if y is not None:
         y = np.asarray(y)
+    # pre-v4 S4-H6: consume the caller-supplied, already-validated prediction
+    # payload when present instead of unconditionally re-deriving it below --
+    # re-derivation used to run only after the "not show and no matplotlib"
+    # no-op check, which let an invalid threshold silently skip validation
+    # whenever a caller plotted with show=False.
+    validated_payload = kwargs.pop("_validated_payload", None)
     # If we're not showing and matplotlib is not available, treat as no-op.
     if not show and plt is None:
         return
     # Otherwise require matplotlib to proceed with plotting
     _require_matplotlib()
-    is_regularized = True
-    if "predict_proba" not in dir(explainer.learner) and threshold is None:
-        predict, (low, high) = explainer.predict(x, uq_interval=True, **kwargs)
-        is_regularized = False
+    if validated_payload is not None:
+        is_regularized = validated_payload["is_regularized"]
+        predict = validated_payload["predict"]
+        proba = validated_payload["proba"]
+        low, high = validated_payload["low"], validated_payload["high"]
     else:
-        proba, (low, high) = explainer.predict_proba(
-            x, uq_interval=True, threshold=threshold, **kwargs
-        )
+        # Only forward prediction-relevant kwargs; plot-only keys (show, path,
+        # save_ext, style, style_override, use_legacy, renderer, ...) would be
+        # rejected by the fail-fast kwarg gates on predict/predict_proba (ADR-038).
+        prediction_kwargs = {
+            key: kwargs[key] for key in ("bins", "low_high_percentiles") if key in kwargs
+        }
+        is_regularized = True
+        if "predict_proba" not in dir(explainer.learner) and threshold is None:
+            predict, (low, high) = explainer.predict(x, uq_interval=True, **prediction_kwargs)
+            is_regularized = False
+        else:
+            proba, (low, high) = explainer.predict_proba(
+                x, uq_interval=True, threshold=threshold, bins=kwargs.get("bins")
+            )
     uncertainty = np.array(high - low)
 
     marker_size = 50
@@ -680,9 +698,9 @@ def plot_global(explainer, x, y=None, threshold=None, **kwargs):
                     UserWarning,
                     stacklevel=2,
                 )
-            assert np.isscalar(
-                threshold
-            ), "The threshold parameter must be a single constant value for all instances when used in plot_global."  # pylint: disable=line-too-long
+            assert np.isscalar(threshold), (
+                "The threshold parameter must be a single constant value for all instances when used in plot_global."
+            )  # pylint: disable=line-too-long
             y = np.array([0 if y[i] >= threshold else 1 for i in range(len(y))])
             labels = [f"Y >= {threshold}", f"Y < {threshold}"]
         else:

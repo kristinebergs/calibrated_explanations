@@ -4,6 +4,13 @@ import numpy as np
 from calibrated_explanations.core.calibrated_explainer import CalibratedExplainer
 from calibrated_explanations.utils.exceptions import ValidationError, DataShapeError
 
+from tests.helpers.explainer_internals import (
+    delete_lime_helper,
+    delete_shap_helper,
+    get_shap_helper,
+    initialize_fast_interval_learner,
+)
+
 
 @pytest.fixture
 def mock_learner():
@@ -68,8 +75,8 @@ def mock_helpers():
 
 
 def test_preloads(mock_learner, mock_plugin_manager):
-    x_cal = np.array([[1, 2]])
-    y_cal = np.array([0])
+    x_cal = np.array([[1, 2], [2, 3]])
+    y_cal = np.array([0, 1])
     explainer = CalibratedExplainer(mock_learner, x_cal, y_cal, mode="classification")
 
     with pytest.raises(AttributeError, match="preload_lime"):
@@ -84,8 +91,8 @@ def test_should_fail_closed_for_removed_plugin_delegations_and_aliases(
     monkeypatch: pytest.MonkeyPatch, mock_learner, mock_plugin_manager
 ):
     monkeypatch.delenv("CE_DEPRECATIONS", raising=False)
-    x_cal = np.array([[1, 2]])
-    y_cal = np.array([0])
+    x_cal = np.array([[1, 2], [2, 3]])
+    y_cal = np.array([0, 1])
     explainer = CalibratedExplainer(mock_learner, x_cal, y_cal, mode="classification")
 
     for name in (
@@ -104,20 +111,29 @@ def test_should_fail_closed_for_removed_plugin_delegations_and_aliases(
         "telemetry_interval_sources",
         "interval_plugin_identifiers",
         "interval_context_metadata",
+        # Task 49 (pre-v4 S4-H1): test-only public aliases removed/dispositioned.
+        "feature_names_internal",
+        "initialize_interval_learner_for_fast_explainer",
+        "bridge_monitors",
+        "explanation_plugin_instances",
+        "pyproject_explanations",
+        "pyproject_intervals",
+        "pyproject_plots",
+        "lime_helper",
+        "shap_helper",
+        "is_initialized",
     ):
         assert not hasattr(explainer, name)
 
     explainer.plot_plugin_fallbacks = {"plot": ("fallback",)}
     assert explainer.plugin_manager.plot_plugin_fallbacks == {"plot": ("fallback",)}
 
-    explainer.explanation_plugin_instances = {"plugin": object()}
-    assert (
-        explainer.plugin_manager.explanation_plugin_instances
-        == explainer.explanation_plugin_instances
-    )
+    sentinel = object()
+    explainer.plugin_manager.explanation_plugin_instances = {"plugin": sentinel}
+    assert explainer.plugin_manager.explanation_plugin_instances == {"plugin": sentinel}
 
     explainer.initialized = True
-    assert explainer.is_initialized is True
+    assert explainer.initialized is True
 
     explainer.parallel_executor = MagicMock()
     explainer.predict_bridge = MagicMock()
@@ -148,7 +164,7 @@ def test_constructor_reject_initialization_uses_orchestrator_path(
     )
 
 
-def test_invalid_features_to_ignore_falls_back_to_constant_features(
+def test_invalid_features_to_ignore_fails_fast_at_public_boundary(
     monkeypatch: pytest.MonkeyPatch,
     mock_learner,
     mock_identify_constant_features,
@@ -156,26 +172,28 @@ def test_invalid_features_to_ignore_falls_back_to_constant_features(
     monkeypatch.delenv("CE_DEPRECATIONS", raising=False)
     mock_identify_constant_features.return_value = np.asarray([1])
 
-    explainer = CalibratedExplainer(
-        mock_learner,
-        np.array([[1, 2], [2, 3]]),
-        np.array([0, 1]),
-        mode="classification",
-        features_to_ignore=["not-an-int"],
-    )
+    with pytest.raises(ValidationError, match="integer feature indices") as exc_info:
+        CalibratedExplainer(
+            mock_learner,
+            np.array([[1, 2], [2, 3]]),
+            np.array([0, 1]),
+            mode="classification",
+            features_to_ignore=["not-an-int"],
+        )
 
-    assert explainer.features_to_ignore == [1]
+    assert exc_info.value.details is not None
+    assert exc_info.value.details.get("param") == "features_to_ignore"
 
 
 def test_enable_fast_mode_resets_on_error(mock_learner):
-    x_cal = np.array([[1, 2]])
-    y_cal = np.array([0])
+    x_cal = np.array([[1, 2], [2, 3]])
+    y_cal = np.array([0, 1])
     explainer = CalibratedExplainer(mock_learner, x_cal, y_cal, mode="classification")
 
     with (
         patch.object(
             explainer,
-            "initialize_interval_learner_for_fast_explainer",
+            "_initialize_interval_learner_for_fast_explainer",
             side_effect=RuntimeError("boom"),
         ),
         pytest.raises(RuntimeError, match="boom"),
@@ -186,8 +204,8 @@ def test_enable_fast_mode_resets_on_error(mock_learner):
 
 
 def test_explain_mondrian_bins_and_legacy_path(mock_learner, mock_plugin_manager):
-    x_cal = np.array([[1, 2]])
-    y_cal = np.array([0])
+    x_cal = np.array([[1, 2], [2, 3]])
+    y_cal = np.array([0, 1])
     explainer = CalibratedExplainer(mock_learner, x_cal, y_cal, mode="classification")
     explainer.bins = np.array([1])
 
@@ -211,8 +229,8 @@ def test_explain_mondrian_bins_and_legacy_path(mock_learner, mock_plugin_manager
 
 def test_additional_coverage(monkeypatch: pytest.MonkeyPatch, mock_learner, mock_plugin_manager):
     monkeypatch.delenv("CE_DEPRECATIONS", raising=False)
-    x_cal = np.array([[1, 2]])
-    y_cal = np.array([0])
+    x_cal = np.array([[1, 2], [2, 3]])
+    y_cal = np.array([0, 1])
 
     # predict_function in kwargs
     def my_predict(x):
@@ -230,20 +248,23 @@ def test_additional_coverage(monkeypatch: pytest.MonkeyPatch, mock_learner, mock
     assert explainer.categorical_features == [0]
 
     # numeric y_cal without class_labels
-    explainer = CalibratedExplainer(mock_learner, x_cal, np.array([0, 1]), mode="classification")
+    numeric_x_cal = np.array([[1, 2], [3, 4]])
+    explainer = CalibratedExplainer(
+        mock_learner, numeric_x_cal, np.array([0, 1]), mode="classification"
+    )
     assert explainer.class_labels == {0: "0", 1: "1"}
 
     # properties
     explainer.plugin_manager = mock_plugin_manager
     _ = explainer.plot_plugin_fallbacks
-    _ = explainer.explanation_plugin_instances
+    _ = explainer.plugin_manager.explanation_plugin_instances
     for removed_alias in (
         "plot_style_override",
         "explanation_plugin_overrides",
         "interval_plugin_override",
     ):
         assert not hasattr(explainer, removed_alias)
-    _ = explainer.shap_helper
+    _ = get_shap_helper(explainer)
     _ = explainer.feature_filter_per_instance_ignore
     _ = explainer.runtime_telemetry
 
@@ -267,16 +288,16 @@ def test_additional_coverage(monkeypatch: pytest.MonkeyPatch, mock_learner, mock
     explainer.get_sigma_test(x_cal)
 
     # initialize for fast
-    explainer.initialize_interval_learner_for_fast_explainer()
+    initialize_fast_interval_learner(explainer)
     mock_plugin_manager.prediction_orchestrator.interval_registry.initialize_for_fast_explainer.assert_called_once()
 
     # reinitialize with bins
-    explainer.bins = np.array([0])
+    explainer.bins = np.array([0, 0])
     mock_plugin_manager.prediction_orchestrator.obtain_interval_calibrator.return_value = (
         MagicMock(),
         "id",
     )
-    explainer.reinitialize(mock_learner, x_cal, y_cal, bins=np.array([0]))
+    explainer.reinitialize(mock_learner, x_cal, y_cal, bins=np.array([0, 0]))
 
     # reinitialize error: mix bins
     explainer.bins = None
@@ -284,9 +305,9 @@ def test_additional_coverage(monkeypatch: pytest.MonkeyPatch, mock_learner, mock
         explainer.reinitialize(mock_learner, x_cal, y_cal, bins=np.array([0]))
 
     # reinitialize error: bin length
-    explainer.bins = np.array([0])
+    explainer.bins = np.array([0, 0])
     with pytest.raises(DataShapeError):
-        explainer.reinitialize(mock_learner, x_cal, y_cal, bins=np.array([0, 1]))
+        explainer.reinitialize(mock_learner, x_cal, y_cal, bins=np.array([0]))
 
     # reinitialize without xs, ys
     explainer.reinitialize(mock_learner)
@@ -311,7 +332,7 @@ def test_additional_coverage(monkeypatch: pytest.MonkeyPatch, mock_learner, mock
     explainer.obtain_interval_calibrator(fast=False, metadata={})
 
     # explain_factual with mondrian
-    explainer.bins = np.array([0])
+    explainer.bins = np.array([0, 0])
     with patch.object(explainer.explanation_orchestrator, "invoke_factual") as mock_invoke:
         explainer.explain_factual(x_cal, bins=explainer.bins)
         mock_invoke.assert_called_once()
@@ -507,5 +528,5 @@ def test_additional_coverage(monkeypatch: pytest.MonkeyPatch, mock_learner, mock
     del explainer.explanation_orchestrator
     del explainer.prediction_orchestrator
     del explainer.reject_orchestrator
-    del explainer.lime_helper
-    del explainer.shap_helper
+    delete_lime_helper(explainer)
+    delete_shap_helper(explainer)

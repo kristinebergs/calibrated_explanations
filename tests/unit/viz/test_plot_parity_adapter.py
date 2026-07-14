@@ -327,9 +327,9 @@ def test_alternative_probabilistic_both_below_05_single_segment_per_bar():
     spec = alternative_probabilistic_both_below_05()
     for bar in spec.body.bars:
         assert bar.segments is not None, "segments must be populated"
-        assert (
-            len(bar.segments) == 1
-        ), f"bar '{bar.label}' expected 1 segment, got {len(bar.segments)}"
+        assert len(bar.segments) == 1, (
+            f"bar '{bar.label}' expected 1 segment, got {len(bar.segments)}"
+        )
     # base_segments for predict=0.25, low=0.15, high=0.35 — all below 0.5 → 1 segment
     assert len(spec.body.base_segments) == 1
 
@@ -342,9 +342,9 @@ def test_alternative_probabilistic_feature_cross_05_two_segments_different_color
     assert cross_bar.segments is not None
     assert len(cross_bar.segments) == 2, "cross-0.5 bar must split into two segments"
     left_color, right_color = cross_bar.segments[0].color, cross_bar.segments[1].color
-    assert (
-        left_color != right_color
-    ), "left and right segments must have distinct colors at 0.5-split"
+    assert left_color != right_color, (
+        "left and right segments must have distinct colors at 0.5-split"
+    )
     # segment boundary must be at 0.5
     assert cross_bar.segments[0].high == pytest.approx(0.5)
     assert cross_bar.segments[1].low == pytest.approx(0.5)

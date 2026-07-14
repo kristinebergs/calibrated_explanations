@@ -34,7 +34,7 @@ class RejectPolicy(Enum):
 
 
 _VALID_NCF = frozenset({"default", "ensured"})
-_LEGACY_NCF_SILENT_MAP = {"entropy": "default"}
+_REMOVED_LEGACY_NCF = frozenset({"entropy"})
 _REMOVED_EXPLICIT_NCF = frozenset({"hinge", "margin"})
 
 
@@ -46,12 +46,14 @@ def normalize_reject_ncf_choice(ncf: str) -> str:
     """Normalize a user-facing reject NCF choice.
 
     Accepted public values are ``default`` and ``ensured``.
-    Legacy ``entropy`` is silently mapped to ``default``.
+    Legacy ``entropy`` is no longer accepted.
     Explicit ``hinge``/``margin`` inputs are rejected.
     """
     lowered = str(ncf).strip().lower()
-    if lowered in _LEGACY_NCF_SILENT_MAP:
-        return _LEGACY_NCF_SILENT_MAP[lowered]
+    if lowered in _REMOVED_LEGACY_NCF:
+        raise ValueError(  # adr002_allow - public dataclass validation contract uses ValueError
+            "Legacy ncf value 'entropy' is no longer supported; use ncf='default' instead."
+        )
     if lowered in _REMOVED_EXPLICIT_NCF:
         raise ValueError(  # adr002_allow - public dataclass validation contract uses ValueError
             "Explicit ncf values 'hinge' and 'margin' are no longer supported; "
@@ -86,7 +88,7 @@ class RejectPolicySpec:
     ncf : str, default 'default'
         Reject NCF mode: ``default`` (task-dependent internal default score)
         or ``ensured`` (interval-width blended with default score).
-        Legacy ``entropy`` is accepted and silently mapped to ``default``.
+        Legacy ``entropy`` is no longer accepted; use ``default`` instead.
     w : float, default 0.5
         Blending weight in [0, 1] used only when ``ncf='ensured'``.
         For ``ncf='default'``, the value is accepted but ignored and

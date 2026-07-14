@@ -324,9 +324,7 @@ def _write_markdown(path: Path, payload: dict[str, object]) -> None:
     lines.append("| File | Line | Test count |")
     lines.append("| --- | --- | --- |")
     for entry in payload["top_lines"]:
-        lines.append(
-            f"| {entry['file']} | {entry['line']} | {entry['test_count']} |"
-        )
+        lines.append(f"| {entry['file']} | {entry['line']} | {entry['test_count']} |")
     lines.append("")
 
     lines.append("## Top hotspot blocks")
@@ -343,9 +341,13 @@ def _write_markdown(path: Path, payload: dict[str, object]) -> None:
     lines.append("## Suggested process")
     lines.append("")
     lines.append("1. Run pytest with `--cov-context=test` to record per-test contexts.")
-    lines.append("2. Run `scripts/over_testing/over_testing_report.py --require-multiple-contexts`.")
+    lines.append(
+        "2. Run `scripts/over_testing/over_testing_report.py --require-multiple-contexts`."
+    )
     lines.append("3. Run this script and inspect the top hotspots above.")
-    lines.append("4. For each hotspot, review tests for duplicate assertions or setup-only coverage.")
+    lines.append(
+        "4. For each hotspot, review tests for duplicate assertions or setup-only coverage."
+    )
     lines.append("5. Consolidate redundant tests and re-run the reports to confirm lower counts.")
     lines.append("")
 
@@ -360,9 +362,7 @@ def _write_contexts_markdown(path: Path, payload: dict[str, object]) -> None:
     lines.append("## Top hotspot lines")
     lines.append("")
     for entry in payload.get("line_contexts", []):
-        lines.append(
-            f"### {entry['file']}:{entry['line']} (test_count={entry['test_count']})"
-        )
+        lines.append(f"### {entry['file']}:{entry['line']} (test_count={entry['test_count']})")
         if entry["contexts"]:
             for context in entry["contexts"]:
                 lines.append(f"- {context}")
@@ -456,9 +456,9 @@ def main() -> int:
                     "file": item.path,
                     "line": item.line,
                     "test_count": item.test_count,
-                    "contexts": _contexts_for_line(
-                        data, repo_root, item, args.context_regex
-                    )[: args.contexts_per_hotspot],
+                    "contexts": _contexts_for_line(data, repo_root, item, args.context_regex)[
+                        : args.contexts_per_hotspot
+                    ],
                 }
                 for item in ranked_lines[: args.top_lines]
             ],
@@ -468,9 +468,9 @@ def main() -> int:
                     "start_line": item.start_line,
                     "end_line": item.end_line,
                     "test_count": item.test_count,
-                    "contexts": _contexts_for_block(
-                        data, repo_root, item, args.context_regex
-                    )[: args.contexts_per_hotspot],
+                    "contexts": _contexts_for_block(data, repo_root, item, args.context_regex)[
+                        : args.contexts_per_hotspot
+                    ],
                 }
                 for item in ranked_blocks[: args.top_blocks]
             ],

@@ -80,6 +80,11 @@ head -100 CHANGELOG.md
 
 Do not propose work that is already present in `CHANGELOG.md`.
 
+When recommending closure evidence for a planned task, prefer:
+- `make local-checks-task TASK=<n>` for task completion
+- `make local-checks-pr` for PR preflight
+- `make local-checks-release` for release-boundary validation
+
 ---
 
 ## Output format

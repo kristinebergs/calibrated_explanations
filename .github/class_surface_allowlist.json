@@ -1,0 +1,337 @@
+{
+  "_comment": "Class-surface freeze for Task 49 (pre-v4.md S4-H1). Enumerates every public (non-underscore, non-dunder) member defined directly on these classes, tiered stable/experimental/compatibility/internal. scripts/quality/check_class_surface_allowlist.py fails when a class gains an unlisted public member, so a future test-only alias cannot reopen this surface silently.",
+  "classes": {
+    "calibrated_explanations.core.calibrated_explainer.CalibratedExplainer": {
+      "append_cal": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "build_instance_telemetry_payload": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "calibrated_confusion_matrix": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "calibration_summary_shape": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "categorical_value_counts_cache": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "close": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "discretize": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "enable_fast_mode": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "explain_factual": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "explain_fast": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "explanation_orchestrator": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "explore_alternatives": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "fast": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "feature_filter_config": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "feature_filter_per_instance_ignore": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "feature_names": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "get_calibration_summaries": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "get_plugin_manager": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "get_sigma_test": {
+        "note": "Cross-module internal collaboration surface used by calibration/interval_regressor.py (CE.get_sigma_test called from IntervalRegressor); not part of the end-user public contract. Task 49 / pre-v4 S4-H1 disposition: (a) internal, documented, retained.",
+        "tier": "internal"
+      },
+      "infer_explanation_mode": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "initialize_pool": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "initialized": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "interval_learner": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "is_fast": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "is_mondrian": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "is_multiclass": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "last_explanation_mode": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "noise_type": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "num_features": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "numeric_sorted_cache": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "obtain_interval_calibrator": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "parallel_executor": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "perf_parallel": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "plot": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "plot_plugin_fallbacks": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "plugin_manager": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "predict": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "predict_bridge": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "predict_calibration": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "predict_proba": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "prediction_orchestrator": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "preprocessor_metadata": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "reinitialize": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "reject_orchestrator": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "require_plugin_manager": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "reset": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "resolve_parallel_executor": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "rule_boundaries": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "runtime_telemetry": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "scale_factor": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "set_difficulty_estimator": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "set_discretizer": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "set_mode": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "set_preprocessor_metadata": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "severity": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "x_cal": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "y_cal": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      }
+    },
+    "calibrated_explanations.core.wrap_explainer.WrapCalibratedExplainer": {
+      "auto_encode": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "calibrate": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "calibrated_confusion_matrix": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "cfg": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "explain_factual": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "explain_fast": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "explore_alternatives": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "export_preprocessor_mapping": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "feature_filter_config": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "fit": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "from_config": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "import_preprocessor_mapping": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "load_state": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "mondrian_categorizer": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "parallel_executor": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "plot": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "pre_fitted": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "predict": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "predict_proba": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "preprocessor": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "preprocessor_metadata": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "runtime_telemetry": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "save_state": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "set_difficulty_estimator": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      },
+      "set_preprocessor_metadata": {
+        "note": "Pre-existing documented public API surface; out of Task 49's S4-H1 audit scope.",
+        "tier": "stable"
+      }
+    }
+  }
+}

@@ -69,16 +69,16 @@ def test_should_return_bounded_probabilities_when_classification_fitted_and_cali
     result = explainer.predict_proba(X_test)
 
     assert result is not None, "predict_proba must return a non-None object"
-    assert len(result) == len(
-        X_test
-    ), f"CE-REQ-PRED-CLASS-API-001: len(result)={len(result)} != len(X_test)={len(X_test)}"
+    assert len(result) == len(X_test), (
+        f"CE-REQ-PRED-CLASS-API-001: len(result)={len(result)} != len(X_test)={len(X_test)}"
+    )
     arr = np.asarray(result)
-    assert (
-        arr.min() >= 0.0
-    ), f"CE-REQ-PRED-CLASS-API-001: probabilities must be >= 0, got min={arr.min()}"
-    assert (
-        arr.max() <= 1.0
-    ), f"CE-REQ-PRED-CLASS-API-001: probabilities must be <= 1, got max={arr.max()}"
+    assert arr.min() >= 0.0, (
+        f"CE-REQ-PRED-CLASS-API-001: probabilities must be >= 0, got min={arr.min()}"
+    )
+    assert arr.max() <= 1.0, (
+        f"CE-REQ-PRED-CLASS-API-001: probabilities must be <= 1, got max={arr.max()}"
+    )
 
 
 def test_should_return_class_labels_when_classification_fitted_and_calibrated(
@@ -95,6 +95,6 @@ def test_should_return_class_labels_when_classification_fitted_and_calibrated(
     result = explainer.predict(X_test)
 
     assert result is not None, "predict must return a non-None object"
-    assert len(result) == len(
-        X_test
-    ), f"CE-REQ-PRED-CLASS-API-001: len(result)={len(result)} != len(X_test)={len(X_test)}"
+    assert len(result) == len(X_test), (
+        f"CE-REQ-PRED-CLASS-API-001: len(result)={len(result)} != len(X_test)={len(X_test)}"
+    )

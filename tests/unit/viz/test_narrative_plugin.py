@@ -75,6 +75,12 @@ def test_narrative_plugin_with_custom_template():
     assert plugin.template_path == "custom_template.yaml"
 
 
+def test_narrative_plugin_uses_packaged_yaml_template_by_default():
+    """Test the packaged YAML template remains the documented default."""
+    plugin = NarrativePlotPlugin()
+    assert plugin.template_path.endswith("explain_template.yaml")
+
+
 # Test with regression
 def test_narrative_plugin_regression_factual(regression_explainer, diabetes_data):
     """Test narrative generation for regression."""
@@ -188,12 +194,12 @@ def test_narrative_generator_emits_caution_and_uncertainty_tags():
         feature_names=["age", "income", "savings"],
     )
 
-    assert narrative.startswith("⚠️ Use caution")
+    assert narrative.startswith("[!] Use caution")
     assert "POS age" in narrative
     assert "NEG income" in narrative
     assert "UNC savings" in narrative
-    assert "⚠️ highly uncertain" in narrative
-    assert "⚠️ direction uncertain" in narrative
+    assert "[!] highly uncertain" in narrative
+    assert "[!] direction uncertain" in narrative
 
 
 def test_load_template_file_validates_format(tmp_path):
@@ -373,6 +379,64 @@ def test_narrative_plugin_template_fallback(enable_fallbacks, tmp_path, monkeypa
     assert captured["template"] == str(default_template)
     assert result[0]["problem_type"] == "binary_classification"
     assert "factual_explanation_beginner" in result[0]
+
+
+def test_narrative_plugin_absolute_template_fallback(enable_fallbacks, tmp_path, monkeypatch):
+    """Ensure missing absolute template paths fall back to the default path."""
+    default_template = tmp_path / "templates" / "explain_template.yaml"
+    default_template.parent.mkdir(parents=True, exist_ok=True)
+    default_template.write_text("stub", encoding="utf-8")
+
+    captured = {}
+
+    class FakeNarrator:
+        def __init__(self, template):
+            captured["template"] = template
+
+        def generate_narrative(
+            self,
+            explanation,
+            problem_type,
+            explanation_type,
+            expertise_level,
+            threshold,
+            feature_names,
+            conjunction_separator,
+            align_weights,
+        ):
+            return f"{explanation_type}:{expertise_level}:{problem_type}"
+
+    monkeypatch.setattr(
+        NarrativePlotPlugin,
+        "_get_default_template_path",
+        staticmethod(lambda: str(default_template)),
+    )
+    monkeypatch.setattr(
+        "calibrated_explanations.viz.narrative_plugin.NarrativeGenerator",
+        FakeNarrator,
+    )
+
+    explanations = SimpleNamespace(
+        explanations=[SimpleNamespace(y_threshold=None)],
+        calibrated_explainer=SimpleNamespace(
+            mode="classification",
+            explainer=SimpleNamespace(feature_names=["f0"]),
+            is_multiclass=lambda: False,
+        ),
+        y_threshold=None,
+    )
+    plugin = NarrativePlotPlugin()
+    missing_absolute = tmp_path / "missing" / "template.yaml"
+
+    with pytest.warns(UserWarning, match=r"fall.*back|template"):
+        result = plugin.plot(
+            explanations,
+            template_path=str(missing_absolute.resolve()),
+            output="dict",
+        )
+
+    assert captured["template"] == str(default_template)
+    assert result[0]["problem_type"] == "binary_classification"
 
 
 def test_narrative_plugindetect_problem_type_variants():

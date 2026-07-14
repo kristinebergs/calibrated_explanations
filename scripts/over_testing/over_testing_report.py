@@ -289,13 +289,15 @@ def _write_block_csv(entries: list[BlockCount], output: Path) -> None:
         writer = csv.writer(handle)
         writer.writerow(["file", "start_line", "end_line", "test_count", "length"])
         for entry in entries:
-            writer.writerow([
-                str(entry.path),
-                entry.start_line,
-                entry.end_line,
-                entry.count,
-                entry.end_line - entry.start_line + 1,
-            ])
+            writer.writerow(
+                [
+                    str(entry.path),
+                    entry.start_line,
+                    entry.end_line,
+                    entry.count,
+                    entry.end_line - entry.start_line + 1,
+                ]
+            )
 
 
 def _write_summary_json(entries: list[SummaryStats], output: Path) -> None:
@@ -348,10 +350,7 @@ def main() -> int:
         pattern=pattern,
     )
     if args.require_multiple_contexts and len(contexts) < 2:
-        print(
-            "Fewer than two coverage contexts detected. "
-            "Re-run pytest with --cov-context=test."
-        )
+        print("Fewer than two coverage contexts detected. Re-run pytest with --cov-context=test.")
         return 1
 
     line_counts = _line_counts(

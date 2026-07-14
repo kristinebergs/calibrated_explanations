@@ -1,4 +1,4 @@
-"""Tests for the v0.11.3 deprecation-closure local lane."""
+"""Tests for the pre-v1.0 deprecation-closure local lane."""
 
 from __future__ import annotations
 
@@ -75,6 +75,7 @@ def test_should_write_reports_when_deprecation_closure_passes(monkeypatch, tmp_p
     assert rc == 0
     assert ledger["status"] == "pass"
     assert ledger["active_rows_count"] == 0
+    assert ledger["blocking_rows_count"] == 0
     assert calls == [
         "Focused deprecation closure tests",
         "ADR-030 ratification lane",
@@ -84,14 +85,14 @@ def test_should_write_reports_when_deprecation_closure_passes(monkeypatch, tmp_p
     assert [step["exit_code"] for step in timing["steps"]] == [0, 0, 0]
 
 
-def test_should_fail_before_running_commands_when_active_deprecations_remain(
+def test_should_report_active_deprecation_rows_as_blocking_when_eta_targets_v1_0_0(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
     """The lane should stop at the ledger gate when Active rows remain."""
     write_deprecation_ledger(
         tmp_path,
-        "| `old_api()` | `new_api()` | v0.1.0 | v0.2.0 | Still active. |",
+        "| `old_api()` | `new_api()` | v0.1.0 | v1.0.0 | Still active. |",
     )
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
@@ -110,4 +111,5 @@ def test_should_fail_before_running_commands_when_active_deprecations_remain(
     assert rc == 1
     assert ledger["status"] == "fail"
     assert ledger["active_rows_count"] == 1
+    assert ledger["blocking_rows_count"] == 1
     assert ledger["blocking_symbols"] == ["`old_api()`"]

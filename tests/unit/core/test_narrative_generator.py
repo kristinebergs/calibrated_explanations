@@ -358,12 +358,12 @@ def test_expand_template_should_tag_uncertain_for_alternatives_when_interval_cov
     lines = [ln.strip() for ln in res.splitlines() if ln.strip().startswith("-")]
 
     total_bedrooms_line = next(ln for ln in lines if "total_bedrooms < 9.00" in ln)
-    assert "⚠️ direction uncertain" not in total_bedrooms_line
-    assert "⚠️ uncertain" not in total_bedrooms_line
+    assert "[!] direction uncertain" not in total_bedrooms_line
+    assert "[!] uncertain" not in total_bedrooms_line
 
     housing_line = next(ln for ln in lines if "housing_median_age" in ln)
-    assert "⚠️ direction uncertain" not in housing_line
-    assert "⚠️ uncertain" in housing_line
+    assert "[!] direction uncertain" not in housing_line
+    assert "[!] uncertain" in housing_line
 
 
 def test_generate_narrative_should_not_split_uncertainty_for_regression():
@@ -409,3 +409,77 @@ def test_generate_narrative_should_not_split_uncertainty_for_regression():
     assert "f2 dec" in res
 
     assert "f1 inc" in res
+
+
+def test_generate_narrative_should_use_binary_prediction_label_instead_of_explained_class():
+    gen = NarrativeGenerator()
+    gen.templates = {
+        "narrative_templates": {
+            "binary_classification": {
+                "factual": {
+                    "advanced": "Prediction: {label}\nCalibrated Probability: {calibrated_pred}"
+                }
+            }
+        }
+    }
+
+    explanation = MagicMock()
+    explanation.get_rules.return_value = {
+        "classes": 1,
+        "base_predict": [0.2],
+        "base_predict_low": [0.1],
+        "base_predict_high": [0.3],
+        "rule": [],
+    }
+    explanation.get_class_labels.return_value = {0: "0", 1: "1"}
+
+    narrative = gen.generate_narrative(
+        explanation,
+        "binary_classification",
+        explanation_type="factual",
+        expertise_level="advanced",
+    )
+
+    assert narrative.splitlines()[0] == "Prediction: 0"
+
+
+def test_generate_narrative_should_populate_runner_up_and_clip_probability_bounds():
+    gen = NarrativeGenerator()
+    gen.templates = {
+        "narrative_templates": {
+            "multiclass_classification": {
+                "factual": {
+                    "advanced": "\n".join(
+                        [
+                            "Calibrated Probability for class {label}: {calibrated_pred}",
+                            "Prediction Interval: [{pred_interval_lower}, {pred_interval_upper}]",
+                            "Runner-up Class: {runner_up_class} (margin {margin_value})",
+                        ]
+                    )
+                }
+            }
+        }
+    }
+
+    explanation = MagicMock()
+    explanation.index = 0
+    explanation.prediction_probabilities = np.array([[0.02, 0.036, 0.944]])
+    explanation.get_rules.return_value = {
+        "classes": 2,
+        "base_predict": [0.944],
+        "base_predict_low": [0.933],
+        "base_predict_high": [1.049],
+        "rule": [],
+    }
+    explanation.get_class_labels.return_value = {0: "0", 1: "1", 2: "2"}
+
+    narrative = gen.generate_narrative(
+        explanation,
+        "multiclass_classification",
+        explanation_type="factual",
+        expertise_level="advanced",
+    )
+
+    assert "Calibrated Probability for class 2: 0.944" in narrative
+    assert "Prediction Interval: [0.933, 1.000]" in narrative
+    assert "Runner-up Class: 1 (margin 0.908)" in narrative

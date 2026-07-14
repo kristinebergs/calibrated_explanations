@@ -15,6 +15,7 @@ import numpy as np
 from crepes import ConformalClassifier
 from crepes.extras import hinge
 
+from ...api.params import reject_removed_reject_kwargs
 from ...explanations.reject import (
     RejectContractWarning,
     RejectDecisionArtifact,
@@ -30,9 +31,8 @@ from ..difficulty_estimator_helpers import validate_difficulty_estimator_provena
 from .policy import RejectPolicy
 
 # Module-level flag: emit the 100% ambiguity UserWarning at most once per process.
-# Python's __warningregistry__ deduplication is unreliable here because venn_abers.py
-# calls warnings.filterwarnings() globally (not inside catch_warnings()), which
-# increments _filters_version and clears all registries every time calibration runs.
+# This keeps the contract stable regardless of caller-level warning filters or
+# repeated reject-policy execution inside the same interpreter session.
 _AMBIGUITY_WARNING_ISSUED = False
 _VALID_NCF = frozenset({"default", "ensured"})
 _DIFFICULTY_STRATEGIES = frozenset(
@@ -113,6 +113,23 @@ def validate_reject_w(w: Any) -> float:
             details={"w": value},
         )
     return value
+
+
+def reject_unknown_reject_kwargs(
+    kwargs: dict[str, Any], *, allowed: tuple[str, ...] = (), surface: str
+) -> None:
+    """Reject unexpected public kwargs on reject-policy entry points."""
+    unknown = sorted(name for name in kwargs if name not in allowed)
+    if not unknown:
+        return
+    raise ConfigurationError(
+        f"{surface} received unknown keyword arguments: {unknown}.",
+        details={
+            "surface": surface,
+            "unknown_kwargs": unknown,
+            "allowed_kwargs": list(allowed),
+        },
+    )
 
 
 def _thresholds_equal(lhs: Any, rhs: Any) -> bool:
@@ -348,7 +365,10 @@ def _legacy_base_ncf(proba: np.ndarray, ncf: str) -> np.ndarray:
         predict_high, so the width ``proba[:,1] - proba[:,0]`` is the
         calibrated uncertainty interval (used by ``ensured``).
     ncf : {'ensured', 'entropy', 'margin'}
-        Non-conformity function type.
+        Internal legacy non-conformity function type. The public reject-policy
+        boundary accepts only ``default`` and ``ensured``; ``entropy``,
+        ``hinge``, and ``margin`` now raise ``ValidationError`` before they
+        reach this helper.
 
     Returns
     -------
@@ -1230,6 +1250,8 @@ class RejectOrchestrator:
                 source_indices = [i for i, r in enumerate(rejected) if r]
             elif policy is RejectPolicy.ONLY_ACCEPTED:
                 source_indices = [i for i, r in enumerate(rejected) if not r]
+            if policy in (RejectPolicy.ONLY_REJECTED, RejectPolicy.ONLY_ACCEPTED):
+                matched_count = len(source_indices)
 
             if explain_fn is not None:
                 try:
@@ -1239,7 +1261,6 @@ class RejectOrchestrator:
                         policy is RejectPolicy.ONLY_REJECTED or policy is RejectPolicy.ONLY_ACCEPTED
                     ):
                         idx = source_indices
-                        matched_count = len(idx)
                         if idx:
                             subset = (
                                 np.asarray(x)[idx]
@@ -1527,8 +1548,7 @@ class RejectOrchestrator:
         if ncf == "ensured":
             if validated_w == 0.0:
                 raise ValidationError(
-                    "w=0.0 with ncf='ensured' is not allowed. Use w > 0.0 "
-                    "(recommended w >= 0.1).",
+                    "w=0.0 with ncf='ensured' is not allowed. Use w > 0.0 (recommended w >= 0.1).",
                     details={"w": validated_w, "ncf": ncf},
                 )
             if validated_w < 0.1:
@@ -1940,11 +1960,8 @@ class RejectOrchestrator:
         reject_rate = 0.0 if num_instances == 0 else float(np.mean(rejected))
 
         # Warn when the score distribution has been flattened so severely that every
-        # instance becomes an ambiguous multi-label prediction set.  The module-level
-        # flag gates the UserWarning to one emission per process: Python's normal
-        # __warningregistry__ deduplication is unreliable here because venn_abers.py
-        # calls warnings.filterwarnings() globally (not inside catch_warnings()), which
-        # increments _filters_version and clears all registries on every calibration run.
+        # instance becomes an ambiguous multi-label prediction set. The module-level
+        # flag keeps the UserWarning to one emission per process.
         if num_instances > 0 and float(np.mean(ambiguity)) >= 1.0:
             global _AMBIGUITY_WARNING_ISSUED
             _msg = (
@@ -2046,6 +2063,8 @@ class RejectOrchestrator:
             predictions that are incorrect, and ``reject_rate`` is the fraction of
             instances rejected.
         """
+        reject_removed_reject_kwargs(kwargs)
+        reject_unknown_reject_kwargs(kwargs, surface="predict_reject")
         breakdown = self.predict_reject_breakdown(
             x, bins=bins, confidence=reject_confidence, threshold=threshold
         )
@@ -2083,8 +2102,27 @@ class RejectOrchestrator:
         Returns
         -------
         RejectResult
-            Envelope with `prediction`, `explanation`, `rejected`, `policy`, and `metadata`.
+            Envelope with `prediction`, `explanation`, `rejected`, `policy`, and metadata.
         """
+        reject_removed_reject_kwargs(kwargs)
+        if explain_fn is None:
+            reject_unknown_reject_kwargs(
+                kwargs,
+                allowed=(
+                    "strategy",
+                    "result_schema",
+                    "interval_summary",
+                    "include_prediction_set",
+                    "include_prediction_payload",
+                    "novelty_estimator",
+                    "novelty_weight",
+                    "ambiguity_estimator",
+                    "_precomputed_breakdown",
+                    "_metadata_overrides",
+                    "_reject_raise",
+                ),
+                surface="apply_policy",
+            )
         confidence = validate_reject_confidence(reject_confidence)
         # Allow callers to select a strategy identifier via the `strategy` kwarg.
         # By default, resolve to `builtin.default` which preserves legacy semantics.
@@ -2453,6 +2491,8 @@ class RejectOrchestrator:
             source_indices = [i for i, r in enumerate(rejected) if r]
         elif policy is RejectPolicy.ONLY_ACCEPTED:
             source_indices = [i for i, r in enumerate(rejected) if not r]
+        if policy in (RejectPolicy.ONLY_REJECTED, RejectPolicy.ONLY_ACCEPTED):
+            matched_count = len(source_indices)
 
         # Obtain explanations via provided callable according to policy
         if explain_fn is not None:
@@ -2463,7 +2503,6 @@ class RejectOrchestrator:
                 elif policy is RejectPolicy.ONLY_REJECTED:
                     # Process only rejected instances
                     idx = source_indices
-                    matched_count = len(idx)
                     if idx:
                         subset = (
                             np.asarray(x)[idx] if isinstance(x, np.ndarray) else [x[i] for i in idx]
@@ -2474,7 +2513,6 @@ class RejectOrchestrator:
                 elif policy is RejectPolicy.ONLY_ACCEPTED:
                     # Process only non-rejected (accepted) instances
                     idx = source_indices
-                    matched_count = len(idx)
                     if idx:
                         subset = (
                             np.asarray(x)[idx] if isinstance(x, np.ndarray) else [x[i] for i in idx]

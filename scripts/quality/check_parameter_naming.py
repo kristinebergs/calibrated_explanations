@@ -20,11 +20,7 @@ from pathlib import Path
 # Derive the banned set from the authoritative REMOVED_ALIAS_MAP in api/params.py.
 # ---------------------------------------------------------------------------
 _PARAMS_MODULE = (
-    Path(__file__).resolve().parents[2]
-    / "src"
-    / "calibrated_explanations"
-    / "api"
-    / "params.py"
+    Path(__file__).resolve().parents[2] / "src" / "calibrated_explanations" / "api" / "params.py"
 )
 
 

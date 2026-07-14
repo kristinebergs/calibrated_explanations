@@ -1,6 +1,8 @@
 # CI governance ownership
 /.github/workflows/ @tuvelofstrom
-/.github/actions/ci-policy/ @tuvelofstrom
+/.github/actions/ @tuvelofstrom
+# ADR-035 §5 policy integrity: the full-inventory CI-policy validator
+/scripts/quality/validate_ci_policy.py @tuvelofstrom
 /.github/CODEOWNERS @tuvelofstrom
 # ADR-035 §1 governance: scripts/local_checks.py is an ADR-035-governed file
 /scripts/local_checks.py @tuvelofstrom

@@ -92,17 +92,17 @@ By default, narratives vertically align the weight columns for better readabilit
 ```python
 # With alignment (default)
 explanations.to_narrative(align_weights=True)
-# Result:
-# * Glucose (145.0) > 120      — weight ≈ 0.150
-# * BMI (28.5) > 25            — weight ≈ 0.082
-# * Age (55) > 40              — weight ≈ 0.045
+# Result (illustrative — exact spacing/marker may differ by expertise level):
+# * Glucose (145.0) > 120      - weight ~ 0.150
+# * BMI (28.5) > 25            - weight ~ 0.082
+# * Age (55) > 40              - weight ~ 0.045
 
 # Without alignment
 explanations.to_narrative(align_weights=False)
-# Result:
-# * Glucose (145.0) > 120 — weight ≈ 0.150
-# * BMI (28.5) > 25 — weight ≈ 0.082
-# * Age (55) > 40 — weight ≈ 0.045
+# Result (illustrative):
+# * Glucose (145.0) > 120 - weight ~ 0.150
+# * BMI (28.5) > 25 - weight ~ 0.082
+# * Age (55) > 40 - weight ~ 0.045
 ```
 
 ## Interval Probabilistic Regression
@@ -135,7 +135,7 @@ The `to_narrative()` method supports multiple output formats:
 
 ## Creating Custom Templates
 
-1. Copy the default template from `src/calibrated_explanations/templates/explain_template.json`
+1. Copy the default template from `src/calibrated_explanations/templates/explain_template.yaml`
 2. Modify the templates as needed
 3. Pass your template path to `to_narrative()`:
 

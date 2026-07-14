@@ -11,6 +11,9 @@ assumption boundary.
 
 from __future__ import annotations
 
+import re
+
+import numpy as np
 import pytest
 
 pytest.importorskip(
@@ -18,7 +21,7 @@ pytest.importorskip(
     reason="pyyaml not installed; skipping narrative contract tests (requires 'narrative' extra)",
 )
 
-from sklearn.datasets import make_classification  # noqa: E402
+from sklearn.datasets import load_breast_cancer, load_iris, make_classification  # noqa: E402
 from sklearn.ensemble import RandomForestClassifier  # noqa: E402
 from sklearn.model_selection import train_test_split  # noqa: E402
 
@@ -28,6 +31,13 @@ _RNG_SEED = 42
 _N_SAMPLES = 120
 _N_FEATURES = 4
 _N_TEST = 3
+
+
+def _find_narrative_line(text: str, prefix: str) -> str:
+    for line in text.splitlines():
+        if line.startswith(prefix):
+            return line
+    raise AssertionError(f"Could not find narrative line starting with {prefix!r} in:\n{text}")
 
 
 @pytest.fixture(scope="module")
@@ -72,8 +82,89 @@ def test_should_return_non_empty_string_when_narrative_text_format(
     """
     result = factual_explanations.to_narrative(output_format="text")
 
-    assert (
-        result is not None
-    ), "CE-REQ-NARR-API-001: to_narrative(output_format='text') must return non-None"
+    assert result is not None, (
+        "CE-REQ-NARR-API-001: to_narrative(output_format='text') must return non-None"
+    )
     assert isinstance(result, str), f"CE-REQ-NARR-API-001: result must be str, got {type(result)}"
     assert len(result) > 0, "CE-REQ-NARR-API-001: to_narrative text output must be non-empty"
+
+
+def test_should_report_same_binary_prediction_label_in_narrative_as_predict_output():
+    """Verify binary narratives state the same predicted label as the calibrated predictor."""
+    dataset = load_breast_cancer()
+    X_train, X_test, y_train, _ = train_test_split(
+        dataset.data,
+        dataset.target,
+        test_size=0.2,
+        stratify=dataset.target,
+        random_state=_RNG_SEED,
+    )
+    X_proper, X_cal, y_proper, y_cal = train_test_split(
+        X_train,
+        y_train,
+        test_size=0.25,
+        stratify=y_train,
+        random_state=_RNG_SEED,
+    )
+
+    explainer = WrapCalibratedExplainer(
+        RandomForestClassifier(n_estimators=100, random_state=_RNG_SEED)
+    )
+    explainer.fit(X_proper, y_proper)
+    explainer.calibrate(X_cal, y_cal, feature_names=dataset.feature_names.tolist())
+
+    predictions = explainer.predict(X_test)
+    class_zero_idx = int(np.flatnonzero(predictions == 0)[0])
+    class_one_idx = int(np.flatnonzero(predictions == 1)[0])
+    selected_indices = [class_zero_idx, class_one_idx]
+
+    explanations = explainer.explain_factual(X_test[selected_indices])
+    narratives = [
+        explanations[idx].to_narrative(output_format="text", expertise_level="advanced")
+        for idx in range(len(selected_indices))
+    ]
+
+    assert _find_narrative_line(narratives[0], "Prediction:") == "Prediction: 0"
+    assert _find_narrative_line(narratives[1], "Prediction:") == "Prediction: 1"
+
+
+def test_should_render_multiclass_runner_up_and_truthful_predicted_class_in_narrative():
+    """Verify multiclass narratives include runner-up details and name the predicted class."""
+    dataset = load_iris()
+    X_train, X_test, y_train, _ = train_test_split(
+        dataset.data,
+        dataset.target,
+        test_size=0.3,
+        stratify=dataset.target,
+        random_state=_RNG_SEED,
+    )
+    X_proper, X_cal, y_proper, y_cal = train_test_split(
+        X_train,
+        y_train,
+        test_size=0.3,
+        stratify=y_train,
+        random_state=_RNG_SEED,
+    )
+
+    explainer = WrapCalibratedExplainer(
+        RandomForestClassifier(n_estimators=100, random_state=_RNG_SEED)
+    )
+    explainer.fit(X_proper, y_proper)
+    explainer.calibrate(X_cal, y_cal, feature_names=list(dataset.feature_names))
+
+    prediction = explainer.predict(X_test[:1])[0]
+    narrative = explainer.explain_factual(X_test[:1])[0].to_narrative(
+        output_format="text",
+        expertise_level="advanced",
+    )
+
+    assert _find_narrative_line(
+        narrative,
+        "Calibrated Probability for class",
+    ).startswith(f"Calibrated Probability for class {prediction}:")
+    assert "Runner-up Class:  (margin )" not in narrative
+
+    match = re.search(r"Runner-up Class:\s+(.+?)\s+\(margin\s+([0-9.]+)\)", narrative)
+    assert match is not None
+    assert match.group(1).strip() != ""
+    assert float(match.group(2)) >= 0.0

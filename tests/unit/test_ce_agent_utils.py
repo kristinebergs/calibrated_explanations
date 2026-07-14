@@ -369,6 +369,42 @@ def test_explain_and_narrate_invalid_mode_and_narrative_fallback(monkeypatch):
     assert narrative == ""
 
 
+def test_should_raise_configuration_error_when_narrative_format_is_used(monkeypatch):
+    ce_utils = importlib.import_module("calibrated_explanations.ce_agent_utils")
+    monkeypatch.setattr(ce_utils, "ensure_ce_first_wrapper", lambda w: w)
+    monkeypatch.setattr(
+        ce_utils,
+        "enforce_ce_first_and_execute",
+        lambda action, *args, **kwargs: action(*args, **kwargs),
+    )
+
+    class FakeExplanation:
+        def to_narrative(self, **_kwargs):
+            return "narrative"
+
+    class FakeWrapper:
+        fitted = True
+        calibrated = True
+        learner = types.SimpleNamespace(predict_proba=lambda _x: None)
+
+        def explain_factual(self, _x, **_kwargs):
+            return [FakeExplanation()]
+
+        def predict(self, _x, **_kwargs):
+            return [1.0]
+
+        def predict_proba(self, _x, **_kwargs):
+            return [[0.1, 0.9]]
+
+    wrapper = FakeWrapper()
+
+    with pytest.raises(ConfigurationError, match="narrative_format was removed in v0.11.6"):
+        ce_utils.explain_and_narrate(wrapper, [[1.0]], narrative_format="short")
+
+    with pytest.raises(ConfigurationError, match="narrative_format was removed in v0.11.6"):
+        ce_utils.explain_and_summarize(wrapper, [[1.0]], narrative_format="short")
+
+
 def test_conjunction_helpers_raise_for_unsupported_objects():
     with pytest.raises(ModelNotSupportedError):
         add_conjunctions(object())

@@ -69,6 +69,57 @@ class TestBuiltinsCoverage:
         with pytest.raises(ValidationError, match="Prediction invariant violated"):
             bridge.predict("X", mode="regression", task="regression")
 
+    def test_legacy_predict_bridge_classification_allows_label_payloads(self):
+        """Classification bridge should keep score intervals and class labels together."""
+        mock_explainer = Mock()
+        mock_explainer.predict.side_effect = [
+            (np.array([0.9]), (np.array([0.4]), np.array([0.6]))),
+            np.array([1]),
+        ]
+        bridge = LegacyPredictBridge(mock_explainer)
+
+        payload = bridge.predict("X", mode="factual", task="classification")
+
+        assert payload["predict"][0] == 0.9
+        assert payload["classes"][0] == 1
+
+    def test_legacy_predict_bridge_classification_returns_classes_when_interval_bounds_are_non_numeric(
+        self,
+    ):
+        """Classification bridge should keep class payloads when interval bounds are non-numeric."""
+        mock_explainer = Mock()
+        mock_explainer.predict.side_effect = [
+            (
+                np.array([0.9]),
+                (
+                    np.array(["low"], dtype=object),
+                    np.array(["high"], dtype=object),
+                ),
+            ),
+            np.array([1]),
+        ]
+        bridge = LegacyPredictBridge(mock_explainer)
+
+        payload = bridge.predict("X", mode="factual", task="classification")
+
+        assert payload["classes"][0] == 1
+        assert payload["low"][0] == "low"
+        assert payload["high"][0] == "high"
+
+    def test_legacy_predict_bridge_regression_returns_payload_when_prediction_is_non_numeric(self):
+        """Regression bridge should skip point-in-interval checks for non-numeric predictions."""
+        mock_explainer = Mock()
+        mock_explainer.predict.return_value = (
+            np.array(["uncertain"], dtype=object),
+            (np.array([0.4]), np.array([0.6])),
+        )
+        bridge = LegacyPredictBridge(mock_explainer)
+
+        payload = bridge.predict("X", mode="factual", task="regression")
+
+        assert payload["predict"][0] == "uncertain"
+        assert "classes" not in payload
+
     def test_legacy_interval_calibrator_plugin_create_missing_explainer(self):
         """Test LegacyIntervalCalibratorPlugin create method errors."""
         plugin = LegacyIntervalCalibratorPlugin()

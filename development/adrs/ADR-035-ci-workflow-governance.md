@@ -1,6 +1,6 @@
 > **Active scope:** Governing architectural decision for CI workflow policy, job-level contracts, and the `validate_ci_policy` governance gate. The parity-reference scikit-learn pin (Task 7, v0.11.4) is an implementation milestone within this ADR's lifecycle.
 
-> **Status note (2026-04-09):** Last edited 2026-04-09
+> **Status note (2026-07-13):** Last edited 2026-07-13 (v0.11.6 Task 60 v1 consolidation)
 > Archive after: Retain indefinitely as architectural record
 > Implementation window: v0.11.1–v1.0.0
 
@@ -22,51 +22,61 @@ Without binding governance and automated enforcement, future PRs can reintroduce
 
 ## Decision
 
+> **v1 consolidation note (2026-07-13, v0.11.6 Task 60):** sections 1–5 below
+> were rewritten when the workflow inventory was consolidated from 14 files to
+> 3 and the validator became blocking and full-inventory. The pre-consolidation
+> rules (reusable-first, diff-based advisory validation, PR checklist
+> metadata) are retained only in git history and in the migration record in
+> `development/finished-work/CI-upgrade.md`.
+
 ### 1. Authoritative policy
 
-This ADR is the authoritative policy for CI workflow governance for any change touching `.github/workflows/**`, `.github/actions/ci-policy/**`, or `scripts/local_checks.py`. `development/finished-work/CI-upgrade.md` is the implementation appendix and migration playbook (migration complete).
+This ADR is the authoritative policy for CI workflow governance for any change touching `.github/workflows/**`, `.github/actions/**`, `scripts/quality/validate_ci_policy.py`, or `scripts/local_checks.py`. `development/finished-work/CI-upgrade.md` is the implementation appendix and migration record.
 
-### 2. Merge blocking criteria
+### 2. Approved inventory (v1)
 
-A PR that modifies CI-governed files MUST NOT merge unless all are satisfied:
+The complete top-level workflow inventory is exactly three files, each with one stated responsibility (`# Responsibility:` header):
 
-1. `ci-policy/validate-workflows` succeeds,
-2. CODEOWNERS approval for workflow/policy files is present,
-3. PR includes CI checklist and short rationale.
+| Workflow | Responsibility | Triggers | Write scopes |
+|---|---|---|---|
+| `ci.yml` | PR + push-to-main validation. Canonical PR gate = `make local-checks-pr` (min Python), full non-viz tests on newest Python, path-sensitive specialists (viz, docs, packaging, governance schema), always-run CI-policy job, aggregate `required` check. Main pushes add coverage + Codecov, package build + clean-wheel smoke, strict docs. | `pull_request`, `push` (main), `workflow_dispatch` | none |
+| `scheduled.yml` | Weekly heavy assurance: full Python matrix, parity harnesses, core-vs-extras parity, perf regression, notebook execution, examples smoke, linkcheck, over-testing analysis, dependency audit. | `schedule` (weekly), `workflow_dispatch` | none |
+| `maintenance.yml` | Manual performance-baseline refresh; opens a reviewable PR on a unique branch; requires a human reason. | `workflow_dispatch` only | `contents: write`, `pull-requests: write` (job-level) |
 
-> **Rollout status note (2026-04-22):** `ci-policy/validate-workflows` currently runs in advisory mode (Rollout step 1). The MUST criteria above become fully enforceable at Rollout step 3 when the check is flipped to required in branch protection. Until then, violations are reported but non-blocking.
+One composite action is approved: `.github/actions/setup-ce-python` (Python setup + constrained installs). Expanding either inventory is a deliberate governance decision: update `APPROVED_WORKFLOWS` / `APPROVED_ACTIONS` in `scripts/quality/validate_ci_policy.py` together with this ADR. A fourth normal workflow requires a documented responsibility that cannot fit the three above; convenience is not sufficient.
 
-### 3. CI policy rules
+### 3. Blocking full-inventory validation (three identical layers)
 
-- **Reusable workflow first:** New entrypoints must call approved reusables (`reusable-python-test.yml`, `reusable-run-make.yml`, `reusable-build-docs.yml`) unless classified as experimental.
-- **Least-privilege permissions:** default `contents: read`; write scopes only in approved maintenance workflows.
-- **External action pinning:** all external `uses:` references MUST be pinned to a full 40-character commit SHA. Local workflow references (for example `./.github/workflows/...`) and local composite actions under `.github/actions/` are exempt.
-- **Pip constraints enforcement:** `pip install` in CI MUST include `-c constraints.txt` or a documented approved equivalent.
-- **Heavy workload gating:** heavy jobs (`parity`, `perf`, `notebook-audit`, `docs`) MUST be path-gated and/or manual/scheduled (`workflow_dispatch` / `schedule`).
-- **Local reproducibility parity:** CI changes that affect contributor-runnable checks MUST update `scripts/local_checks.py` and `Makefile` targets.
-- **Cleanup process:** legacy workflow deletions should be grouped in a `ci:cleanup` PR and reference `development/finished-work/CI-upgrade.md`.
+`python scripts/quality/validate_ci_policy.py --full-inventory` validates the *complete* inventory (not a diff) and is blocking in repository code. The identical command runs in three layers so silent inventory expansion is caught everywhere:
 
-### 4. Exceptions and emergency path
+1. the always-run `policy` job in `ci.yml`,
+2. the `local-checks-pr` profile (`scripts/local_checks.py`, `make local-checks-pr` / `make check-ci-policy`),
+3. the repo-local pre-commit hook scoped to `files: ^\.github/`.
 
-- **Experimental workflows:** must be under `.github/workflows/experimental/` or include `experimental: true`, include expiry (<=30 days), and use label `ci-experimental`.
-- **Urgent exception path:** `ci-exception` label + rollback/migration plan + two maintainer approvals. Exceptions are appended in ADR update notes.
+The validator enforces at least: approved inventory only; no private-skill-repository or skill-sync references; no automated writes to agent skill directories; top-level `permissions: contents: read`; write scopes only in `maintenance.yml`; full-40-char SHA pins for external actions; constrained pip installs; a `# Responsibility:` header per workflow; heavy assurance scheduled/manual only; maintenance dispatch-only; no PR-opening write mechanism outside maintenance; no publishing (packages, tags, releases, docs deploys); no `continue-on-error`; job timeouts; PR-run concurrency cancellation (never for maintenance); unique stable workflow names; the `CI / required` aggregate check; and valid local-profile↔CI command mappings.
+
+### 4. Merge blocking criteria
+
+A PR that modifies CI-governed files MUST NOT merge unless:
+
+1. the `CI / required` aggregate check succeeds (which includes the blocking full-inventory policy job),
+2. CODEOWNERS approval for workflow/policy files is present.
 
 ### 5. Policy integrity
 
-Changes to `.github/actions/ci-policy/**` are high-integrity and require two core maintainer approvals.
+Changes to `scripts/quality/validate_ci_policy.py`, `.github/actions/**`, or this ADR's inventory table are high-integrity and require core maintainer approval (CODEOWNERS).
 
 ## Implementation
 
-- Add local action `.github/actions/ci-policy/action.yml` and validator script `scripts/quality/validate_ci_policy.py`.
-- Add workflow `.github/workflows/ci-policy.yml` to run on PRs touching CI-governed files.
-- Add CODEOWNERS coverage for workflow and policy paths.
-- Add CI PR template for mandatory checklist and audit metadata.
+- `scripts/quality/validate_ci_policy.py` — stdlib-only blocking full-inventory validator (`--full-inventory`).
+- `.github/workflows/ci.yml` `policy` job, `local-checks-pr` profile step, and `.pre-commit-config.yaml` `ci-policy-full-inventory` hook — the three guard layers.
+- CODEOWNERS coverage for workflow and policy paths.
+- Focused tests in `tests/scripts/test_validate_ci_policy.py` (accepted inventory + representative forbidden cases).
 
-## Rollout
+## Required check and remaining platform actions
 
-1. Advisory mode for approximately two weeks / two dev cycles.
-2. Tune false positives and document accepted equivalent patterns.
-3. Flip `ci-policy/validate-workflows` to required status check in branch protection.
+- The single stable required branch-protection check is **`CI / required`** (workflow `CI`, job `required`). It fails when any required child job fails or is cancelled and treats legitimate path-skips as success; the workflow triggers on every PR so the check can never hang pending.
+- **Platform action (repository administrators):** update branch protection to require exactly `CI / required` and remove the pre-consolidation required checks (the former `CI — Pull Request checks` jobs and `ci-policy/validate-workflows`). This is platform-governed and cannot be enforced from repository code; it remains the only outstanding admin step (carried over from the v0.11.3 re-evaluation record below).
 
 
 ## Governed claims

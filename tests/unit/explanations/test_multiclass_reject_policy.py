@@ -154,7 +154,7 @@ def test_resolve_source_indices_uses_cardinality_inference_for_subset_payload():
 
 
 def test_resolve_source_indices_invalid_metadata_falls_back_to_mask():
-    with pytest.warns(UserWarning, match="metadata is invalid"):
+    with pytest.warns(UserWarning, match="source_indices"):
         idxs = resolve_source_indices_for_payload(
             policy=RejectPolicy.ONLY_ACCEPTED,
             metadata={"source_indices": [1, -1], "original_count": 4},
@@ -165,7 +165,7 @@ def test_resolve_source_indices_invalid_metadata_falls_back_to_mask():
 
 
 def test_resolve_source_indices_rejects_duplicate_metadata_indices():
-    with pytest.warns(UserWarning, match="metadata is invalid"):
+    with pytest.warns(UserWarning, match="source_indices"):
         idxs = resolve_source_indices_for_payload(
             policy=RejectPolicy.ONLY_ACCEPTED,
             metadata={"source_indices": [1, 1], "original_count": 4},
@@ -176,7 +176,7 @@ def test_resolve_source_indices_rejects_duplicate_metadata_indices():
 
 
 def test_resolve_source_indices_rejects_unsorted_metadata_indices():
-    with pytest.warns(UserWarning, match="metadata is invalid"):
+    with pytest.warns(UserWarning, match="source_indices"):
         idxs = resolve_source_indices_for_payload(
             policy=RejectPolicy.ONLY_ACCEPTED,
             metadata={"source_indices": [3, 1], "original_count": 4},
@@ -187,7 +187,7 @@ def test_resolve_source_indices_rejects_unsorted_metadata_indices():
 
 
 def test_resolve_source_indices_rejects_out_of_range_metadata_indices():
-    with pytest.warns(UserWarning, match="metadata is invalid"):
+    with pytest.warns(UserWarning, match="source_indices"):
         idxs = resolve_source_indices_for_payload(
             policy=RejectPolicy.ONLY_ACCEPTED,
             metadata={"source_indices": [1, 5], "original_count": 4},

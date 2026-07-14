@@ -161,7 +161,8 @@ trusted_plugins = (trusted_plugin,)
   ```py
   # old
   from calibrated_explanations import RejectPolicy
-  policy = RejectPolicy.PREDICT_AND_FLAG   # or EXPLAIN_ALL
+
+  policy = RejectPolicy.PREDICT_AND_FLAG  # or EXPLAIN_ALL
   policy = RejectPolicy.EXPLAIN_REJECTS
   policy = RejectPolicy.EXPLAIN_NON_REJECTS  # or SKIP_ON_REJECT
 
@@ -188,7 +189,7 @@ All ten now emit `deprecate()` warnings and are assigned to explicit pre-v1.0 re
 
 ### Active deprecations
 
-All active deprecations were removed in 1.0.0. The Active deprecations section is intentionally empty.
+All active deprecations were removed in v0.11.5. The Active deprecations section is intentionally empty.
 
 | Deprecated symbol | Replacement | Deprecated since | Removal ETA | Notes |
 |---|---|---:|---:|---|
@@ -269,9 +270,10 @@ Symbols listed here have been deleted. Any remaining usage will raise `Attribute
 
 ### Guarded entrypoints now fail on calibration-feature divergence (v0.11.1+)
 
-`explain_factual(guarded=True)` and `explore_alternatives(guarded=True)` now raise
-`ValidationError` when the active prediction backend is not using the same
-calibration feature matrix as `explainer.x_cal`.
+`explainer.explain_factual(..., guarded_options=GuardedOptions(...))` and
+`explainer.explore_alternatives(..., guarded_options=GuardedOptions(...))`
+raise `ValidationError` when the active prediction backend is not using the
+same calibration feature matrix as `explainer.x_cal`.
 
 **Why:** Guarded filtering and interval predictions must share the same
 calibration-feature values to preserve the guarded exchangeability assumption.
@@ -280,7 +282,19 @@ calibration-feature values to preserve the guarded exchangeability assumption.
 
 - Recalibrate the explainer before calling guarded entrypoints if you have rebuilt or swapped interval learners.
 - Do not mutate or replace the backend calibration features independently of `explainer.x_cal`.
-- Use `explain_factual(..., guarded_options=GuardedOptions())` / `explore_alternatives(..., guarded_options=GuardedOptions())` — the old `explain_guarded_factual` / `explore_guarded_alternatives` methods were removed in v0.11.3.
+- Use `explain_factual(..., guarded_options=GuardedOptions())` / `explore_alternatives(..., guarded_options=GuardedOptions())`.
+- The removed `guarded=True` call form now raises `ConfigurationError`; the old `explain_guarded_factual` / `explore_guarded_alternatives` methods were removed in v0.11.3.
+
+```python
+from calibrated_explanations import GuardedOptions
+
+guarded = GuardedOptions(confidence=0.9, n_neighbors=25)
+guarded_factual = explainer.explain_factual(X_sample, guarded_options=guarded)
+guarded_alternatives = explainer.explore_alternatives(
+    X_sample[:2],
+    guarded_options=guarded,
+)
+```
 
 ### Reject NCF public contract simplified (v0.11.1+)
 
@@ -288,7 +302,7 @@ Reject NCF user-facing inputs are now limited to `default` and `ensured`.
 
 - `ncf="default"`: task-dependent internal score (`hinge` for binary + thresholded regression, `margin` for multiclass).
 - `ncf="ensured"`: `score = (1 - w) * interval_width + w * default_score`.
-- Legacy `ncf="entropy"` remains accepted and is silently normalized to `ncf="default"`.
+- Legacy `ncf="entropy"` is no longer accepted and now raises `ValidationError`; use `ncf="default"` instead.
 - Explicit `ncf="hinge"` and `ncf="margin"` are no longer accepted and now raise `ValidationError`.
 
 ### Default `condition_source` changed to `"prediction"` (v0.11.0)

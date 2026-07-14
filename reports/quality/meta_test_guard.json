@@ -1,0 +1,10 @@
+{
+  "schema_version": 1,
+  "status": "pass",
+  "findings_count": 0,
+  "findings": [],
+  "allowlist": {
+    "tests/scripts/test_check_no_release_profile_meta_tests.py": "fixture content for this guard's own detection tests",
+    "tests/capabilities/test_adr_capability_links.py": "capability evidence-chain contract references the status appendix"
+  }
+}

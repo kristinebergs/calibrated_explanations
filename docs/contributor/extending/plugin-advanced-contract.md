@@ -9,7 +9,7 @@ There are five primary methods to wire plugins into calibrated explanations:
 
 | Method | Location | Priority | Use Case |
 |--------|----------|----------|----------|
-| **A** | CalibratedExplainer parameter | 1 (highest) | Development; consistent plugin selection across explainer lifetime |
+| **A** | WrapCalibratedExplainer calibration parameter | 1 (highest) | Development; consistent plugin selection across explainer lifetime |
 | **B** | Explanation.plot() parameter | 1 (highest) | Dynamic comparison; different visualizations for same explanations |
 | **C** | Environment variables | 2 | CI/CD; operator configuration without code changes |
 | **D** | pyproject.toml | 3 | Project-level defaults; distribution with package |
@@ -141,11 +141,11 @@ _EXPLANATION_PLUGINS.pop("test.explanation.fallback", None)
 ```python
 import os
 from calibrated_explanations.plotting import resolve_plot_style_chain
-from tests.helpers.model_utils import get_classification_model
 from sklearn.datasets import load_breast_cancer
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from calibrated_explanations import CalibratedExplainer
+from calibrated_explanations import WrapCalibratedExplainer
 
 # Prepare data and explainer
 data = load_breast_cancer()
@@ -161,11 +161,13 @@ x_train = scaler.fit_transform(x_train)
 x_cal = scaler.transform(x_cal)
 x_test = scaler.transform(x_test)
 
-model, _ = get_classification_model("RF", x_train, y_train)
-explainer = CalibratedExplainer(model, x_cal, y_cal)
+model = RandomForestClassifier(random_state=42)
+explainer = WrapCalibratedExplainer(model)
+explainer.fit(x_train, y_train)
+explainer.calibrate(x_cal, y_cal)
 
 os.environ["CE_PLOT_STYLE"] = "legacy"
-chain = resolve_plot_style_chain(explainer, explicit_style=None)
+chain = resolve_plot_style_chain(explainer.explainer, explicit_style=None)
 assert "legacy" in chain
 ```
 
@@ -174,11 +176,11 @@ assert "legacy" in chain
 ```python
 import os
 from calibrated_explanations.plotting import resolve_plot_style_chain
-from tests.helpers.model_utils import get_classification_model
 from sklearn.datasets import load_breast_cancer
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from calibrated_explanations import CalibratedExplainer
+from calibrated_explanations import WrapCalibratedExplainer
 
 data = load_breast_cancer()
 x = data.data
@@ -193,11 +195,13 @@ x_train = scaler.fit_transform(x_train)
 x_cal = scaler.transform(x_cal)
 x_test = scaler.transform(x_test)
 
-model, _ = get_classification_model("RF", x_train, y_train)
-explainer = CalibratedExplainer(model, x_cal, y_cal)
+model = RandomForestClassifier(random_state=42)
+explainer = WrapCalibratedExplainer(model)
+explainer.fit(x_train, y_train)
+explainer.calibrate(x_cal, y_cal)
 
 os.environ["CE_PLOT_STYLE_FALLBACKS"] = "plot_spec.default,legacy"
-chain = resolve_plot_style_chain(explainer, explicit_style=None)
+chain = resolve_plot_style_chain(explainer.explainer, explicit_style=None)
 assert len(chain) > 0
 ```
 
@@ -281,7 +285,7 @@ Users of your package can override these defaults using environment variables
 
 When multiple configuration methods are active, this priority order applies:
 
-1. Explainer parameter: `CalibratedExplainer(..., plot_style="explicit")`
+1. Wrapper calibration parameter: `WrapCalibratedExplainer(...).calibrate(..., plot_style="explicit")`
 2. Environment variable: `CE_PLOT_STYLE="from_env"`
 3. pyproject.toml: `[tool.calibrated-explanations.plots] style = "from_project"`
 4. Explanation plugin metadata: `"plot_dependency": "from_plugin"`
@@ -292,11 +296,11 @@ When multiple configuration methods are active, this priority order applies:
 ```python
 import os
 from calibrated_explanations.plotting import resolve_plot_style_chain
-from tests.helpers.model_utils import get_classification_model
 from sklearn.datasets import load_breast_cancer
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
-from calibrated_explanations import CalibratedExplainer
+from calibrated_explanations import WrapCalibratedExplainer
 
 data = load_breast_cancer()
 x = data.data
@@ -311,18 +315,19 @@ x_train = scaler.fit_transform(x_train)
 x_cal = scaler.transform(x_cal)
 x_test = scaler.transform(x_test)
 
-model, _ = get_classification_model("RF", x_train, y_train)
+model = RandomForestClassifier(random_state=42)
 
 os.environ["CE_PLOT_STYLE"] = "env.plot"
 
-explainer = CalibratedExplainer(
-    model,
+explainer = WrapCalibratedExplainer(model)
+explainer.fit(x_train, y_train)
+explainer.calibrate(
     x_cal,
     y_cal,
     plot_style="plot_spec.default",
 )
 
-chain = resolve_plot_style_chain(explainer, explicit_style="plot_spec.default")
+chain = resolve_plot_style_chain(explainer.explainer, explicit_style="plot_spec.default")
 assert chain[0] == "plot_spec.default"
 ```
 
@@ -376,13 +381,15 @@ When an explanation plugin is registered with dependencies, the calibrated expla
 automatically seeds these dependencies into the fallback chain:
 
 ```python
+from calibrated_explanations import WrapCalibratedExplainer
 from calibrated_explanations.plugins import register_explanation_plugin
 
 plugin = HelloFactualPlugin()
 register_explanation_plugin("hello.explanation.factual", plugin)
 
-explainer = CalibratedExplainer(
-    model,
+explainer = WrapCalibratedExplainer(model)
+explainer.fit(x_train, y_train)
+explainer.calibrate(
     x_cal,
     y_cal,
     factual_plugin="hello.explanation.factual",
@@ -443,9 +450,13 @@ Users of this package can simply import it, and all dependencies are automatical
 
 ```python
 import my_plugin  # Triggers registration and dependency seeding
+from calibrated_explanations import WrapCalibratedExplainer
 
-explainer = CalibratedExplainer(
-    model, x_cal, y_cal,
+explainer = WrapCalibratedExplainer(model)
+explainer.fit(x_train, y_train)
+explainer.calibrate(
+    x_cal,
+    y_cal,
     factual_plugin="my.explanation.advanced",
     # Automatically uses my.plot.advanced and my.interval.advanced
 )

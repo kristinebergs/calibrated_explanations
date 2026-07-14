@@ -17,6 +17,7 @@ Primary classes
 from __future__ import annotations
 
 import contextlib
+import logging
 import math
 import re
 import warnings
@@ -30,6 +31,7 @@ from typing import Any, Dict, Literal, Optional, Tuple
 import numpy as np
 from pandas import Categorical
 
+from ..api.params import reject_unsupported_narrative_kwargs
 from ..plotting import plot_alternative, plot_probabilistic, plot_regression, plot_triangular
 from ..utils import (
     BinaryEntropyDiscretizer,
@@ -45,6 +47,28 @@ from ..utils.exceptions import CalibratedError, ValidationError
 from ..utils.helper import assign_threshold as normalize_threshold
 from ..utils.int_utils import collect_ints
 from ._conjunctions import ConjunctionState
+
+_LOGGER = logging.getLogger(__name__)
+
+
+def _log_forwarded_plot_kwargs(surface: str, kwargs: dict[str, Any], *, allowed: set[str]) -> None:
+    """Emit the governed fallback signal for plot kwargs outside ``allowed``.
+
+    pre-v4 S4-H6: this used to be an INFO-only log, making a misspelled
+    plot-only kwarg (e.g. ``filter_topp``) indistinguishable from a
+    genuinely consumed extension kwarg. CONTRIBUTOR_INSTRUCTIONS.md §5
+    requires a ``UserWarning`` alongside the INFO log for any fallback.
+    """
+    forwarded = sorted(set(kwargs) - allowed)
+    if not forwarded:
+        return
+    message = (
+        f"{surface} forwarding plot keyword arguments to downstream "
+        f"renderers/plugins: {forwarded}. If this is a typo of a built-in "
+        f"argument ({sorted(allowed)}), it will be silently ignored by the renderer."
+    )
+    _LOGGER.info(message)
+    warnings.warn(message, UserWarning, stacklevel=3)
 
 
 @dataclass
@@ -558,7 +582,9 @@ class CalibratedExplanation(ABC):
         filter_top : int, optional
             The number of top features to display.
         **kwargs : dict
-            Additional plotting arguments. See each subclass.
+            Additional plotting arguments. Built-in plot kwargs are consumed on
+            this surface; any remaining keys are forwarded to downstream
+            renderers/plugins with an INFO log entry. See each subclass.
 
         See Also
         --------
@@ -585,8 +611,9 @@ class CalibratedExplanation(ABC):
         Parameters
         ----------
         template_path : str or None, default=None
-            Path to the narrative template file (YAML or JSON).
-            If None or the file doesn't exist, the built-in default template is used.
+            Path to the narrative template file. If None, the built-in default
+            template `explain_template.yaml` is used. Missing template paths
+            fall back to that default with a `UserWarning` and INFO log entry.
         expertise_level : str or tuple of str, default=("beginner", "advanced")
             The expertise level(s) for narrative generation. Can be a single
             level or a tuple of levels. Valid values: "beginner", "intermediate", "advanced".
@@ -614,9 +641,10 @@ class CalibratedExplanation(ABC):
 
         Raises
         ------
-        FileNotFoundError
-            If the template file is not found and no default is available.
-        ValueError
+        ConfigurationError
+            If unsupported keyword arguments are supplied, such as ``format=``
+            or typo'd names that are not part of the public narrative surface.
+        ValidationError
             If an invalid expertise level or output format is specified.
         ImportError
             If pandas is not available and output_format="dataframe" is requested.
@@ -639,6 +667,8 @@ class CalibratedExplanation(ABC):
         :meth:`.plot` : Plot explanations with various visual styles.
         """
         from ..viz.narrative_plugin import NarrativePlotPlugin
+
+        reject_unsupported_narrative_kwargs(kwargs, surface=f"{type(self).__name__}.to_narrative")
 
         # Create a temporary collection with just this explanation
         # We need to wrap this single explanation in a collection-like object
@@ -2367,6 +2397,11 @@ class FactualExplanation(CalibratedExplanation):
         if rnk_metric == "uncertainty":
             rnk_weight = 1.0
             rnk_metric = "ensured"
+        _log_forwarded_plot_kwargs(
+            f"{type(self).__name__}.plot",
+            kwargs,
+            allowed={"style", "return_plot_spec", "renderer", "bins", "low_high_percentiles"},
+        )
 
         # Consistency guard: one-sided intervals cannot show uncertainty bands
         if uncertainty and self.is_one_sided():
@@ -3921,6 +3956,11 @@ class AlternativeExplanation(CalibratedExplanation):
         if rnk_metric == "uncertainty":
             rnk_weight = 1.0
             rnk_metric = "ensured"
+        _log_forwarded_plot_kwargs(
+            f"{type(self).__name__}.plot",
+            kwargs,
+            allowed={"style", "return_plot_spec", "renderer", "bins", "low_high_percentiles"},
+        )
 
         # Use conjunctive rules when available so that conjunctions appear in plots
         if getattr(self, "has_conjunctive_rules", False) and getattr(
@@ -4321,6 +4361,11 @@ class FastExplanation(CalibratedExplanation):
         if rnk_metric == "uncertainty":
             rnk_weight = 1.0
             rnk_metric = "ensured"
+        _log_forwarded_plot_kwargs(
+            f"{type(self).__name__}.plot",
+            kwargs,
+            allowed={"style", "return_plot_spec", "renderer", "bins", "low_high_percentiles"},
+        )
 
         # Consistency guard: one-sided intervals cannot show uncertainty bands
         if uncertainty and self.is_one_sided():

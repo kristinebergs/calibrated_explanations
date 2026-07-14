@@ -10,5 +10,5 @@ try:
 except ImportError:
     raise MissingExtensionError(
         "calibrated_explanations.audio requires the 'ce-audio' package. "
-        "Install with: pip install calibrated_explanations[audio]"
+        "Install with: pip install ce-audio"
     ) from None

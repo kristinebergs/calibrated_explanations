@@ -8,6 +8,7 @@ Usage:
   python scripts/over_testing/prune_generated_tests.py --plan
   python scripts/over_testing/prune_generated_tests.py --apply  # after manual review
 """
+
 from __future__ import annotations
 import argparse
 import json
@@ -21,6 +22,7 @@ PLAN = ROOT / "reports" / "over_testing" / "prune_plan.json"
 
 def load_scan() -> List[dict]:
     import csv
+
     if not SCAN.exists():
         return []
     out = []
@@ -36,7 +38,11 @@ def make_plan(rows: List[dict]) -> dict:
     to_remove = []
     questionable = []
     for r in rows:
-        if r["has_assertion"].lower() in {"false", "0", ""} and r["has_marker"].lower() in {"false", "0", ""}:
+        if r["has_assertion"].lower() in {"false", "0", ""} and r["has_marker"].lower() in {
+            "false",
+            "0",
+            "",
+        }:
             to_remove.append(r["file"])
         else:
             questionable.append(r["file"])
@@ -47,6 +53,7 @@ def make_plan(rows: List[dict]) -> dict:
 def apply_plan(plan: dict) -> None:
     # Backup then delete files listed in plan['proposed_removals']
     import shutil
+
     bdir = ROOT / "reports" / "over_testing" / "backup_removed_tests"
     bdir.mkdir(parents=True, exist_ok=True)
     for f in plan.get("proposed_removals", []):
@@ -59,8 +66,17 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--plan", action="store_true", help="Produce prune_plan.json")
     parser.add_argument("--apply", action="store_true", help="Apply plan (move files)")
-    parser.add_argument("--aggressive", action="store_true", help="Use aggressive heuristic to drop many generated tests")
-    parser.add_argument("--keep-every", type=int, default=6, help="When aggressive, keep every Nth generated test (default=6)")
+    parser.add_argument(
+        "--aggressive",
+        action="store_true",
+        help="Use aggressive heuristic to drop many generated tests",
+    )
+    parser.add_argument(
+        "--keep-every",
+        type=int,
+        default=6,
+        help="When aggressive, keep every Nth generated test (default=6)",
+    )
     args = parser.parse_args(argv)
 
     rows = load_scan()

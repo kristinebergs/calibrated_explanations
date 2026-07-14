@@ -24,13 +24,31 @@ UNIX_ABS_RE = re.compile(
 DEFAULT_SCAN_ROOTS = ("reports",)
 DEFAULT_EXTRA_ARTIFACTS = (".pytest_matplotlib_debug.json",)
 
-BINARY_SKIP_SUFFIXES = frozenset({
-    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico",
-    ".svg", ".pdf", ".eps",
-    ".bin", ".pkl", ".pickle", ".npz", ".npy",
-    ".mp4", ".avi", ".mov",
-    ".zip", ".tar", ".gz", ".bz2",
-})
+BINARY_SKIP_SUFFIXES = frozenset(
+    {
+        ".png",
+        ".jpg",
+        ".jpeg",
+        ".gif",
+        ".webp",
+        ".ico",
+        ".svg",
+        ".pdf",
+        ".eps",
+        ".bin",
+        ".pkl",
+        ".pickle",
+        ".npz",
+        ".npy",
+        ".mp4",
+        ".avi",
+        ".mov",
+        ".zip",
+        ".tar",
+        ".gz",
+        ".bz2",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -80,7 +98,8 @@ def _iter_default_targets(repo_root: Path) -> Iterable[Path]:
         root = repo_root / rel
         if root.is_dir():
             yield from sorted(
-                path for path in root.rglob("*")
+                path
+                for path in root.rglob("*")
                 if path.is_file() and path.suffix.lower() not in BINARY_SKIP_SUFFIXES
             )
         elif root.is_file() and root.suffix.lower() not in BINARY_SKIP_SUFFIXES:
@@ -101,10 +120,13 @@ def _resolve_targets(repo_root: Path, paths: list[str]) -> list[Path]:
     for raw in paths:
         candidate = (repo_root / raw).resolve()
         if candidate.is_dir():
-            resolved.extend(sorted(
-                path for path in candidate.rglob("*")
-                if path.is_file() and path.suffix.lower() not in BINARY_SKIP_SUFFIXES
-            ))
+            resolved.extend(
+                sorted(
+                    path
+                    for path in candidate.rglob("*")
+                    if path.is_file() and path.suffix.lower() not in BINARY_SKIP_SUFFIXES
+                )
+            )
         elif candidate.is_file() and candidate.suffix.lower() not in BINARY_SKIP_SUFFIXES:
             resolved.append(candidate)
     return list(dict.fromkeys(resolved))
@@ -212,7 +234,10 @@ def write_report(report_path: Path, violations: list[Violation]) -> None:
         "version": 1,
         "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "total_violations": len(violations),
-        "violations": [violation.to_dict() for violation in sorted(violations, key=lambda item: item.sort_key())],
+        "violations": [
+            violation.to_dict()
+            for violation in sorted(violations, key=lambda item: item.sort_key())
+        ],
     }
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(
@@ -252,8 +277,14 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     repo_root = args.repo_root.resolve()
-    report_path = (repo_root / args.report).resolve() if not args.report.is_absolute() else args.report.resolve()
-    targets = [path for path in _resolve_targets(repo_root, args.paths) if path.resolve() != report_path]
+    report_path = (
+        (repo_root / args.report).resolve()
+        if not args.report.is_absolute()
+        else args.report.resolve()
+    )
+    targets = [
+        path for path in _resolve_targets(repo_root, args.paths) if path.resolve() != report_path
+    ]
     violations: list[Violation] = []
     for target in targets:
         violations.extend(scan_path(target, repo_root))
@@ -264,7 +295,9 @@ def main(argv: list[str] | None = None) -> int:
     if violations:
         print("Generated artifact local-path violations detected:")
         for violation in violations:
-            location = violation.json_path if violation.json_path is not None else f"line {violation.line}"
+            location = (
+                violation.json_path if violation.json_path is not None else f"line {violation.line}"
+            )
             print(f"- {violation.artifact} ({location}) [{violation.category}] {violation.match}")
         print(f"Report written to {args.report}")
         return 1 if args.check else 0

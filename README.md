@@ -4,7 +4,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/calibrated-explanations)](https://pypi.org/project/calibrated-explanations/)
 [![Conda Version](https://img.shields.io/conda/vn/conda-forge/calibrated-explanations.svg)](https://anaconda.org/conda-forge/calibrated-explanations)
 [![Docs](https://readthedocs.org/projects/calibrated-explanations/badge/?version=latest)](https://calibrated-explanations.readthedocs.io)
-[![CI](https://github.com/Moffran/calibrated_explanations/actions/workflows/ci-main.yml/badge.svg)](https://github.com/Moffran/calibrated_explanations/actions/workflows/ci-main.yml)
+[![CI](https://github.com/Moffran/calibrated_explanations/actions/workflows/ci.yml/badge.svg)](https://github.com/Moffran/calibrated_explanations/actions/workflows/ci.yml)
 
 **Trustworthy AI explanations with uncertainty intervals and counterfactuals, for any scikit-learn model.**
 
@@ -20,7 +20,7 @@ Most XAI tools — LIME, SHAP — explain whatever the model outputs. If the mod
 
 ## What Does the Output Look Like?
 
-Calling `explanation[0].to_narrative(output_format="text", expertise_level="advanced")` returns a structured text narrative. The output below is **(illustrative)** — a loan-approval context using the exact format produced at runtime:
+Calling `explanation[0].to_narrative(output_format="text", expertise_level="advanced")` returns a structured text narrative. The output below is **(illustrative)** — a loan-approval context showing the narrative's structure and content:
 
 ```text
 Factual Explanation:
@@ -30,13 +30,13 @@ Calibrated Probability: 0.840
 Prediction Interval: [0.710, 0.930]
 
 Factors impacting the calibrated probability for class APPROVE positively:
-annual_income (45200) >= 45000 — weight ≈ +0.312 [+0.198, +0.421]
-credit_history_years (5.2) >= 5 — weight ≈ +0.187 [+0.091, +0.284]
-outstanding_debt (2800) < 3000 — weight ≈ +0.143 [+0.055, +0.231]
-employment_status (permanent) = permanent — weight ≈ +0.098 [+0.012, +0.185]
+annual_income (45200) >= 45000 - weight ~ 0.312 [0.198, 0.421]
+credit_history_years (5.2) >= 5 - weight ~ 0.187 [0.091, 0.284]
+outstanding_debt (2800) < 3000 - weight ~ 0.143 [0.055, 0.231]
+employment_status (permanent) = permanent - weight ~ 0.098 [0.012, 0.185]
 
 Factors impacting the calibrated probability for class APPROVE negatively:
-missed_payments (3) > 2 — weight ≈ -0.201 [-0.334, -0.068]
+missed_payments (3) > 2 - weight ~ -0.201 [-0.334, -0.068]
 ```
 
 - The **Prediction Interval** `[0.710, 0.930]` shows the calibrated uncertainty range — narrow means high confidence, wide (e.g., `[0.12, 0.89]`) means the model is uncertain and the decision should be treated with caution.
@@ -137,7 +137,16 @@ explainer.explore_alternatives(X_query)[0].ensured_explanations()  # X_query: ar
 A model can be globally well-calibrated but systematically overconfident for a minority group. CE's **Mondrian/conditional calibration** conditions calibration and uncertainty on a per-instance group label (`bins`) (Löfström & Löfström, xAI 2024). The result: explanation uncertainty intervals are valid *within each group*, not only on average. Wider intervals for a group are a direct, auditable signal of data insufficiency — a concrete fairness artefact that can be reported to regulators or risk committees.
 
 ```python
-explainer.explain_factual(X_query, bins=X_query[:, gender_col_index])
+group_threshold = X_cal[:, gender_col_index].mean()
+explainer.calibrate(
+    X_cal,
+    y_cal,
+    bins=(X_cal[:, gender_col_index] >= group_threshold).astype(int),
+)
+explainer.explain_factual(
+    X_query,
+    bins=(X_query[:, gender_col_index] >= group_threshold).astype(int),
+)
 ```
 
 > **Read more:** [Mondrian / conditional calibration playbook](https://calibrated-explanations.readthedocs.io/en/latest/practitioner/playbooks/mondrian-calibration)
@@ -170,7 +179,7 @@ BibTeX entries are available in [`CITATION.cff`](CITATION.cff).
 pip install calibrated-explanations
 ```
 
-- Python ≥ 3.8
+- Python ≥ 3.10
 - scikit-learn ≥ 1.3
 - crepes ≥ 0.8.0 (conformal calibration backend)
 - venn-abers ≥ 1.4.0 (Venn-Abers calibration)

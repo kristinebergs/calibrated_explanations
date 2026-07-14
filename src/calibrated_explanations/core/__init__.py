@@ -74,7 +74,6 @@ def __getattr__(name: str) -> Any:
         "exceptions",
         "narrative_generator",
         "quick",
-        "test",
         "validation",
     }:
         import importlib

@@ -3,6 +3,7 @@ import json
 import os
 from datetime import datetime, timedelta
 
+
 def generate_allowlist(analysis_file, current_allowlist_file):
     if not os.path.exists(analysis_file):
         print(f"Error: {analysis_file} not found.")
@@ -50,7 +51,7 @@ def generate_allowlist(analysis_file, current_allowlist_file):
                     "file": row["file"],
                     "symbol": name,
                     "expiry": expiry,
-                    "reason": f"Pattern 1 remediation: {name} is allow-listed due to {row.get('message', 'internal logic testing')}"
+                    "reason": f"Pattern 1 remediation: {name} is allow-listed due to {row.get('message', 'internal logic testing')}",
                 }
                 # Use a key to avoid duplicates
                 key = (entry["file"], entry["symbol"])
@@ -68,8 +69,9 @@ def generate_allowlist(analysis_file, current_allowlist_file):
 
     print(f"Updated {current_allowlist_file} with {len(new_entries)} entries.")
 
+
 if __name__ == "__main__":
     generate_allowlist(
         "reports/anti-pattern-analysis/category_a_analysis.csv",
-        ".github/private_member_allowlist.json"
+        ".github/private_member_allowlist.json",
     )

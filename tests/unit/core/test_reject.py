@@ -49,6 +49,7 @@ class MockExplainer:
         )
         self.mock_error_rate = error_rate
         self.mock_reject_rate = reject_rate
+        self.prediction_orchestrator = self
         self.predictions_called = False
         self.predict_calls = []
 
@@ -156,6 +157,34 @@ class TestPolicyBehavior:
         assert len(explain_fn.calls) == 1
         assert len(explain_fn.calls[0][0]) == 2
         np.testing.assert_array_equal(result.rejected, np.array([False, True, False, True]))
+
+    @pytest.mark.parametrize(
+        ("policy", "expected_indices"),
+        [
+            (RejectPolicy.ONLY_REJECTED, [1, 3]),
+            (RejectPolicy.ONLY_ACCEPTED, [0, 2]),
+        ],
+    )
+    def test_subset_prediction_payload_stays_full_batch_while_metadata_tracks_matched_subset(
+        self,
+        policy,
+        expected_indices,
+    ):
+        explainer = MockExplainer(rejected_mask=np.array([False, True, False, True]))
+        orchestrator = MockRejectOrchestrator(explainer)
+        x_input = [[i, i] for i in range(4)]
+
+        result = orchestrator.apply_policy(policy, x=x_input)
+
+        assert result.policy is policy
+        assert result.metadata is not None
+        assert result.metadata["source_indices"] == expected_indices
+        assert result.metadata["matched_count"] == len(expected_indices)
+        assert len(result.prediction) == len(x_input)
+        np.testing.assert_array_equal(
+            np.asarray(result.prediction)[expected_indices],
+            np.full(len(expected_indices), 0.5),
+        )
 
 
 class TestIsPolicyEnabled:

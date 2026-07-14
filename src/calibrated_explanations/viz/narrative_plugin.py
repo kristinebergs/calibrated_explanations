@@ -33,8 +33,8 @@ class NarrativePlotPlugin:
     Parameters
     ----------
     template_path : str, optional
-        Path to the narrative template file (YAML or JSON).
-        If not provided, uses the default template from the project root.
+        Path to the narrative template file. If not provided, uses the packaged
+        default template `explain_template.yaml`.
 
     Examples
     --------
@@ -54,7 +54,8 @@ class NarrativePlotPlugin:
         Parameters
         ----------
         template_path : str, optional
-            Path to the narrative template file.
+            Path to the narrative template file. Missing paths fall back to the
+            packaged default template with a `UserWarning` and INFO log entry.
         """
         self.default_template = self._get_default_template_path()
         self._template_path = template_path or self.default_template
@@ -102,7 +103,9 @@ class NarrativePlotPlugin:
             The explanations to generate narratives for.
         template_path : str, optional
             Path to the narrative template file. If not provided, uses the
-            default template or the one specified during initialization.
+            packaged default template or the one specified during initialization.
+            Missing paths fall back to the packaged default template with a
+            `UserWarning` and INFO log entry.
         expertise_level : str or tuple of str, default=("beginner", "intermediate", "advanced")
             The expertise level(s) for narrative generation. Can be a single
             level or a tuple of levels. Valid values: "beginner", "intermediate", "advanced".
@@ -128,9 +131,7 @@ class NarrativePlotPlugin:
 
         Raises
         ------
-        FileNotFoundError
-            If the template file is not found.
-        ValueError
+        ValidationError
             If an invalid expertise level or output format is specified.
         ImportError
             If pandas is not available and output="dataframe" is requested.
@@ -212,7 +213,7 @@ class NarrativePlotPlugin:
         # Check pandas availability for dataframe output
         if output == "dataframe" and not _PANDAS_AVAILABLE:
             raise ImportError(
-                "Pandas is required for dataframe output. " "Install with: pip install pandas"
+                "Pandas is required for dataframe output. Install with: pip install pandas"
             )
 
         # Detect problem type and explanation type

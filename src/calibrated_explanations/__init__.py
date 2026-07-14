@@ -7,30 +7,25 @@ It is based on the paper "Calibrated Explanations: with Uncertainty Information 
 by Helena Löfström et al.
 """
 
-__version__ = "v0.11.6-dev"
+from __future__ import annotations
 
-import copyreg
 import importlib
+import importlib.metadata as importlib_metadata
 import logging as _logging
-from types import MappingProxyType
 from typing import Any
 
-# Ensure MappingProxyType objects can be pickled project-wide by reducing them
-# to plain dicts. This avoids "cannot pickle 'mappingproxy' object" errors
-# when serializing objects that embed immutable mapping proxies (telemetry,
-# plugin metadata, etc.). Registering here ensures the reducer is active
-# as soon as the package is imported.
-try:  # pragma: no cover - defensive
 
-    def _reduce_mappingproxy(mp: MappingProxyType):
-        return dict, (dict(mp),)
+def _resolve_package_version() -> str:
+    """Return the installed package version or the checked-in fallback."""
+    for distribution_name in ("calibrated_explanations", "calibrated-explanations"):
+        try:
+            return importlib_metadata.version(distribution_name)
+        except importlib_metadata.PackageNotFoundError:
+            continue
+    return "0.11.6.dev0"
 
-    copyreg.pickle(MappingProxyType, _reduce_mappingproxy)
-except (TypeError, AttributeError) as exc:
-    # ADR-002: avoid catching broad Exception; handle the specific
-    # expected failures when registering reducers (type errors or
-    # attribute errors in constrained packaging environments).
-    _logging.getLogger(__name__).debug("MappingProxyType reducer registration skipped: %s", exc)
+
+__version__ = _resolve_package_version()
 
 # Expose viz namespace lazily via __getattr__ (avoid importing heavy backends eagerly)
 # Note: avoid eager imports of explanation, viz and discretizer modules here.
@@ -125,3 +120,6 @@ def __getattr__(name: str) -> Any:
         return configure_logging
 
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+__getattr__.__annotations__["return"] = Any

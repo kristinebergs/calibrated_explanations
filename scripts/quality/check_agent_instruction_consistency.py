@@ -87,6 +87,9 @@ def _normalize_reference(raw: str) -> str:
     reference = raw.strip().strip(".,);:")
     if "#" in reference:
         reference = reference.split("#", maxsplit=1)[0]
+    if "::" in reference:
+        # pytest node ids (`path/to/test.py::test_name`) reference the file.
+        reference = reference.split("::", maxsplit=1)[0]
     return reference
 
 

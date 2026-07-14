@@ -44,6 +44,16 @@ def test_validate_inputs_matrix_shape_checks():
         validation.validate_inputs_matrix(np.zeros((2, 2)), n_features=3)
 
 
+def test_validate_inputs_matrix_rejects_empty_calibration_when_y_required():
+    with pytest.raises(validation.DataShapeError) as exc_info:
+        validation.validate_inputs_matrix(np.empty((0, 2)), y=np.empty((0,)), require_y=True)
+
+    assert "at least one sample" in str(exc_info.value)
+    assert exc_info.value.details is not None
+    assert exc_info.value.details.get("requirement") == "non-empty calibration data"
+    assert exc_info.value.details.get("x_samples") == 0
+
+
 def test_validate_inputs_matrix_finite_checks():
     x = np.array([[1.0, np.nan]])
     with pytest.raises(validation.ValidationError):
@@ -56,6 +66,18 @@ def test_validate_inputs_matrix_finite_checks():
     # Allowing NaN should silence the finiteness guard
     validation.validate_inputs_matrix(x, allow_nan=True)
     validation.validate_inputs_matrix(np.ones((2, 1)), y=y, allow_nan=True)
+
+
+def test_validate_classification_calibration_targets_rejects_single_class():
+    y = np.array([1, 1, 1, 1])
+
+    with pytest.raises(validation.ValidationError) as exc_info:
+        validation.validate_classification_calibration_targets(y)
+
+    assert "at least two unique target classes" in str(exc_info.value)
+    assert exc_info.value.details is not None
+    assert exc_info.value.details.get("unique_class_count") == 1
+    assert exc_info.value.details.get("unique_classes") == [1]
 
 
 def test_validate_model_and_fit_state_errors():

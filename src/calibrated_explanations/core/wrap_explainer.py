@@ -10,6 +10,7 @@ style fit/calibrate/explain surface for downstream users and integrations.
 from __future__ import annotations
 
 import base64
+import copy
 import hashlib
 import json
 import logging as _logging
@@ -31,67 +32,111 @@ from crepes.extras import MondrianCategorizer
 
 from ..api.params import (
     reject_removed_aliases,
+    reject_removed_guarded_kwargs,
+    reject_removed_normalization_kwarg,
+    reject_removed_reject_kwargs,
+    reject_unknown_public_kwargs,
     validate_param_combination,
 )
 from ..utils import check_is_fitted, safe_isinstance  # noqa: F401
 from ..utils.exceptions import (
+    ConfigurationError,
     DataShapeError,
     IncompatibleStateError,
+    ModelNotSupportedError,
     NotFittedError,
     ValidationError,
 )
-from .calibrated_explainer import CalibratedExplainer  # circular during split
+from .calibrated_explainer import (  # circular during split
+    _EXPLAIN_KWARGS as _CE_EXPLAIN_KWARGS,
+)
+from .calibrated_explainer import (
+    _INIT_EXPLICIT_PARAMS as _CE_INIT_EXPLICIT_PARAMS,
+)
+from .calibrated_explainer import (
+    _INIT_KWARGS as _CE_INIT_KWARGS,
+)
+from .calibrated_explainer import (
+    _PREDICT_KWARGS as _CE_PREDICT_KWARGS,
+)
+from .calibrated_explainer import (
+    _PREDICT_PROBA_KWARGS as _CE_PREDICT_PROBA_KWARGS,
+)
+from .calibrated_explainer import (
+    CalibratedExplainer,
+)
 from .prediction_helpers import (
     _apply_conditional_categorizer,
     _normalize_conditional_bins,
     resolve_conditional_bins,
 )
-from .validation import validate_inputs_matrix, validate_model
+from .validation import (
+    validate_bool_parameter,
+    validate_classification_calibration_targets,
+    validate_explainer_init_kwargs,
+    validate_inputs_matrix,
+    validate_model,
+)
 
 if TYPE_CHECKING:  # pragma: no cover - import only for type checking
     from calibrated_explanations.api.config import ExplainerConfig
 
-_KNOWN_PUBLIC_KWARGS: frozenset[str] = frozenset(
+# ADR-038 D3/5A/5B history: unknown public kwargs used to be warned about and
+# forwarded (v0.11.4 Task 15); v0.11.6 Task 5 made every gated method fail fast
+# against a per-method allow-list. See ADR-038's 2026-07-08 Addenda and
+# development/current-work/v0.11.6_plan.md (Tasks 5/5A/5B/5C/5D) for the full
+# rationale, including which historical names were dropped and why.
+#
+# Task 5D invariant: every per-method set below is *derived* from the
+# CalibratedExplainer allow-lists (the single source of truth in
+# calibrated_explainer.py) so the two gates cannot drift apart. Anything
+# CalibratedExplainer accepts on a surface must also be accepted by the
+# wrapper's corresponding method; the wrapper only subtracts
+# "_ce_skip_reject" (internal orchestrator escape hatch, not public API) and
+# adds names the wrapper itself consumes. Enforced by
+# tests/unit/core/test_parameter_surface_contracts.py.
+
+# used by: calibrate() only (session/construction-time configuration).
+# Everything CalibratedExplainer.__init__ accepts -- via **kwargs or as an
+# explicit formal parameter -- plus the wrapper-only "reuse_conditional".
+# perf_cache/perf_parallel are forwarded with kwargs.setdefault() in
+# calibrate(), so a call-time value wins over the wrapper attribute.
+_CALIBRATE_KWARGS: frozenset[str] = (
+    _CE_INIT_KWARGS | _CE_INIT_EXPLICIT_PARAMS | frozenset({"reuse_conditional"})
+)
+
+# used by: explain_factual() and explore_alternatives() (identical kwarg surface
+# at the CalibratedExplainer level; threshold/low_high_percentiles/bins/
+# features_to_ignore/guarded_options bind explicit formals there).
+_EXPLAIN_KWARGS: frozenset[str] = _CE_EXPLAIN_KWARGS
+
+# used by: explain_fast() only. CalibratedExplainer.explain_fast has no **kwargs
+# at all -- these mirror its fully explicit signature exactly (checked by the
+# parameter-surface contract tests).
+_EXPLAIN_FAST_KWARGS: frozenset[str] = frozenset(
     {
         "bins",
-        "categorical_features",
-        "classes",
-        "confidence",
-        "condition",
-        "condition_label",
-        "condition_labels",
-        "condition_source",
-        "default_reject_policy",
-        "difficulty_estimator",
-        "fast",
-        "feature",
-        "feature_names",
-        "guarded",
-        "guarded_options",
-        "include_reject_details",
-        "interval_summary",
-        "low_high_percentiles",
-        "mc",
-        "merge_adjacent",
-        "mode",
-        "multi_labels_enabled",
-        "n_neighbors",
-        "normalize",
-        "normalization",
-        "output_interval",
-        "predict_function",
-        "preprocessor_metadata",
-        "reject_confidence",
-        "reject_policy",
-        "reuse_conditional",
-        "seed",
-        "show",
-        "style_override",
         "threshold",
-        "uq_interval",
-        "verbose",
-        "y_threshold",
+        "low_high_percentiles",
+        "reject_policy",
     }
+)
+
+# used by: predict() only. uq_interval/calibrated/reject_policy are explicit
+# named parameters here (reject_policy stays in the derived set harmlessly --
+# the explicit formal always captures it before **kwargs).
+_PREDICT_KWARGS: frozenset[str] = _CE_PREDICT_KWARGS - frozenset({"_ce_skip_reject"})
+
+# used by: predict_proba() only. uq_interval/calibrated/threshold/reject_policy
+# are explicit named parameters here.
+_PREDICT_PROBA_KWARGS: frozenset[str] = _CE_PREDICT_PROBA_KWARGS - frozenset({"_ce_skip_reject"})
+
+_KNOWN_PUBLIC_KWARGS: frozenset[str] = (
+    _CALIBRATE_KWARGS
+    | _EXPLAIN_KWARGS
+    | _EXPLAIN_FAST_KWARGS
+    | _PREDICT_KWARGS
+    | _PREDICT_PROBA_KWARGS
 )
 
 
@@ -197,6 +242,11 @@ class WrapCalibratedExplainer:
     def preprocessor(self, value: Any) -> None:
         """Set the preprocessor."""
         self._preprocessor = value
+
+    @property
+    def mondrian_categorizer(self) -> Callable[[Any], Any] | MondrianCategorizer | None:
+        """Descriptive alias for :attr:`mc` (ADR-038 5B); read-only."""
+        return self.mc
 
     # internal wiring for config
     @classmethod
@@ -317,12 +367,14 @@ class WrapCalibratedExplainer:
         WrapCalibratedExplainer(...)
         """
         reinitialize = bool(self.calibrated)
-        self.fitted = False
-        self.calibrated = False
-        # Optional preprocessing: fit on training data when provided
+        # Optional preprocessing: fit on training data when provided. Run this
+        # before invalidating fitted/calibrated state so a rejected
+        # preprocessing call leaves the prior lifecycle state untouched.
         x_train_local = x_proper_train
         if self._preprocessor is not None:
             x_train_local = self._pre_fit_preprocess(x_train_local)
+        self.fitted = False
+        self.calibrated = False
         self._logger.info("Fitting underlying learner: %s", type(self.learner).__name__)
         self.learner.fit(x_train_local, y_proper_train, **kwargs)
         # delegate shared post-fit logic
@@ -334,6 +386,8 @@ class WrapCalibratedExplainer:
         y_calibration: Any,
         mc: Callable[[Any], Any] | MondrianCategorizer | None = None,
         reuse_conditional: bool = False,
+        *,
+        mondrian_categorizer: Callable[[Any], Any] | MondrianCategorizer | None = None,
         **kwargs: Any,
     ) -> WrapCalibratedExplainer:
         """Calibrate the wrapper using calibration data and create an explainer.
@@ -349,9 +403,16 @@ class WrapCalibratedExplainer:
         reuse_conditional : bool, default=False
             Reuse the previously configured Mondrian categorizer for this
             calibration. Mutually exclusive with ``bins`` and ``mc``.
+        mondrian_categorizer : callable or MondrianCategorizer, optional
+            Descriptive alias for ``mc`` (ADR-038 5B). Resolves to the same value;
+            specifying both ``mc`` and ``mondrian_categorizer`` raises
+            ``ConfigurationError``.
         **kwargs
             Forwarded to :class:`.CalibratedExplainer.__init__` for advanced
-            configuration (e.g. ``mode``, ``feature_names``, ``bins``).
+            configuration (e.g. ``mode``, ``feature_names``, ``bins``). Every
+            name accepted by :class:`.CalibratedExplainer.__init__` is accepted
+            here; for ``perf_cache``/``perf_parallel`` a call-time value
+            overrides the wrapper-level attribute.
 
         Returns
         -------
@@ -363,6 +424,10 @@ class WrapCalibratedExplainer:
         ------
         NotFittedError
             If the underlying learner has not been fitted via :meth:`fit`.
+        ConfigurationError
+            If both ``mc`` and ``mondrian_categorizer`` are specified.
+        ModelNotSupportedError
+            If the underlying learner does not implement ``predict``.
 
         Examples
         --------
@@ -377,109 +442,151 @@ class WrapCalibratedExplainer:
         on the underlying learner.
         """
         self._assert_fitted("The WrapCalibratedExplainer must be fitted before calibration.")
-        self.calibrated = False
 
-        # Normalize kwargs at the public boundary; warn and strip alias keys only
-        kwargs = self._normalize_public_kwargs(kwargs)
-        reuse_conditional = bool(kwargs.pop("reuse_conditional", reuse_conditional))
-        validate_param_combination(kwargs)
-        # Lightweight validation (does not alter behavior)
-        validate_model(self.learner)
-        preprocessor_metadata = self._build_preprocessor_metadata()
-        # Optional preprocessing: ensure preprocessor is fitted (fit here if needed), then transform
-        x_cal_local = x_calibration
-        if self._preprocessor is not None:
-            if not self._pre_fitted:
-                self._logger.info("Fitting preprocessor on calibration data")
-                x_cal_local = self._pre_fit_preprocess(x_cal_local)
-            else:
-                x_cal_local = self._pre_transform(x_cal_local, stage="calibrate")
-            # Optional second transform call to ensure deterministic persistence
-            # accounting in tests (ignore failures defensively)
-            with suppress(Exception):  # pragma: no cover - defensive
-                _ = self._pre_transform(x_calibration, stage="calibrate_check")
-        validate_inputs_matrix(x_cal_local, y_calibration, require_y=True, allow_nan=False)
-        supplied = {
-            "bins": kwargs.get("bins") is not None,
-            "mc": mc is not None,
-            "reuse_conditional": reuse_conditional,
-        }
-        if sum(supplied.values()) > 1:
-            provided = [name for name, present in supplied.items() if present]
-            raise ValidationError(
-                "Specify exactly one conditional calibration channel: bins, mc, or reuse_conditional.",
-                details={
-                    "provided": provided,
-                    "requirement": "one conditional channel per calibrate call",
-                },
-            )
-        if reuse_conditional:
-            if self.mc is None:
-                raise ValidationError(
-                    "reuse_conditional=True requires a stored Mondrian categorizer; "
-                    "inline bins cannot transfer to a new calibration set, so pass fresh bins=.",
-                    details={"requirement": "stored mc required for reuse_conditional"},
+        if mondrian_categorizer is not None:
+            if mc is not None:
+                raise ConfigurationError(
+                    "Specify either mc= or mondrian_categorizer=, not both; they are"
+                    " aliases for the same parameter.",
+                    details={"conflict": ("mc", "mondrian_categorizer")},
                 )
-            mc = self.mc
-        if mc is not None:
-            self.mc = mc
-            derived_bins = _apply_conditional_categorizer(mc, x_cal_local)
-            kwargs["bins"] = _normalize_conditional_bins(
-                derived_bins, n_samples=len(np.asarray(x_cal_local))
-            )
-        elif kwargs.get("bins") is not None:
-            self.mc = None
-            kwargs["bins"] = _normalize_conditional_bins(
-                kwargs["bins"], n_samples=len(np.asarray(x_cal_local))
-            )
-        else:
-            self.mc = None
-            kwargs["bins"] = None
-        if preprocessor_metadata is not None:
-            kwargs.setdefault("preprocessor_metadata", preprocessor_metadata)
-        self._logger.info("Calibrating with %s samples", getattr(x_calibration, "shape", ["?"])[0])
+            mc = mondrian_categorizer
 
-        # Allow passing a default reject policy from the wrapper into the explainer
-        if "default_reject_policy" in kwargs:
-            # pass-through to CalibratedExplainer
-            pass
+        snapshot = self._snapshot_calibration_state()
+        stage = "surface_validation"
+        try:
+            # Normalize kwargs at the public boundary; warn and strip alias keys only
+            kwargs = self._normalize_public_kwargs(
+                kwargs, allowed=_CALIBRATE_KWARGS, surface="WrapCalibratedExplainer.calibrate"
+            )
+            reuse_conditional = validate_bool_parameter(
+                kwargs.pop("reuse_conditional", reuse_conditional),
+                param="reuse_conditional",
+            )
+            validate_param_combination(kwargs)
+            # Lightweight validation (does not alter behavior)
+            validate_model(self.learner)
+            preprocessor_metadata = self._build_preprocessor_metadata()
 
-        if "mode" in kwargs:
-            self.explainer = CalibratedExplainer(
+            stage = "preprocessor_fit_transform"
+            # Optional preprocessing: ensure preprocessor is fitted (fit here if needed), then transform
+            x_cal_local = x_calibration
+            if self._preprocessor is not None:
+                if not self._pre_fitted:
+                    self._logger.info("Fitting preprocessor on calibration data")
+                    x_cal_local = self._pre_fit_preprocess(x_cal_local)
+                else:
+                    x_cal_local = self._pre_transform(x_cal_local, stage="calibrate")
+                # Optional second transform call to ensure deterministic persistence
+                # accounting in tests (ignore failures defensively)
+                with suppress(Exception):  # pragma: no cover - defensive
+                    _ = self._pre_transform(x_calibration, stage="calibrate_check")
+            validate_inputs_matrix(x_cal_local, y_calibration, require_y=True, allow_nan=False)
+
+            stage = "conditional_calibration"
+            supplied = {
+                "bins": kwargs.get("bins") is not None,
+                "mc": mc is not None,
+                "reuse_conditional": reuse_conditional,
+            }
+            if sum(supplied.values()) > 1:
+                provided = [name for name, present in supplied.items() if present]
+                raise ValidationError(
+                    "Specify exactly one conditional calibration channel: bins, mc, or reuse_conditional.",
+                    details={
+                        "provided": provided,
+                        "requirement": "one conditional channel per calibrate call",
+                    },
+                )
+
+            candidate_mc = None
+            candidate_bins = None
+            if reuse_conditional:
+                if self.mc is None:
+                    raise ValidationError(
+                        "reuse_conditional=True requires a stored Mondrian categorizer; "
+                        "inline bins cannot transfer to a new calibration set, so pass fresh bins=.",
+                        details={"requirement": "stored mc required for reuse_conditional"},
+                    )
+                candidate_mc = self.mc
+            elif mc is not None:
+                candidate_mc = mc
+
+            if candidate_mc is not None:
+                derived_bins = _apply_conditional_categorizer(candidate_mc, x_cal_local)
+                candidate_bins = _normalize_conditional_bins(
+                    derived_bins, n_samples=len(np.asarray(x_cal_local))
+                )
+            elif kwargs.get("bins") is not None:
+                candidate_bins = _normalize_conditional_bins(
+                    kwargs["bins"], n_samples=len(np.asarray(x_cal_local))
+                )
+
+            candidate_kwargs = dict(kwargs)
+            candidate_kwargs["bins"] = candidate_bins
+            if preprocessor_metadata is not None:
+                candidate_kwargs.setdefault("preprocessor_metadata", preprocessor_metadata)
+
+            self._logger.info(
+                "Calibrating with %s samples", getattr(x_calibration, "shape", ["?"])[0]
+            )
+
+            # A call-time value wins over the wrapper-level performance attributes.
+            candidate_kwargs.setdefault("perf_cache", getattr(self, "perf_cache", None))
+            candidate_kwargs.setdefault("perf_parallel", getattr(self, "_perf_parallel", None))
+            if "mode" not in candidate_kwargs:
+                candidate_kwargs["mode"] = (
+                    "classification" if "predict_proba" in dir(self.learner) else "regression"
+                )
+            candidate_mode, candidate_kwargs = validate_explainer_init_kwargs(
+                candidate_kwargs,
+                mode=candidate_kwargs["mode"],
+                n_features=int(np.asarray(x_cal_local).shape[1]),
+            )
+            candidate_kwargs["mode"] = candidate_mode
+
+            stage = "target_validation"
+            if candidate_mode == "classification":
+                validate_classification_calibration_targets(y_calibration, learner=self.learner)
+
+            stage = "explainer_construction"
+            candidate_explainer = CalibratedExplainer(
                 self.learner,
                 x_cal_local,
                 y_calibration,
-                perf_cache=getattr(self, "perf_cache", None),
-                perf_parallel=getattr(self, "_perf_parallel", None),
-                **kwargs,
+                **candidate_kwargs,
             )
-        elif "predict_proba" in dir(self.learner):
-            self.explainer = CalibratedExplainer(
-                self.learner,
-                x_cal_local,
-                y_calibration,
-                mode="classification",
-                perf_cache=getattr(self, "perf_cache", None),
-                perf_parallel=getattr(self, "_perf_parallel", None),
-                **kwargs,
-            )
-        else:
-            self.explainer = CalibratedExplainer(
-                self.learner,
-                x_cal_local,
-                y_calibration,
-                mode="regression",
-                perf_cache=getattr(self, "perf_cache", None),
-                perf_parallel=getattr(self, "_perf_parallel", None),
-                **kwargs,
-            )
-        # Propagate internal feature filter config to explainer when available
-        if self.explainer is not None and hasattr(self, "_feature_filter_config"):
-            self.explainer.feature_filter_config = self._feature_filter_config
+
+            stage = "post_construction_configuration"
+            self._finalize_candidate_calibration(candidate_explainer, preprocessor_metadata)
+
+        except (
+            ConfigurationError,
+            DataShapeError,
+            IncompatibleStateError,
+            ModelNotSupportedError,
+            NotFittedError,
+            ValidationError,
+        ):
+            self._restore_calibration_state(snapshot)
+            raise
+        except (
+            Exception
+        ) as exc:  # adr002_allow - normalize calibration-path failures to CE exceptions
+            self._restore_calibration_state(snapshot)
+            raise ConfigurationError(
+                f"Calibration failed during {stage}: {exc}",
+                details={
+                    "stage": stage,
+                    "original_error_type": type(exc).__name__,
+                    "original_error": str(exc),
+                },
+            ) from exc
+
+        # Commit only after every validation and construction step succeeds.
+        self.mc = candidate_mc
+        self.explainer = candidate_explainer
         self.calibrated = True
-        if preprocessor_metadata is not None and self.explainer is not None:
-            with suppress(AttributeError):
-                self.explainer.set_preprocessor_metadata(preprocessor_metadata)
         return self
 
     @property
@@ -537,7 +644,9 @@ class WrapCalibratedExplainer:
         )
         # Optional preprocessing
         x_local = self._maybe_preprocess_for_inference(x)
-        kwargs = self._normalize_public_kwargs(kwargs)
+        kwargs = self._normalize_public_kwargs(
+            kwargs, allowed=_EXPLAIN_KWARGS, surface="WrapCalibratedExplainer.explain_factual"
+        )
         # If constructed via _from_config, prefer cfg defaults when absent
         cfg = getattr(self, "_cfg", None)
         if cfg is not None:
@@ -575,7 +684,9 @@ class WrapCalibratedExplainer:
             is not None
         )
         x_local = self._maybe_preprocess_for_inference(x)
-        kwargs = self._normalize_public_kwargs(kwargs)
+        kwargs = self._normalize_public_kwargs(
+            kwargs, allowed=_EXPLAIN_KWARGS, surface="WrapCalibratedExplainer.explore_alternatives"
+        )
         cfg = getattr(self, "_cfg", None)
         if cfg is not None:
             kwargs.setdefault("threshold", cfg.threshold)
@@ -601,7 +712,9 @@ class WrapCalibratedExplainer:
             is not None
         )
         x_local = self._maybe_preprocess_for_inference(x)
-        kwargs = self._normalize_public_kwargs(kwargs)
+        kwargs = self._normalize_public_kwargs(
+            kwargs, allowed=_EXPLAIN_FAST_KWARGS, surface="WrapCalibratedExplainer.explain_fast"
+        )
         # Apply config defaults when available and not explicitly provided
         cfg = getattr(self, "_cfg", None)
         if cfg is not None:
@@ -629,6 +742,10 @@ class WrapCalibratedExplainer:
         :meth:`.CalibratedExplainer.predict` : Refer to the docstring for predict in CalibratedExplainer for more details.
         """
         self._assert_fitted("The WrapCalibratedExplainer must be fitted before predicting.")
+        x_local = self._maybe_preprocess_for_inference(x)
+        kwargs = self._normalize_public_kwargs(
+            kwargs, allowed=_PREDICT_KWARGS, surface="WrapCalibratedExplainer.predict"
+        )
         if not self.calibrated:
             if "threshold" in kwargs:
                 raise DataShapeError(
@@ -641,13 +758,10 @@ class WrapCalibratedExplainer:
                     stacklevel=2,
                 )
             if uq_interval:
-                predict = self.learner.predict(x)
+                predict = self.learner.predict(x_local)
                 return predict, (predict, predict)
-            return self.learner.predict(x)
+            return self.learner.predict(x_local)
 
-        # Optional preprocessing for inference consistency
-        x_local = self._maybe_preprocess_for_inference(x)
-        kwargs = self._normalize_public_kwargs(kwargs)
         validate_inputs_matrix(x_local, allow_nan=True)
         validate_param_combination(kwargs)
         if calibrated:
@@ -690,6 +804,10 @@ class WrapCalibratedExplainer:
             self._assert_calibrated(
                 "The WrapCalibratedExplainer must be calibrated to get calibrated probabilities for regression."
             )
+        x_local = self._maybe_preprocess_for_inference(x)
+        kwargs = self._normalize_public_kwargs(
+            kwargs, allowed=_PREDICT_PROBA_KWARGS, surface="WrapCalibratedExplainer.predict_proba"
+        )
         if not self.calibrated:
             if threshold is not None:
                 raise DataShapeError(
@@ -702,12 +820,9 @@ class WrapCalibratedExplainer:
                     stacklevel=2,
                 )
             # getattr to appease typing when learner may not expose predict_proba
-            proba = self.learner.predict_proba(x)
+            proba = self.learner.predict_proba(x_local)
             return self._format_proba_output(proba, uq_interval)
 
-        # Optional preprocessing for inference consistency
-        x_local = self._maybe_preprocess_for_inference(x)
-        kwargs = self._normalize_public_kwargs(kwargs)
         validate_inputs_matrix(x_local, allow_nan=True)
         validate_param_combination(kwargs)
         if calibrated:
@@ -889,25 +1004,46 @@ class WrapCalibratedExplainer:
         return self
 
     def _normalize_public_kwargs(
-        self, kwargs: dict[str, Any], allowed: "set[str] | None" = None
+        self,
+        kwargs: dict[str, Any],
+        allowed: "frozenset[str] | set[str] | None" = None,
+        *,
+        surface: str | None = None,
     ) -> dict[str, Any]:
-        """Normalize public kwargs and reject removed aliases."""
+        """Normalize public kwargs and reject invalid names.
+
+        Rejects removed aliases, unknown names, and (when ``allowed`` is
+        given) names that are known on another method but not valid for this
+        one (ADR-038 5B). Unrecognized keys raise ``ConfigurationError``
+        (ADR-038 D3, fail-fast).
+        """
         if not kwargs:
             return {}
         original = dict(kwargs)
         reject_removed_aliases(original)
+        reject_removed_guarded_kwargs(original)
+        reject_removed_reject_kwargs(original)
+        reject_removed_normalization_kwarg(original)
         base = dict(original)
-        unknown = sorted(set(base) - _KNOWN_PUBLIC_KWARGS)
-        if unknown:
-            _warnings.warn(
-                "WrapCalibratedExplainer received unknown keyword arguments: "
-                f"{unknown}. These will be forwarded for compatibility but may be ignored.",
-                UserWarning,
-                stacklevel=3,
-            )
+        reject_unknown_public_kwargs(
+            base,
+            allowed=_KNOWN_PUBLIC_KWARGS,
+            surface=surface or "WrapCalibratedExplainer",
+        )
         if allowed is None:
             return base
-        return {k: v for k, v in base.items() if k in allowed}
+        out_of_scope = sorted(set(base) - allowed)
+        if out_of_scope:
+            raise ConfigurationError(
+                f"{surface or 'WrapCalibratedExplainer'} received keyword arguments that"
+                f" are recognized on another method but not valid here: {out_of_scope}.",
+                details={
+                    "surface": surface or "WrapCalibratedExplainer",
+                    "out_of_scope_kwargs": out_of_scope,
+                    "allowed_kwargs": sorted(allowed),
+                },
+            )
+        return base
 
     def _normalize_auto_encode_flag(self) -> str:
         """Return the auto_encode configuration as a telemetry-friendly literal."""
@@ -1017,71 +1153,105 @@ class WrapCalibratedExplainer:
 
         if a user-supplied preprocessor exposes
         fit/transform, we use it. No built-in auto encoding is activated here.
-        """
-        try:
-            # When no preprocessor is provided and auto_encode is enabled,
-            # activate the small deterministic builtin encoder.
-            if self._preprocessor is None:
-                # ADR-009 default mode: auto_encode='auto' activates deterministic
-                # built-in encoding when no user preprocessor is provided.
-                if self._normalize_auto_encode_flag() in {"auto", "true"}:
-                    try:
-                        from calibrated_explanations.preprocessing.builtin_encoder import (
-                            BuiltinEncoder,
-                        )
 
-                        encoder = BuiltinEncoder(unseen_policy=self._unseen_category_policy)
-                        x_out = encoder.fit_transform(x)
-                        # attach encoder so export/import helpers can find it
-                        self._preprocessor = encoder
-                        self._pre_fitted = True
-                        return x_out
-                    except (
-                        ImportError,
-                        TypeError,
-                        ValueError,
-                        AttributeError,
-                    ) as exc:  # pragma: no cover - defensive
-                        self._logger.warning("Builtin encoder failed; bypassing: %s", exc)
-                        return x
-                self._raise_non_numeric_without_preprocessor(x, stage="fit")
-                return x
+        Raises
+        ------
+        ValidationError
+            If the preprocessor's ``fit``/``fit_transform``/``transform`` call
+            fails. Preprocessing failures are never silently bypassed: doing
+            so would later feed representation-incompatible raw data into a
+            learner trained on transformed features.
+        """
+        # When no preprocessor is provided and auto_encode is enabled,
+        # activate the small deterministic builtin encoder.
+        if self._preprocessor is None:
+            # ADR-009 default mode: auto_encode='auto' activates deterministic
+            # built-in encoding when no user preprocessor is provided.
+            if self._normalize_auto_encode_flag() in {"auto", "true"}:
+                from calibrated_explanations.preprocessing.builtin_encoder import (
+                    BuiltinEncoder,
+                )
+
+                encoder = BuiltinEncoder(unseen_policy=self._unseen_category_policy)
+                try:
+                    x_out = encoder.fit_transform(x)
+                except Exception as exc:  # adr002_allow - translated to ValidationError below
+                    raise ValidationError(
+                        f"Built-in preprocessor failed during fit: {exc}",
+                        details={
+                            "stage": "fit",
+                            "preprocessor_type": type(encoder).__name__,
+                            "original_error_type": type(exc).__name__,
+                            "original_error": str(exc),
+                        },
+                    ) from exc
+                # attach encoder so export/import helpers can find it
+                self._preprocessor = encoder
+                self._pre_fitted = True
+                return x_out
+            self._raise_non_numeric_without_preprocessor(x, stage="fit")
+            return x
+        try:
             if hasattr(self._preprocessor, "fit_transform"):
                 x_out = self._preprocessor.fit_transform(x)
             else:
                 self._preprocessor.fit(x)
                 x_out = self._preprocessor.transform(x)
-            self._pre_fitted = True
-            return x_out
-        except:  # noqa: E722
-            if not isinstance(sys.exc_info()[1], Exception):
-                raise
-            exc = sys.exc_info()[1]
-            if isinstance(exc, ValidationError):
-                raise
-            self._logger.warning("Preprocessor failed; proceeding without it: %s", exc)
-            return x
+        except ValidationError:
+            raise
+        except Exception as exc:  # adr002_allow - translated to ValidationError below
+            raise ValidationError(
+                f"Preprocessor failed during fit: {exc}",
+                details={
+                    "stage": "fit",
+                    "preprocessor_type": type(self._preprocessor).__name__,
+                    "original_error_type": type(exc).__name__,
+                    "original_error": str(exc),
+                },
+            ) from exc
+        self._pre_fitted = True
+        return x_out
 
     def _pre_transform(self, x: Any, stage: str = "predict") -> Any:
-        """Transform x with the fitted preprocessor if available."""
+        """Transform x with the fitted preprocessor if available.
+
+        Raises
+        ------
+        ValidationError
+            If the fitted preprocessor's ``transform`` call fails. Transform
+            failures are never silently bypassed: doing so would feed
+            representation-incompatible raw data into a learner/explainer
+            trained or calibrated on transformed features.
+        """
+        if self._preprocessor is None or not self._pre_fitted:
+            self._raise_non_numeric_without_preprocessor(x, stage=stage)
+            return x
+        pre = self._preprocessor
         try:
-            if self._preprocessor is None or not self._pre_fitted:
-                self._raise_non_numeric_without_preprocessor(x, stage=stage)
-                return x
-            return self._preprocessor.transform(x)
-        except:  # noqa: E722
-            if not isinstance(sys.exc_info()[1], Exception):
-                raise
-            exc = sys.exc_info()[1]
-            pre = getattr(self, "_preprocessor", None)
+            return pre.transform(x)
+        except Exception as exc:  # adr002_allow - translated to ValidationError below
             unseen_policy = str(getattr(pre, "unseen_policy", "")).lower()
             if isinstance(exc, (KeyError, ValidationError)) and unseen_policy == "error":
                 raise ValidationError(
                     f"Unseen category encountered during {stage} preprocessing. "
-                    "Set unseen_category_policy='ignore' or import/export a stable mapping."
+                    "Set unseen_category_policy='ignore' or import/export a stable mapping.",
+                    details={
+                        "stage": stage,
+                        "preprocessor_type": type(pre).__name__,
+                        "original_error_type": type(exc).__name__,
+                    },
                 ) from exc
-            self._logger.warning("Preprocessor transform failed at %s; bypassing: %s", stage, exc)
-            return x
+            if isinstance(exc, ValidationError):
+                raise
+            raise ValidationError(
+                f"Preprocessor transform failed during {stage}: {exc}",
+                details={
+                    "stage": stage,
+                    "preprocessor_type": type(pre).__name__,
+                    "original_error_type": type(exc).__name__,
+                    "original_error": str(exc),
+                },
+            ) from exc
 
     def _maybe_preprocess_for_inference(self, x: Any) -> Any:
         """Apply preprocessing for inference paths if configured/fitted."""
@@ -1103,6 +1273,40 @@ class WrapCalibratedExplainer:
             self.calibrated = True
         return self
 
+    def _snapshot_calibration_state(self) -> dict[str, Any]:
+        """Capture wrapper state that must survive a rejected recalibration."""
+        preprocessor_snapshot = self._preprocessor
+        if preprocessor_snapshot is not None and not self._pre_fitted:
+            with suppress(Exception):  # pragma: no cover - best-effort rollback snapshot
+                preprocessor_snapshot = copy.deepcopy(preprocessor_snapshot)
+        return {
+            "calibrated": self.calibrated,
+            "explainer": self.explainer,
+            "mc": self.mc,
+            "preprocessor": preprocessor_snapshot,
+            "pre_fitted": self._pre_fitted,
+        }
+
+    def _restore_calibration_state(self, snapshot: Mapping[str, Any]) -> None:
+        """Restore wrapper state after a rejected recalibration attempt."""
+        self.calibrated = bool(snapshot["calibrated"])
+        self.explainer = snapshot["explainer"]
+        self.mc = snapshot["mc"]
+        self._preprocessor = snapshot["preprocessor"]
+        self._pre_fitted = bool(snapshot["pre_fitted"])
+
+    def _finalize_candidate_calibration(
+        self,
+        candidate_explainer: CalibratedExplainer,
+        preprocessor_metadata: Mapping[str, Any] | None,
+    ) -> None:
+        """Apply wrapper-owned runtime configuration to a candidate explainer."""
+        if hasattr(self, "_feature_filter_config"):
+            candidate_explainer.feature_filter_config = self._feature_filter_config
+        if preprocessor_metadata is not None:
+            with suppress(AttributeError):
+                candidate_explainer.set_preprocessor_metadata(preprocessor_metadata)
+
     def _format_proba_output(self, proba: Any, uq_interval: bool) -> Any:
         """Format probability output (with optional trivial intervals) without duplicating logic."""
         if not uq_interval:
@@ -1115,92 +1319,6 @@ class WrapCalibratedExplainer:
             return proba, (proba[:, 1], proba[:, 1])
         # Fallback (unexpected shape) -> mirror array
         return proba, (proba, proba)
-
-    # Public aliases for testing
-    def serialise_preprocessor_value(self, value: Any) -> Any:
-        """Serialise a preprocessor value for storage.
-
-        Parameters
-        ----------
-        value : Any
-            The value to serialise.
-
-        Returns
-        -------
-        Any
-            The serialised value.
-        """
-        return self._serialise_preprocessor_value(value)
-
-    def extract_preprocessor_snapshot(self, preprocessor: Any) -> dict[str, Any] | None:
-        """Extract a snapshot of the preprocessor state.
-
-        Parameters
-        ----------
-        preprocessor : Any
-            The preprocessor to snapshot.
-
-        Returns
-        -------
-        dict[str, Any] | None
-            The snapshot dictionary or None.
-        """
-        return self._extract_preprocessor_snapshot(preprocessor)
-
-    def build_preprocessor_metadata(self) -> Dict[str, Any]:
-        """Build metadata for the preprocessor.
-
-        Returns
-        -------
-        Dict[str, Any]
-            The metadata dictionary.
-        """
-        return self._build_preprocessor_metadata()
-
-    def pre_fit_preprocess(self, x: Any) -> Any:
-        """Preprocess data before fitting.
-
-        Parameters
-        ----------
-        x : Any
-            The input data.
-
-        Returns
-        -------
-        Any
-            The preprocessed data.
-        """
-        return self._pre_fit_preprocess(x)
-
-    def pre_transform(self, X: Any) -> Any:
-        """Preprocess data for transformation.
-
-        Parameters
-        ----------
-        X : Any
-            The input data.
-
-        Returns
-        -------
-        Any
-            The preprocessed data.
-        """
-        return self._pre_transform(X)
-
-    def maybe_preprocess_for_inference(self, X: Any) -> Any:
-        """Preprocess data for inference if needed.
-
-        Parameters
-        ----------
-        X : Any
-            The input data.
-
-        Returns
-        -------
-        Any
-            The preprocessed data.
-        """
-        return self._maybe_preprocess_for_inference(X)
 
     def export_preprocessor_mapping(self) -> dict[str, Any] | None:
         """Export the current preprocessor mapping snapshot.
@@ -1653,76 +1771,6 @@ class WrapCalibratedExplainer:
             True if pre-fitted, False otherwise.
         """
         return self._pre_fitted
-
-    def finalize_fit(self, reinitialize: bool) -> WrapCalibratedExplainer:
-        """Finalize the fitting process.
-
-        Parameters
-        ----------
-        reinitialize : bool
-            Whether to reinitialize.
-
-        Returns
-        -------
-        WrapCalibratedExplainer
-            The finalized explainer.
-        """
-        return self._finalize_fit(reinitialize)
-
-    def format_proba_output(self, proba: Any, uq_interval: bool) -> Any:
-        """Format the probability output.
-
-        Parameters
-        ----------
-        proba : Any
-            The probability values.
-        uq_interval : bool
-            Whether to include uncertainty interval.
-
-        Returns
-        -------
-        Any
-            The formatted output.
-        """
-        return self._format_proba_output(proba, uq_interval)
-
-    def normalize_auto_encode_flag(self, auto_encode: Any = None) -> bool:
-        """Normalize the auto encode flag.
-
-        Parameters
-        ----------
-        auto_encode : Any, optional
-            The auto encode value.
-
-        Returns
-        -------
-        bool
-            The normalized flag.
-        """
-        # Public adapter: legacy callers may pass no argument. The
-        # internal helper reads `self._auto_encode` so ignore any
-        # provided value and delegate to the internal normaliser.
-        return self._normalize_auto_encode_flag()
-
-    def normalize_public_kwargs(self, payload: Any = None, **kwargs: Any) -> Dict[str, Any]:
-        """Normalize public keyword arguments.
-
-        Parameters
-        ----------
-        payload : Any, optional
-            The payload.
-        **kwargs : Any
-            Additional keyword arguments.
-
-        Returns
-        -------
-        Dict[str, Any]
-            The normalized kwargs.
-        """
-        # Accept either positional (payload, allowed=...) or keyword-only usage
-        if payload is None:
-            return self._normalize_public_kwargs(**kwargs)
-        return self._normalize_public_kwargs(payload, **kwargs)
 
     @property
     def cfg(self) -> Any:

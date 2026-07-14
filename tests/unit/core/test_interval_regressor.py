@@ -5,6 +5,7 @@ import pytest
 
 from calibrated_explanations.calibration import interval_regressor as interval_module
 from calibrated_explanations.core import ConfigurationError, DataShapeError
+from calibrated_explanations.utils.exceptions import ValidationError
 
 
 class DummyCPS:
@@ -217,6 +218,26 @@ def test_predict_probability_rejects_mismatched_bin_length(monkeypatch):
 
     with pytest.raises(DataShapeError, match="length of test bins"):
         regressor.predict_probability(x, y_threshold=0.5, bins=np.array([0]))
+
+
+@pytest.mark.parametrize(
+    ("threshold", "match"),
+    [
+        ((0.8, 0.2), "lower bound must be strictly less than upper bound"),
+        ((0.4, 0.4), "lower bound must be strictly less than upper bound"),
+        ((0.1,), "exactly two values"),
+        ((0.1, 0.2, 0.3), "exactly two values"),
+        (("low", 0.2), "only numeric values"),
+    ],
+)
+def test_predict_probability_rejects_invalid_interval_threshold_tuples(
+    monkeypatch, threshold, match
+):
+    regressor = make_regressor(monkeypatch)
+    x = np.array([[0.1, 0.2]])
+
+    with pytest.raises(ValidationError, match=match):
+        regressor.predict_probability(x, y_threshold=threshold)
 
 
 def test_insert_calibration_requires_bins_when_existing_none(monkeypatch):

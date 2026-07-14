@@ -90,6 +90,14 @@ Persistent project-level configuration lives under
 processes that share the same working directory, making them suitable for
 project-wide defaults:
 
+```{note}
+`ConfigManager` discovers `pyproject.toml` from the process current working
+directory (`Path.cwd()`), not from the importing module path. Trust settings
+such as `plugins.trusted` therefore follow the directory the process is started
+from; running the same code from a different directory may resolve a different
+`pyproject.toml` or no project file at all.
+```
+
 ```toml
 [tool.calibrated_explanations.explanations]
 factual = "my_org.factual_v2"

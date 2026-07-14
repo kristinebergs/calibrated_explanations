@@ -78,7 +78,7 @@ all_levels = explanations.to_narrative(
 ## Template path handling
 
 If `exp.yaml` doesn't exist, the method automatically falls back to
-`explain_template.json`.
+`explain_template.yaml` and emits a `UserWarning`.
 
 ```python
 narratives = explanations.to_narrative(
@@ -102,7 +102,7 @@ Use the default template explicitly:
 
 ```python
 narratives = explanations.to_narrative(
-    template_path="explain_template.json",
+    template_path="explain_template.yaml",
     expertise_level=("beginner", "advanced"),
     output_format="dataframe",
 )

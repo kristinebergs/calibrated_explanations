@@ -5,6 +5,8 @@ Centralizes small routines for safe imports, conversions, and metric
 calculations shared across calibrated explanations.
 """
 
+from __future__ import annotations
+
 import importlib
 import numbers
 import os
@@ -418,11 +420,33 @@ def assert_threshold(threshold, x):
                     "actual_length": len(threshold),
                 },
             )
+        if not all(isinstance(value, (numbers.Integral, numbers.Real)) for value in threshold):
+            raise ValidationError(
+                "tuple thresholds must contain only numeric values",
+                details={
+                    "param": "threshold",
+                    "values": [type(value).__name__ for value in threshold],
+                },
+            )
+        if threshold[0] >= threshold[1]:
+            raise ValidationError(
+                "tuple threshold lower bound must be strictly less than upper bound",
+                details={
+                    "param": "threshold",
+                    "lower": threshold[0],
+                    "upper": threshold[1],
+                },
+            )
         return threshold
     if isinstance(threshold, (list, np.ndarray)):
         if not (len(threshold) == np.asarray(x).shape[0]):
-            raise AssertionError(
-                "list thresholds must have the same length as the number of samples"
+            raise ValidationError(
+                "list thresholds must have the same length as the number of samples",
+                details={
+                    "param": "threshold",
+                    "expected_length": int(np.asarray(x).shape[0]),
+                    "actual_length": int(len(threshold)),
+                },
             )
         return [assert_threshold(t, [x[i]]) for i, t in enumerate(threshold)]
     raise ValidationError(
@@ -532,14 +556,20 @@ def convert_targets_to_numeric(y):
         - array-like: Numeric version of the target values
         - dict or None: Mapping of original labels to numeric values if conversion was needed
     """
-    if any(isinstance(val, str) for val in y) or any(
-        isinstance(val, (np.str_, np.object_)) for val in y
+    y_arr = np.asarray(y)
+    unique_labels = np.unique(y_arr)
+    if unique_labels.size == 0:
+        return y_arr, None
+
+    expected_labels = np.arange(unique_labels.size)
+    if np.issubdtype(unique_labels.dtype, np.number) and np.array_equal(
+        unique_labels, expected_labels
     ):
-        unique_labels = np.unique(y)
-        label_map = {label: i for i, label in enumerate(unique_labels)}
-        numeric_y = np.array([label_map[label] for label in y])
-        return numeric_y, label_map
-    return y, None
+        return y_arr.astype(int, copy=False), None
+
+    label_map = {label: i for i, label in enumerate(unique_labels)}
+    numeric_y = np.array([label_map[label] for label in y_arr], dtype=int)
+    return numeric_y, label_map
 
 
 def concatenate_thresholds(perturbed_threshold, threshold, indices):

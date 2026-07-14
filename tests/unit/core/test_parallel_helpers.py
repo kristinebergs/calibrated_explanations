@@ -7,7 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from calibrated_explanations.core import test as perf_helpers
+from calibrated_explanations.parallel import parallel as perf_helpers
 
 
 def test_joblib_backend_falls_back_when_missing(monkeypatch: pytest.MonkeyPatch):

@@ -95,9 +95,9 @@ def test_should_return_uncertainty_interval_when_uq_interval_true_classification
 
     result = explainer.predict(X_test, uq_interval=True)
 
-    assert isinstance(
-        result, tuple
-    ), "CE-REQ-PRED-API-001: predict(uq_interval=True) must return a tuple"
+    assert isinstance(result, tuple), (
+        "CE-REQ-PRED-API-001: predict(uq_interval=True) must return a tuple"
+    )
     assert len(result) == 2, "CE-REQ-PRED-API-001: tuple must have 2 elements (y_hat, (low, high))"
     y_hat, bounds = result
     assert isinstance(bounds, tuple), "CE-REQ-PRED-API-001: bounds must be a tuple (low, high)"
@@ -106,19 +106,19 @@ def test_should_return_uncertainty_interval_when_uq_interval_true_classification
 
     assert low is not None, "CE-REQ-PRED-API-001: low must not be None"
     assert high is not None, "CE-REQ-PRED-API-001: high must not be None"
-    assert len(y_hat) == len(
-        X_test
-    ), f"CE-REQ-PRED-API-001: len(y_hat)={len(y_hat)} != len(X_test)={len(X_test)}"
-    assert len(low) == len(
-        X_test
-    ), f"CE-REQ-PRED-API-001: len(low)={len(low)} != len(X_test)={len(X_test)}"
-    assert len(high) == len(
-        X_test
-    ), f"CE-REQ-PRED-API-001: len(high)={len(high)} != len(X_test)={len(X_test)}"
+    assert len(y_hat) == len(X_test), (
+        f"CE-REQ-PRED-API-001: len(y_hat)={len(y_hat)} != len(X_test)={len(X_test)}"
+    )
+    assert len(low) == len(X_test), (
+        f"CE-REQ-PRED-API-001: len(low)={len(low)} != len(X_test)={len(X_test)}"
+    )
+    assert len(high) == len(X_test), (
+        f"CE-REQ-PRED-API-001: len(high)={len(high)} != len(X_test)={len(X_test)}"
+    )
     for i in range(len(X_test)):
-        assert (
-            low[i] <= high[i]
-        ), f"CE-REQ-PRED-API-001: low[{i}]={low[i]} > high[{i}]={high[i]} — interval bounds must be ordered"
+        assert low[i] <= high[i], (
+            f"CE-REQ-PRED-API-001: low[{i}]={low[i]} > high[{i}]={high[i]} — interval bounds must be ordered"
+        )
 
 
 def test_should_return_uncertainty_interval_when_uq_interval_true_regression(
@@ -136,9 +136,9 @@ def test_should_return_uncertainty_interval_when_uq_interval_true_regression(
 
     result = explainer.predict(X_test, uq_interval=True)
 
-    assert isinstance(
-        result, tuple
-    ), "CE-REQ-PRED-API-001: predict(uq_interval=True) must return a tuple"
+    assert isinstance(result, tuple), (
+        "CE-REQ-PRED-API-001: predict(uq_interval=True) must return a tuple"
+    )
     assert len(result) == 2, "CE-REQ-PRED-API-001: tuple must have 2 elements (y_hat, (low, high))"
     y_hat, bounds = result
     assert isinstance(bounds, tuple), "CE-REQ-PRED-API-001: bounds must be a tuple (low, high)"
@@ -146,19 +146,19 @@ def test_should_return_uncertainty_interval_when_uq_interval_true_regression(
 
     assert low is not None, "CE-REQ-PRED-API-001: low must not be None"
     assert high is not None, "CE-REQ-PRED-API-001: high must not be None"
-    assert len(y_hat) == len(
-        X_test
-    ), f"CE-REQ-PRED-API-001: len(y_hat)={len(y_hat)} != len(X_test)={len(X_test)}"
-    assert len(low) == len(
-        X_test
-    ), f"CE-REQ-PRED-API-001: len(low)={len(low)} != len(X_test)={len(X_test)}"
-    assert len(high) == len(
-        X_test
-    ), f"CE-REQ-PRED-API-001: len(high)={len(high)} != len(X_test)={len(X_test)}"
+    assert len(y_hat) == len(X_test), (
+        f"CE-REQ-PRED-API-001: len(y_hat)={len(y_hat)} != len(X_test)={len(X_test)}"
+    )
+    assert len(low) == len(X_test), (
+        f"CE-REQ-PRED-API-001: len(low)={len(low)} != len(X_test)={len(X_test)}"
+    )
+    assert len(high) == len(X_test), (
+        f"CE-REQ-PRED-API-001: len(high)={len(high)} != len(X_test)={len(X_test)}"
+    )
     for i in range(len(X_test)):
-        assert (
-            low[i] <= high[i]
-        ), f"CE-REQ-PRED-API-001: low[{i}]={low[i]} > high[{i}]={high[i]} — interval bounds must be ordered"
+        assert low[i] <= high[i], (
+            f"CE-REQ-PRED-API-001: low[{i}]={low[i]} > high[{i}]={high[i]} — interval bounds must be ordered"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -181,22 +181,22 @@ def test_should_accept_low_high_percentiles_and_return_ordered_bounds_when_regre
 
     result = explainer.predict(X_test, uq_interval=True, low_high_percentiles=(10, 90))
 
-    assert isinstance(
-        result, tuple
-    ), "CE-REQ-PRED-INTERVAL-BOUNDS-001: predict with low_high_percentiles must return a tuple"
-    assert (
-        len(result) == 2
-    ), "CE-REQ-PRED-INTERVAL-BOUNDS-001: tuple must have 2 elements (y_hat, (low, high))"
+    assert isinstance(result, tuple), (
+        "CE-REQ-PRED-INTERVAL-BOUNDS-001: predict with low_high_percentiles must return a tuple"
+    )
+    assert len(result) == 2, (
+        "CE-REQ-PRED-INTERVAL-BOUNDS-001: tuple must have 2 elements (y_hat, (low, high))"
+    )
     y_hat, bounds = result
-    assert isinstance(
-        bounds, tuple
-    ), "CE-REQ-PRED-INTERVAL-BOUNDS-001: bounds must be a tuple (low, high)"
+    assert isinstance(bounds, tuple), (
+        "CE-REQ-PRED-INTERVAL-BOUNDS-001: bounds must be a tuple (low, high)"
+    )
     low, high = bounds
     assert low is not None, "CE-REQ-PRED-INTERVAL-BOUNDS-001: low must not be None"
     assert high is not None, "CE-REQ-PRED-INTERVAL-BOUNDS-001: high must not be None"
-    assert len(y_hat) == len(
-        X_test
-    ), f"CE-REQ-PRED-INTERVAL-BOUNDS-001: len(y_hat)={len(y_hat)} != len(X_test)={len(X_test)}"
+    assert len(y_hat) == len(X_test), (
+        f"CE-REQ-PRED-INTERVAL-BOUNDS-001: len(y_hat)={len(y_hat)} != len(X_test)={len(X_test)}"
+    )
     for i in range(len(X_test)):
         assert low[i] <= high[i], (
             f"CE-REQ-PRED-INTERVAL-BOUNDS-001: low[{i}]={low[i]} > high[{i}]={high[i]} — "
@@ -247,9 +247,9 @@ def test_should_accept_neg_inf_lower_bound_and_return_constant_floor_when_regres
 
     result = explainer.predict(X_test, uq_interval=True, low_high_percentiles=(-np.inf, 90))
 
-    assert isinstance(
-        result, tuple
-    ), "CE-REQ-PRED-INTERVAL-BOUNDS-001: predict with -np.inf lower bound must return a tuple"
+    assert isinstance(result, tuple), (
+        "CE-REQ-PRED-INTERVAL-BOUNDS-001: predict with -np.inf lower bound must return a tuple"
+    )
     _, (low, high) = result
     assert low is not None, "CE-REQ-PRED-INTERVAL-BOUNDS-001: low must not be None"
     assert high is not None, "CE-REQ-PRED-INTERVAL-BOUNDS-001: high must not be None"
@@ -280,9 +280,9 @@ def test_should_accept_pos_inf_upper_bound_and_return_constant_ceiling_when_regr
 
     result = explainer.predict(X_test, uq_interval=True, low_high_percentiles=(10, np.inf))
 
-    assert isinstance(
-        result, tuple
-    ), "CE-REQ-PRED-INTERVAL-BOUNDS-001: predict with np.inf upper bound must return a tuple"
+    assert isinstance(result, tuple), (
+        "CE-REQ-PRED-INTERVAL-BOUNDS-001: predict with np.inf upper bound must return a tuple"
+    )
     _, (low, high) = result
     assert low is not None, "CE-REQ-PRED-INTERVAL-BOUNDS-001: low must not be None"
     assert high is not None, "CE-REQ-PRED-INTERVAL-BOUNDS-001: high must not be None"
@@ -314,9 +314,9 @@ def test_should_return_predict_proba_interval_when_uq_interval_true_classificati
 
     result = explainer.predict_proba(X_test, uq_interval=True)
 
-    assert isinstance(
-        result, tuple
-    ), "CE-REQ-PRED-API-001: predict_proba(uq_interval=True) must return a tuple"
+    assert isinstance(result, tuple), (
+        "CE-REQ-PRED-API-001: predict_proba(uq_interval=True) must return a tuple"
+    )
     assert len(result) == 2, "CE-REQ-PRED-API-001: tuple must have 2 elements (proba, (low, high))"
     proba, bounds = result
     assert isinstance(bounds, tuple), "CE-REQ-PRED-API-001: bounds must be a tuple (low, high)"
@@ -324,10 +324,10 @@ def test_should_return_predict_proba_interval_when_uq_interval_true_classificati
 
     assert low is not None, "CE-REQ-PRED-API-001: low must not be None"
     assert high is not None, "CE-REQ-PRED-API-001: high must not be None"
-    assert len(proba) == len(
-        X_test
-    ), f"CE-REQ-PRED-API-001: len(proba)={len(proba)} != len(X_test)={len(X_test)}"
+    assert len(proba) == len(X_test), (
+        f"CE-REQ-PRED-API-001: len(proba)={len(proba)} != len(X_test)={len(X_test)}"
+    )
     for i in range(len(X_test)):
-        assert (
-            low[i] <= high[i]
-        ), f"CE-REQ-PRED-API-001: low[{i}]={low[i]} > high[{i}]={high[i]} — probability interval bounds must be ordered"
+        assert low[i] <= high[i], (
+            f"CE-REQ-PRED-API-001: low[{i}]={low[i]} > high[{i}]={high[i]} — probability interval bounds must be ordered"
+        )

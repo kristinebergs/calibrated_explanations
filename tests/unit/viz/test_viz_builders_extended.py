@@ -190,20 +190,20 @@ def test_triangular_global_and_serialization_helpers__should_produce_correct_plo
     # Domain invariant: triangular plot spec has correct kind
     assert "plotspec_version" in tri, "Envelope must include 'plotspec_version'"
     assert "plot_spec" in tri, "Result must be wrapped in plot_spec"
-    assert (
-        tri["plot_spec"]["kind"] == "triangular"
-    ), "Triangular builder must produce 'triangular' kind"
+    assert tri["plot_spec"]["kind"] == "triangular", (
+        "Triangular builder must produce 'triangular' kind"
+    )
 
     # Domain invariant: triangular settings preserved
     assert "triangular" in tri["plot_spec"], "Triangular config must be present"
-    assert (
-        tri["plot_spec"]["triangular"]["num_to_show"] == 5
-    ), "num_to_show parameter must be preserved exactly"
+    assert tri["plot_spec"]["triangular"]["num_to_show"] == 5, (
+        "num_to_show parameter must be preserved exactly"
+    )
 
     # Domain invariant: mode correctly set
-    assert (
-        tri["plot_spec"]["mode"] == "regression"
-    ), "Mode must be 'regression' for non-probabilistic setup"
+    assert tri["plot_spec"]["mode"] == "regression", (
+        "Mode must be 'regression' for non-probabilistic setup"
+    )
 
     global_spec = builders.build_global_plotspec_dict(
         title="global",
@@ -217,9 +217,9 @@ def test_triangular_global_and_serialization_helpers__should_produce_correct_plo
     )
     # Domain invariant: global regression spec has correct kind
     assert "plotspec_version" in global_spec, "Envelope must include 'plotspec_version'"
-    assert (
-        global_spec["plot_spec"]["kind"] == "global_regression"
-    ), "Global builder must produce 'global_regression' kind"
+    assert global_spec["plot_spec"]["kind"] == "global_regression", (
+        "Global builder must produce 'global_regression' kind"
+    )
 
     # Domain invariant: axis hints are sensible (xlim lower bound reasonable)
     assert "axis_hints" in global_spec["plot_spec"], "Global spec must include axis_hints"
@@ -268,17 +268,17 @@ def test_triangular_global_and_serialization_helpers__should_produce_correct_plo
     regression_dict = builders.plotspec_to_dict(regression_spec)
     # Domain invariant: uncertainty flag is set when confidence is provided
     assert "plot_spec" in regression_dict
-    assert (
-        regression_dict["plot_spec"]["uncertainty"] is True
-    ), "Uncertainty must be True when confidence interval is enabled"
+    assert regression_dict["plot_spec"]["uncertainty"] is True, (
+        "Uncertainty must be True when confidence interval is enabled"
+    )
 
     # Domain invariant: feature entries preserve column names
     assert "feature_entries" in regression_dict["plot_spec"]
     feature_entries = regression_dict["plot_spec"]["feature_entries"]
     assert len(feature_entries) >= 1, "Must have at least one feature entry"
-    assert (
-        feature_entries[0]["name"] == "A"
-    ), "First feature entry must have name 'A' (from column_names)"
+    assert feature_entries[0]["name"] == "A", (
+        "First feature entry must have name 'A' (from column_names)"
+    )
 
     factual = builders.build_factual_probabilistic_plotspec_dict(
         title="prob",
@@ -305,14 +305,14 @@ def test_triangular_global_and_serialization_helpers__should_produce_correct_plo
         pos_caption="pos caption",
     )
     # Domain invariant: factual probabilistic plot has correct kind
-    assert (
-        factual["plot_spec"]["kind"] == "factual_probabilistic"
-    ), "Factual builder must produce 'factual_probabilistic' kind"
+    assert factual["plot_spec"]["kind"] == "factual_probabilistic", (
+        "Factual builder must produce 'factual_probabilistic' kind"
+    )
 
     # Domain invariant: uncertainty flag is set when interval is enabled
-    assert (
-        factual["plot_spec"]["uncertainty"] is True
-    ), "Uncertainty must be True when interval is enabled in factual plot"
+    assert factual["plot_spec"]["uncertainty"] is True, (
+        "Uncertainty must be True when interval is enabled in factual plot"
+    )
 
 
 # ---------------------------------------------------------------------------

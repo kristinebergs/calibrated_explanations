@@ -19,7 +19,7 @@ Calibrated Explanations (CE) provide **actionable explanations with calibrated u
 4. **Calibrate**: `explainer.calibrate(...)` → verify `explainer.calibrated is True`.
 5. **Explain**: Use **`explainer.explain_factual(...)`** or **`explorer.explore_alternatives(...)`**.
 6. **Conjunctions**: Use **`explanations.add_conjunctions(...)`** or **`explanations[idx].add_conjunctions(...)`**.
-7. **Narratives & plots**: Use `.to_narrative(format=...)` and `.plot(...)`.
+7. **Narratives & plots**: Use `.to_narrative(output_format=..., expertise_level=...)` and `.plot(...)`.
 8. **Probabilistic regression**: Use `threshold=` for probabilistic intervals, or `low_high_percentiles=` for conformal.
 
 ### Enforcement rules agents must apply programmatically
@@ -66,12 +66,12 @@ proba = explainer.predict_proba(x_test[:1], uq_interval=True)
 
 # Factual explanations + narratives + plots
 explanations = explainer.explain_factual(x_test[:2])
-print(explanations[0].to_narrative(format="short"))
+print(explanations[0].to_narrative(output_format="text", expertise_level="beginner"))
 explanations[0].plot()
 
 # Alternative explanations (counterfactual-style)
 alternatives = explainer.explore_alternatives(x_test[:2])
-print(alternatives[0].to_narrative(format="short"))
+print(alternatives[0].to_narrative(output_format="text", expertise_level="beginner"))
 ```
 
 ### 3.2 Regression quickstart (conformal and probabilistic)
@@ -95,7 +95,7 @@ explainer.calibrate(x_cal, y_cal)
 
 # Conformal prediction intervals (default low/high percentiles)
 explanations = explainer.explain_factual(x_test[:1], low_high_percentiles=(5, 95))
-print(explanations[0].to_narrative(format="short"))
+print(explanations[0].to_narrative(output_format="text", expertise_level="advanced"))
 
 # Probabilistic regression: threshold as scalar or interval
 prob_scalar = explainer.explain_factual(x_test[:1], threshold=150)
@@ -152,12 +152,12 @@ if not explainer.fitted or not explainer.calibrated:
 
 # Factual explanations + narratives + plots
 explanations = explainer.explain_factual(x_test[:1])
-print(explanations[0].to_narrative(format="short"))
+print(explanations[0].to_narrative(output_format="text", expertise_level="beginner"))
 explanations[0].plot()
 
 # Alternative / counterfactual explanations
 alternatives = explainer.explore_alternatives(x_test[:1])
-print(alternatives[0].to_narrative(format="short"))
+print(alternatives[0].to_narrative(output_format="text", expertise_level="beginner"))
 
 # Calibrated predictions with uncertainty intervals
 probabilities, interval = explainer.predict_proba(x_test[:1], uq_interval=True)
@@ -174,14 +174,14 @@ probabilities, interval = explainer.predict_proba(x_test[:1], uq_interval=True)
 Use CE-native narrative methods directly on explanation objects:
 
 ```python
-# Short narrative
-print(explanations[0].to_narrative(format="short"))
+# Beginner-friendly text narrative
+print(explanations[0].to_narrative(output_format="text", expertise_level="beginner"))
 
-# Long narrative
-print(explanations[0].to_narrative(format="long"))
+# Advanced text narrative
+print(explanations[0].to_narrative(output_format="text", expertise_level="advanced"))
 
 # Markdown narrative
-print(explanations[0].to_narrative(format="markdown"))
+print(explanations[0].to_narrative(output_format="markdown", expertise_level="beginner"))
 ```
 
 ---
@@ -195,7 +195,7 @@ explanations = explainer.explain_factual(x_test[:3])
 explanations[0].plot()
 
 # Narrative
-print(explanations[0].to_narrative(format="short"))
+print(explanations[0].to_narrative(output_format="text", expertise_level="beginner"))
 
 # Conjunctions (parameters: n_top_features, max_rule_size)
 explanations.add_conjunctions(n_top_features=3, max_rule_size=2)
@@ -256,7 +256,7 @@ Agents should verify the following CE-first behaviors with direct public API tes
 - `explainer.calibrate(...)` sets `explainer.calibrated = True`.
 - Calling `explain_factual` or `predict_proba` before calibration raises an error.
 - `explain_factual` and `explore_alternatives` return correct explanation objects.
-- `to_narrative(format="short")` returns a non-empty string.
+- `to_narrative(output_format="text", expertise_level="beginner")` returns a non-empty string.
 - `predict_proba(X, uq_interval=True)` returns probabilities and an uncertainty interval.
 - Probabilistic regression `threshold` usage (scalar + interval).
 - Conjunctions on collections and single explanations.

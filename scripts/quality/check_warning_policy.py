@@ -1,36 +1,15 @@
-"""Warning-policy inventory and enforcement check (ADR-028 / STD-005).
+"""Warning-policy inventory and fallback-site enforcement (ADR-028 / STD-005).
 
-Scans library source for `warnings.warn` call sites, classifies each one as
-one of four categories, and reports any unclassified or policy-violating call
-sites.
-
-Categories
-----------
-DEPRECATION
-    Calls inside `utils/deprecations.py` or `utils/deprecation.py` — these
-    emit `DeprecationWarning` through the central `deprecate()` helper and are
-    always allowed.
-USER_CONTRACT
-    Calls guarded by a documented user-facing contract: the user has explicitly
-    passed invalid or non-canonical input and deserves a notebook-visible
-    notification. Examples: unknown feature names, untrusted plugin explicit
-    override, verbose-mode migration notices.
-FALLBACK_DEGRADED
-    Calls indicating degraded behavior or a fallback path where correctness is
-    preserved but performance or configuration is suboptimal. These SHOULD be
-    routed to `WARNING` logs, not `UserWarning`. Any remaining calls in this
-    category are policy violations unless explicitly allowlisted.
-REJECT_CONTRACT
-    Calls emitting `RejectContractWarning` — a project-specific warning
-    subclass used in the reject orchestrator. Allowed.
-ALLOWLISTED
-    Call sites that have been explicitly reviewed and approved to remain as
-    `warnings.warn` due to documented reasons.
+Scans library source for ``warnings.warn`` call sites and governed fallback
+sites. The warning inventory is a drift check for existing visible warnings.
+The fallback registry is the release gate: every known fallback site must
+either emit the governed ``UserWarning`` + ``INFO`` pairing or carry an
+explicit, reviewable exemption.
 
 Usage
 -----
     python scripts/quality/check_warning_policy.py
-    python scripts/quality/check_warning_policy.py --check   # fail on violations
+    python scripts/quality/check_warning_policy.py --check
     python scripts/quality/check_warning_policy.py --report reports/quality/warning_policy.json
 """
 
@@ -39,95 +18,144 @@ from __future__ import annotations
 import argparse
 import ast
 import json
+import re
 import sys
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import NamedTuple
+from typing import Final, NamedTuple
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_ROOT = REPO_ROOT / "src" / "calibrated_explanations"
 
-# ---------------------------------------------------------------------------
-# Allowlist — call sites explicitly approved to remain as warnings.warn
-# ---------------------------------------------------------------------------
-
-# Format: frozenset of (relative_module_path, approximate_line_hint) tuples
-# Use the module path relative to src/calibrated_explanations/
-ALLOWLISTED_PATHS: frozenset[str] = frozenset(
-    {
-        # Deprecation helpers — always allowed
-        "utils/deprecations.py",
-        "utils/deprecation.py",
-        # ce_agent_utils: get_uncalibrated_predictions is a user-contract guard
-        # (operator explicitly bypasses calibration — notebook-visible feedback appropriate)
-        "ce_agent_utils.py",
-        # plotting.py: visualization quality warnings for user-authored plots
-        "plotting.py",
-        # viz/_matplotlib_compat.py: visualization edge-case warnings (identical predictions/uncertainties)
-        "viz/_matplotlib_compat.py",
-        # viz/matplotlib_adapter.py: rendering fallbacks visible to users who plot
-        "viz/matplotlib_adapter.py",
-        # viz/narrative_plugin.py: narrative quality warnings
-        "viz/narrative_plugin.py",
-        # viz/serializers.py: serialization edge-case warnings
-        "viz/serializers.py",
-        # plugins/manager.py: untrusted plugin via explicit override — user contract
-        "plugins/manager.py",
-        # plugins/registry.py: plugin registration governance events
-        "plugins/registry.py",
-        # plugins/base.py: plugin base contract warnings
-        "plugins/base.py",
-        # plugins/predict_monitor.py: monitoring boundary warnings
-        "plugins/predict_monitor.py",
-        # explanations/explanation.py: user-facing warnings (feature not found, rule errors, etc.)
-        "explanations/explanation.py",
-        # explanations/explanations.py: collection-level user-facing warnings
-        "explanations/explanations.py",
-        # explanations/guarded_explanation.py: guarded explanation contract warnings
-        "explanations/guarded_explanation.py",
-        # core/calibrated_explainer.py: verbose-mode migration UserWarning (condition_source);
-        #   _use_plugin UserWarning in guarded path (fires when verbose=True and _use_plugin=False);
-        #   RejectResult.prediction formatting failure UserWarning (predict_reject exception path)
-        "core/calibrated_explainer.py",
-        # core/reject/orchestrator.py: reject contract warnings (RejectContractWarning subclass)
-        "core/reject/orchestrator.py",
-        # core/explain/orchestrator.py: user contract warnings (unknown feature names, reject upgrade)
-        "core/explain/orchestrator.py",
-        # core/explain/_guarded_explain.py: guarded explain contract warnings
-        "core/explain/_guarded_explain.py",
-        # core/explain/__init__.py: explain module init warnings
-        "core/explain/__init__.py",
-        # core/explain/parallel_instance.py: parallel instance fallback
-        "core/explain/parallel_instance.py",
-        # core/explain/parallel_runtime.py: parallel runtime fallback
-        "core/explain/parallel_runtime.py",
-        # api/config.py: UserWarning for removed ExplainerConfig fields (task/parallel_workers)
-        # emitted at build_config() call sites — user-contract guard, not a deprecation channel
-        "api/config.py",
-        # core/config_manager.py: config validation contract warnings
-        "core/config_manager.py",
-        # core/difficulty_estimator_helpers.py: difficulty estimator contract warnings
-        "core/difficulty_estimator_helpers.py",
-        # core/discretizer_config.py: discretizer config contract warnings
-        "core/discretizer_config.py",
-        # core/reject.py: reject module warnings
-        "core/reject.py",
-        # core/prediction_helpers.py: prediction helper contract warnings
-        "core/prediction_helpers.py",
-        # core/prediction/orchestrator.py: prediction orchestrator contract warnings
-        "core/prediction/orchestrator.py",
-        # core/wrap_explainer.py: wrap explainer contract warnings, including ADR-039 mc-drop persistence warning
-        "core/wrap_explainer.py",
-        # calibration/normalization_strategy.py: normalization deprecation
-        "calibration/normalization_strategy.py",
-        # explanations/reject.py: reject warnings
-        "explanations/reject.py",
-        # utils/perturbation.py: perturbation utility warnings
-        "utils/perturbation.py",
-    }
+VISIBLE_FALLBACK_POLICY: Final[str] = (
+    "Retained user-visible fallbacks must emit UserWarning plus an INFO log. "
+    "Internal best-effort fallbacks may remain exempt only when this registry "
+    "records a reason and the available logger signal."
 )
 
-# Paths that contain ONLY deprecation warnings (never policy violations)
-DEPRECATION_ONLY_PATHS: frozenset[str] = frozenset(
+FALLBACK_MESSAGE_PATTERNS: Final[tuple[str, ...]] = (
+    r"fall(?:ing)? back",
+    r"fallback",
+    r"failed to initialize perf primitives from config",
+    r"feature filter enforcement skipped",
+    r"using fallback feature_filter_config",
+    r"drops the configured mondrian categorizer",
+    r"failed to save state",
+)
+
+
+@dataclass(frozen=True)
+class FallbackSiteSpec:
+    """Registry entry describing one governed fallback site."""
+
+    site_id: str
+    rel_path: str
+    context: str
+    message_pattern: str
+    disposition: str
+    reason: str
+    required_warning: bool = False
+    required_log_level: str = "INFO"
+    notes: str = ""
+
+
+FALLBACK_SITE_REGISTRY: Final[tuple[FallbackSiteSpec, ...]] = (
+    FallbackSiteSpec(
+        site_id="wrap_from_config_perf_primitives",
+        rel_path="core/wrap_explainer.py",
+        context="from_config",
+        message_pattern=r"Failed to initialize perf primitives from config",
+        disposition="exempt",
+        required_log_level="DEBUG",
+        reason=(
+            "Optional perf primitives degrade to cache=None and sequential execution at "
+            "construction time. The reduced behavior is recorded as an internal "
+            "observability exemption pending a future public-surface redesign."
+        ),
+    ),
+    FallbackSiteSpec(
+        site_id="execution_plugin_unsupported_legacy_fallback",
+        rel_path="plugins/builtins.py",
+        context="explain_batch",
+        message_pattern=r"Execution plugin unsupported; falling back to legacy sequential execution",
+        disposition="exempt",
+        required_log_level="WARNING",
+        reason=(
+            "Plugin capability mismatches are governed as internal execution-routing "
+            "fallbacks. They must remain statically registered even when the runtime "
+            "signal is logger-only."
+        ),
+    ),
+    FallbackSiteSpec(
+        site_id="execution_plugin_supports_failure_legacy_fallback",
+        rel_path="plugins/builtins.py",
+        context="explain_batch",
+        message_pattern=r"Execution plugin supports\(\) check failed.*falling back to legacy",
+        disposition="exempt",
+        required_log_level="WARNING",
+        reason=(
+            "Capability-check failures currently degrade through the legacy execution "
+            "path. The site stays allowlisted only through this explicit registry entry."
+        ),
+    ),
+    FallbackSiteSpec(
+        site_id="execution_plugin_runtime_failure_legacy_fallback",
+        rel_path="plugins/builtins.py",
+        context="explain_batch",
+        message_pattern=r"Execution plugin failed for mode .*falling back to legacy",
+        disposition="exempt",
+        required_log_level="WARNING",
+        reason=(
+            "Execution failures degrade to the legacy explainer path. The release gate "
+            "must keep tracking the logger-only signal until the runtime contract is "
+            "tightened."
+        ),
+    ),
+    FallbackSiteSpec(
+        site_id="feature_filter_chain_read_skipped",
+        rel_path="core/calibrated_explainer.py",
+        context="_enforce_feature_filter_plugin_preferences",
+        message_pattern=r"feature filter enforcement skipped",
+        disposition="exempt",
+        required_log_level="WARNING",
+        reason=(
+            "ADR-027 currently allows FAST feature-filter enforcement to fail open. "
+            "This exemption is recorded so the warning-policy gate reports the site "
+            "instead of missing it."
+        ),
+    ),
+    FallbackSiteSpec(
+        site_id="deepcopy_shallow_copy_fallback",
+        rel_path="core/calibrated_explainer.py",
+        context="__deepcopy__",
+        message_pattern=r"fallback to shallow copy",
+        disposition="exempt",
+        required_log_level="NONE",
+        reason=(
+            "Deep-copy fallback is still implemented through exception suppression with "
+            "no runtime signal. It remains an explicit exemption so the gate does not "
+            "pretend the path is covered by visible warning policy."
+        ),
+        notes="No logger signal exists yet; tracked as a silent best-effort fallback.",
+    ),
+    FallbackSiteSpec(
+        site_id="reset_runtime_helper_suppression",
+        rel_path="core/calibrated_explainer.py",
+        context="reset",
+        message_pattern=r"clear_(?:explanation_plugin_instances|explanation_plugin_identifiers|bridge_monitors)",
+        disposition="exempt",
+        required_log_level="NONE",
+        reason=(
+            "Reset helper cleanup still suppresses teardown errors silently. The site is "
+            "explicitly recorded here so the gate reports the exemption instead of "
+            "claiming full fallback visibility."
+        ),
+        notes="Static suppression-only exemption.",
+    ),
+)
+
+
+DEPRECATION_ONLY_PATHS: Final[frozenset[str]] = frozenset(
     {
         "utils/deprecations.py",
         "utils/deprecation.py",
@@ -136,65 +164,239 @@ DEPRECATION_ONLY_PATHS: frozenset[str] = frozenset(
 
 
 class WarnSite(NamedTuple):
-    """A `warnings.warn` call site."""
+    """A ``warnings.warn`` call site."""
 
     rel_path: str
     line: int
     message_snippet: str
+    context: str
 
 
-def _find_warn_sites(src_root: Path) -> list[WarnSite]:
-    """Walk source files and collect all `warnings.warn` call sites."""
-    sites: list[WarnSite] = []
+class LogSite(NamedTuple):
+    """A logger call site."""
+
+    rel_path: str
+    line: int
+    level: str
+    message_snippet: str
+    context: str
+
+
+@dataclass(frozen=True)
+class FallbackSiteResult:
+    """Evaluation result for one fallback registry entry."""
+
+    site_id: str
+    rel_path: str
+    context: str
+    disposition: str
+    required_log_level: str
+    matched_warning: bool
+    matched_log: bool
+    reason: str
+    notes: str
+    status: str
+    violations: tuple[str, ...]
+
+
+def _extract_message_snippet(node: ast.Call) -> str:
+    """Return a short message snippet from the first positional argument."""
+    if not node.args:
+        return ""
+    first = node.args[0]
+    if isinstance(first, ast.Constant):
+        return str(first.value)[:160]
+    if isinstance(first, ast.JoinedStr):
+        return "<f-string>"
+    return ""
+
+
+class _SignalVisitor(ast.NodeVisitor):
+    """Collect warning and logger signals while tracking function context."""
+
+    def __init__(self, rel_path: str) -> None:
+        self.rel_path = rel_path
+        self.context_stack: list[str] = []
+        self.warn_sites: list[WarnSite] = []
+        self.log_sites: list[LogSite] = []
+
+    def _context(self) -> str:
+        return ".".join(self.context_stack) if self.context_stack else "<module>"
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        self.context_stack.append(node.name)
+        self.generic_visit(node)
+        self.context_stack.pop()
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self.context_stack.append(node.name)
+        self.generic_visit(node)
+        self.context_stack.pop()
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        self.context_stack.append(node.name)
+        self.generic_visit(node)
+        self.context_stack.pop()
+
+    def visit_Call(self, node: ast.Call) -> None:
+        func = node.func
+        context = self._context()
+        if isinstance(func, ast.Attribute) and func.attr == "warn":
+            if isinstance(func.value, ast.Name) and func.value.id == "warnings":
+                self.warn_sites.append(
+                    WarnSite(self.rel_path, node.lineno, _extract_message_snippet(node), context)
+                )
+        elif isinstance(func, ast.Name) and func.id == "warn":
+            self.warn_sites.append(
+                WarnSite(self.rel_path, node.lineno, _extract_message_snippet(node), context)
+            )
+
+        log_level = _extract_log_level(func)
+        if log_level is not None:
+            self.log_sites.append(
+                LogSite(
+                    self.rel_path,
+                    node.lineno,
+                    log_level,
+                    _extract_message_snippet(node),
+                    context,
+                )
+            )
+        self.generic_visit(node)
+
+
+def _extract_log_level(func: ast.AST) -> str | None:
+    """Return the logger level for a call expression when it looks like a log call."""
+    if not isinstance(func, ast.Attribute):
+        return None
+    if func.attr not in {"debug", "info", "warning", "error", "exception"}:
+        return None
+    return func.attr.upper()
+
+
+def _parse_signals(src_root: Path) -> tuple[list[WarnSite], list[LogSite]]:
+    """Walk source files and collect warning and log call sites."""
+    warn_sites: list[WarnSite] = []
+    log_sites: list[LogSite] = []
     for py_file in sorted(src_root.rglob("*.py")):
         rel = py_file.relative_to(src_root).as_posix()
         try:
             tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
         except SyntaxError:
             continue
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.Call):
-                continue
-            func = node.func
-            if isinstance(func, ast.Attribute) and func.attr == "warn":
-                if isinstance(func.value, ast.Name) and func.value.id == "warnings":
-                    # Extract snippet from first arg if present
-                    snippet = ""
-                    if node.args:
-                        first = node.args[0]
-                        if isinstance(first, ast.Constant):
-                            snippet = str(first.value)[:80]
-                        elif isinstance(first, ast.JoinedStr):
-                            snippet = "<f-string>"
-                    sites.append(WarnSite(rel, node.lineno, snippet))
-            elif isinstance(func, ast.Name) and func.id == "warn":
-                # Bare warn() — may be aliased import of warnings.warn
-                snippet = ""
-                if node.args:
-                    first = node.args[0]
-                    if isinstance(first, ast.Constant):
-                        snippet = str(first.value)[:80]
-                    elif isinstance(first, ast.JoinedStr):
-                        snippet = "<f-string>"
-                sites.append(WarnSite(rel, node.lineno, snippet))
-    return sites
+        visitor = _SignalVisitor(rel)
+        visitor.visit(tree)
+        warn_sites.extend(visitor.warn_sites)
+        log_sites.extend(visitor.log_sites)
+    return warn_sites, log_sites
 
 
-def classify(site: WarnSite) -> str:
-    """Return the policy category for a warning call site."""
+def classify_warning_site(site: WarnSite) -> str:
+    """Return a coarse category for a warning call site."""
     if site.rel_path in DEPRECATION_ONLY_PATHS:
         return "DEPRECATION"
-    if site.rel_path in ALLOWLISTED_PATHS:
-        return "ALLOWLISTED"
-    return "UNCLASSIFIED"
+    if re.search("|".join(FALLBACK_MESSAGE_PATTERNS), site.message_snippet, flags=re.IGNORECASE):
+        return "FALLBACK_VISIBLE"
+    return "USER_CONTRACT"
+
+
+def evaluate_fallback_registry(
+    warn_sites: list[WarnSite],
+    log_sites: list[LogSite],
+    registry: tuple[FallbackSiteSpec, ...] = FALLBACK_SITE_REGISTRY,
+) -> list[FallbackSiteResult]:
+    """Evaluate fallback registry entries against static warning/log signals."""
+    results: list[FallbackSiteResult] = []
+    for spec in registry:
+        context_pattern = re.compile(re.escape(spec.context))
+        message_pattern = re.compile(spec.message_pattern, flags=re.IGNORECASE)
+        matched_warning = any(
+            site.rel_path == spec.rel_path
+            and context_pattern.search(site.context)
+            and message_pattern.search(site.message_snippet)
+            for site in warn_sites
+        )
+        matched_log = any(
+            site.rel_path == spec.rel_path
+            and context_pattern.search(site.context)
+            and message_pattern.search(site.message_snippet)
+            and (spec.required_log_level == "NONE" or site.level == spec.required_log_level)
+            for site in log_sites
+        )
+        violations: list[str] = []
+        if spec.disposition == "user_visible":
+            if not matched_warning:
+                violations.append("missing UserWarning signal")
+            if not matched_log:
+                violations.append(f"missing {spec.required_log_level} log signal")
+        elif spec.disposition == "exempt":
+            if not spec.reason.strip():
+                violations.append("missing exemption reason")
+            if spec.required_log_level != "NONE" and not matched_log:
+                violations.append(f"missing exempted {spec.required_log_level} log signal")
+        else:
+            violations.append(f"unknown disposition: {spec.disposition}")
+        results.append(
+            FallbackSiteResult(
+                site_id=spec.site_id,
+                rel_path=spec.rel_path,
+                context=spec.context,
+                disposition=spec.disposition,
+                required_log_level=spec.required_log_level,
+                matched_warning=matched_warning,
+                matched_log=matched_log,
+                reason=spec.reason,
+                notes=spec.notes,
+                status="pass" if not violations else "fail",
+                violations=tuple(violations),
+            )
+        )
+    return results
+
+
+def build_payload() -> dict[str, object]:
+    """Build the full warning-policy report payload."""
+    warn_sites, log_sites = _parse_signals(SRC_ROOT)
+    classified = [
+        {
+            "file": site.rel_path,
+            "line": site.line,
+            "context": site.context,
+            "message_snippet": site.message_snippet,
+            "category": classify_warning_site(site),
+        }
+        for site in warn_sites
+    ]
+    fallback_results = evaluate_fallback_registry(warn_sites, log_sites)
+    fallback_failures = [result for result in fallback_results if result.status == "fail"]
+    category_counts: dict[str, int] = {}
+    for entry in classified:
+        category = str(entry["category"])
+        category_counts[category] = category_counts.get(category, 0) + 1
+    return {
+        "policy": VISIBLE_FALLBACK_POLICY,
+        "warnings": {
+            "total": len(warn_sites),
+            "by_category": category_counts,
+            "sites": classified,
+        },
+        "fallback_registry": {
+            "total": len(fallback_results),
+            "failures": len(fallback_failures),
+            "sites": [asdict(result) for result in fallback_results],
+        },
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Warning-policy inventory (ADR-028 / STD-005)")
+    """Run the warning-policy check."""
+    parser = argparse.ArgumentParser(
+        description="Warning-policy inventory and fallback-site coverage check (ADR-028 / STD-005)"
+    )
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Exit non-zero if any UNCLASSIFIED sites are found.",
+        help="Exit non-zero if any fallback registry entry is uncovered or malformed.",
     )
     parser.add_argument(
         "--report",
@@ -203,46 +405,32 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    sites = _find_warn_sites(SRC_ROOT)
-    classified: list[dict] = []
-    violations: list[dict] = []
+    payload = build_payload()
+    warning_total = int(payload["warnings"]["total"])  # type: ignore[index]
+    category_counts = payload["warnings"]["by_category"]  # type: ignore[index]
+    fallback_total = int(payload["fallback_registry"]["total"])  # type: ignore[index]
+    fallback_failures = int(payload["fallback_registry"]["failures"])  # type: ignore[index]
+    fallback_sites = payload["fallback_registry"]["sites"]  # type: ignore[index]
 
-    for site in sites:
-        category = classify(site)
-        entry = {
-            "file": site.rel_path,
-            "line": site.line,
-            "message_snippet": site.message_snippet,
-            "category": category,
-        }
-        classified.append(entry)
-        if category == "UNCLASSIFIED":
-            violations.append(entry)
-
-    total = len(sites)
-    allowlisted = sum(1 for e in classified if e["category"] == "ALLOWLISTED")
-    deprecation = sum(1 for e in classified if e["category"] == "DEPRECATION")
-    unclassified = len(violations)
-
-    print("ADR-028 / STD-005 Warning-policy inventory")
+    print("ADR-028 / STD-005 Warning-policy check")
     print("=" * 50)
-    print(f"Total warnings.warn call sites: {total}")
-    print(f"  DEPRECATION (helpers only):   {deprecation}")
-    print(f"  ALLOWLISTED (reviewed):       {allowlisted}")
-    print(f"  UNCLASSIFIED (policy gap):    {unclassified}")
+    print(VISIBLE_FALLBACK_POLICY)
+    print()
+    print(f"warnings.warn inventory sites: {warning_total}")
+    for category in sorted(category_counts):
+        print(f"  {category}: {category_counts[category]}")  # type: ignore[index]
+    print(f"Fallback registry entries: {fallback_total}")
+    print(f"Fallback registry failures: {fallback_failures}")
 
-    if violations:
-        print("\nUnclassified call sites (require review):")
-        for v in violations:
-            print(f"  {v['file']}:{v['line']} — {v['message_snippet']!r}")
-
-    payload = {
-        "total": total,
-        "deprecation": deprecation,
-        "allowlisted": allowlisted,
-        "unclassified": unclassified,
-        "sites": classified,
-    }
+    if fallback_failures:
+        print("\nFallback registry violations:")
+        for site in fallback_sites:
+            if site["status"] != "fail":
+                continue
+            joined = ", ".join(site["violations"])
+            print(
+                f"  {site['site_id']} ({site['file'] if 'file' in site else site['rel_path']}::{site['context']}): {joined}"
+            )
 
     if args.report:
         report_path = Path(args.report)
@@ -250,12 +438,12 @@ def main(argv: list[str] | None = None) -> int:
         report_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
         print(f"\nReport written to: {args.report}")
 
-    if unclassified == 0:
-        print("\n[PASS] All warnings.warn call sites are classified.")
+    if fallback_failures == 0:
+        print("\n[PASS] Warning-policy inventory complete and fallback registry covered.")
     else:
-        print(f"\n[INFO] {unclassified} call site(s) need classification review.")
+        print("\n[FAIL] Fallback registry contains uncovered or malformed sites.")
 
-    if args.check and unclassified > 0:
+    if args.check and fallback_failures > 0:
         return 1
     return 0
 

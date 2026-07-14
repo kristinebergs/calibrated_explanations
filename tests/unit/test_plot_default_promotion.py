@@ -14,13 +14,14 @@ from calibrated_explanations.core.calibrated_explainer import CalibratedExplaine
 from calibrated_explanations.core.wrap_explainer import WrapCalibratedExplainer
 from calibrated_explanations.plugins.plots import PlotRenderResult
 from calibrated_explanations import plotting
+from tests.helpers.plotting_utils import reset_plotting_config_manager
 
 
 @pytest.fixture(autouse=True)
-def _reset_plotting_config_manager() -> None:
-    plotting.reset_plotting_config_manager()
+def reset_plotting_config_manager_fixture() -> None:
+    reset_plotting_config_manager()
     yield
-    plotting.reset_plotting_config_manager()
+    reset_plotting_config_manager()
 
 
 def configure_legacy_style_preference(
@@ -80,13 +81,13 @@ def install_public_global_plot_plugin(
     monkeypatch.setattr(
         explainer.plugin_manager,
         "resolve_plot_plugin",
-        lambda *, explicit_style=None, renderer_override=None: resolve_calls.append(
-            (explicit_style, renderer_override)
-        )
-        or (
-            PlotPlugin(),
-            explicit_style or "plot_spec.default",
-            (explicit_style or "plot_spec.default", "legacy"),
+        lambda *, explicit_style=None, renderer_override=None: (
+            resolve_calls.append((explicit_style, renderer_override))
+            or (
+                PlotPlugin(),
+                explicit_style or "plot_spec.default",
+                (explicit_style or "plot_spec.default", "legacy"),
+            )
         ),
     )
     return resolve_calls
@@ -132,8 +133,9 @@ def test_should_use_plotspec_default_for_chain_based_plotters_when_use_legacy_is
     monkeypatch.setattr(
         plotting,
         "_render_instance_plot_plugin",
-        lambda explanation, explicit_style=None, **kwargs: captured_styles.append(explicit_style)
-        or {"style": explicit_style},
+        lambda explanation, explicit_style=None, **kwargs: (
+            captured_styles.append(explicit_style) or {"style": explicit_style}
+        ),
     )
     monkeypatch.setattr(
         plotting.legacy,
@@ -558,9 +560,34 @@ def test_should_preserve_legacy_opt_out_for_global(
         lambda *args, **kwargs: legacy_calls.append((args, kwargs)),
     )
 
-    plotting.plot_global(SimpleNamespace(), x=[1, 2], show=False, use_legacy=True)
+    class Learner:
+        def predict_proba(self) -> None:
+            return None
+
+    # pre-v4 S4-H6: plot_global now validates the prediction payload before
+    # dispatching to the legacy renderer (previously it dispatched first and
+    # let the legacy path re-derive/validate independently, which silently
+    # skipped validation whenever show=False), so the fake explainer needs a
+    # working predict_proba surface even for the legacy opt-out path.
+    explainer = SimpleNamespace(
+        learner=Learner(),
+        predict_proba=lambda x, uq_interval=True, threshold=None, bins=None: (
+            [0.4, 0.6],
+            ([0.3, 0.5], [0.5, 0.7]),
+        ),
+    )
+
+    plotting.plot_global(explainer, x=[1, 2], show=False, use_legacy=True)
 
     assert legacy_calls
+    _, legacy_kwargs = legacy_calls[0]
+    assert legacy_kwargs["_validated_payload"] == {
+        "proba": [0.4, 0.6],
+        "predict": None,
+        "low": [0.3, 0.5],
+        "high": [0.5, 0.7],
+        "is_regularized": True,
+    }
 
 
 def test_should_preserve_configured_legacy_opt_out_for_global_without_fallback_warning_when_manager_prefers_legacy(

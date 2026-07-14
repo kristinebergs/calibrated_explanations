@@ -92,10 +92,10 @@ These definitions apply across the improvement documents so schedule and gate la
 
 - **Release milestone:** A versioned delivery gate (for example, v0.8.0, v0.9.1, v0.10.0) where checks must be green before shipping or cutting the branch.
 - **Plan phase:** A numbered segment inside an uplift plan that groups related work and gates. Phases can span multiple iterations but map to specific release milestones when called out.
-- **Stage:** Reserved for ADR-001 stage artifacts and legacy references. Outside ADR-001 material, prefer “phase” for plan sequencing and “milestone” for releases.
+- **Stage:** Reserved for ADR-001 stage artifacts and legacy references. Outside ADR-001 material, prefer ?phase? for plan sequencing and ?milestone? for releases.
 - **Gate:** A required check (test run, doc build, waiver review, etc.) that must pass within a phase before the corresponding release milestone can close.
 
-Whenever a document references phases, iterations, or milestones, it uses the definitions above; any “stage” mentions outside ADR-001 should be treated as historical references rather than new schedule constructs.
+Whenever a document references phases, iterations, or milestones, it uses the definitions above; any ?stage? mentions outside ADR-001 should be treated as historical references rather than new schedule constructs.
 
 ## ADR gap closure roadmap
 
@@ -127,7 +127,7 @@ Gap-by-gap severity tables now live only in `development/current-work/RELEASE_PL
 
 **ADR-011 - Deprecation and Migration Policy:** Completed (2026-06-15). The two-minor default remains normal policy; the v1.0.0 RC/GA gate is stricter: `make deprecation-closure` must prove the Active deprecations ledger is empty and no active deprecation may survive into v1.0.0. All three 2026-06-11 reopened gaps closed: (1) guarded wrappers removed in v0.11.3 via finalization exception; (2) active-deprecations ledger rebuilt for pre-RC cleanup evidence; RC must re-run `make deprecation-closure` and obtain zero active rows; (3) raw `DeprecationWarning` sites in `normalization_strategy.py`, `core/reject.py`, `core/explain/__init__.py`, and `core/calibrated_explainer.py` all use `deprecate()` helper. No open appendix gaps.
 
-**ADR-012 - Documentation & Gallery Build Policy:** Accepted; gallery-tooling decision closed (nbconvert, 2026-06-02). Re-evidenced 2026-06-11: notebook execution exists (nightly advisory driver with timeouts; `nbsphinx_execute="always"` on non-RTD builds). Gap 1 closed (v0.11.4): docs HTML/linkcheck CI job wired via `docs-build` job in `ci-nightly.yml` calling `reusable-build-docs.yml`. Gap 2 (per-example runtime ceiling enforcement) remains advisory-only; blocking enforcement is a release-branch obligation. Target: v1.0.0-rc.
+**ADR-012 - Documentation & Gallery Build Policy:** Accepted; gallery-tooling decision closed (nbconvert, 2026-06-02). Re-evidenced 2026-06-11: notebook execution exists (advisory driver with timeouts; `nbsphinx_execute="always"` on non-RTD builds). Gap 1 closed (v0.11.4): docs HTML/linkcheck CI jobs wired (since v0.11.6 Task 60: strict HTML build in `ci.yml` `docs-build`, linkcheck and notebook execution in weekly `scheduled.yml`). Gap 2 (per-example runtime ceiling enforcement) remains advisory-only; blocking enforcement is a release-branch obligation. Target: v1.0.0-rc.
 
 **ADR-013 - Interval Calibrator Plugin Strategy:** Completed (2026-06-18); v0.11.4 closed runtime output validation, documented the frozen-context replacement for the legacy adaptor name, and added pre-plugin migration guidance. No open appendix gaps.
 
@@ -218,26 +218,26 @@ Gap-by-gap severity tables now live only in `development/current-work/RELEASE_PL
 - No behavioural changes beyond docs/tests.
 - Coverage readiness: ratify Standard-003, publish `.coveragerc` draft with
   provisional exemptions, and record baseline metrics to size the remediation
-  backlog.【F:development/standards/STD-003-test-coverage-standard.md†L1-L74】【F:docs/improvement/archived/test_coverage_assessment.md†L1-L23】
+  backlog.?F:development/standards/STD-003-test-coverage-standard.md?L1-L74??F:docs/improvement/archived/test_coverage_assessment.md?L1-L23?
 
 ### v0.7.0 (interval & configuration integration)
 
 1. Implement interval plugin resolution and fast-mode reuse per
    `PLUGIN_GAP_CLOSURE_PLAN` step 1, ensuring calibrators resolve via registry and
-   trusted fallbacks.【F:docs/improvement/PLUGIN_GAP_CLOSURE_PLAN.md†L24-L43】
+   trusted fallbacks.?F:docs/improvement/PLUGIN_GAP_CLOSURE_PLAN.md?L24-L43?
 2. Surface interval/plot configuration knobs (keywords, env vars, pyproject) and
-   propagate telemetry metadata for `interval_source`/`proba_source`.【F:docs/improvement/PLUGIN_GAP_CLOSURE_PLAN.md†L45-L61】
+   propagate telemetry metadata for `interval_source`/`proba_source`.?F:docs/improvement/PLUGIN_GAP_CLOSURE_PLAN.md?L45-L61?
 3. Wire CLI console entry point and smoke tests; document usage in README and
-   contributing guides.【F:docs/improvement/PLUGIN_GAP_CLOSURE_PLAN.md†L63-L70】
+   contributing guides.?F:docs/improvement/PLUGIN_GAP_CLOSURE_PLAN.md?L63-L70?
 4. Update ADR-013/ADR-015 statuses to Accepted with implementation notes.
 5. Ratify Standard-001/Standard-002, publish contributor style excerpts, and land initial
    lint/tooling guardrails for naming and docstring coverage per preparatory
-   phase plans.【F:development/finished-work/Standard-001_nomenclature_remediation.md†L20-L28】【F:development/finished-work/code_documentation_uplift.md†L10-L28】
+   phase plans.?F:development/finished-work/Standard-001_nomenclature_remediation.md?L20-L28??F:development/finished-work/code_documentation_uplift.md?L10-L28?
    - 2025-10-07 – Updated test helpers (`tests/conftest.py`, `tests/unit/core/test_calibrated_explainer_interval_plugins.py`) to comply with Ruff naming guardrails, keeping Standard-001 lint checks green.
    - 2025-10-07 – Harmonised `core.validation` docstring spacing with numpy-style guardrails to satisfy Standard-002 pydocstyle checks.
 6. Implement Standard-003 phase 1 changes: ship shared `.coveragerc`, enable
    `--cov-fail-under=80` in CI, and document waiver workflow in contributor
-   templates.【F:development/standards/STD-003-test-coverage-standard.md†L34-L74】【F:docs/improvement/archived/coverage_uplift_plan.md†L9-L33】
+   templates.?F:development/standards/STD-003-test-coverage-standard.md?L34-L74??F:docs/improvement/archived/coverage_uplift_plan.md?L9-L33?
 
 Release gate: parity tests green for factual/alternative/fast, interval override
 coverage exercised, CLI packaging verified, and nomenclature/doc lint warnings
@@ -245,14 +245,14 @@ live in CI with coverage thresholds enforcing ≥90% package-level coverage.
 
 ### v0.8.0 (plot routing, telemetry, and doc IA rollout)
 
-1. Adopt Standard-004 (superseding ADR-022) by restructuring the documentation toctree into the audience-based information architecture (Getting Started, Practitioner, Researcher, Contributor hubs) and shipping the new telemetry concept page plus quickstart refactor per the information architecture plan.【F:development/standards/STD-004-documentation-audience-standard.md†L1-L53】
+1. Adopt Standard-004 (superseding ADR-022) by restructuring the documentation toctree into the audience-based information architecture (Getting Started, Practitioner, Researcher, Contributor hubs) and shipping the new telemetry concept page plus quickstart refactor per the information architecture plan.?F:development/standards/STD-004-documentation-audience-standard.md?L1-L53?
    - Land the docs sitemap rewrite with a crosswalk checklist (legacy page -> new section) and block merge on green sphinx-build -W, linkcheck, and nav tests to prevent broken routes.
    - Refactor quickstart content into runnable classification and regression guides, wire them into docs smoke tests, and add troubleshooting callouts for supported environments.
    - Publish the telemetry concept page with instrumentation examples, expand the plugin registry and CLI walkthroughs, and sync configuration references (pyproject, env vars, CLI flags) with the new navigation.
    - Record section ownership in docs/OWNERS.md (Overview/Get Started - release manager; How-to/Concepts - runtime tech lead; Extending/Governance - contributor experience lead) and update the pre-release doc checklist so every minor release verifies Standard-004 guardrails.
    - Ship a first-class "Interpret Calibrated Explanations" guide in the practitioner track that walks through reading factual and alternative rule tables, calibrated intervals, and telemetry fields, and cross-link it from README quick-start, release notes, and the upgrade checklist so users immediately grasp why the method matters.
 2. Promote PlotSpec builders to default for at least factual/alternative plots
-   while keeping legacy style available as fallback.【F:src/calibrated_explanations/core/calibrated_explainer.py†L680-L720】【F:src/calibrated_explanations/viz/builders.py†L150-L208】
+   while keeping legacy style available as fallback.?F:src/calibrated_explanations/core/calibrated_explainer.py?L680-L720??F:src/calibrated_explanations/viz/builders.py?L150-L208?
 3. Ensure explain* APIs emit CE-formatted intervals for both percentile and
    thresholded regression requests. When the mode is regression and
    `threshold` is provided, calibrate the percentile representing
@@ -260,22 +260,22 @@ live in CI with coverage thresholds enforcing ≥90% package-level coverage.
    probability interval alongside the CE-formatted interval metadata. Extend
    tests covering dict payloads, telemetry fields, and thresholded regression
    fixtures so callers see the calibrated probability interval reflected in the
-   API response.【F:src/calibrated_explanations/core/calibrated_explainer.py†L760-L820】
+   API response.?F:src/calibrated_explanations/core/calibrated_explainer.py?L760-L820?
 4. Document telemetry schema (interval_source/proba_source/plot_source) for
    downstream integrations and provide examples in docs/plugins.md.
 5. Review preprocessing persistence contract (ADR-009) to confirm saved
-   preprocessor metadata matches expectations.【F:development/adrs/ADR-009-input-preprocessing-and-mapping-policy.md†L1-L80】
+   preprocessor metadata matches expectations.?F:development/adrs/ADR-009-input-preprocessing-and-mapping-policy.md?L1-L80?
 6. Execute Standard-001 Phase 2 renames with legacy shims isolated under a
    `legacy/` namespace and update imports/tests/docs to the canonical module
-   names.【F:development/finished-work/Standard-001_nomenclature_remediation.md†L30-L33】
+   names.?F:development/finished-work/Standard-001_nomenclature_remediation.md?L30-L33?
 7. Complete Standard-002 baseline remediation by finishing pydocstyle batches C (`explanations/`, `perf/`) and D (`plugins/`), adding module summaries and
    upgrading priority package docstrings to numpydoc format with progress
-   tracking.【F:development/finished-work/code_documentation_uplift.md†L17-L92】【F:development/standards/STD-002-code-documentation-standard.md†L17-L62】
+   tracking.?F:development/finished-work/code_documentation_uplift.md?L17-L92??F:development/standards/STD-002-code-documentation-standard.md?L17-L62?
 8. Extend Standard-003 enforcement to critical-path modules (≥95% coverage) and
    enable Codecov patch gating at ≥85% for PRs touching runtime/calibration
    logic, enable
-   `--cov-fail-under=85` in CI.【F:development/standards/STD-003-test-coverage-standard.md†L34-L74】【F:docs/improvement/archived/coverage_uplift_plan.md†L24-L33】
-9. **Completed 2025-01-14:** Adopted ADR-023 to exempt `src/calibrated_explanations/viz/matplotlib_adapter.py` from coverage due to matplotlib 3.8.4 lazy loading conflicts with pytest-cov instrumentation. All 639 tests now pass with coverage enabled. Package-wide coverage maintained at 85%+.【F:development/adrs/ADR-023-matplotlib-coverage-exemption.md†L1-L100】
+   `--cov-fail-under=85` in CI.?F:development/standards/STD-003-test-coverage-standard.md?L34-L74??F:docs/improvement/archived/coverage_uplift_plan.md?L24-L33?
+9. **Completed 2025-01-14:** Adopted ADR-023 to exempt `src/calibrated_explanations/viz/matplotlib_adapter.py` from coverage due to matplotlib 3.8.4 lazy loading conflicts with pytest-cov instrumentation. All 639 tests now pass with coverage enabled. Package-wide coverage maintained at 85%+.?F:development/adrs/ADR-023-matplotlib-coverage-exemption.md?L1-L100?
 
 Release gate: PlotSpec default route parity, telemetry docs/tests in place,
 documentation architecture and ownership shipped, nomenclature renames shipped
@@ -286,21 +286,21 @@ achieved via ADR-023 exemption.
 ### v0.9.0 (documentation realignment & targeted runtime polish)
 
 1. **Reintroduce calibrated-explanations-first messaging across entry points.** Update README quickstart, Overview, and practitioner quickstarts so telemetry/PlotSpec steps are collapsed into clearly labelled "Optional extras" callouts. Place probabilistic regression next to classification in every onboarding path and link to interpretation guides and citing.md.
-2. **Ship audience-specific landing pages.** Implement practitioner, researcher, and contributor hubs per the information architecture update: add probabilistic regression quickstart + concept guide, interpretation guides mirroring notebooks (factual and alternatives with triangular plots), and a researcher "theory & literature" page with published papers and benchmark references.【F:docs/improvement/documentation_information_architecture.md†L5-L118】
-3. **Clarify plugin extensibility narrative.** Revise docs/plugins.md to open with a "hello, calibrated plugin" example that demonstrates preserving calibration semantics, move telemetry/CLI details into optional appendices, and document guardrails tying plugins back to calibrated explanations. Include a prominent pointer to the new `external_plugins/` folder and aggregated installation extras for community plugins.【F:docs/improvement/documentation_review.md†L9-L49】
+2. **Ship audience-specific landing pages.** Implement practitioner, researcher, and contributor hubs per the information architecture update: add probabilistic regression quickstart + concept guide, interpretation guides mirroring notebooks (factual and alternatives with triangular plots), and a researcher "theory & literature" page with published papers and benchmark references.?F:docs/improvement/documentation_information_architecture.md?L5-L118?
+3. **Clarify plugin extensibility narrative.** Revise docs/plugins.md to open with a "hello, calibrated plugin" example that demonstrates preserving calibration semantics, move telemetry/CLI details into optional appendices, and document guardrails tying plugins back to calibrated explanations. Include a prominent pointer to the new `external_plugins/` folder and aggregated installation extras for community plugins.?F:docs/improvement/documentation_review.md?L9-L49?
 
    - 2025-11-06 – Consolidated the plugin story into a Plugins hub (`docs/plugins.md`), added a practitioner-focused "Use external plugins" guide (`docs/practitioner/advanced/use_plugins.md`), and surfaced the curated `external-plugins` extra in installation docs. Cross-linked the appendix index and ensured practitioner/contributor flows are consistent with Standard-004/ADR-006/ADR-037/ADR-026.
-4. **Label telemetry and performance scaffolding as optional tooling.** Move telemetry schema/how-to material into contributor governance sections, ensure practitioner guides mention telemetry only for compliance scenarios, and audit navigation labels to avoid implying these extras are mandatory.【F:docs/improvement/documentation_information_architecture.md†L70-L113】
-5. **Highlight research pedigree throughout.** Keep the existing research hub mentions in the Overview, practitioner quickstarts, and probabilistic regression concept pages; ensure they cross-link citing.md and key publications in the relevant sections without introducing new banner UI.【F:docs/improvement/documentation_review.md†L15-L34】
+4. **Label telemetry and performance scaffolding as optional tooling.** Move telemetry schema/how-to material into contributor governance sections, ensure practitioner guides mention telemetry only for compliance scenarios, and audit navigation labels to avoid implying these extras are mandatory.?F:docs/improvement/documentation_information_architecture.md?L70-L113?
+5. **Highlight research pedigree throughout.** Keep the existing research hub mentions in the Overview, practitioner quickstarts, and probabilistic regression concept pages; ensure they cross-link citing.md and key publications in the relevant sections without introducing new banner UI.?F:docs/improvement/documentation_review.md?L15-L34?
 6. **Triangular alternatives plots everywhere alternatives appear.** Update explanation guides, PlotSpec docs, and runtime examples so `explore_alternatives` also introduces the triangular plot and its interpretation.
-7. **Complete ADR-012 doc workflow enforcement.** Keep Sphinx `-W`, gallery build, and linkcheck mandatory; extend CI smoke tests to run the refreshed quickstarts and fail if optional extras are presented without labels.【F:development/adrs/ADR-012-documentation-and-gallery-build-policy.md†L1-L80】
-8. **Turn Standard-002 tooling fully blocking.** Finish pydocstyle batches E (`viz/`, `viz/plots.py`, `legacy/plotting.py`) and F (`serialization.py`, `core.py`), capture and commit the baseline failure report before flipping enforcement, add the documentation coverage badge, and extend linting to notebooks/examples so the Phase 3 automation backlog is complete.【F:development/finished-work/code_documentation_uplift.md†L24-L92】
+7. **Complete ADR-012 doc workflow enforcement.** Keep Sphinx `-W`, gallery build, and linkcheck mandatory; extend CI smoke tests to run the refreshed quickstarts and fail if optional extras are presented without labels.?F:development/adrs/ADR-012-documentation-and-gallery-build-policy.md?L1-L80?
+8. **Turn Standard-002 tooling fully blocking.** Finish pydocstyle batches E (`viz/`, `viz/plots.py`, `legacy/plotting.py`) and F (`serialization.py`, `core.py`), capture and commit the baseline failure report before flipping enforcement, add the documentation coverage badge, and extend linting to notebooks/examples so the Phase 3 automation backlog is complete.?F:development/finished-work/code_documentation_uplift.md?L24-L92?
    - 2025-10-25 – Added nbqa-powered notebook linting and a 94% docstring
      coverage threshold to the lint workflow, making Standard-002's tooling fully
      blocking for documentation CI.
-9. **Advance Standard-001 naming cleanup.** Prune deprecated shims scheduled for removal and ensure naming lint rules stay green on the release branch.【F:development/finished-work/Standard-001_nomenclature_remediation.md†L40-L44】【F:development/standards/STD-001-nomenclature-standardization.md†L28-L37】
-10. **Sustain Standard-003 coverage uplift.** Audit waiver inventory, retire expired exemptions, raise non-critical modules toward the 90% floor, enable `--cov-fail-under=88` in CI, and execute the module-level remediation efforts for interval regressors, registry/CLI, plotting, and explanation caching per the dedicated gap plan.【F:docs/improvement/archived/coverage_uplift_plan.md†L34-L111】
-11. **Scoped runtime polish for explain performance.** Deliver the opt-in calibrator cache, multiprocessing toggle, and vectorised perturbation handling per ADR-003/ADR-004 analysis so calibrated explanations stay responsive without compromising accuracy. Capture improvements and guidance for plugin authors.【F:development/adrs/ADR-003-caching-key-and-eviction.md†L1-L64】【F:development/adrs/ADR-004-parallel-backend-abstraction.md†L1-L64】【F:src/calibrated_explanations/core/calibrated_explainer.py†L1750-L2150】 See the ADR-004 phase table above for task breakdown and ownership.
+9. **Advance Standard-001 naming cleanup.** Prune deprecated shims scheduled for removal and ensure naming lint rules stay green on the release branch.?F:development/finished-work/Standard-001_nomenclature_remediation.md?L40-L44??F:development/standards/STD-001-nomenclature-standardization.md?L28-L37?
+10. **Sustain Standard-003 coverage uplift.** Audit waiver inventory, retire expired exemptions, raise non-critical modules toward the 90% floor, enable `--cov-fail-under=88` in CI, and execute the module-level remediation efforts for interval regressors, registry/CLI, plotting, and explanation caching per the dedicated gap plan.?F:docs/improvement/archived/coverage_uplift_plan.md?L34-L111?
+11. **Scoped runtime polish for explain performance.** Deliver the opt-in calibrator cache, multiprocessing toggle, and vectorised perturbation handling per ADR-003/ADR-004 analysis so calibrated explanations stay responsive without compromising accuracy. Capture improvements and guidance for plugin authors.?F:development/adrs/ADR-003-caching-key-and-eviction.md?L1-L64??F:development/adrs/ADR-004-parallel-backend-abstraction.md?L1-L64??F:src/calibrated_explanations/core/calibrated_explainer.py?L1750-L2150? See the ADR-004 phase table above for task breakdown and ownership.
 
       - 2025-11-04 – Implemented opt-in calibrator cache with LRU eviction, multiprocessing toggle via `ParallelExecutor`, and vectorized perturbation handling. Added performance guidance for plugin authors in docs/contributor/plugin-contract.md. Cache and parallel primitives integrated into explain pipeline without altering calibration semantics.
 12. **Plugin CLI, discovery, and denylist parity (optional extras).** Extend trust toggles and entry-point discovery to interval/plot plugins, add the `CE_DENY_PLUGIN` registry control highlighted in the OSS scope review, and ship the whole surface as opt-in so calibrated explanations remain usable without telemetry/CLI adoption.
@@ -310,7 +310,7 @@ achieved via ADR-023 exemption.
          `external-plugins` extra metadata to guarantee the curated bundle stays
          opt-in with the expected dependency pins.
 14. **Explanation export convenience.** Provide `to_json()`/`from_json()` helpers on explanation collections that wrap schema v1 utilities and document them as optional aids for integration teams.
-15. **Scope streaming-friendly explanation delivery.** Prototype generator or chunked export paths (or record a formal deferral) so memory-sensitive users know how large batches will be handled, capturing the outcome directly in the OSS scope inventory.【F:docs/improvement/OSS_CE_scope_and_gaps.md†L86-L118】
+15. **Scope streaming-friendly explanation delivery.** Prototype generator or chunked export paths (or record a formal deferral) so memory-sensitive users know how large batches will be handled, capturing the outcome directly in the OSS scope inventory.?F:docs/improvement/OSS_CE_scope_and_gaps.md?L86-L118?
 
 Release gate: Audience landing pages published with calibrated explanations/probabilistic regression foregrounded, research callouts present on all entry points, telemetry/performance extras labelled optional, docs CI (including quickstart smoke tests, notebook lint, and doc coverage badge) green, Standard-001/018/019 gates enforced, runtime performance enhancements landed without altering calibration outputs, plugin denylist control shipped, streaming plan recorded, and optional plugin extras (CLI/discovery/export) documented as add-ons.
 
@@ -323,7 +323,7 @@ Release gate: Audience landing pages published with calibrated explanations/prob
 5. Reinforce ADR-020 legacy-API commitments with release checklist gates, regression tests for `explain_factual`/`explore_alternatives`, CONTRIBUTING guidance, and a scripted notebook audit workflow (see `development/current-work/RELEASE_PLAN_status_appendix.md`).
 6. Restore visualization safety valves per ADR-023 by running the viz suite in CI, removing ignores, and aligning coverage messaging with the final thresholds (see `development/current-work/RELEASE_PLAN_status_appendix.md`).
 7. Update governance collateral and hubs to satisfy Standard-004—embed the parity-review checklist in PR templates, reinstate the task API comparison, and publish the researcher future-work ledger (see `development/current-work/RELEASE_PLAN_status_appendix.md`).
-8. Implement ADR-004 v0.9.1 scoped deliverable — ParallelExecutor: create a conservative execution layer that centralizes executor selection heuristics, exposes a minimal config surface (min_instances_for_parallel, min_features_for_parallel, task_size_hint_bytes), honors `CE_PARALLEL` overrides, emits compact decision telemetry (decision, reason, n_instances, n_features, bytes_hint, platform, executor_type), and includes unit tests plus a micro-benchmark harness. This is intentionally small and designed to collect field evidence before any full `ParallelExecutor` rollout in v0.10. 【F:development/adrs/ADR-004-parallel-backend-abstraction.md†L1-L40】
+8. Implement ADR-004 v0.9.1 scoped deliverable ? ParallelExecutor: create a conservative execution layer that centralizes executor selection heuristics, exposes a minimal config surface (min_instances_for_parallel, min_features_for_parallel, task_size_hint_bytes), honors `CE_PARALLEL` overrides, emits compact decision telemetry (decision, reason, n_instances, n_features, bytes_hint, platform, executor_type), and includes unit tests plus a micro-benchmark harness. This is intentionally small and designed to collect field evidence before any full `ParallelExecutor` rollout in v0.10. ?F:development/adrs/ADR-004-parallel-backend-abstraction.md?L1-L40?
 
 Release gate: Deprecation dashboard live, docs CI runs with notebook execution, coverage/waiver gating enforced at ≥90%, legacy API and parity checklists signed, and visualization tests passing on the release branch (see `development/current-work/RELEASE_PLAN_status_appendix.md`).
 
@@ -335,11 +335,11 @@ Release gate: Deprecation dashboard live, docs CI runs with notebook execution, 
 4. Implement ADR-004’s parallel execution backlog—auto strategy heuristics, telemetry with timings/utilisation, context management and cancellation, configuration surfaces, resource guardrails, fallback warnings, and automated benchmarking (see `development/current-work/RELEASE_PLAN_status_appendix.md`). Progress is tracked in the ADR-004 phase table above.
 5. Enforce interval safety across bridges and exports to resolve ADR-021 and the ADR-015 predict-bridge gap, ensuring invariants, probability cubes, and serialization policies are honoured (see `development/current-work/RELEASE_PLAN_status_appendix.md`).
 6. Align runtime plugin semantics with ADR-026 by adding invariant checks, hardening contexts, and extending telemetry payloads. Also internalise `CalibratedExplainer.explain` to reinforce the facade pattern and prevent public access (see `development/current-work/RELEASE_PLAN_status_appendix.md`).
-7. Remove deprecated backward-compatibility alias `_is_thresholded()` from `CalibratedExplanations` class (superseded by `_is_probabilistic_regression()` in v0.9.0). Update any remaining external code or documentation that may reference the old method name. This completes the terminology standardization cycle from ADR-021.【F:development/adrs/ADR-021-calibrated-interval-semantics.md†L119-L159】【F:docs/foundations/concepts/terminology_thresholded_vs_probabilistic_regression.md†L1-L24】
+7. Remove deprecated backward-compatibility alias `_is_thresholded()` from `CalibratedExplanations` class (superseded by `_is_probabilistic_regression()` in v0.9.0). Update any remaining external code or documentation that may reference the old method name. This completes the terminology standardization cycle from ADR-021.?F:development/adrs/ADR-021-calibrated-interval-semantics.md?L119-L159??F:docs/foundations/concepts/terminology_thresholded_vs_probabilistic_regression.md?L1-L24?
 8. Condition source and discretizer branching: introduce `condition_source` configuration and thread it through `CalibratedExplainer`, `CalibratedExplanations`, orchestrators, and explanation instances so condition labels can be derived from either observed labels or calibrated predictions. Update discretizer construction to branch between observed-label and prediction-based label building and propagate the choice into `instantiate_discretizer` with validated defaults. Extend runtime helper tests to exercise both observed- and prediction-based condition sources and update discretizer interface stubs accordingly. Plan the user-visible default change (`condition_source="prediction"`) to land in v0.11.0 (or at latest in `v1.0.0-rc`) with an explicit upgrade note and migration guidance for any callers that relied on the historical observed-label behaviour.
-9. Update the Docs with a comprehensive API reference for the public API of `CalibratedExplainer`, `WrapCalibratedExplainer`, `CalibratedExplanations`, `CalibratedExplanation`, `FactualExplanation`, and `AlternativeExplanation` including detailed descriptions of methods, parameters, return types, and usage examples. This will help users understand how to effectively utilize the library's capabilities.【F:docs/api_reference/calibrated_explainer.md†L1-L150】
+9. Update the Docs with a comprehensive API reference for the public API of `CalibratedExplainer`, `WrapCalibratedExplainer`, `CalibratedExplanations`, `CalibratedExplanation`, `FactualExplanation`, and `AlternativeExplanation` including detailed descriptions of methods, parameters, return types, and usage examples. This will help users understand how to effectively utilize the library's capabilities.?F:docs/api_reference/calibrated_explainer.md?L1-L150?
 10. **Anti-Pattern Remediation Phase 1:** Triage and categorize private member usage in tests. Rename and move test utilities (Category B) to public helpers to decouple tests from implementation details. See `docs/improvement/archived/ANTI_PATTERN_REMEDIATION_PLAN.md`.
-11. **Close Standard-003 Phase 2 gates.** Execute the coverage uplift roadmap for this milestone: (a) complete the waiver audit with expiry metadata and refresh `.coveragerc`/`[tool.coverage.paths]` so Windows/WSL reports collapse to a single source of truth, (b) raise local + CI invocations (pytest + `make test-cov`) to `--cov-fail-under=90` while enabling the Codecov ≥88 % patch gate, and (c) deliver Iteration 3 remediation from the uplift plan—drive deterministic tests for `plugins/registry.py`, `plugins/builtins.py`, `plugins/cli.py`, and legacy plotting save-routing so trust toggles, CLI error paths, and renderer parity are all exercised before we cut the v0.10.0 branch.【F:docs/improvement/archived/coverage_uplift_plan.md†L24-L119】
+11. **Close Standard-003 Phase 2 gates.** Execute the coverage uplift roadmap for this milestone: (a) complete the waiver audit with expiry metadata and refresh `.coveragerc`/`[tool.coverage.paths]` so Windows/WSL reports collapse to a single source of truth, (b) raise local + CI invocations (pytest + `make test-cov`) to `--cov-fail-under=90` while enabling the Codecov ?88 % patch gate, and (c) deliver Iteration 3 remediation from the uplift plan?drive deterministic tests for `plugins/registry.py`, `plugins/builtins.py`, `plugins/cli.py`, and legacy plotting save-routing so trust toggles, CLI error paths, and renderer parity are all exercised before we cut the v0.10.0 branch.?F:docs/improvement/archived/coverage_uplift_plan.md?L24-L119?
 
 Release gate: Package boundaries, validation/caching/parallel tests, interval invariants, terminology cleanup, and updated ADR status notes all green with telemetry dashboards verifying the new signals (see `development/current-work/RELEASE_PLAN_status_appendix.md`).
 
@@ -509,14 +509,14 @@ Release gate: Plugin registries enforce trust and protocol policies, extras inst
 
   1. Close Standard-001 (pulled forward from v1.0.0-rc; depends on v0.11.1 Standard-001
      cleanup): remove remaining transitional shims from `legacy/`, confirm naming/tooling
-     enforcement green on main.【F:development/finished-work/Standard-001_nomenclature_remediation.md†L40-L44】
+     enforcement green on main.?F:development/finished-work/Standard-001_nomenclature_remediation.md?L40-L44?
   2. Close Standard-002 known gap (implementation pulled forward from v1.0.0-rc; RC only
      verifies): add full numpydoc blocks to `WrapCalibratedExplainer` and remaining
-     stable public surfaces identified in the appendix.【F:development/finished-work/code_documentation_uplift.md†L24-L92】【F:development/standards/STD-002-code-documentation-standard.md†L43-L62】
+     stable public surfaces identified in the appendix.?F:development/finished-work/code_documentation_uplift.md?L24-L92??F:development/standards/STD-002-code-documentation-standard.md?L43-L62?
   3. Ratify ADR-030 zero-tolerance enforcement (pulled forward from v1.0.0; ratification
      should inform RC readiness): confirm extended anti-pattern scans are CI-blocking,
      document marker hygiene rules in the ADR, and declare mutation testing optional for
-     core modules.【F:development/adrs/ADR-030-test-quality-priorities-and-enforcement.md†L1-L50】
+     core modules.?F:development/adrs/ADR-030-test-quality-priorities-and-enforcement.md?L1-L50?
   4. (Stretch) OSS performance harness template (pulled forward from v1.0.0-rc;
      self-contained): provide a reusable harness for semi/fully-online latency
      measurements with README guidance and a sample run (gate: sample run documented
@@ -714,13 +714,44 @@ waived; `make local-checks-pr` passes.
 8. Decide and implement the `ncf="entropy"` silent-alias disposition (warn, raise, or
    formal exemption) so the RC deprecation gate output is trustworthy evidence; clear
    known lint debt (ruff C420).
+9. Split local verification into focused quick/task/pr/full/release profiles, and
+   make task closure evidence plan-driven (`make local-checks-task TASK=<n>`).
+10. Fix ADR-030 assertion-quality gaps and ratify the stricter task-lane checks.
+11. Restore truthful release artifact smoke coverage for wheel/sdist license
+    inclusion.
+12. Close the `to_narrative(format=...)` silent-no-op seam and align docs.
+13. Align runtime/package/plugin provenance version reporting.
+14. Sweep remaining guarded-kwarg stale wording across docs, skills, and ADRs.
+15. Remove repository-only `tests.helpers` imports from public docs.
+16. Raise a stable CE validation error for empty calibration data.
+17. Clear stale unknown-kwarg warning output from public notebooks.
+18. Repair contributor guidance that points to removed legacy contract paths.
+19. Align narrative-template docs and packaged fallback references.
+20. Finalize PlotSpec schema/package-data authority and artifact coverage.
+21. Resolve remaining suspicious pre-v1 audit follow-ups or defer them explicitly.
+22. Optional/non-blocking: promote repeated shared test helpers into `tests/helpers/`.
+23. Encode non-`0..K-1` classification labels or fail fast with CE-owned errors.
+24. Eliminate runtime deprecation emissions from the legacy `narrative_format=`
+    alias and keep the deprecation-closure gate truthful at runtime.
+25. Restore the fallback-warning pytest filter and prove it is live.
+26. Harden packaging metadata and release-profile artifact inspection.
+27. Close or document the remaining narrative/plot kwarg seams and plugin-forwarding
+    visibility gap.
+28. Reconcile release evidence/bookkeeping: CHANGELOG migration notes, deprecation
+    ledger framing, `RELEASE_PLAN_v1.md` sync, and a v0.11.6 upgrade checklist.
+29. Remove release-profile meta-tests and add a guard preventing their return.
+30. Release preparation: final migration-note sweep, version/tag alignment, plan
+    handoff, and pre-tag gate confirmation.
 
 Release gate: corrected deprecation-closure gate merged with regression test and
 exits 0 on the empty active ledger; all bug-list Finding 1–3 repros raise instead of
 silently passing, each covered by a regression test; ADR-038 gap rows closed with the
 unknown-kwarg policy and D4 spelling resolution recorded; no new deprecation cycles
 opened (`make deprecation-closure` green throughout); CHANGELOG migration notes
-present for every behavior change; `make local-checks` passes.
+present for every behavior change; focused task closure runs use
+`make local-checks-task TASK=<n>`, PR readiness uses `make local-checks-pr`, and the
+milestone closure gate is `make local-checks-pr` with task-specific evidence from the
+active v0.11.6 plan.
 
 ### v1.0.0-rc (release candidate readiness)
 
@@ -746,12 +777,12 @@ present for every behavior change; `make local-checks` passes.
 
 1. Confirm Explanation Schema v1 is content-complete and frozen (any schema gaps
    must be resolved in v0.11.3 before RC); publish the compatibility statement
-   communicating that only patch updates will follow.【F:docs/schema_v1.md†L1-L120】
+   communicating that only patch updates will follow.?F:docs/schema_v1.md?L1-L120?
 2. Reconfirm wrap interfaces and exception taxonomy against v0.6.x contracts;
-   update README and CHANGELOG with a release-candidate compatibility note.【F:src/calibrated_explanations/core/wrap_explainer.py†L260-L471】【F:src/calibrated_explanations/core/exceptions.py†L1-L63】
+   update README and CHANGELOG with a release-candidate compatibility note.?F:src/calibrated_explanations/core/wrap_explainer.py?L260-L471??F:src/calibrated_explanations/core/exceptions.py?L1-L63?
 3. Validate caching/parallel toggles in staging; verify (do not document) that
    telemetry captures cache hits/misses and worker utilisation metrics as
-   documented in v0.11.3 Task 11 safe-defaults guide.【F:development/adrs/ADR-003-caching-key-and-eviction.md†L28-L64】【F:development/adrs/ADR-004-parallel-backend-abstraction.md†L25-L64】
+   documented in v0.11.3 Task 11 safe-defaults guide.?F:development/adrs/ADR-003-caching-key-and-eviction.md?L28-L64??F:development/adrs/ADR-004-parallel-backend-abstraction.md?L25-L64?
 4. Verify Standard-002 compliance at ≥90% docstring coverage holds for the RC
    branch (the WrapCalibratedExplainer gap was closed in v0.11.3; this is a
    verification gate, not an implementation task).
@@ -792,21 +823,21 @@ Release gate: Tagged release artifacts available; documentation hubs current and
 - **Scope alignment:** The release milestones already emphasise testing and
   documentation maturity; Standard-003 adds explicit quantitative coverage gates that
    complement Standard-001/Standard-002 quality goals without altering plugin-focused
-   scope.【F:development/standards/STD-003-test-coverage-standard.md†L34-L74】
+   scope.?F:development/standards/STD-003-test-coverage-standard.md?L34-L74?
 - **Milestone sequencing:** Early v0.6.x tasks capture baseline metrics and
    prepare `.coveragerc`, v0.7.0 introduces CI thresholds, v0.8.0 widens
    enforcement to critical paths and patch checks, and v0.9.0 retires waivers
    ahead of the release candidate. This staging keeps debt burn-down parallel to
-   existing plugin/doc improvements.【F:docs/improvement/archived/coverage_uplift_plan.md†L11-L48】
+   existing plugin/doc improvements.?F:docs/improvement/archived/coverage_uplift_plan.md?L11-L48?
 - **Release readiness:** By v1.0.0, coverage gating is embedded in branch
    policies and telemetry/documentation communications, ensuring Standard-003 remains
-   sustainable beyond the initial rollout.【F:development/standards/STD-003-test-coverage-standard.md†L34-L74】【F:docs/improvement/archived/coverage_uplift_plan.md†L11-L48】
+   sustainable beyond the initial rollout.?F:development/standards/STD-003-test-coverage-standard.md?L34-L74??F:docs/improvement/archived/coverage_uplift_plan.md?L11-L48?
 
 ## Post-1.0 considerations
 
 - Continue monitoring caching and parallel execution telemetry to determine
   whether the opt-in defaults can graduate to on-by-default in v1.1, updating
-  ADR-003/ADR-004 rollout notes as needed.【F:development/adrs/ADR-003-caching-key-and-eviction.md†L28-L64】【F:development/adrs/ADR-004-parallel-backend-abstraction.md†L25-L64】
+  ADR-003/ADR-004 rollout notes as needed.?F:development/adrs/ADR-003-caching-key-and-eviction.md?L28-L64??F:development/adrs/ADR-004-parallel-backend-abstraction.md?L25-L64?
 - Evaluate additional renderer plugins (plotly) after verifying PlotSpec default
   adoption.
 - **`transform_to_numeric` root-namespace deprecation (v1.1+ ADR-011 cycle):**

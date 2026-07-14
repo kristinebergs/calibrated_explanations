@@ -33,13 +33,17 @@ def find_latest_baseline(directory: Path | None = None) -> Path:
     base_dir = (directory or Path("tests/benchmarks")).resolve()
     candidates = sorted(base_dir.glob("micro_*.json"))
     if not candidates:
-        raise FileNotFoundError("No baseline micro benchmark JSON files found under tests/benchmarks/")
+        raise FileNotFoundError(
+            "No baseline micro benchmark JSON files found under tests/benchmarks/"
+        )
     return candidates[-1]
 
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("baseline", nargs="?", type=Path, help="Baseline metrics JSON (latest if omitted)")
+    p.add_argument(
+        "baseline", nargs="?", type=Path, help="Baseline metrics JSON (latest if omitted)"
+    )
     p.add_argument("current", type=Path)
     p.add_argument("thresholds", type=Path)
     args = p.parse_args(argv)

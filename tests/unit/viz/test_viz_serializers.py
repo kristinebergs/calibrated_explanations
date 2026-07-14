@@ -108,7 +108,7 @@ def test_bar_item_and_panel_configuration():
     bar0 = panel.bars[0]
     if bar0.interval_low is not None and bar0.interval_high is not None:
         assert bar0.interval_low <= bar0.value <= bar0.interval_high, (
-            f"Bar interval violated: {bar0.interval_low} ≤ " f"{bar0.value} ≤ {bar0.interval_high}"
+            f"Bar interval violated: {bar0.interval_low} ≤ {bar0.value} ≤ {bar0.interval_high}"
         )
 
 
@@ -187,7 +187,7 @@ def test_plotspec_from_dict_casts_values():
     bar0 = spec.body.bars[0]
     if bar0.interval_low is not None and bar0.interval_high is not None:
         assert bar0.interval_low <= bar0.value <= bar0.interval_high, (
-            f"Bar interval violated: {bar0.interval_low} ≤ " f"{bar0.value} ≤ {bar0.interval_high}"
+            f"Bar interval violated: {bar0.interval_low} ≤ {bar0.value} ≤ {bar0.interval_high}"
         )
 
 

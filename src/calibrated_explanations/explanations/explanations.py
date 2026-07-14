@@ -25,6 +25,7 @@ from typing import Any, Dict, List, Mapping, Optional, Sequence, Tuple, Union, c
 
 import numpy as np
 
+from ..api.params import reject_unsupported_narrative_kwargs
 from ..core.prediction_helpers import validate_and_prepare_input
 from ..utils import EntropyDiscretizer, RegressorDiscretizer, prepare_for_saving
 from ..utils.exceptions import ValidationError
@@ -34,6 +35,26 @@ from .models import Explanation as DomainExplanation
 from .models import from_legacy_dict as _from_legacy_dict
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _log_forwarded_plot_kwargs(surface: str, kwargs: dict[str, Any], *, allowed: set[str]) -> None:
+    """Emit the governed fallback signal for plot kwargs outside ``allowed``.
+
+    pre-v4 S4-H6: this used to be an INFO-only log, making a misspelled
+    plot-only kwarg (e.g. ``filter_topp``) indistinguishable from a
+    genuinely consumed extension kwarg. CONTRIBUTOR_INSTRUCTIONS.md §5
+    requires a ``UserWarning`` alongside the INFO log for any fallback.
+    """
+    forwarded = sorted(set(kwargs) - allowed)
+    if not forwarded:
+        return
+    message = (
+        f"{surface} forwarding plot keyword arguments to downstream "
+        f"renderers/plugins: {forwarded}. If this is a typo of a built-in "
+        f"argument ({sorted(allowed)}), it will be silently ignored by the renderer."
+    )
+    _LOGGER.info(message)
+    warnings.warn(message, UserWarning, stacklevel=3)
 
 
 def _plot_alternative_dict(*args, **kwargs):
@@ -1376,6 +1397,9 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
         rnk_weight : float, default=0.5
             The weight of the uncertainty in the ranking. Used with the 'ensured' ranking
             metric.
+        **kwargs : dict
+            Additional plot-plugin or renderer kwargs. Non-built-in names are
+            forwarded with an INFO log entry so they do not disappear silently.
 
         Returns
         -------
@@ -1436,6 +1460,19 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
                 output=output_format,
                 **kwargs,
             )
+        _log_forwarded_plot_kwargs(
+            f"{type(self).__name__}.plot",
+            kwargs,
+            allowed={
+                "instance_index",
+                "style",
+                "renderer",
+                "return_plot_spec",
+                "bins",
+                "low_high_percentiles",
+                "class_idx",
+            },
+        )
 
         if len(filename) > 0:
             path, filename, title, ext = prepare_for_saving(filename)
@@ -1527,8 +1564,9 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
         Parameters
         ----------
         template_path : str or None, default=None
-            Path to the narrative template file (YAML or JSON).
-            If None or the file doesn't exist, the built-in default template is used.
+            Path to the narrative template file. If None, the built-in default
+            template `explain_template.yaml` is used. Missing template paths
+            fall back to that default with a `UserWarning` and INFO log entry.
         expertise_level : str or tuple of str, default=("beginner", "advanced")
             The expertise level(s) for narrative generation. Can be a single
             level or a tuple of levels. Valid values: "beginner", "intermediate", "advanced".
@@ -1554,9 +1592,10 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
 
         Raises
         ------
-        FileNotFoundError
-            If the template file is not found and no default is available.
-        ValueError
+        ConfigurationError
+            If unsupported keyword arguments are supplied, such as ``format=``
+            or typo'd names that are not part of the public narrative surface.
+        ValidationError
             If an invalid expertise level or output format is specified.
         ImportError
             If pandas is not available and output_format="dataframe" is requested.
@@ -1576,6 +1615,8 @@ class CalibratedExplanations:  # pylint: disable=too-many-instance-attributes
         --------
         :meth:`.plot` : Plot explanations with various visual styles.
         """
+        reject_unsupported_narrative_kwargs(kwargs, surface=f"{type(self).__name__}.to_narrative")
+
         from ..viz.narrative_plugin import NarrativePlotPlugin
 
         # Create plugin instance
@@ -1992,9 +2033,32 @@ class AlternativeExplanations(CalibratedExplanations):
 
 
 class FrozenCalibratedExplainer:
-    """A class that wraps an explainer to provide a read-only interface.
+    """A class that wraps a deep-copied snapshot of an explainer.
 
-    Prevents modification of the underlying explainer, ensuring its state remains unchanged.
+    On construction, the wrapped explainer is deep-copied via
+    :meth:`CalibratedExplainer.__deepcopy__`, which independently clones all
+    explanation-affecting mutable state -- the learner, plugin manager (and,
+    through it, the interval learner and prediction orchestrator), and NumPy
+    RNG -- so mutating anything reached through :attr:`explainer`/
+    :attr:`learner` (including calling ``.explainer.reset()``) cannot affect
+    the live explainer the snapshot was created from. A worker pool, a
+    lock-guarded performance cache, and the live explainer's
+    ``latest_explanation`` bookkeeping pointer are shared by reference rather
+    than deep-copied; see :meth:`CalibratedExplainer.__deepcopy__` for the
+    exact list and rationale (sharing them cannot leak explanation-affecting
+    mutation, since each explanation object already carries its own frozen
+    snapshot independently of that pointer).
+
+    Direct attribute assignment on this wrapper is blocked by
+    :meth:`__setattr__`, but this class does not prevent mutation of objects
+    *returned* by its accessors (for example calling a mutating method on
+    ``.learner``): "frozen" describes independence from the live explainer's
+    state, not immutability of the returned objects themselves.
+
+    If the deep-copy cannot be performed at all (for example because the
+    learner is truly unpicklable), construction falls back to sharing the
+    live explainer directly and emits a `UserWarning` -- in that case this
+    snapshot provides no isolation guarantee.
     """
 
     def __init__(self, explainer):
@@ -2007,24 +2071,20 @@ class FrozenCalibratedExplainer:
         """
         try:
             self._explainer = deepcopy(explainer)
-        except (
-            Exception
-        ):  # adr002_allow  # pragma: no cover - defensive fallback for unpickleable state
-            # Deepcopy of complex explainer objects can fail; log at DEBUG
-            # instead of emitting a RuntimeWarning to avoid noisy test output.
-            try:
-                import logging
-
-                logging.getLogger(__name__).debug(
-                    "Deepcopy of explainer failed; using original instance for frozen wrapper"
-                )
-            except Exception:  # adr002_allow
-                # If logging fails, fall back to warnings to preserve behavior
-                warnings.warn(
-                    "Deepcopy of explainer failed; using original instance for frozen wrapper",
-                    UserWarning,
-                    stacklevel=2,
-                )
+        except Exception as exc:  # adr002_allow  # pragma: no cover - defensive fallback
+            # Deepcopy of the wrapped explainer failed entirely, so this
+            # "frozen" snapshot would otherwise silently alias the live
+            # explainer, defeating its isolation guarantee. Per the
+            # fallback-visibility policy (CONTRIBUTOR_INSTRUCTIONS.md Sec. 5)
+            # this must be visible, not a silent downgrade: emit a
+            # UserWarning and an INFO log.
+            message = (
+                f"FrozenCalibratedExplainer could not deep-copy the wrapped explainer "
+                f"({exc!r}); falling back to the original (live) instance. This frozen "
+                "snapshot is NOT isolated: mutating it may affect the live explainer."
+            )
+            warnings.warn(message, UserWarning, stacklevel=2)
+            logging.getLogger(__name__).info(message)
             self._explainer = explainer
 
     @property
@@ -2600,6 +2660,7 @@ class MultiClassCalibratedExplanations(CalibratedExplanations):
             "conjunction_separator", kwargs.get("conjunction_separator", " AND ")
         )
         align_weights = kwargs.pop("align_weights", kwargs.get("align_weights", True))
+        reject_unsupported_narrative_kwargs(kwargs, surface=f"{type(self).__name__}.to_narrative")
 
         # Helper to convert a per-class explanation to the desired intermediate dict
         per_instance = []

@@ -95,7 +95,8 @@ Reject-aware explanation collections expose:
 - `.metadata`: contract metadata including `source_indices` and `original_count`
 - `.policy`: effective reject policy
 
-Use `metadata["source_indices"]` to map explanation rows back to original input rows.
+Use `metadata["source_indices"]` to map explanation rows, or the matched subset
+within prediction envelopes, back to original input rows.
 
 ### Schema versioning (advanced)
 
@@ -515,10 +516,10 @@ the required contract keys below.
 | `reject_ncf` | `str` | NCF used for this result (`"default"` or `"ensured"`) |
 | `reject_ncf_w` | `float` | Effective/canonical NCF weight (operational for `ensured`) |
 | `reject_ncf_auto_selected` | `bool` | `True` when the NCF was auto-selected (not specified by the caller) |
-| `matched_count` | `int \| None` | Number of payload rows matched by `ONLY_REJECTED`/`ONLY_ACCEPTED` (`None` for `FLAG`) |
+| `matched_count` | `int \| None` | Number of original input rows matched by `ONLY_REJECTED`/`ONLY_ACCEPTED`. For prediction entrypoints this counts the subset referenced by `source_indices`; `None` for `FLAG`. |
 | `effective_confidence` | `float \| None` | Runtime confidence used for reject decisions |
 | `effective_threshold` | `Any \| None` | Runtime threshold used for regression reject decisions |
-| `source_indices` | `list[int]` | Source-row mapping from returned payload rows to original input rows |
+| `source_indices` | `list[int]` | Source-row mapping for the matched subset. Explanation entrypoints return filtered payload rows; prediction entrypoints keep `prediction` full-batch and use `source_indices` to identify the accepted/rejected subset within that payload. |
 | `original_count` | `int` | Number of rows in original input batch for this call |
 | `init_ok` | `bool` | `True` when reject initialization completed for this call |
 | `init_error` | `bool` | `True` when reject initialization failed |
@@ -535,6 +536,25 @@ uncertainty without calling the orchestrator directly:
 | `novelty_mask` | `numpy.ndarray[bool]` | `True` for instances with empty prediction sets (novelty) |
 | `prediction_set_size` | `numpy.ndarray[int]` | Size of the prediction set for each instance |
 | `epsilon` | `float` | Scalar epsilon threshold (`1 - confidence`) used for prediction-set construction |
+
+Prediction entrypoints intentionally preserve the full-batch `result.prediction`
+payload for `ONLY_ACCEPTED` and `ONLY_REJECTED`. Use
+`metadata["source_indices"]` and `metadata["matched_count"]` to select the
+matched subset from that full payload; explanation entrypoints already return
+policy-filtered collections.
+
+The metadata dictionary may also include additive diagnostic keys. The entries
+below are available for debugging and schema introspection, but should be
+treated as advanced metadata rather than the minimal stable ABI:
+
+| Key | Status | Description |
+| --- | ------ | ----------- |
+| `prediction_set` | Advanced, opt-in | Full prediction-set tensor when `include_prediction_set=True`; omitted by default on prediction entrypoints. |
+| `raw_total_examples` | Internal diagnostic | Original decision-array length used to derive aggregate reject bookkeeping. |
+| `raw_reject_counts` | Internal diagnostic | Aggregate counts and sums used when slicing or summarizing reject payloads. |
+| `threshold_source` | Advanced diagnostic | Indicates how the effective regression threshold was chosen (`call`, `call_reinitialized`, or `None` for classification). |
+| `schema_version` | Compatibility metadata | Reject envelope schema version currently emitted by the runtime (`"2.0"`). |
+| `effective_w` | Advanced diagnostic | Canonicalized reject NCF weight after runtime validation. |
 
 ### Type Specifications
 

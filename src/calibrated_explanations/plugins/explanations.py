@@ -28,7 +28,7 @@ if TYPE_CHECKING:
 else:
     CalibratedExplanationsType = object
 from ..utils.exceptions import ValidationError
-from .base import ExplainerPlugin, PluginMeta, freeze_plugin_config
+from .base import ExplainerPlugin, PluginMeta, freeze_plugin_config, thaw_plugin_config
 from .predict import PredictBridge
 
 
@@ -72,15 +72,14 @@ class ExplanationContext:
         object.__setattr__(self, "categorical_features", _freeze_value(self.categorical_features))
 
     def __getstate__(self):
-        """Get state for pickling.
+        """Return pickle-safe state for the frozen explanation context."""
+        return {key: thaw_plugin_config(value) for key, value in self.__dict__.items()}
 
-        Returns
-        -------
-        dict
-            The state dictionary.
-        """
-        # Convert mappingproxy to dict for pickling
-        return dict(self.__dict__)
+    def __setstate__(self, state):
+        """Restore state and re-freeze immutable context payloads."""
+        for key, value in state.items():
+            object.__setattr__(self, key, value)
+        self.__post_init__()
 
 
 class ExplainerHandle:
@@ -292,15 +291,14 @@ class ExplanationRequest:
         object.__setattr__(self, "extras", frozen_extras)
 
     def __getstate__(self):
-        """Get state for pickling.
+        """Return pickle-safe state for the frozen explanation request."""
+        return {key: thaw_plugin_config(value) for key, value in self.__dict__.items()}
 
-        Returns
-        -------
-        dict
-            The state dictionary.
-        """
-        # Convert mappingproxy to dict for pickling
-        return dict(self.__dict__)
+    def __setstate__(self, state):
+        """Restore state and re-freeze immutable request payloads."""
+        for key, value in state.items():
+            object.__setattr__(self, key, value)
+        self.__post_init__()
 
 
 @dataclass
@@ -441,7 +439,11 @@ def validate_explanation_batch(
     for index, instance in enumerate(instances):
         prediction = instance.get("prediction")
         if isinstance(prediction, MappingABC):
-            _validate_prediction_invariant(prediction, f"Instance {index} prediction")
+            _validate_prediction_invariant(
+                prediction,
+                f"Instance {index} prediction",
+                task=str(task_hint or expected_task or ""),
+            )
         mode = str(instance.get("mode") or instance.get("explanation_type") or mode_hint or "")
         if mode == "alternative":
             _validate_alternative_reference_prediction(instance, metadata, index)
@@ -523,7 +525,9 @@ def _validate_alternative_reference_prediction(
         )
     if isinstance(reference_prediction, MappingABC):
         _validate_prediction_invariant(
-            reference_prediction, f"Instance {instance_index} reference_prediction"
+            reference_prediction,
+            f"Instance {instance_index} reference_prediction",
+            task=str(metadata.get("task") or ""),
         )
 
 
@@ -577,8 +581,15 @@ def _validate_numeric_interval(value: Any, low: Any, high: Any, context: str) ->
             )
 
 
-def _validate_prediction_invariant(payload: Mapping[str, Any], context: str) -> None:
-    """Enforce low <= predict <= high invariant on prediction payload."""
+def _validate_prediction_invariant(
+    payload: Mapping[str, Any], context: str, *, task: str = ""
+) -> None:
+    """Enforce prediction interval invariants on payloads.
+
+    Regression point predictions must lie inside their numeric intervals.
+    Classification payloads may pair calibrated score intervals with class
+    labels, so only the low <= high interval shape invariant is enforced.
+    """
     import numpy as np
 
     predict = payload.get("predict")
@@ -610,10 +621,11 @@ def _validate_prediction_invariant(payload: Mapping[str, Any], context: str) -> 
         if not np.all(low_arr <= high_arr):
             raise ValidationError(f"{context}: Interval invariant violated: low > high")
 
-        # Check low <= predict <= high
-        # Allow small floating point tolerance
-        epsilon = 1e-9
-        if not np.all((low_arr - epsilon <= predict_arr) & (predict_arr <= high_arr + epsilon)):
-            raise ValidationError(
-                f"{context}: Prediction invariant violated: predict not in [low, high]"
-            )
+        if task == "regression":
+            # Check low <= predict <= high
+            # Allow small floating point tolerance
+            epsilon = 1e-9
+            if not np.all((low_arr - epsilon <= predict_arr) & (predict_arr <= high_arr + epsilon)):
+                raise ValidationError(
+                    f"{context}: Prediction invariant violated: predict not in [low, high]"
+                )

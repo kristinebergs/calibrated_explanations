@@ -36,7 +36,7 @@ def test_multiclass_guarded_audit_presence(multiclass_dataset):
         model, x_cal, y_cal, feature_names, categorical_features, mode="classification"
     )
     explanations = cal_exp.explain_factual(
-        x_test[:2], significance=0.1, guarded_options=GuardedOptions()
+        x_test[:2], guarded_options=GuardedOptions(confidence=0.9)
     )
     audit = explanations.get_guarded_audit()
     assert audit["summary"]["n_instances"] == len(explanations)
@@ -62,7 +62,7 @@ def test_classification_guarded_audit_presence(binary_dataset):
         model, x_cal, y_cal, feature_names, categorical_features, mode="classification"
     )
     explanations = cal_exp.explain_factual(
-        x_test[:2], significance=0.1, guarded_options=GuardedOptions()
+        x_test[:2], guarded_options=GuardedOptions(confidence=0.9)
     )
     audit = explanations.get_guarded_audit()
     assert audit["summary"]["n_instances"] == len(explanations)
@@ -87,7 +87,7 @@ def test_regression_guarded_audit_presence(regression_dataset):
         model, x_cal, y_cal, feature_names, categorical_features, mode="regression"
     )
     explanations = cal_exp.explain_factual(
-        x_test[:2], significance=0.1, guarded_options=GuardedOptions()
+        x_test[:2], guarded_options=GuardedOptions(confidence=0.9)
     )
     audit = explanations.get_guarded_audit()
     assert audit["summary"]["n_instances"] == len(explanations)
@@ -113,7 +113,7 @@ def test_guarded_audit_collection_serialization_smoke(binary_dataset):
         model, x_cal, y_cal, feature_names, categorical_features, mode="classification"
     )
     explanations = cal_exp.explain_factual(
-        x_test[:1], significance=0.1, guarded_options=GuardedOptions()
+        x_test[:1], guarded_options=GuardedOptions(confidence=0.9)
     )
     audit = explanations.get_guarded_audit()
     assert isinstance(json.dumps(audit), str)
@@ -156,6 +156,6 @@ def test_guarded_regression_remains_callable_after_reinitialize_append_path(regr
 
     # Guarded explain must succeed without ValidationError after the update.
     explanations = cal_exp.explain_factual(
-        x_test[:1], significance=0.5, guarded_options=GuardedOptions()
+        x_test[:1], guarded_options=GuardedOptions(confidence=0.5)
     )
     assert len(explanations) == 1

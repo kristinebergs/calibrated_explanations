@@ -23,6 +23,7 @@ def test_should_define_adr030_ratification_steps_in_expected_order() -> None:
         "ADR-030 test-helper export guard",
         "ADR-030 marker hygiene",
         "Generated report local-path guard",
+        "Class-surface allowlist gate",
     ]
     assert steps[0].command[0] == "python"
     assert steps[0].command[1] == "scripts/anti-pattern-analysis/scan_private_usage.py"
@@ -74,8 +75,9 @@ def test_should_write_timing_report_when_adr030_ratification_lane_passes(
         "ADR-030 test-helper export guard",
         "ADR-030 marker hygiene",
         "Generated report local-path guard",
+        "Class-surface allowlist gate",
     ]
-    assert [step["exit_code"] for step in payload["steps"]] == [0, 0, 0, 0, 0]
+    assert [step["exit_code"] for step in payload["steps"]] == [0, 0, 0, 0, 0, 0]
     assert all(step["elapsed_seconds"] >= 0 for step in payload["steps"])
     assert payload["total_elapsed_seconds"] >= 0
 
@@ -158,3 +160,144 @@ def test_should_not_include_absolute_paths_in_timing_report(
     assert rc == 0
     assert all(not Path(command.split()[0]).is_absolute() for command in commands)
     assert all(windows_drive_pattern.match(command) is None for command in commands)
+
+
+def test_should_preserve_explicit_empty_task_lint_targets(monkeypatch, tmp_path: Path) -> None:
+    """An explicit empty task lint target list should disable task lint preflight."""
+    # Arrange
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_text(
+        """
+```toml ce-task-verification
+schema_version = 1
+
+[task.38]
+lint_targets = []
+
+[[task.38.steps]]
+name = "Instruction consistency"
+command = "python scripts/quality/check_agent_instruction_consistency.py"
+```
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(local_checks, "_changed_python_targets", lambda: ["src", "tests", "scripts"])
+
+    # Act
+    lint_targets = local_checks.task_specific_lint_targets(38, plan_path=plan_path)
+
+    # Assert
+    assert lint_targets == []
+
+
+def test_should_skip_ruff_commands_in_task_run_when_lint_targets_are_empty(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """A task run with explicit empty lint targets should skip Ruff preflight."""
+    # Arrange
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_text(
+        """
+```toml ce-task-verification
+schema_version = 1
+
+[task.38]
+lint_targets = []
+
+[[task.38.steps]]
+name = "Instruction consistency"
+command = "python scripts/quality/check_agent_instruction_consistency.py"
+```
+""".strip(),
+        encoding="utf-8",
+    )
+    commands_seen: list[str] = []
+
+    def fake_run_step(step: local_checks.Step) -> int:
+        commands_seen.append(" ".join(step.command))
+        return 0
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(local_checks, "_run_step", fake_run_step)
+    monkeypatch.setattr(local_checks, "_mypy_targets", lambda: [])
+    monkeypatch.setattr(local_checks, "_pytest_supports_no_cov", lambda: True)
+    monkeypatch.setattr(local_checks.shutil, "which", lambda name: "tool" if name in {"mypy", "pre-commit"} else None)
+
+    # Act
+    monkeypatch.setattr(
+        local_checks.sys,
+        "argv",
+        [
+            "local_checks.py",
+            "--profile",
+            "task",
+            "--task",
+            "38",
+            "--plan",
+            str(plan_path),
+        ],
+    )
+    rc = local_checks.main()
+
+    # Assert
+    assert rc == 0
+    assert all("ruff" not in command_text for command_text in commands_seen)
+    assert any("check_import_graph.py" in command_text for command_text in commands_seen)
+    assert any("check_adr002_compliance.py" in command_text for command_text in commands_seen)
+
+
+def test_should_enable_ruff_preview_for_markdown_task_lint_targets(
+    monkeypatch, tmp_path: Path
+) -> None:
+    """Task lint preflight should use Ruff preview mode when formatting Markdown."""
+    # Arrange
+    plan_path = tmp_path / "plan.md"
+    plan_path.write_text(
+        """
+```toml ce-task-verification
+schema_version = 1
+
+[task.52]
+lint_targets = ["docs/migration/deprecations.md", "tests/integration/test_doc_examples_smoke.py"]
+
+[[task.52.steps]]
+name = "Doc smoke"
+command = "python -m pytest tests/integration/test_doc_examples_smoke.py -q"
+```
+""".strip(),
+        encoding="utf-8",
+    )
+    commands_seen: list[list[str]] = []
+
+    def fake_run_step(step: local_checks.Step) -> int:
+        commands_seen.append(step.command)
+        return 0
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(local_checks, "_run_step", fake_run_step)
+    monkeypatch.setattr(local_checks, "_mypy_targets", lambda: [])
+    monkeypatch.setattr(local_checks, "_pytest_supports_no_cov", lambda: True)
+    monkeypatch.setattr(local_checks.shutil, "which", lambda name: "tool" if name in {"mypy", "pre-commit"} else None)
+
+    # Act
+    monkeypatch.setattr(
+        local_checks.sys,
+        "argv",
+        [
+            "local_checks.py",
+            "--profile",
+            "task",
+            "--task",
+            "52",
+            "--plan",
+            str(plan_path),
+        ],
+    )
+    rc = local_checks.main()
+
+    # Assert
+    assert rc == 0
+    format_commands = [command for command in commands_seen if command[2:4] == ["ruff", "format"]]
+    assert len(format_commands) == 1
+    assert "--check" in format_commands[0]
+    assert "--preview" in format_commands[0]

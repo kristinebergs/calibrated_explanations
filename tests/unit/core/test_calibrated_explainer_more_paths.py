@@ -2,11 +2,17 @@ import logging
 import numpy as np
 import pytest
 
+from calibrated_explanations.core.calibrated_explainer import CalibratedExplainer
 from tests.helpers.model_utils import get_classification_model, get_regression_model
 from tests.helpers.dataset_utils import make_binary_dataset, make_regression_dataset
 from tests.helpers.explainer_utils import initiate_explainer
+from calibrated_explanations.explanations import CalibratedExplanations
 from calibrated_explanations.explanations.reject import RejectResult, RejectPolicy
-from calibrated_explanations.utils.exceptions import ValidationError
+from calibrated_explanations.plugins.builtins import (
+    LegacyAlternativeExplanationPlugin,
+    LegacyFactualExplanationPlugin,
+)
+from calibrated_explanations.utils.exceptions import ConfigurationError, ValidationError
 
 
 def test_predict_skip_reject_internal_returns_prediction():
@@ -195,6 +201,141 @@ def test_invalid_explicit_policy_fails_fast_across_predict_and_explain():
         cal_exp.explain_factual(x_test[:2], reject_policy="not-a-policy")
 
 
+@pytest.mark.parametrize(
+    "method_name", ["predict_proba", "explain_factual", "explore_alternatives"]
+)
+@pytest.mark.parametrize(
+    ("threshold", "match"),
+    [
+        ((105.0, 95.0), "lower bound must be strictly less than upper bound"),
+        ((100.0,), "exactly two values"),
+        ((100.0, "high"), "only numeric values"),
+    ],
+)
+def test_regression_public_paths_reject_invalid_interval_threshold_tuples(
+    method_name, threshold, match
+):
+    dataset = make_regression_dataset()
+    (
+        x_prop_train,
+        y_prop_train,
+        x_cal,
+        y_cal,
+        x_test,
+        _y_test,
+        _,
+        _no_of_features,
+        categorical_features,
+        feature_names,
+    ) = dataset
+
+    model, _ = get_regression_model("RF", x_prop_train, y_prop_train)
+    cal_exp = initiate_explainer(
+        model,
+        x_cal,
+        y_cal,
+        feature_names,
+        categorical_features,
+        mode="regression",
+    )
+
+    method = getattr(cal_exp, method_name)
+
+    with pytest.raises(ValidationError, match=match):
+        if method_name == "predict_proba":
+            method(x_test[:2], threshold=threshold)
+        else:
+            method(x_test[:2], threshold=threshold)
+
+
+def test_should_raise_validation_error_when_core_explainer_receives_disjoint_classification_targets():
+    dataset = make_binary_dataset()
+    x_prop_train, y_prop_train, x_cal, y_cal, *_rest = dataset
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    disjoint_y_cal = np.where(y_cal == y_cal[0], y_cal[0], 2)
+
+    with pytest.raises(ValidationError) as exc_info:
+        CalibratedExplainer(model, x_cal, disjoint_y_cal, mode="classification")
+
+    assert "subset of the fitted learner classes" in str(exc_info.value)
+    assert exc_info.value.details is not None
+    assert exc_info.value.details.get("model_classes") == [0, 1]
+    assert exc_info.value.details.get("unknown_classes") == [2]
+
+
+@pytest.mark.parametrize("method_name", ["predict", "predict_proba"])
+def test_should_raise_validation_error_when_core_classification_prediction_receives_threshold(
+    method_name,
+):
+    dataset = make_binary_dataset()
+    (
+        x_prop_train,
+        y_prop_train,
+        x_cal,
+        y_cal,
+        x_test,
+        _y_test,
+        _,
+        _,
+        categorical_features,
+        feature_names,
+    ) = dataset
+
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    cal_exp = initiate_explainer(
+        model, x_cal, y_cal, feature_names, categorical_features, mode="classification"
+    )
+
+    method = getattr(cal_exp, method_name)
+
+    with pytest.raises(ValidationError, match="only supported for mode='regression'"):
+        method(x_test[:2], threshold=(3, 1))
+
+
+@pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives"])
+@pytest.mark.parametrize(
+    ("removed_kwarg", "value", "replacement"),
+    [
+        ("guarded", True, "guarded_options=GuardedOptions()"),
+        ("significance", 0.1, "GuardedOptions(confidence=1-significance)"),
+        ("n_neighbors", 5, "GuardedOptions(n_neighbors=...)"),
+        ("normalize_guard", True, "GuardedOptions(normalize=...)"),
+        ("merge_adjacent", True, "GuardedOptions(merge_adjacent=...)"),
+    ],
+)
+def test_should_fail_fast_when_removed_guarded_kwargs_are_passed_to_core_explain_apis(
+    method_name, removed_kwarg, value, replacement
+):
+    dataset = make_binary_dataset()
+    (
+        x_prop_train,
+        y_prop_train,
+        x_cal,
+        y_cal,
+        x_test,
+        _y_test,
+        _,
+        _,
+        categorical_features,
+        feature_names,
+    ) = dataset
+
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    cal_exp = initiate_explainer(
+        model, x_cal, y_cal, feature_names, categorical_features, mode="classification"
+    )
+
+    method = getattr(cal_exp, method_name)
+    kwargs = {removed_kwarg: value}
+
+    with pytest.raises(ConfigurationError) as exc_info:
+        method(x_test[:2], **kwargs)
+    message = str(exc_info.value)
+    assert "removed in v0.11.5" in message
+    assert "GuardedOptions" in message
+    assert replacement in message
+
+
 def test_reject_confidence_forwarded_across_explain_and_guarded_paths(monkeypatch):
     dataset = make_binary_dataset()
     (
@@ -284,6 +425,32 @@ def test_invalid_confidence_rejected_across_predict_and_explain(bad_confidence):
         cal_exp.explain_factual(
             x_test[:2], reject_policy=RejectPolicy.FLAG, reject_confidence=bad_confidence
         )
+
+
+def test_removed_reject_confidence_alias_rejected_across_predict_and_predict_proba():
+    dataset = make_binary_dataset()
+    (
+        x_prop_train,
+        y_prop_train,
+        x_cal,
+        y_cal,
+        x_test,
+        _y_test,
+        _,
+        _,
+        categorical_features,
+        feature_names,
+    ) = dataset
+
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    cal_exp = initiate_explainer(
+        model, x_cal, y_cal, feature_names, categorical_features, mode="classification"
+    )
+
+    with pytest.raises(ConfigurationError, match="reject_confidence"):
+        cal_exp.predict(x_test[:3], reject_policy=RejectPolicy.FLAG, confidence=0.5)
+    with pytest.raises(ConfigurationError, match="reject_confidence"):
+        cal_exp.predict_proba(x_test[:3], reject_policy=RejectPolicy.FLAG, confidence=0.5)
 
 
 def test_reject_context_uses_source_indices_for_only_accepted(monkeypatch):
@@ -498,3 +665,236 @@ def test_reject_metadata_contract_present_across_predict_proba_and_explain():
     assert required.issubset((pred.metadata or {}).keys())
     assert required.issubset((proba.metadata or {}).keys())
     assert required.issubset(expl.metadata.keys())
+
+
+# --- ADR-038 5C: fail-fast kwarg validation extended to CalibratedExplainer directly ---
+
+
+def _classification_explainer(**plugin_kwargs):
+    dataset = make_binary_dataset()
+    (
+        x_prop_train,
+        y_prop_train,
+        x_cal,
+        y_cal,
+        x_test,
+        _y_test,
+        _,
+        _,
+        categorical_features,
+        feature_names,
+    ) = dataset
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    cal_exp = initiate_explainer(
+        model,
+        x_cal,
+        y_cal,
+        feature_names,
+        categorical_features,
+        mode="classification",
+        **plugin_kwargs,
+    )
+    return cal_exp, x_test
+
+
+def test_should_raise_configuration_error_when_init_receives_unknown_kwarg():
+    dataset = make_binary_dataset()
+    (x_prop_train, y_prop_train, x_cal, y_cal, _, _, _, _, categorical_features, feature_names) = (
+        dataset
+    )
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    with pytest.raises(ConfigurationError, match="unknown keyword arguments"):
+        initiate_explainer(
+            model,
+            x_cal,
+            y_cal,
+            feature_names,
+            categorical_features,
+            mode="classification",
+            totally_bogus_kwarg=5,
+        )
+
+
+@pytest.mark.parametrize(
+    ("method_name", "kwarg_name", "kwarg_value"),
+    [
+        ("predict", "guarded_options", object()),
+        ("predict", "mode", "regression"),
+        ("predict", "feature_names", ["a"]),
+        ("predict_proba", "low_high_percentiles", (5, 95)),
+        ("predict_proba", "classes", [0, 1]),
+        ("predict_proba", "feature", 0),
+    ],
+)
+def test_should_raise_configuration_error_for_cross_method_kwargs_on_closed_surfaces(
+    method_name, kwarg_name, kwarg_value
+):
+    """ADR-038 5C: predict/predict_proba are closed surfaces (no experimental
+    exception); a name known elsewhere but not here must raise."""
+    cal_exp, x_test = _classification_explainer()
+    method = getattr(cal_exp, method_name)
+    with pytest.raises(ConfigurationError, match="unknown keyword arguments"):
+        method(x_test[:2], **{kwarg_name: kwarg_value})
+
+
+@pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives"])
+@pytest.mark.parametrize(
+    ("kwarg_name", "kwarg_value"),
+    [
+        ("mode", "regression"),
+        ("feature_names", ["a"]),
+        ("categorical_features", [0]),
+        ("oob", True),
+        ("seed", 1),
+    ],
+)
+def test_should_raise_configuration_error_for_cross_surface_kwargs_on_explain_methods(
+    method_name, kwarg_name, kwarg_value
+):
+    """ADR-038 5C: explain_factual/explore_alternatives keep the ADR-038 §3
+    experimental plugin-forwarding exception, but a name known on a *closed*
+    surface (__init__/predict/predict_proba) must still be rejected here."""
+    cal_exp, x_test = _classification_explainer()
+    method = getattr(cal_exp, method_name)
+    with pytest.raises(ConfigurationError, match="not valid here"):
+        method(x_test[:2], **{kwarg_name: kwarg_value})
+
+
+class _RecordingKwargExplanationPluginMixin:
+    """Test-only mixin proving a declared explain-time kwarg is actually read
+    from ``ExplanationRequest.extras`` (pre-v4 S4-H3, Task 51 policy A) rather
+    than merely forwarded without being consumed."""
+
+    last_forwarded_value = None
+
+    def explain_batch(self, x, request):  # noqa: D102 - thin test override
+        type(self).last_forwarded_value = request.extras.get("some_plugin_specific_key")
+        return super().explain_batch(x, request)
+
+
+_EXPLAIN_KWARGS_SCHEMA = {
+    "version": 1,
+    "additional_properties": False,
+    "keys": {"some_plugin_specific_key": {"type": "int"}},
+}
+
+
+class _RecordingFactualPlugin(
+    _RecordingKwargExplanationPluginMixin, LegacyFactualExplanationPlugin
+):
+    plugin_meta = {
+        **LegacyFactualExplanationPlugin.plugin_meta,
+        "name": "tests.recording.factual",
+        "explain_kwargs_schema": _EXPLAIN_KWARGS_SCHEMA,
+    }
+
+
+class _RecordingAlternativePlugin(
+    _RecordingKwargExplanationPluginMixin, LegacyAlternativeExplanationPlugin
+):
+    plugin_meta = {
+        **LegacyAlternativeExplanationPlugin.plugin_meta,
+        "name": "tests.recording.alternative",
+        "explain_kwargs_schema": _EXPLAIN_KWARGS_SCHEMA,
+    }
+
+
+_RECORDING_PLUGIN_BY_METHOD = {
+    "explain_factual": ("factual_plugin", _RecordingFactualPlugin),
+    "explore_alternatives": ("alternative_plugin", _RecordingAlternativePlugin),
+}
+
+
+@pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives"])
+def test_explain_methods_forward_and_consume_declared_plugin_kwargs(method_name):
+    """pre-v4 S4-H3 (Task 51 policy A): a plugin that declares a key via
+    plugin_meta['explain_kwargs_schema'] both receives it and actually reads it
+    from ExplanationRequest.extras -- not merely returns a non-empty explanation."""
+    plugin_kwarg, plugin_cls = _RECORDING_PLUGIN_BY_METHOD[method_name]
+    plugin_cls.last_forwarded_value = None
+    cal_exp, x_test = _classification_explainer(**{plugin_kwarg: plugin_cls()})
+    method = getattr(cal_exp, method_name)
+    result = method(x_test[:2], some_plugin_specific_key=123)
+    assert isinstance(result, CalibratedExplanations)
+    assert len(result) == 2
+    assert plugin_cls.last_forwarded_value == 123
+
+
+@pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives"])
+def test_explain_methods_reject_unconsumed_plugin_kwargs(method_name):
+    """pre-v4 S4-H3 (Task 51 policy A): the selected plugin does not declare
+    'unknown_typo_kwarg' via plugin_meta['explain_kwargs_schema'], so the typo
+    must raise instead of silently vanishing into an INFO-only forwarding log."""
+    cal_exp, x_test = _classification_explainer()
+    method = getattr(cal_exp, method_name)
+    with pytest.raises(ConfigurationError, match="cannot accept explain-time"):
+        method(x_test[:2], unknown_typo_kwarg=123)
+
+
+@pytest.mark.parametrize("method_name", ["explain_factual", "explore_alternatives"])
+def test_explain_methods_log_forwarded_plugin_kwargs(method_name, caplog):
+    plugin_kwarg, plugin_cls = _RECORDING_PLUGIN_BY_METHOD[method_name]
+    cal_exp, x_test = _classification_explainer(**{plugin_kwarg: plugin_cls()})
+    method = getattr(cal_exp, method_name)
+
+    with caplog.at_level(
+        logging.INFO,
+        logger="calibrated_explanations.core.calibrated_explainer",
+    ):
+        method(x_test[:2], some_plugin_specific_key=123)
+
+    assert any(
+        "forwarding explanation keyword arguments to plugins" in record.message
+        for record in caplog.records
+    )
+    assert any("some_plugin_specific_key" in record.message for record in caplog.records)
+
+
+def test_should_raise_configuration_error_when_removed_normalize_alias_passed_to_predict_proba():
+    """ADR-038 5C: normalize= was previously not checked at all on
+    CalibratedExplainer.predict_proba; it must now fail fast like every other
+    removed alias."""
+    cal_exp, x_test = _classification_explainer()
+    with pytest.raises(ConfigurationError, match="removed in v0.11.5"):
+        cal_exp.predict_proba(x_test[:2], normalize=True)
+
+
+def test_should_raise_configuration_error_when_removed_guarded_kwarg_passed_to_predict():
+    """ADR-038 5C: predict()/predict_proba() previously did not check removed
+    guarded kwargs at all."""
+    cal_exp, x_test = _classification_explainer()
+    with pytest.raises(ConfigurationError, match="removed in v0.11.5"):
+        cal_exp.predict(x_test[:2], guarded=True)
+
+
+def test_should_raise_configuration_error_when_removed_alias_passed_to_explain_factual():
+    """ADR-038 5C: explain_factual()/explore_alternatives() previously only
+    checked removed guarded kwargs, not removed aliases or reject kwargs."""
+    cal_exp, x_test = _classification_explainer()
+    with pytest.raises(ConfigurationError, match="removed in v0.11.0"):
+        cal_exp.explain_factual(x_test[:2], alpha=(1, 99))
+    with pytest.raises(ConfigurationError, match="removed in v0.11.5"):
+        cal_exp.explore_alternatives(x_test[:2], confidence=0.9)
+
+
+def test_ce_skip_reject_still_works_on_predict_and_predict_proba():
+    """ADR-038 5C: _ce_skip_reject is a real internal escape hatch used by
+    core/explain/orchestrator.py and must remain allowed."""
+    cal_exp, x_test = _classification_explainer()
+    pred = cal_exp.predict(x_test[:2], _ce_skip_reject=True)
+    proba = cal_exp.predict_proba(x_test[:2], _ce_skip_reject=True)
+    assert len(pred) == 2
+    assert len(proba) == 2
+
+
+def test_plot_still_works_after_5c_predict_kwarg_scoping():
+    """ADR-038 5C: plot()'s kwargs (style_override always re-injected, show=
+    when passed) flow into predict()/predict_proba() via plotting.plot_global();
+    predict() must strip them defensively like predict_proba() already does."""
+    cal_exp, x_test = _classification_explainer()
+    cal_exp.plot(x_test[:1], show=False)
+    # plot() re-injects style_override and forwards show= into predict()/
+    # predict_proba() through plot_global(); exercise that boundary directly to
+    # prove predict() strips them instead of raising on the unknown names.
+    pred = cal_exp.predict(x_test[:1], show=False, style_override=None)
+    assert len(pred) == 1

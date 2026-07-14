@@ -2,6 +2,7 @@ import pytest
 import numpy as np
 from unittest.mock import MagicMock, patch
 from types import SimpleNamespace
+from calibrated_explanations.core.prediction.interval_summary import IntervalSummary
 from calibrated_explanations.core.prediction.orchestrator import PredictionOrchestrator
 
 
@@ -16,6 +17,10 @@ def mock_explainer():
     explainer.categorical_features = []
     explainer.bins = None
     explainer.difficulty_estimator = None
+    # A real explainer always resolves interval_summary to a valid member before the
+    # orchestrator sees it (calibrated_explainer.py __init__); coerce_interval_summary
+    # now fail-fasts on unrecognized input, so the mock must reflect that invariant.
+    explainer.interval_summary = IntervalSummary.REGULARIZED_MEAN
     explainer.plugin_manager.interval_plugin_hints = {}
     explainer.plugin_manager.interval_plugin_fallbacks = {}
     explainer.plugin_manager.interval_plugin_identifiers = {"default": None, "fast": None}

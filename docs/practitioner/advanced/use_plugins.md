@@ -44,12 +44,23 @@ trading some detail for significantly improved speed.
 ### Quick Start
 
 ```python
-# Method 1: Use fast=True kwarg (preferred)
-explanation = explainer.explain_factual(x_test, fast=True)
+from calibrated_explanations import WrapCalibratedExplainer
 
-# Method 2: Use explain_fast directly
-fast_explanation = explainer.explain_fast(x_test)
+wrapped = WrapCalibratedExplainer(model)
+wrapped.fit(x_proper, y_proper)
+wrapped.calibrate(
+    x_cal,
+    y_cal,
+    feature_names=feature_names,
+    fast=True,
+)
+
+fast_ready = wrapped.explainer.is_fast()
 ```
+
+Use `fast=True` only when constructing or calibrating the explainer runtime.
+Do not pass `fast=True` into `explain_factual(...)` or
+`explore_alternatives(...)`; those public explanation surfaces reject it.
 
 ### Research Background
 
@@ -62,14 +73,27 @@ FAST explanations are documented in:
 
 ## Install and register
 
-Install the curated bundle and register the FAST plugins when needed:
+Install the curated dependency bundle when needed:
 
 ```bash
 pip install "calibrated-explanations[external-plugins]"
-python -m external_plugins.fast_explanations register
 ```
 
-See {doc}`../../appendices/external_plugins` for listings and notes.
+Wheel and sdist installs register the shipped FAST identifiers automatically; no
+manual registration is required for the built-in FAST IDs. If you want to
+mirror the helper explicitly, import the package and call `register()`:
+
+```python
+from external_plugins.fast_explanations import register
+
+register()
+```
+
+The helper ships as an importable package, not as a `python -m` entry point, so
+do not use `python -m external_plugins.fast_explanations register`.
+
+See {doc}`../../appendices/external_plugins` for install notes and helper
+details.
 
 ## Wire it into your run
 
@@ -84,13 +108,15 @@ discovery), see {doc}`./modality-plugins`.
 from calibrated_explanations import CalibratedExplainer
 
 explainer = CalibratedExplainer(
-    model, x_cal, y_cal,
+    model,
+    x_cal,
+    y_cal,
     # Explanation plugin choice by mode
-    factual_plugin="core.explanation.factual",   # or an external id
+    factual_plugin="core.explanation.factual",  # or an external id
     alternative_plugin="core.explanation.alternative",
     # Interval calibrator and plot style
     interval_plugin="core.interval.legacy",  # or external interval id
-    plot_style="plot_spec.default",                 # or a custom style id
+    plot_style="plot_spec.default",  # or a custom style id
 )
 
 explanations = explainer.explain_factual(x_test)
@@ -100,20 +126,17 @@ explanations.plot()  # uses plot_style and fallbacks
 ```python
 from calibrated_explanations import CalibratedExplainer
 
-explainer = CalibratedExplainer(
-    model, x_cal, y_cal,
-    # To activate FAST mode globally
+fast_explainer = CalibratedExplainer(
+    model,
+    x_cal,
+    y_cal,
+    mode="classification",
+    feature_names=feature_names,
+    # Enable the FAST runtime at construction time.
     fast=True,
-    # or select a specific FAST plugin
-    fast_plugin="core.explanation.fast",
-    # Interval calibrator and plot style
-    interval_plugin="core.interval.fast",  # or external interval id
-    plot_style="plot_spec.default",                 # or a custom style id
 )
 
-# Use the fast mode to invoke the fast execution path
-fast_batch = explainer.explain_fast(x_test)
-fast_batch.plot()
+fast_enabled = fast_explainer.is_fast()
 ```
 
 Notes

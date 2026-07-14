@@ -1,6 +1,6 @@
-> **Active scope:** Governing architectural decision for the `*Spec`/`*Options`/`*Config` naming taxonomy for call-time configuration surfaces. The `**kwargs` graduation gate (Gap 1, v1.0.0-rc) is an implementation milestone within this ADR's lifecycle.
+> **Active scope:** Governing architectural decision for the `*Spec`/`*Options`/`*Config` naming taxonomy for call-time configuration surfaces. The `**kwargs` graduation gate (Gap 1, v1.0.0-rc) is an implementation milestone within this ADR's lifecycle. The unknown-kwarg policy for closed/stable public surfaces (§3) and the multi-label spelling question were resolved 2026-07-08 (v0.11.6 Task 5 series): unknown and cross-method keyword arguments now fail fast with `ConfigurationError` on both `WrapCalibratedExplainer` and `CalibratedExplainer`, validated per method against allow-lists with a single source of truth — see the Addendum below.
 
-> **Status note (2026-06-12):** Last edited 2026-06-12 · Archive after: Retain indefinitely as architectural record · Implementation window: v0.11.3. Establishes the call-time configuration taxonomy and naming conventions. Canonical examples are `RejectPolicySpec` (Strategy) and `GuardedOptions` (Tuning).
+> **Status note (2026-07-08):** Last edited 2026-07-08 (Addendum: fail-fast call-time kwarg validation, v0.11.6 Task 5 series) · Archive after: Retain indefinitely as architectural record · Implementation window: v0.11.3 (base decision), v0.11.6 (fail-fast addendum). Establishes the call-time configuration taxonomy and naming conventions. Canonical examples are `RejectPolicySpec` (Strategy) and `GuardedOptions` (Tuning).
 
 # ADR-038: Call-time Configuration Taxonomy and Naming Conventions
 
@@ -139,6 +139,10 @@ contract is being settled, subject to all three of the following conditions:
    known-valid set and emit a warning on unknowns, or document in the experimental
    tag that unknown arguments are silently ignored and callers should expect noise.
    Silent discard with no signal is non-compliant even in experimental surfaces.
+   This is the floor for *experimental* surfaces only; closed/stable enumerable
+   surfaces (e.g. the per-method kwarg allow-lists on `WrapCalibratedExplainer` and
+   `CalibratedExplainer`) are held to the stricter fail-fast policy in the
+   2026-07-08 Addendum below.
 3. **Graduation gate.** `**kwargs` MUST be replaced with explicit typed arguments
    before the surface transitions out of experimental status. This is a hard gate,
    not a soft intention.
@@ -155,8 +159,8 @@ some observable signal.
 | Reject algorithm selection | Strategy | `RejectPolicySpec` | `reject_policy=` |
 | Reject coverage threshold | Tuning (single) | qualified kwarg | `reject_confidence=` |
 | Guard tuning bundle | Tuning (grouped) | `GuardedOptions` | `guarded_options=` |
-| `guarded=True` flag | (deprecated) | boolean → `guarded_options=GuardedOptions()` | deprecated |
-| `significance=` kwarg | (deprecated) | kwarg → `GuardedOptions(confidence=...)` | deprecated |
+| `guarded=True` flag | Removed | boolean → `guarded_options=GuardedOptions()` | removed in v0.11.5 |
+| `significance=` kwarg | Removed | kwarg → `GuardedOptions(confidence=...)` | removed in v0.11.5 |
 
 ### 5. Plugin compliance
 
@@ -226,8 +230,8 @@ relationship with `reject_confidence` immediately readable.
 
 **Negative / Risks:**
 
-- `guarded=True` boolean flag and `significance=` kwarg require ADR-011 deprecation
-  cycles before removal.
+- `guarded=True` boolean flag and `significance=` kwarg completed their ADR-011
+  deprecation cycle and were removed in v0.11.5.
 - Existing code using `significance=0.1` must migrate to `GuardedOptions(confidence=0.9)` —
   numerically inverted, not just renamed; migration notes are mandatory.
 - Plugin authors must learn a three-suffix convention rather than a single `Config` pattern.
@@ -238,3 +242,243 @@ Implementation is governed by the v0.11.3 release plan (Task 17). ADR-011 deprec
 process applies to all renamed or replaced public surfaces. The canonical examples
 (`GuardedOptions`, `reject_confidence`) must be present in the root namespace per
 ADR-020 before the task is marked complete.
+
+## Addendum (2026-07-08): Fail-fast call-time kwarg validation (v0.11.6 Task 5)
+
+Delivered across v0.11.6 Task 5 and its follow-ups 5A–5D; recorded here as a single
+consolidated decision.
+
+### Decision
+
+**D3 — Unknown-kwarg policy for closed/stable public surfaces is fail-fast.**
+Unrecognized keyword arguments on a closed, enumerable public surface (a `**kwargs`
+path validated against a fixed known-name set, as opposed to an experimental
+plugin-forwarding seam under the §3 exception) MUST raise `ConfigurationError`, not
+emit a warning. This resolves the ambiguity left open by §3's "MUST either validate
+... and emit a warning on unknowns, or document ... silently ignored" language —
+which governs the *experimental-surface* floor only (see the note appended to §3
+condition 2 above) — and supersedes the warn-and-forward behavior introduced in
+v0.11.4 Task 15.
+
+The policy is realized through five subsidiary rules:
+
+1. **Per-method allow-lists.** Every gated method validates against its own allowed
+   set, not a shared flat one. A name recognized on another method but not valid on
+   the called method raises `ConfigurationError` ("recognized on another method but
+   not valid here") instead of being silently accepted and inert.
+2. **Single source of truth.** The per-surface sets are defined once, in
+   `core/calibrated_explainer.py`; `core/wrap_explainer.py` *derives* its gates from
+   them, never re-enumerating a surface. Invariant: anything accepted by
+   `CalibratedExplainer` on a surface must also be accepted by the wrapper's
+   corresponding method; the wrapper only subtracts the internal `_ce_skip_reject`
+   escape hatch and adds wrapper-only names (`reuse_conditional`).
+3. **Both public entry classes are covered.** The gates apply to
+   `WrapCalibratedExplainer` (`calibrate`, `explain_factual`, `explore_alternatives`,
+   `explain_fast`, `predict`, `predict_proba`) and to `CalibratedExplainer` used
+   directly. On `CalibratedExplainer`, `__init__`/`predict`/`predict_proba` are fully
+   closed surfaces; `explain_factual`/`explore_alternatives` reject only names known
+   on a closed surface but not valid here, while genuinely unrecognized names still
+   pass through to explanation plugins — the §3 experimental exception
+   (`multi_labels_enabled`, `interval_summary`, arbitrary plugin-forwarded kwargs)
+   is preserved. `explain_fast` is already fully typed and needs no gate.
+4. **`normalize` is a removed alias, not a parameter.** It moved out of the
+   allow-list into `REMOVED_NORMALIZATION_KWARG_MAP` /
+   `reject_removed_normalization_kwarg()`, raising `ConfigurationError` at the
+   public gate with `normalization=NormalizationStrategy.<MEMBER>` migration
+   guidance. All four removed-alias check families (removed public aliases, removed
+   guarded kwargs, removed reject kwargs, removed `normalize`) are applied
+   consistently on every gated method of both classes.
+5. **`mondrian_categorizer=` is an intentional, documented alias for `mc=`** on
+   `calibrate()` (short form kept canonical, descriptive form for discoverability);
+   supplying both raises `ConfigurationError`.
+
+**D4 — `multi_labels_enabled` is confirmed the sole multi-label spelling.** A
+repo-wide search of `src/` and `tests/` (2026-07-08) found no alias (`multi_label`,
+`multilabel`, `multi_class_labels`, etc.) in use anywhere. No code change was
+required; this closes D4 as compliant-as-is.
+
+Collateral decisions required to make fail-fast safe to ship:
+
+- `calibrate()` flips `self.calibrated = False` only after every validation gate has
+  passed, immediately before constructing the replacement explainer. A rejected
+  `calibrate()` call (typo'd or cross-method kwarg) leaves the previous calibration
+  fully usable.
+- The legacy `plot_global` path forwards only prediction-relevant kwargs (`bins`,
+  plus `low_high_percentiles` on the regression `predict` branch) into the gated
+  prediction methods, mirroring the PlotSpec path; plot-only keys never reach the
+  prediction gates.
+- `perf_cache`/`perf_parallel` are public at `calibrate()` and forwarded with
+  `kwargs.setdefault(...)`, so a call-time value overrides the wrapper-level
+  attribute.
+- Unknown-kwarg errors report the per-method surface
+  (`WrapCalibratedExplainer.calibrate received unknown keyword arguments: ...`),
+  not just the class name.
+
+### Rationale
+
+D3 was inherited as an open binary choice from the v1.0.0-rc plan re-baseline
+(`development/current-work/v0.11.6_plan.md`, decisions table). The Global Rules of
+that plan already implied fail-fast for removed/unknown kwargs under
+`ConfigurationError`, and Tasks 2–4 of the same milestone had implemented fail-fast
+for every sibling silent-kwarg-sink defect (removed guarded kwargs, removed reject
+kwargs, coercer fallback resolution). Warn-and-forward — the pre-v0.11.6 behavior —
+left typos and inert parameters producing no actionable signal; see the CHANGELOG
+entry under `## [Unreleased]` for the user-facing reversal notice.
+
+**Why per-method allow-lists and a single source of truth.** The first fail-fast
+implementation validated only "is this name known *anywhere*," never "is this name
+valid *for this call*": a name meaningful on one method was silently
+accepted-but-inert on the other five (confirmed concretely: `calibrate(x, y,
+guarded_options=GuardedOptions())` passed the gate, then vanished into unconsumed
+constructor kwargs with no error and no effect). Splitting the list per method
+fixed that, but duplicating the resulting sets across the wrapper and
+`CalibratedExplainer` caused drift within the same release: the wrapper wrongly
+rejected `reject_confidence` on the explain methods, `interval_summary` on
+`predict()`, and eight live `__init__` parameters on `calibrate()` (`noise_type`,
+`scale_factor`, `severity`, `sample_percentiles`, `suppress_crepes_errors`,
+`reject`, `perf_cache`, `perf_parallel` — including the FAST-mode tuning knobs
+while `fast=True` itself was allowed). Deriving the wrapper's gates from the
+`CalibratedExplainer` definitions makes that class of drift structurally
+impossible, and the invariant is additionally enforced by tests (below).
+
+**Why `normalize` is handled as a removed alias.** `normalize`/`normalization`
+looked like accidental synonyms but are not: `normalize` is a legacy passthrough
+removed in v0.11.5 that always raises when set. While allow-listed it looked valid,
+then raised the wrong exception class (`ValidationError` instead of the
+`ConfigurationError` every other removed alias raises) three calls deep inside
+`VennAbers.predict_proba`, well past the public boundary — while `normalization=`
+itself was silently inert on `calibrate()` (the cross-method bug again, using the
+exact pair flagged as confusing). `VennAbers.predict_proba`'s own direct-call
+`ValidationError` behavior (Task 4) is untouched; that boundary still validates its
+own parameter values when the wrapper is bypassed. By contrast,
+`mc`/`mondrian_categorizer` is a genuinely intentional alias pair and is documented
+as such rather than eliminated.
+
+**Why `CalibratedExplainer` is covered directly.** It is a fully documented,
+supported direct-use class (its own docstring demonstrates
+`CalibratedExplainer(learner, X_cal, y_cal, mode=...)`); "recommended use is
+`WrapCalibratedExplainer`" does not make direct use unsupported. Before this
+addendum a user on that path got none of the fail-fast protections. The surface
+also carries higher blast radius than the wrapper, because plugin/viz code forwards
+*the same kwargs dict* across sibling methods: `CalibratedExplainer.plot()`
+re-injects `style_override` into the kwargs it hands `plotting.plot_global()`,
+which forwards them (plus `show=` if passed) into `predict()`/`predict_proba()`.
+`predict()` therefore gained the same defensive `show`/`style_override` strip
+`predict_proba()` already had, and the legacy `plot_global` path was changed to
+forward only prediction-relevant kwargs — naive fail-fast would otherwise have
+broken every documented `plot(x, use_legacy=True)` call and the automatic
+PlotSpec→legacy fallback (and briefly did, before the whitelist fix landed in the
+same milestone).
+
+**Why the allow-list contents were audited rather than inherited.** The original
+list (v0.11.4 Task 15, commit `b1a49d33`) was a broad enumeration of kwarg-shaped
+names observed at the time, not a verified inventory of real public parameters.
+Tracing every name to its actual consumer found three kinds of defect:
+
+- **Missing real names.** `categorical_labels`, `class_labels`,
+  `features_to_ignore`, `oob`, and the plugin-selection kwargs (`factual_plugin`,
+  `alternative_plugin`, `fast_plugin`, `interval_plugin`, `fast_interval_plugin`,
+  `plot_style`) were documented/notebook-used but absent — raising on them would
+  itself have been a regression. All were added before the switch was flipped.
+- **Dead names.** `condition`, `condition_label`, `condition_labels`, and
+  `include_reject_details` have no consumer anywhere in `src/` and no ADR
+  reference; they now raise. Alternatives rejected: implementing the implied
+  features (no spec exists to build from), documenting them as reserved no-ops
+  (perpetuates the confusing surface), defensively popping them (reintroduces
+  silent kwarg-swallowing).
+- **Internal-only names.** `output_interval` and `y_threshold` are set internally
+  by `CalibratedExplainer.predict_proba` for its own interval-learner calls; a
+  caller passing either would clear the public gate, then hit `TypeError: got
+  multiple values for keyword argument` several calls deeper — the exact confusing
+  failure mode fail-fast exists to eliminate. Both were removed from the public
+  surface; the internal call sites are unchanged.
+- Also dropped: `mc`/`uq_interval` (always captured by an explicit formal parameter
+  wherever meaningful, never reaching `**kwargs`) and `show`/`style_override` (only
+  meaningful to `plot()`, a seventh wrapper surface this gate does not cover —
+  noted for a future task). A genuinely dead `perturb=True` kwarg was also removed
+  from a pre-existing integration test.
+
+**Verification lessons baked into the tests.** Two rounds of near-misses showed
+that restricting a surface requires auditing real usage and running the full suite,
+not just the tests written for the change: a first pass wrongly excluded
+`reject_confidence` from the explain methods (two pre-existing tests proved it is
+live whenever `reject_policy` is set), and the legacy-plot breakage escaped an
+earlier verification round because its regression test used `show=False`, which
+silently no-ops on the legacy path whenever matplotlib has not yet been loaded into
+the compat module — an order-dependent vacuity. The contract suite (below)
+therefore exercises every allow-listed name end-to-end and tests the legacy plot
+path with `show=True` under the Agg backend.
+
+**Alternative rejected: full explicit-parameter promotion now.** `threshold`,
+`low_high_percentiles`, `classes`, `feature`, `bins`, and `reject_policy` were
+confirmed as good candidates for promotion to explicit typed parameters (the
+`CalibratedExplainer`/orchestrator layer already treats them as stable, typed,
+explicit parameters). That promotion remains the Gap 1 graduation gate
+(v1.0.0-rc); per-method scoping closes the cross-method inconsistency now, without
+a signature change, at lower risk.
+
+### Implementation
+
+- `api/params.py`: `reject_unknown_public_kwargs()` (fail-fast against an allowed
+  set), `reject_cross_surface_kwargs()` (rejects names present in a
+  `closed_surface_names` reference set but absent from `allowed`; a name in neither
+  passes through untouched — the §3 exception), and
+  `REMOVED_NORMALIZATION_KWARG_MAP` / `reject_removed_normalization_kwarg()`,
+  mirroring the existing `reject_removed_guarded_kwargs` /
+  `reject_removed_reject_kwargs` helpers.
+- `core/calibrated_explainer.py`: canonical per-surface frozensets
+  (`_INIT_KWARGS`, `_PREDICT_KWARGS`, `_PREDICT_PROBA_KWARGS`, `_EXPLAIN_KWARGS`),
+  the `_INIT_EXPLICIT_PARAMS` reference set (the explicit `__init__` formals
+  besides `learner`/`x_cal`/`y_cal`), and `_CLOSED_SURFACE_KWARGS` (their union
+  plus the explicit formal names of the closed methods, so names that never reach
+  `**kwargs` on their own methods are still recognized as "known elsewhere" by the
+  cross-surface check). All gated methods apply the four removed-alias checks plus
+  the appropriate rejection helper; `predict()` gains the `show`/`style_override`
+  defensive strip.
+- `core/wrap_explainer.py`: derived gates — `_CALIBRATE_KWARGS = _INIT_KWARGS |
+  _INIT_EXPLICIT_PARAMS | {"reuse_conditional"}`, `_EXPLAIN_KWARGS` taken
+  verbatim, `_PREDICT_KWARGS`/`_PREDICT_PROBA_KWARGS` minus `_ce_skip_reject`;
+  `_KNOWN_PUBLIC_KWARGS` remains only as the union used for the first-pass "known
+  at all" check. `_normalize_public_kwargs()` raises `ConfigurationError` both for
+  unknown names and for known-elsewhere names, labelled with the per-method
+  `surface=`. `calibrate()` validates before invalidating, gains the
+  `mondrian_categorizer=` keyword-only alias, and forwards
+  `perf_cache`/`perf_parallel` with `setdefault` semantics.
+- `viz/_matplotlib_compat.py`: `plot_global` builds a `prediction_kwargs`
+  whitelist instead of forwarding `**kwargs` into `predict`/`predict_proba`.
+- Experimental surfaces are unaffected: `multi_labels_enabled` /
+  `interval_summary` on the explain methods remain `[EXPERIMENTAL]`-tagged plugin
+  passthroughs under the §3 exception. Gap 1 (replacing that `**kwargs` with
+  explicit typed arguments) remains targeted at v1.0.0-rc and is unchanged by this
+  addendum.
+
+### Testing
+
+- `tests/unit/core/test_parameter_surface_contracts.py` (new) guards the invariant
+  three ways: structural contracts (wrapper set ⊇ explainer set per surface;
+  `_INIT_EXPLICIT_PARAMS`/`_EXPLAIN_FAST_KWARGS` verified against the live
+  signatures via `inspect`), acceptance matrices (every allow-listed name on every
+  gated method exercised end-to-end with a benign value, with a completeness
+  assertion so a newly allow-listed name cannot land without an acceptance test),
+  and explicit regressions for the legacy plot path run with `show=True` under the
+  Agg backend.
+- `tests/unit/core/test_wrap_explainer_core.py`: `ConfigurationError` (not
+  `UserWarning`) on unknown kwargs; acceptance of each documented name; rejection
+  of the dead and internal-only names; the removed `normalize` alias; the
+  `mondrian_categorizer` alias and its `mc` conflict error; cross-method rejection
+  parametrized across all six wrapper methods.
+- `tests/unit/core/test_calibrated_explainer_more_paths.py`: unknown kwarg on
+  `__init__`; cross-surface rejection on `predict`/`predict_proba` (full
+  fail-fast) and on the explain methods (narrow, experimental-preserving); a
+  genuinely-unknown kwarg still passes through the explain methods untouched;
+  removed-alias consistency across methods; the `_ce_skip_reject` internal escape
+  hatch still works; `.plot()` still works end-to-end.
+- Full unit and integration suites pass, with viz-marked, slow-marked,
+  plugins/legacy, and capabilities/docs suites re-run explicitly given the
+  plot-path blast radius (one pre-existing unrelated failure predates these
+  changes).
+
+### Delivery Governance
+
+Delivered in v0.11.6 Task 5 and its follow-ups 5A–5D
+(`development/current-work/v0.11.6_plan.md`, §5–§5D).

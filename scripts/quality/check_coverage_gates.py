@@ -3,6 +3,7 @@
 Usage:
     python scripts/quality/check_coverage_gates.py [coverage_xml_path]
 """
+
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -59,9 +60,7 @@ def check_gates(coverage_map: Dict[str, float]) -> Tuple[bool, List[str]]:
         if matched_file:
             current = coverage_map[matched_file]
             if current < threshold:
-                failures.append(
-                    f"FAIL: {target_suffix} coverage {current:.1f}% < {threshold}%"
-                )
+                failures.append(f"FAIL: {target_suffix} coverage {current:.1f}% < {threshold}%")
             else:
                 print(f"PASS: {target_suffix} coverage {current:.1f}% >= {threshold}%")
         else:

@@ -62,7 +62,9 @@ def _safe_len(obj: Any) -> int:
 
 def _time_legacy_explain(explainer: Any | None, x: Any, *, discretizer: str) -> float:
     if explainer is None:
-        raise RuntimeError("CalibratedExplainer expected to be initialized before timing legacy explain.")
+        raise RuntimeError(
+            "CalibratedExplainer expected to be initialized before timing legacy explain."
+        )
     explainer.set_discretizer(discretizer)
     start = time.perf_counter()
     legacy_explain(explainer, x)

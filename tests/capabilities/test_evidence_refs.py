@@ -7,6 +7,7 @@ import os
 import re
 from datetime import datetime
 from pathlib import Path
+from tests.helpers.capability_utils import markdown_table_value
 
 import pytest
 
@@ -86,22 +87,19 @@ def _tif_spec_index() -> set[str]:
     return {p.stem for p in _TIF_SPEC_DIR.glob("CE-TIF-*.md")}
 
 
-def _metadata_value(text: str, field: str) -> str | None:
-    match = re.search(rf"\|\s*{re.escape(field)}\s*\|\s*([^|]+?)\s*\|", text)
-    return match.group(1).strip() if match else None
-
-
 def _requirement_text(requirement_id: str) -> str:
     return (_REQ_DIR / f"{requirement_id}.md").read_text(encoding="utf-8")
 
 
 def _requirement_strength(requirement_id: str) -> str | None:
-    return _metadata_value(_requirement_text(requirement_id), "verification_strength")
+    return markdown_table_value(_requirement_text(requirement_id), "verification_strength")
 
 
 def _requirement_tif_exemption(requirement_id: str) -> str | None:
     text = _requirement_text(requirement_id)
-    return _metadata_value(text, "tif_exemption") or _metadata_value(text, "tif_exemption:")
+    return markdown_table_value(text, "tif_exemption") or markdown_table_value(
+        text, "tif_exemption:"
+    )
 
 
 def _has_valid_tif_exemption(requirement_id: str) -> bool:
@@ -187,9 +185,9 @@ def test_evidence_commit_sha_is_not_placeholder(evidence_path: Path | None):
     if evidence_path is None:
         pytest.skip("no evidence files in reports/verification/")
     data = _load_json(evidence_path)
-    assert _SHA_RE.fullmatch(
-        data.get("commit_sha", "")
-    ), f"{evidence_path.name}: commit_sha must be a full 40-character git SHA"
+    assert _SHA_RE.fullmatch(data.get("commit_sha", "")), (
+        f"{evidence_path.name}: commit_sha must be a full 40-character git SHA"
+    )
 
 
 @pytest.mark.parametrize("evidence_path", _parametrize_evidence())
@@ -206,9 +204,9 @@ def test_should_parse_timestamp_when_raw_evidence_committed(evidence_path: Path 
     if evidence_path is None:
         pytest.skip("no evidence files in reports/verification/")
     parsed_timestamp = datetime.fromisoformat(_load_json(evidence_path)["timestamp"])
-    assert (
-        parsed_timestamp.tzinfo is not None
-    ), f"{evidence_path.name}: timestamp must include UTC offset"
+    assert parsed_timestamp.tzinfo is not None, (
+        f"{evidence_path.name}: timestamp must include UTC offset"
+    )
 
 
 @pytest.mark.parametrize("evidence_path", _parametrize_evidence())

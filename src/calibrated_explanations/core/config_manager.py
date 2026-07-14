@@ -502,8 +502,7 @@ class ConfigManager:
                     ConfigValidationIssue(
                         location=f"pyproject.{section}",
                         message=(
-                            f"Unknown key(s) in [{section}] configuration: "
-                            f"{sorted(unknown_keys)}"
+                            f"Unknown key(s) in [{section}] configuration: {sorted(unknown_keys)}"
                         ),
                     )
                 )

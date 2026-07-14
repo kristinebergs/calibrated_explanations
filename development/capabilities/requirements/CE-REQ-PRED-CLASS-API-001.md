@@ -73,7 +73,7 @@ This requirement verifies the API contract and output bounds only. It does not v
 
 - Venn-Abers calibration validity in a finite-sample sense.
 - Coverage guarantees at any specific confidence level.
-- Posterior probability accuracy (predict_proba values Ã¢â€°Â  true posteriors).
+- Posterior probability accuracy (predict_proba values ≠ true posteriors).
 - Distribution shift robustness.
 
 See `CE-CAP-PRED-CLASS-001` for the full assumption statement.

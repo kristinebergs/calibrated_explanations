@@ -60,9 +60,12 @@ for configuration, failure behavior, and observability.
 - Observability policy:
   - Emit **telemetry events** (when telemetry is configured) for
     `filter_enabled`, `filter_skipped`, and `filter_error`.
-  - Log at **debug** level by default.
-  - Emit **warnings** only when an explicit “strict observability” mode is
-    enabled (future config hook) to avoid noisy user-facing behavior.
+  - Log at **debug** level by default only when the fallback remains recorded
+    as a site-specific exemption in `scripts/quality/check_warning_policy.py`.
+  - Fallbacks that are user-visible or correctness-affecting should emit the
+    repository-wide `UserWarning` + `INFO` pairing. Internal best-effort
+    exceptions must carry an explicit registry reason until the runtime
+    contract is tightened.
 
 ### 4. Per-instance mask exposure
 

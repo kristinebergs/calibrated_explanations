@@ -10,9 +10,8 @@ name = "calibrated_explanations"
 version = "0.11.6-dev"
 description = "Extract calibrated explanations from machine learning models."
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 license = "BSD-3-Clause"
-license-files = []
 authors = [
     { name = "Helena Löfström", email = "helena.lofstrom@ju.se" },
     { name = "Tuwe Löfström", email = "tuwe.lofstrom@ju.se" },
@@ -27,6 +26,11 @@ dependencies = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Operating System :: OS Independent",
 ]
 
@@ -53,6 +57,7 @@ notebooks = [
     "matplotlib",
 ]
 dev = [
+    "build",
     "matplotlib",
     "pytest",
     "pytest-cov",
@@ -120,11 +125,11 @@ filterwarnings = [
     "error::DeprecationWarning",
     "error::PendingDeprecationWarning",
     "error::FutureWarning",
-    "error:.*fall.*back.*:UserWarning",
     "ignore:.*(parseString|resetCache|enablePackrat).*deprecated.*:DeprecationWarning",
     "ignore:.*L-BFGS-B solver.*:DeprecationWarning",
     "ignore:Auto-close.*backend switching.*:DeprecationWarning:matplotlib.*",
     "ignore::UserWarning",
+    "error:.*fall.*back.*:UserWarning",
     "ignore:numpy.ufunc size changed, may indicate binary incompatibility.*:RuntimeWarning",
     "ignore:Setting the shape on a NumPy array has been deprecated in NumPy 2.5.*:DeprecationWarning:joblib.*",
     "ignore:The legacy module 'calibrated_explanations.core' is deprecated; import from the 'calibrated_explanations.core' package instead.:DeprecationWarning",
@@ -179,15 +184,22 @@ directory = "coverage_html"
 [tool.setuptools.packages.find]
 where = [
     "src",
+]
+include = [
+    "calibrated_explanations",
+    "calibrated_explanations.*",
     "external_plugins",
+    "external_plugins.*",
 ]
 
 [tool.setuptools.package-data]
 calibrated_explanations = [
     "py.typed",
     "schemas/*.json",
+    "schemas/v1/*.json",
     "templates/*.json",
     "templates/*.yaml",
+    "utils/configurations/*.ini",
 ]
 
 [tool.calibrated_explanations.plugins]
@@ -237,8 +249,59 @@ ignore = [
     "N806",
 ]
 "scripts/*.py" = [
+    "B007",
+    "B009",
+    "C414",
+    "C416",
     "E402",
+    "E401",
+    "E701",
+    "F401",
+    "F541",
+    "F601",
+    "F841",
     "I001",
+    "N806",
+    "N815",
+    "S110",
+    "S112",
+    "S311",
+    "S314",
+    "S324",
+    "S603",
+    "S607",
+    "SIM102",
+    "SIM103",
+    "SIM105",
+    "SIM108",
+    "SIM112",
+]
+"scripts/**/*.py" = [
+    "B007",
+    "B009",
+    "C414",
+    "C416",
+    "E401",
+    "E701",
+    "F401",
+    "F541",
+    "F601",
+    "F841",
+    "I001",
+    "N806",
+    "N815",
+    "S110",
+    "S112",
+    "S311",
+    "S314",
+    "S324",
+    "S603",
+    "S607",
+    "SIM102",
+    "SIM103",
+    "SIM105",
+    "SIM108",
+    "SIM112",
 ]
 "src/calibrated_explanations/core/calibrated_explainer.py" = [
     "I001",
@@ -283,12 +346,17 @@ exclude = [
 follow_imports = "skip"
 check_untyped_defs = false
 
+# 2026-07-13: `core.prediction_helpers` was un-declared from this strict-typing
+# scope (v0.11.6 Task 58, decision (b), pre-v5 M2). It had been listed here but
+# was never enforced by any gate (`scripts/local_checks.py::_mypy_targets` and
+# the CI "Phase 1B scope" step both only ever ran the three modules below), and
+# running the declared contract against it surfaces 10 pre-existing mypy
+# errors. Re-add it once those errors are fixed under a dedicated task.
 [[tool.mypy.overrides]]
 module = [
     "calibrated_explanations.core.exceptions",
     "calibrated_explanations.core.validation",
     "calibrated_explanations.api.params",
-    "calibrated_explanations.core.prediction_helpers",
 ]
 disallow_untyped_defs = true
 warn_return_any = true
@@ -311,5 +379,5 @@ exclude = [
 ]
 
 [tool.codespell]
-skip = "docs/_build,docs_old/_build,build,dist,tests/benchmarks,notebooks,docs/improvement/anti_pattern_gap_analysis.ipynb"
+skip = "docs/_build,docs_old/_build,build,dist,tests/benchmarks,notebooks"
 ignore-words-list = "dataframe,nd"

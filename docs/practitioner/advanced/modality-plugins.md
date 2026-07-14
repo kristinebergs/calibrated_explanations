@@ -80,8 +80,8 @@ except ImportError:
 
 Install companion packages when needed:
 
-- `pip install calibrated-explanations[vision]`
-- `pip install calibrated-explanations[audio]`
+- `pip install ce-vision`
+- `pip install ce-audio`
 
 ## Migration timeline
 

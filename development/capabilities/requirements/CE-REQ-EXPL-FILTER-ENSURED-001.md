@@ -48,13 +48,13 @@ Applicable workflow: fit-calibrate-explore_alternatives-ensured_explanations.
 
 **Default parameters (include_potential=True):**
 
-Collection: `alternatives.ensured_explanations()` Ã¢â€ â€™ non-None, `len == len(X_test)`.
+Collection: `alternatives.ensured_explanations()` → non-None, `len == len(X_test)`.
 
-Individual: `alternatives[0].ensured_explanations()` Ã¢â€ â€™ non-None.
+Individual: `alternatives[0].ensured_explanations()` → non-None.
 
 **With include_potential=False:**
 
-Collection: `alternatives.ensured_explanations(include_potential=False)` Ã¢â€ â€™ non-None,
+Collection: `alternatives.ensured_explanations(include_potential=False)` → non-None,
 `len == len(X_test)`.
 
 **Alias check:** `alternatives.ensured()` produces a result equal in structure to `alternatives.ensured_explanations()`.

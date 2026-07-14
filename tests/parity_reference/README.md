@@ -4,7 +4,7 @@
 fixed `seed=42`, fixed canonical dataset, and fixed model is **byte-for-byte
 identical** (within `rtol=1e-6, atol=1e-8`) to the committed golden fixtures
 in this directory (`factual*.json`, `alternatives*.json`, `fast*.json`,
-`predictions*.json`). It runs nightly via `.github/workflows/ci-nightly.yml`
+`predictions*.json`). It runs weekly via `.github/workflows/scheduled.yml`
 (`parity-reference` job), not as part of `pytest -q`.
 
 ## Why this directory has its own `constraints.txt`

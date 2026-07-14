@@ -96,9 +96,9 @@ def test_invariant_plot_repr_consistency():
             if abs(weight) < 1e-9:
                 expected_role = "neutral"
 
-            assert (
-                color_role == expected_role
-            ), f"Mismatch for rule '{rule_text}': Repr weight {weight} implies {expected_role}, Plot has {color_role}"
+            assert color_role == expected_role, (
+                f"Mismatch for rule '{rule_text}': Repr weight {weight} implies {expected_role}, Plot has {color_role}"
+            )
             matched_count += 1
 
     assert matched_count > 0, "No rules matched between Plot and Repr"

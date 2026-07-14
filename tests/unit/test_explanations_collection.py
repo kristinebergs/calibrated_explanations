@@ -1,12 +1,13 @@
 import sys
 import types
 import json
+import logging
 
 import numpy as np
 import pytest
 
 from calibrated_explanations.explanations import explanations as explanations_mod
-from calibrated_explanations.utils.exceptions import ValidationError
+from calibrated_explanations.utils.exceptions import ConfigurationError, ValidationError
 from calibrated_explanations.explanations import (
     AlternativeExplanations,
     CalibratedExplanations,
@@ -717,9 +718,9 @@ def test_collection_to_json_without_version(calibrated_collection):
 
 def test_legacy_payload_was_removed_from_collection(calibrated_collection):
     """legacy_payload() public method was removed in v1.0.0."""
-    assert not hasattr(
-        calibrated_collection, "legacy_payload"
-    ), "legacy_payload() public method must be removed in v1.0.0"
+    assert not hasattr(calibrated_collection, "legacy_payload"), (
+        "legacy_payload() public method must be removed in v1.0.0"
+    )
 
 
 def test_legacy_payload_public_method_does_not_exist(calibrated_collection):
@@ -1006,6 +1007,34 @@ def test_collection_to_narrative_and_plot_style_narrative(monkeypatch, calibrate
     assert result["single"] is True
     assert single.called["template_path"] == "single.yaml"
     assert single.called["output_format"] == "text"
+
+
+def test_should_raise_configuration_error_when_collection_to_narrative_uses_format_kwarg(
+    calibrated_collection,
+):
+    with pytest.raises(ConfigurationError, match="Unsupported narrative keyword arguments"):
+        calibrated_collection.to_narrative(format="short")
+
+
+def test_should_raise_configuration_error_when_collection_to_narrative_uses_unknown_kwarg(
+    calibrated_collection,
+):
+    with pytest.raises(ConfigurationError, match="Unsupported narrative keyword arguments"):
+        calibrated_collection.to_narrative(expertise_lvl="advanced")
+
+
+def test_should_log_forwarded_plot_kwargs_for_collection_surface(calibrated_collection, caplog):
+    # pre-v4 S4-H6 (Task 54): a misspelled plot-only kwarg must be governed
+    # (INFO log + UserWarning), not the previous INFO-only forwarding that
+    # made it indistinguishable from a genuinely consumed extension kwarg.
+    with (
+        caplog.at_level(logging.INFO, logger="calibrated_explanations.explanations.explanations"),
+        pytest.warns(UserWarning, match="filter_topp"),
+    ):
+        calibrated_collection.plot(filter_topp=3)
+
+    assert any("forwarding plot keyword arguments" in record.message for record in caplog.records)
+    assert any("filter_topp" in record.message for record in caplog.records)
 
 
 def test_should_fail_closed_for_removed_lime_and_shap_collection_adapters(

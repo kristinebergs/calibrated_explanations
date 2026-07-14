@@ -35,8 +35,11 @@ probs, (low_p, high_p) = explainer.predict_proba(
     threshold=150,
     uq_interval=True
 )
-print(f"P(y <= 150): {probs[0]}  Confidence: [{low_p[0]}, {high_p[0]}]")
+print(f"P(y <= 150): {probs[0, 1]}  Confidence: [{low_p[0]}, {high_p[0]}]")
 ```
+
+`predict_proba(..., threshold=...)` returns an `(n, 2)` probability array. Column `1`
+contains the queried event probability and column `0` contains its complement.
 
 ### 2. Interval event probability (Range threshold)
 
@@ -49,7 +52,7 @@ probs, (low_p, high_p) = explainer.predict_proba(
     threshold=(100, 200),
     uq_interval=True
 )
-print(f"P(100 < y <= 200): {probs[0]}")
+print(f"P(100 < y <= 200): {probs[0, 1]}")
 ```
 
 ### 3. Explaining the probability

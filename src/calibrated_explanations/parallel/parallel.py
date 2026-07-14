@@ -18,6 +18,7 @@ from typing import (
     Literal,
     Mapping,
     Optional,
+    Protocol,
     Sequence,
     Tuple,
     TypeVar,
@@ -40,6 +41,36 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 R = TypeVar("R")
+
+
+class ParallelBackend(Protocol):
+    """Protocol describing a simple map-style parallel backend."""
+
+    def map(
+        self, fn: Callable[[T], R], items: Sequence[T], *, workers: int | None = None
+    ) -> List[R]:
+        """Apply ``fn`` to ``items`` using the backend's execution strategy."""
+        ...  # pragma: no cover
+
+
+class JoblibBackend:
+    """Thin adapter over joblib with sequential fallback when unavailable."""
+
+    def map(
+        self, fn: Callable[[T], R], items: Sequence[T], *, workers: int | None = None
+    ) -> List[R]:
+        """Execute ``fn`` over ``items`` using joblib when it is installed."""
+        try:
+            from joblib import Parallel, delayed  # type: ignore
+        except ImportError:  # pragma: no cover - optional dependency
+            return [fn(item) for item in items]
+        n_jobs = workers if workers is not None else -1
+        return Parallel(n_jobs=n_jobs)(delayed(fn)(item) for item in items)
+
+
+def sequential_map(fn: Callable[[T], R], items: Iterable[T]) -> List[R]:
+    """Apply ``fn`` to ``items`` sequentially and return the collected results."""
+    return [fn(item) for item in items]
 
 
 @dataclass
@@ -740,4 +771,11 @@ class ParallelExecutor:
         self._emit(event, payload)
 
 
-__all__ = ["ParallelConfig", "ParallelExecutor", "ParallelMetrics"]
+__all__ = [
+    "JoblibBackend",
+    "ParallelBackend",
+    "ParallelConfig",
+    "ParallelExecutor",
+    "ParallelMetrics",
+    "sequential_map",
+]

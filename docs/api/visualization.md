@@ -50,13 +50,15 @@ This evidence is the basis for the v0.11.3 default promotion.
 
 ## Core modules
 
-- `src/calibrated_explanations/viz/plotspec.py` – PlotSpec dataclasses and
+- `src/calibrated_explanations/viz/plotspec.py` - PlotSpec dataclasses and
   required metadata fields.
-- `src/calibrated_explanations/viz/serializers.py` – JSON serialization helpers
+- `src/calibrated_explanations/viz/serializers.py` - JSON serialization helpers
   and validation utilities.
-- `src/calibrated_explanations/viz/matplotlib_adapter.py` – Matplotlib rendering
-  and headless export support.
-- `src/calibrated_explanations/viz/builders.py` – PlotSpec builders for factual,
+- `src/calibrated_explanations/viz/matplotlib_adapter.py` - Matplotlib rendering
+  and headless export support. Per ADR-023, this rendering adapter remains
+  outside the package-wide 90% coverage gate and is validated through focused
+  visualization tests rather than the global threshold.
+- `src/calibrated_explanations/viz/builders.py` - PlotSpec builders for factual,
   alternative, and global views.
 
 ## Plot kinds

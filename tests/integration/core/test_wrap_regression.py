@@ -400,7 +400,7 @@ def test_wrap_regression_fast_ce(regression_dataset):
     This test function performs the following steps:
     1. Initializes the WrapCalibratedExplainer with a RandomForestRegressor.
     2. Fits the explainer and verifies it is fitted but not calibrated.
-    3. Calibrates the explainer with perturbation and verifies it is both fitted and calibrated.
+    3. Calibrates the explainer and verifies it is both fitted and calibrated.
     4. Tests various prediction methods (with and without calibration) and ensures consistency in the predictions.
     5. Tests the predict_proba method (with and without calibration) and ensures consistency in the probability predictions.
     6. Re-fits the explainer and verifies it remains calibrated.
@@ -413,7 +413,7 @@ def test_wrap_regression_fast_ce(regression_dataset):
     )
     cal_exp = WrapCalibratedExplainer(RandomForestRegressor())
     cal_exp.fit(x_prop_train, y_prop_train)
-    cal_exp.calibrate(x_cal, y_cal, feature_names=feature_names, perturb=True)
+    cal_exp.calibrate(x_cal, y_cal, feature_names=feature_names)
     assert cal_exp.fitted
     assert cal_exp.calibrated
 

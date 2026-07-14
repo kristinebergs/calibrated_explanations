@@ -16,7 +16,7 @@ Three parameters are all floats in (0, 1) and are mathematically related, but th
 are used in completely different contexts. Confusing them is the most common source
 of subtle bugs.
 
-| Current name | Canonical name (post-Task 17) | Role | Context | User-settable? |
+| Legacy / removed name | Canonical name | Role | Context | User-settable? |
 |---|---|---|---|---|
 | `confidence` | `reject_confidence` | Reject coverage target: minimum p-value to *accept* a prediction | `predict_reject` / reject orchestrator | YES |
 | `significance` | `GuardedOptions.confidence` | Guard conformity threshold; `significance = 1 − confidence` | `explain_factual(..., guarded_options=GuardedOptions(confidence=...))` / `_guarded_explain` | YES (experimental) |
@@ -24,8 +24,10 @@ of subtle bugs.
 
 **Key relationship:** `significance` and `confidence` (reject) are mathematical
 inverses of the same conformal threshold concept. `significance = 0.1` is the same
-conformity requirement as `confidence = 0.9`. The planned rename (Task 17) resolves
-this by expressing both as coverage values.
+conformity requirement as `confidence = 0.9`. The rename is complete: use
+`GuardedOptions.confidence` for guarded explanations and `reject_confidence` for
+reject-policy prediction paths. The legacy names were removed in v0.11.5 and now
+raise `ConfigurationError` in the v0.11.6 fail-fast paths.
 
 ---
 
@@ -113,8 +115,8 @@ alternatives for specifying the regression configuration. Passing both raises a
 
 ## `confidence`
 
-> **Planned rename (Task 17):** `confidence` → `reject_confidence` to eliminate
-> ambiguity with `confidence_level`.
+> `confidence` was removed in v0.11.5. Use `reject_confidence`; v0.11.6 raises
+> `ConfigurationError` for the legacy alias.
 
 **Definition:** The reject coverage target — the minimum calibrated probability
 required to *accept* a prediction. A prediction with conformal p-value below
@@ -132,9 +134,9 @@ conformal significance level.
 **Disambiguation:**
 - NOT `significance`: they are mathematical inverses
   (`significance = 1 − confidence`), but `significance` belongs to the guarded
-  explanation path, while `confidence` belongs to the reject path. After Task 17,
-  both surfaces will use the coverage convention so this inverse relationship will
-  not need explaining.
+  explanation path, while `confidence` belongs to the reject path. The completed
+  rename keeps both surfaces on the coverage convention while preserving the
+  inverse relationship conceptually.
 - NOT `confidence_level`: `confidence_level` is a regression interval width
   parameter; `confidence` is a reject decision threshold.
 
@@ -142,8 +144,8 @@ conformal significance level.
 
 ## `significance`
 
-> **Planned rename (Task 17):** `significance` → `GuardedOptions.confidence`
-> using the coverage convention (`confidence = 1 − significance`).
+> `significance` was removed in v0.11.5. Use `guarded_options=GuardedOptions(confidence=...)`;
+> v0.11.6 raises `ConfigurationError` for the legacy kwarg.
 
 **Definition:** The conformity significance level for the in-distribution guard.
 The guard accepts a calibration bin if its KNN-based conformal p-value is ≥
@@ -152,14 +154,16 @@ pruned from the explanation.
 
 **Type and valid range:** `float` in (0, 1]. Default: `0.1`.
 
-**Applies to:** `explain_factual(guarded=True)`, `explore_alternatives(guarded=True)`,
-and the internal `_guarded_explain` module. This parameter is part of the
-`[EXPERIMENTAL]` guarded explanation API.
+**Applies to:** `explain_factual(..., guarded_options=GuardedOptions(confidence=...))`,
+`explore_alternatives(..., guarded_options=GuardedOptions(confidence=...))`, and the
+internal `_guarded_explain` module. This parameter remains part of the
+`[EXPERIMENTAL]` guarded explanation API, but the legacy `significance=` kwarg and
+`guarded=True` call form were removed in v0.11.5.
 
 **Behavior:** A **larger** `significance` value is **stricter** (fewer bins
-accepted). This is the reverse of how `confidence` works in the reject path: for
-`significance`, raising the value makes the guard harder to pass; for `confidence`,
-raising the value makes the reject threshold harder to pass. The planned rename to
+accepted). This is the reverse of how `reject_confidence` works in the reject path:
+for legacy `significance`, raising the value makes the guard harder to pass; for
+`reject_confidence`, raising the value makes the reject threshold harder to pass.
 `GuardedOptions.confidence` resolves this counter-intuitive direction by expressing
 both surfaces as coverage values where higher = more inclusive.
 

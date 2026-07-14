@@ -14,7 +14,14 @@ from calibrated_explanations.explanations import (
     AlternativeExplanations,
     CalibratedExplanations,
 )
-from calibrated_explanations.explanations.explanations import MultiClassCalibratedExplanations
+from calibrated_explanations.explanations.explanations import (
+    FrozenCalibratedExplainer,
+    MultiClassCalibratedExplanations,
+)
+from calibrated_explanations.utils.exceptions import ConfigurationError
+from tests.helpers.dataset_utils import make_binary_dataset
+from tests.helpers.explainer_utils import initiate_explainer
+from tests.helpers.model_utils import get_classification_model
 
 
 def install_fake_matplotlib_colors(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -317,6 +324,31 @@ def test_multiclass_interface_parity_slice_list_and_get_explanation(
     assert coll[(0, 2)] is coll.explanations[0][2]
 
 
+def test_should_raise_configuration_error_when_multiclass_to_narrative_uses_format_kwarg(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from calibrated_explanations.explanations import explanations as explanations_module
+
+    class FakeFactual:
+        def get_class_labels(self):
+            return {2: "two", 5: "five"}
+
+    monkeypatch.setattr(explanations_module, "FactualExplanation", FakeFactual)
+
+    explainer = DummyOriginalExplainer(feature_names=("f0",), class_labels={2: "two", 5: "five"})
+    x = np.array([[1.0]])
+    coll = MultiClassCalibratedExplanations(
+        explainer,
+        x,
+        bins=None,
+        num_classes=2,
+        explanations=[{2: FakeFactual(), 5: FakeFactual()}],
+    )
+
+    with pytest.raises(ConfigurationError, match="Unsupported narrative keyword arguments"):
+        coll.to_narrative(format="short")
+
+
 def test_multiclass_plot_factual_dispatches_dict_path_for_nonzero_keys(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -439,3 +471,93 @@ def test_multiclass_plot_alternative_dispatches_dict_path_for_nonzero_keys(
     coll.plot_alternative(show=False)
 
     assert calls["count"] == 1
+
+
+def _build_fitted_explainer():
+    """Build a real, fitted CalibratedExplainer for frozen-snapshot isolation tests."""
+    dataset = make_binary_dataset()
+    (
+        x_prop_train,
+        y_prop_train,
+        x_cal,
+        y_cal,
+        _x_test,
+        _y_test,
+        _,
+        _,
+        categorical_features,
+        feature_names,
+    ) = dataset
+
+    model, _ = get_classification_model("RF", x_prop_train, y_prop_train)
+    return initiate_explainer(
+        model, x_cal, y_cal, feature_names, categorical_features, mode="classification"
+    )
+
+
+class TestFrozenCalibratedExplainerIsolation:
+    """Regression tests for pre-v4 finding S4-H5: frozen snapshots must not share
+    live mutable state with the explainer they were created from."""
+
+    def test_reset_on_frozen_copy_does_not_clear_live_plugin_identifiers(self):
+        live = _build_fitted_explainer()
+        live.predict(live.x_cal[:1])
+        live.plugin_manager.explanation_plugin_identifiers["factual"] = "sentinel-plugin"
+
+        frozen = FrozenCalibratedExplainer(live)
+        frozen.explainer.reset()
+
+        assert (
+            live.plugin_manager.explanation_plugin_identifiers.get("factual") == "sentinel-plugin"
+        )
+
+    def test_mutating_frozen_plugin_manager_does_not_affect_live(self):
+        live = _build_fitted_explainer()
+        frozen = FrozenCalibratedExplainer(live)
+
+        assert frozen.explainer.plugin_manager is not live.plugin_manager
+        frozen.explainer.plugin_manager.explanation_plugin_overrides["factual"] = "mutated"
+
+        assert live.plugin_manager.explanation_plugin_overrides.get("factual") != "mutated"
+
+    def test_mutating_frozen_interval_learner_does_not_affect_live(self):
+        live = _build_fitted_explainer()
+        frozen = FrozenCalibratedExplainer(live)
+
+        assert frozen.explainer.interval_learner is not live.interval_learner
+
+    def test_mutating_frozen_rng_does_not_affect_live(self):
+        live = _build_fitted_explainer()
+        frozen = FrozenCalibratedExplainer(live)
+
+        assert frozen.explainer.rng is not live.rng
+        live_state = live.rng.bit_generator.state
+        frozen.explainer.rng.standard_normal()
+
+        assert live.rng.bit_generator.state == live_state
+
+    def test_mutating_frozen_learner_does_not_affect_live(self):
+        live = _build_fitted_explainer()
+        frozen = FrozenCalibratedExplainer(live)
+
+        assert frozen.explainer.learner is not live.learner
+
+
+class TestCalibratedExplainerDeepcopyVisibility:
+    """Regression tests for pre-v4 finding S4-H5: deepcopy failures must be
+    visible, not silently suppressed to a shared original instance."""
+
+    def test_deepcopy_falls_back_visibly_for_unpicklable_attribute(self, enable_fallbacks):
+        import threading
+
+        live = _build_fitted_explainer()
+        # Locks cannot be deep-copied; attach one under an attribute name that
+        # is not part of the deliberately-shared runtime-helper set.
+        live.unpicklable_marker = threading.Lock()
+
+        with pytest.warns(UserWarning, match="deep-?copy"):
+            frozen = FrozenCalibratedExplainer(live)
+
+        # The visibly-flagged attribute is shared (fallback), but the rest of
+        # the isolation guarantees still hold.
+        assert frozen.explainer.plugin_manager is not live.plugin_manager

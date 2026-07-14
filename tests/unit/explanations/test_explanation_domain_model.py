@@ -175,21 +175,21 @@ def test_to_json_with_conjunctive_rules_uses_them():
     # The serialized explanation for index 0 must contain the conjunctive rule text
     first_item = payload["explanations"][0]
     rule_texts = [r["rule"] for r in first_item.get("rules", [])]
-    assert any(
-        "AND" in t for t in rule_texts
-    ), "Conjunctive rule text must appear in to_json output when has_conjunctive_rules=True"
+    assert any("AND" in t for t in rule_texts), (
+        "Conjunctive rule text must appear in to_json output when has_conjunctive_rules=True"
+    )
 
 
 def test_to_json_does_not_call_legacy_payload():
     """After v1.0.0, legacy_payload() is removed and to_json() must produce a valid payload without it."""
     ce = _make_minimal_factual()
-    assert not hasattr(
-        ce, "legacy_payload"
-    ), "legacy_payload public method must be removed in v1.0.0"
+    assert not hasattr(ce, "legacy_payload"), (
+        "legacy_payload public method must be removed in v1.0.0"
+    )
     payload = ce.to_json()
-    assert (
-        "explanations" in payload
-    ), "to_json must produce a valid payload after legacy_payload removal"
+    assert "explanations" in payload, (
+        "to_json must produce a valid payload after legacy_payload removal"
+    )
 
 
 # ---------------------------------------------------------------------------
