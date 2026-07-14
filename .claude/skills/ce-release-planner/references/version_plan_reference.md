@@ -1,95 +1,73 @@
 # CE Version Plan Reference (`vX.Y.Z_plan.md`)
 
-Use this file as the canonical scaffold for release implementation plans under:
-
-- `development/current-work/vX.Y.Z_plan.md`
-
-This reference exists so old detailed plan files can be removed while keeping
-the planning structure stable and repeatable.
-
----
+Use this as the canonical scaffold for release implementation plans under
+`development/current-work/`.
 
 ## Required front matter
 
-1. Title:
-   - `# vX.Y.Z Release Task Implementation Plan`
-2. Scope paragraph:
-   - state that this plan expands milestone tasks from
-     `development/current-work/RELEASE_PLAN_v1.md`.
-3. Milestone framing:
-   - state milestone type (for example ADR gap closure, hardening, RC, etc.).
-4. Authoritative task source:
-   - explicitly cite the target milestone section in `RELEASE_PLAN_v1.md`.
+Every plan declares:
 
----
+1. `# v<plan-label> Release Task Implementation Plan`
+2. A blockquote in the form `> **Release version:** X.Y.Z` (with the version
+   rendered as inline code).
+3. A blockquote in the form `> **Development version:** X.Y.Z-dev` (also inline code).
+4. Scope, milestone type, and the authoritative milestone section in
+   `development/current-work/RELEASE_PLAN_v1.md`.
+
+For prereleases, the filename label and package version may differ. For example,
+`v1.0.0-rc_plan.md` may declare release version `1.0.0rc1` and development
+version `1.0.0-rc-dev`. The explicit fields are authoritative for automation.
 
 ## Mandatory sections
 
 1. `## Source references reviewed`
 2. `## Release tasks covered (from RELEASE_PLAN_v1.md)`
-3. `## Global rules` (only if applicable for the milestone)
-4. Numbered task sections matching milestone tasks:
-   - `## 1) ...`
-   - `## 2) ...`
-   - ...
-5. `## N) Release preparation` — always the final numbered task; see template below.
+3. `## Global rules` when applicable
+4. Numbered task sections matching the milestone tasks
+5. `## N) Release preparation` as the final numbered task
 6. `## Release gate summary`
 7. `## Minimal new tests required`
 
----
+## Task section contract
 
-## Task section contract (for every numbered task)
+Each numbered task includes:
 
-Each task section must include:
-
-1. Goal:
-   - one concise paragraph.
-2. Status assessment:
-   - `Not started`, `Partial`, or `Implemented with evidence`.
-3. Relevant references:
-   - ADRs, standards, and key source files.
-4. Current anchors in code/docs:
-   - concrete modules/files currently implementing related behavior.
-5. Gaps:
-   - what is still missing vs task intent.
-6. Implementation steps:
-   - concrete, ordered, actionable steps.
-7. Verification checklist:
-   - tests, scripts, and expected pass criteria.
-
----
+1. Goal
+2. Status assessment: `Not started`, `Partial`, or `Implemented with evidence`
+3. Relevant ADRs, standards, and source files
+4. Current anchors in code/docs
+5. Remaining gaps
+6. Concrete ordered implementation steps
+7. Verification checklist with commands and expected results
 
 ## Evidence rules
 
-1. Mark a task as completed only with verifiable code/doc/test evidence.
-2. Do not rely on prior plan status text alone.
-3. When uncertain, classify as `Partial` and list blocking evidence gaps.
+1. Mark a task complete only with verifiable code/doc/test evidence.
+2. Do not rely on prior status prose alone.
+3. When uncertain, use `Partial` and name the missing evidence.
 4. Keep assumptions explicit.
-
----
+5. A generated next-plan scaffold is not a completed plan; replace it through
+   `ce-release-planner` before claiming step 16 closure.
 
 ## Release gate summary requirements
 
-The summary must:
+The summary maps every release criterion to evidence, names unresolved
+blockers, and ends with `Ready to close` or `Not ready` plus reasons.
 
-1. Map each release-gate criterion to specific evidence.
-2. Identify unresolved blockers explicitly.
-3. State final recommendation:
-   - `Ready to close` or `Not ready`, with blockers.
+## Minimal tests requirements
 
----
+List only tests/scripts strictly required for the remaining gaps, grouped by
+task. Release workflow tests must use multiple synthetic versions, including a
+non-patch transition when relevant; never assert only the current release
+number.
 
-## Minimal tests section requirements
-
-List only new or updated tests/scripts that are strictly required to close
-remaining gaps, grouped by task number.
-
----
-
-## Suggested heading skeleton
+## Suggested task skeleton
 
 ```md
 # vX.Y.Z Release Task Implementation Plan
+
+> **Release version:** `X.Y.Z`
+> **Development version:** `X.Y.Z-dev`
 
 ## Source references reviewed
 
@@ -104,39 +82,29 @@ remaining gaps, grouped by task number.
 ### 1.5 Implementation steps
 ### 1.6 Verification checklist
 
-## 2) <Task title>
-...
-
 ## N) Release preparation
-### N.0 Goal
-### N.1 Status assessment
-### N.2 Relevant references
-### N.3 Current anchors in code/docs
-### N.4 Gaps
-### N.5 Implementation steps
-### N.6 Verification checklist
+...
 
 ## Release gate summary
 
 ## Minimal new tests required
 ```
 
----
-
 ## Release preparation task template
 
-Copy this verbatim as the final numbered task section and substitute `N` with the
-actual task number. Adjust the milestone version tag (`vX.Y.Z`) wherever it appears.
+Copy this as the final numbered task and substitute `N`, the plan label, exact
+release version, and development/next milestone values. Keep the step numbers
+aligned with `release.md`.
 
 ```md
 ## N) Release preparation
 
 ### N.0 Goal
 
-Complete all release-preparation checks before tagging vX.Y.Z. This task runs the
-automated gates that `make local-checks` does not cover, audits structural/doc hygiene,
-and ensures the milestone is recorded as closed in all living documents. It is always
-the final task in a release plan and is always executed last.
+Complete the full `release.md` sequence for vX.Y.Z. Repository automation owns
+steps 1-10 and 14-17; the maintainer owns only the immutable/external steps
+11-13. This task is always last and executes only after every prior task is
+closed or explicitly deferred.
 
 ### N.1 Status assessment
 
@@ -144,72 +112,57 @@ Not started.
 
 ### N.2 Relevant references
 
-- `development/current-work/RELEASE_PLAN_v1.md` — milestone task list and packaging decision record
-- `development/current-work/RELEASE_PLAN_status_appendix.md` — per-ADR gap rows
-- `docs/migration/deprecations.md` — active/history deprecation ledger
-- `scripts/local_checks.py` — umbrella check runner
-- `scripts/quality/snapshot_public_api.py` — public API surface snapshot
+- `release.md` — authoritative 17-step maintainer sequence
+- `development/current-work/RELEASE_PLAN_v1.md` — milestone and next-version authority
+- this version plan — exact release/development version declarations
+- `Makefile` — `release-preflight`, `release-finalize`, `release-postcommit`
+- `scripts/local_checks.py` — version-agnostic implementation and reports
+- `.claude/skills/ce-release-planner/SKILL.md` — next-plan completion contract
 
 ### N.3 Current anchors in code/docs
 
-- `make local-checks` already covers: coverage, private members, anti-patterns, docstring
-  coverage, parameter naming, logging domains, import graph, mypy, marker hygiene,
-  report local-path guard, dependency audit (advisory), notebook audit (advisory), docs build (advisory).
-- `make deprecation-closure` covers: active deprecation table empty check + focused deprecation tests.
-- The following are NOT wired into either target and require explicit runs or manual review.
+- `make release-preflight` owns steps 1-10: readiness, release-file/changelog
+  preparation, tests, notebooks, alignment, clean build, Twine/artifact checks,
+  and clean-wheel smoke.
+- `make release-finalize` proves the preflight snapshot is still current.
+- Steps 11-13 remain human-gated: commit/tag/push, RTD publication, PyPI upload.
+- `make release-postcommit` owns steps 14-17: PyPI page/metadata verification,
+  exact published-install smoke, plan handoff/archive, and next-development bump.
 
 ### N.4 Gaps
 
-All items below are outside the `make local-checks` / `make local-checks-pr` umbrella
-and must be checked manually or via explicit invocations at milestone closure.
+All prior milestone tasks and release-file content must be complete before
+preflight. A placeholder next plan produced by postcommit must be expanded with
+`ce-release-planner`; no additional maintainer release action may be hidden
+outside steps 11-13.
 
 ### N.5 Implementation steps
 
-**Automated gates (run and confirm exit 0):**
-
-1. `make local-checks` — confirm passes clean with no advisory failures of concern.
-2. `make deprecation-closure` — active deprecation table empty; focused deprecation tests pass.
-3. `make uv-install-smoke` — wheel builds and installs in a fresh venv; `import calibrated_explanations` succeeds.
-4. `make warning-policy` — no unclassified warning emission sites remain.
-5. Docs strict build: `python -m sphinx -W --keep-going docs docs/_build/html` — zero warnings
-   (the plain `docs build` step in `make local-checks` is advisory; this is the strict gate).
-6. API snapshot diff: `python scripts/quality/snapshot_public_api.py` — review diff for
-   unintended public additions or removals.
-
-**Manual / structural hygiene:**
-
-7. Version bump: confirm `__version__` in `src/calibrated_explanations/__init__.py` and
-   `[tool.poetry] version` in `pyproject.toml` match the release tag.
-8. CHANGELOG: entry present, complete, correctly dated, correct category
-   (Breaking / Added / Fixed / Removed).
-9. Migration guide (`docs/migration/deprecations.md`): symbols removed in this version moved
-   from active to history table; no phantom active entries from prior milestones remain.
-10. ADR gap tables (`development/current-work/RELEASE_PLAN_status_appendix.md`): all gaps closed in
-    this milestone reflected as closed; no open row still targets `vX.Y.Z`.
-11. `RELEASE_PLAN_v1.md` milestone closure: all vX.Y.Z tasks marked `[x]`; milestone section
-    records closure date.
-12. `development/current-work/` archive: review all files in `development/current-work/`;
-    move obsolete plan files, completed-version artefacts, and superseded standalone design docs
-    to `development/finished-work/` or delete. Only files that are active references for future
-    milestones should remain in `development/current-work/`. (Already-superseded ADRs carry a
-    `superseded` filename prefix — no action needed for those.)
-13. GitHub release draft: tag prepared; release notes drafted from CHANGELOG; PyPI release
-    decision recorded in `RELEASE_PLAN_v1.md` under the packaging workflow section.
+1. Confirm tasks 1-(N-1) are closed or have explicit maintainer-approved deferrals.
+2. Confirm the plan's exact release and development version declarations match
+   the milestone; use `VERSION=` only for a deliberate override.
+3. Run `make release-preflight` (release.md steps 1-10). Confirm its report lists
+   `automated_release_steps: [1..10]`, the updated release files, and a green result.
+4. Run `make release-finalize` immediately before handoff.
+5. Maintainer performs release.md steps 11-13 only: commit/tag/push, publish and
+   verify RTD, upload the built artifacts to PyPI.
+6. Run `make release-postcommit` (steps 14-17). Use `NEXT_VERSION=<milestone>`
+   only if the master plan does not already name the intended next milestone.
+7. If postcommit scaffolded the next plan, immediately replace the placeholder
+   with a complete plan through `ce-release-planner`; verify master tracking,
+   released-plan archive, and development version are correct.
 
 ### N.6 Verification checklist
 
-- [ ] `make local-checks` exits 0 with no advisory failures of concern.
-- [ ] `make deprecation-closure` exits 0; active deprecation table is empty.
-- [ ] `make uv-install-smoke` exits 0; version string printed matches release tag.
-- [ ] `make warning-policy` exits 0.
-- [ ] Sphinx strict build (`-W --keep-going`) exits 0; no broken cross-references.
-- [ ] `snapshot_public_api.py` diff reviewed; no unintended additions or removals.
-- [ ] `__version__` and `pyproject.toml` version match the release tag.
-- [ ] CHANGELOG entry present, dated, complete.
-- [ ] `docs/migration/deprecations.md` active table empty (or contains only post-vX.Y.Z
-    deprecations); removed symbols in history table.
-- [ ] `RELEASE_PLAN_status_appendix.md` has no open gap row targeting `vX.Y.Z`.
-- [ ] `RELEASE_PLAN_v1.md` vX.Y.Z milestone section marked closed with date.
-- [ ] `development/current-work/` reviewed; obsolete artefacts moved to `development/finished-work/` or deleted.
-- [ ] GitHub release draft exists with tag and CHANGELOG-sourced release notes.
+- [ ] All earlier tasks closed or explicitly deferred.
+- [ ] Exact release/development versions declared; no prior-release literal drives automation.
+- [ ] `make release-preflight` exits 0 and reports steps 1-10 plus all release-file updates.
+- [ ] `make release-finalize` exits 0 on the unchanged preflight snapshot.
+- [ ] Maintainer confirms manual steps 11-13 completed successfully.
+- [ ] `make release-postcommit` exits 0 and reports steps 14-17.
+- [ ] PyPI page/metadata and exact clean-environment install verify the released version.
+- [ ] Released plan archived; next maintained plan exists and is content-complete.
+- [ ] Master release tracking names the released and next milestones correctly.
+- [ ] `pyproject.toml` and runtime fallback use the declared next development version.
+- [ ] Version-agnostic release workflow tests pass for more than one version line.
 ```

@@ -298,7 +298,7 @@ Every fallback must be visible to users. No silent fallbacks.
 | `development/standards/test-quality-method/` | ADR-030 quality method tooling — canonical location |
 | `tests/README.md` | Authoritative test guidance |
 | `CHANGELOG.md` | Changelog; update under `## [Unreleased]` for every change |
-| `Makefile` | Entry points: `make quick`, `make local-checks-task`, `make local-checks-pr`, `make local-checks-full`, `make local-checks-release`, `make release-preflight`, `make release-finalize` |
+| `Makefile` | Entry points: `make quick`, `make local-checks-task`, `make local-checks-pr`, `make local-checks-full`, `make local-checks-release`, `make release-preflight` (release.md steps 1-10, including release-file updates), `make release-finalize`, `make release-postcommit` (steps 14-17; steps 11-13 remain maintainer-only) |
 
 Removed legacy docs locations: docs/improvement/ and docs/standards/ were fully
 removed after migration to `development/`. Do not recreate them or add new

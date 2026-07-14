@@ -358,8 +358,8 @@ class TestPluginManagerDeepCopy:
         assert copied_manager.test_proxy is not proxy
         assert dict(copied_manager.test_proxy) == dict(proxy)
 
-    def test_deepcopy_mappingproxy_failure_falls_back_to_reference(self, monkeypatch):
-        """should_fallback_to_reference_when_mappingproxy_recreation_fails."""
+    def test_deepcopy_mappingproxy_failure_raises_typeerror(self, monkeypatch):
+        """should_raise_typeerror_when_mappingproxy_recreation_fails."""
         import calibrated_explanations.plugins.manager as manager_module
 
         class FakeProxy:
@@ -379,6 +379,9 @@ class TestPluginManagerDeepCopy:
             def __getitem__(self, key):
                 return self.data[key]
 
+            def items(self):
+                return self.data.items()
+
         monkeypatch.setattr(manager_module, "MappingProxyType", FakeProxy)
 
         mock_explainer = Mock()
@@ -388,12 +391,11 @@ class TestPluginManagerDeepCopy:
         manager.test_proxy = fake_proxy
         FakeProxy.fail_on_init = True
 
-        copied_manager = copy.deepcopy(manager)
+        with pytest.raises(TypeError, match="boom"):
+            copy.deepcopy(manager)
 
-        assert copied_manager.test_proxy is fake_proxy
-
-    def test_deepcopy_dict_preserve_failure_falls_back_to_shallow_copy(self):
-        """should_fallback_to_shallow_dict_copy_when_dict_preserve_fails."""
+    def test_deepcopy_dict_preserve_failure_raises_typeerror(self):
+        """should_raise_typeerror_when_nested_value_deepcopy_fails."""
         mock_explainer = Mock()
         manager = PluginManager(mock_explainer)
 
@@ -404,13 +406,11 @@ class TestPluginManagerDeepCopy:
         bad_value = BadDeepcopy()
         manager.test_dict = {"bad": bad_value}
 
-        copied_manager = copy.deepcopy(manager)
+        with pytest.raises(TypeError, match="boom"):
+            copy.deepcopy(manager)
 
-        assert copied_manager.test_dict is not manager.test_dict
-        assert copied_manager.test_dict["bad"] is bad_value
-
-    def test_deepcopy_typeerror_falls_back_for_list_and_object(self):
-        """should_fallback_on_typeerror_for_list_and_object_values."""
+    def test_deepcopy_typeerror_for_list_and_object_values_raises(self):
+        """should_raise_typeerror_for_list_and_object_values_when_deepcopy_fails."""
         mock_explainer = Mock()
         manager = PluginManager(mock_explainer)
 
@@ -422,8 +422,5 @@ class TestPluginManagerDeepCopy:
         manager.test_list = [bad_value]
         manager.test_obj = bad_value
 
-        copied_manager = copy.deepcopy(manager)
-
-        assert copied_manager.test_list is not manager.test_list
-        assert copied_manager.test_list[0] is bad_value
-        assert copied_manager.test_obj is bad_value
+        with pytest.raises(TypeError, match="boom"):
+            copy.deepcopy(manager)

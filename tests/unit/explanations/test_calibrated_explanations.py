@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from types import ModuleType, SimpleNamespace
+from types import MappingProxyType, ModuleType, SimpleNamespace
 from typing import List, Sequence
 import sys
 
@@ -541,6 +541,45 @@ class TestFrozenCalibratedExplainerIsolation:
         frozen = FrozenCalibratedExplainer(live)
 
         assert frozen.explainer.learner is not live.learner
+
+    def test_nested_mappingproxy_metadata_is_deep_copied_not_shared(self):
+        live = _build_fitted_explainer()
+        # Interval-context metadata stores frozen (MappingProxyType) values
+        # nested inside plain dicts; `PluginManager.__deepcopy__` previously
+        # degraded this shape to a shallow `dict.copy()` on `TypeError`
+        # (Task 53 / decision D-53), silently sharing the nested mutable
+        # payload between the frozen snapshot and the live explainer.
+        nested_payload = {"leaf": 1}
+        live.plugin_manager.interval_context_metadata["default"] = {
+            "frozen": MappingProxyType({"inner": MappingProxyType(nested_payload)}),
+            "plain": {"noise": MappingProxyType({"seed": 42})},
+        }
+
+        frozen = FrozenCalibratedExplainer(live)
+        live_meta = live.plugin_manager.interval_context_metadata
+        frozen_meta = frozen.explainer.plugin_manager.interval_context_metadata
+
+        assert frozen_meta is not live_meta
+        assert frozen_meta["default"] is not live_meta["default"]
+        frozen_proxy = frozen_meta["default"]["frozen"]
+        assert isinstance(frozen_proxy, MappingProxyType)
+        assert frozen_proxy is not live_meta["default"]["frozen"]
+        inner = frozen_proxy["inner"]
+        assert isinstance(inner, MappingProxyType)
+        nested_payload["leaf"] = 999
+        assert inner["leaf"] == 1
+        deep_plain = frozen_meta["default"]["plain"]["noise"]
+        assert isinstance(deep_plain, MappingProxyType)
+        assert deep_plain is not live_meta["default"]["plain"]["noise"]
+
+    def test_latest_explanation_is_not_carried_into_frozen_snapshot(self):
+        live = _build_fitted_explainer()
+        live.latest_explanation = SimpleNamespace(marker="live-only")
+
+        frozen = FrozenCalibratedExplainer(live)
+
+        assert frozen.explainer.latest_explanation is None
+        assert live.latest_explanation.marker == "live-only"
 
 
 class TestCalibratedExplainerDeepcopyVisibility:

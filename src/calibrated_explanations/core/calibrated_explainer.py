@@ -542,21 +542,23 @@ class CalibratedExplainer:
         :class:`~calibrated_explanations.explanations.explanations.FrozenCalibratedExplainer`
         snapshot) and the live explainer.
 
-        ``latest_explanation`` is also shared by reference, but for a
-        different reason: each individual explanation object already carries
-        its own :class:`FrozenCalibratedExplainer` snapshot (created when the
-        explanation was produced), so re-isolating the *explainer's* bookkeeping
-        pointer to its most recent explanation collection is redundant. It is
-        also unsafe to deep-copy: that collection embeds a
-        ``FrozenCalibratedExplainer`` wrapping a full explainer copy which, in
-        turn, has its own (older) ``latest_explanation``, and so on --
-        deep-copying this attribute walks and duplicates that entire chain on
-        every copy, which grows without bound across repeated explain calls on
-        the same explainer and makes deepcopy (and therefore
-        `FrozenCalibratedExplainer` construction) arbitrarily slow. Reassigning
-        ``latest_explanation`` (including via :meth:`reset`, which sets it to
-        ``None``) on a copy only rebinds that copy's own attribute and never
-        affects the original object shared by reference.
+        ``latest_explanation`` is deliberately *not* carried over: the copy
+        starts with ``None`` (the same state :meth:`reset` produces). At
+        deepcopy time the live explainer's ``latest_explanation`` still
+        points at the *previous* explanation collection, and every collection
+        embeds a ``FrozenCalibratedExplainer`` snapshot (a full explainer
+        copy) of its own. Sharing the pointer by reference therefore links
+        each new snapshot to the previous explanation, forming an unbounded
+        retention chain (explanation -> snapshot -> previous explanation ->
+        older snapshot -> ...) that keeps every historical snapshot reachable
+        for the life of the explainer -- the repeated reject-flow RSS leak
+        closed by Task 56 / decision D-56. Deep-copying the pointer instead
+        would walk and duplicate that same chain on every copy, which grows
+        without bound and makes ``FrozenCalibratedExplainer`` construction
+        arbitrarily slow. Starting from ``None`` is safe: each explanation
+        object carries its own snapshot independently of this bookkeeping
+        pointer, so a *snapshot's* pointer to "the most recent explanation"
+        has no consumer.
 
         Every other attribute -- including ``learner``, ``rng``,
         ``_plugin_manager`` (and, through it, the interval learner and
@@ -575,7 +577,6 @@ class CalibratedExplainer:
         deliberately_shared_keys = {
             "_perf_parallel",
             "perf_cache",
-            "latest_explanation",
         }
 
         for k, v in self.__dict__.items():
@@ -583,6 +584,10 @@ class CalibratedExplainer:
                 # ADR002_ALLOW: sharing is deliberate, not a fallback.
                 with contextlib.suppress(Exception):
                     setattr(result, k, v)
+                continue
+            if k == "latest_explanation":
+                with contextlib.suppress(Exception):
+                    setattr(result, k, None)
                 continue
 
             try:

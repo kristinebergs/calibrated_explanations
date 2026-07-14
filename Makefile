@@ -128,15 +128,25 @@ local-checks-pr:
 local-checks-release:
 	python scripts/local_checks.py --profile release
 
-# Pre-tag release gate: strict local handoff before the manual publish phase.
+# Pre-tag release gate: release.md steps 1-10, including deterministic release
+# file updates, strict validation, build, artifact checks, and wheel smoke.
+# VERSION=X.Y.Z and RELEASE_DATE=YYYY-MM-DD are optional inference overrides.
 .PHONY: release-preflight
 release-preflight:
-	python scripts/local_checks.py --release-preflight
+	python scripts/local_checks.py --release-preflight $(if $(VERSION),--release-version $(VERSION),) $(if $(RELEASE_DATE),--release-date $(RELEASE_DATE),)
 
 # Guard the manual publish phase against stale or incomplete preflight state.
 .PHONY: release-finalize
 release-finalize:
 	python scripts/local_checks.py --release-finalize
+
+# Post-publish steps (release.md 14-17): PyPI metadata check, clean-env install
+# smoke, release-plan handoff/archive, and development-version bump.
+# Run after steps 11-13 (commit/tag/push, RTD publish, PyPI upload) are done manually.
+# NEXT_VERSION=<milestone> is optional; the master plan is authoritative by default.
+.PHONY: release-postcommit
+release-postcommit:
+	python scripts/local_checks.py --release-postcommit $(if $(NEXT_VERSION),--next-version $(NEXT_VERSION),) $(if $(RELEASE_DATE),--release-date $(RELEASE_DATE),)
 
 # Validate the capability verification chain without executing TIF scenarios.
 # Safe to run on every PR - does not mutate any files.

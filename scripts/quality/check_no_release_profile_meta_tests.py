@@ -41,6 +41,15 @@ ALLOWLIST: dict[str, str] = {
     "tests/capabilities/test_adr_capability_links.py": (
         "capability evidence-chain contract references the status appendix"
     ),
+    # Durable release-file I/O contract test: run_release_preflight and
+    # run_release_postcommit read/write real plan-file paths as their stable
+    # public behavior. It asserts no profile steps, task ids, or transient
+    # plan-orchestration internals.
+    "tests/scripts/test_local_checks_release_workflow.py": (
+        "release-file I/O contract for run_release_preflight/"
+        "run_release_postcommit; asserts stable path-handling behavior, not"
+        " transient plan task-id/profile-step wiring"
+    ),
 }
 
 PROHIBITED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (

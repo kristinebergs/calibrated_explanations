@@ -57,10 +57,18 @@ def test_checker_fails_for_windows_drive_paths(tmp_path: Path) -> None:
     result = run_checker(tmp_path)
 
     assert result.returncode == 1
-    report = json.loads((tmp_path / "reports/quality/no_local_paths_report.json").read_text(encoding="utf-8"))
+    report = json.loads(
+        (tmp_path / "reports/quality/no_local_paths_report.json").read_text(encoding="utf-8")
+    )
     assert report["total_violations"] == 1
+    assert report["summary"]["artifacts_with_violations"] == 1
+    assert report["summary"]["category_counts"] == {"windows_drive": 1}
+    assert report["summary"]["artifacts"][0]["artifact"] == "reports/quality/bad.json"
     assert report["violations"][0]["category"] == "windows_drive"
     assert report["violations"][0]["json_path"] == "$.package_root"
+    assert report["violations"][0]["match_redacted"] == "<redacted:windows-drive-path>"
+    assert "C:/Users/example" not in result.stdout
+    assert "reports/quality/bad.json: 1 violations" in result.stdout
 
 
 def test_checker_fails_for_unc_paths(tmp_path: Path) -> None:
@@ -72,7 +80,8 @@ def test_checker_fails_for_unc_paths(tmp_path: Path) -> None:
     result = run_checker(tmp_path)
 
     assert result.returncode == 1
-    assert "[unc_path]" in result.stdout
+    assert "category unc_path: 1" in result.stdout
+    assert r"\\server\share\team\report.json" not in result.stdout
 
 
 def test_checker_fails_for_unix_absolute_paths(tmp_path: Path) -> None:
@@ -84,8 +93,11 @@ def test_checker_fails_for_unix_absolute_paths(tmp_path: Path) -> None:
     result = run_checker(tmp_path)
 
     assert result.returncode == 1
-    report = json.loads((tmp_path / "reports/quality/no_local_paths_report.json").read_text(encoding="utf-8"))
+    report = json.loads(
+        (tmp_path / "reports/quality/no_local_paths_report.json").read_text(encoding="utf-8")
+    )
     assert report["violations"][0]["category"] == "unix_absolute"
+    assert report["violations"][0]["match_redacted"] == "<redacted:unix-absolute-path>"
 
 
 def test_checker_ignores_non_path_colons(tmp_path: Path) -> None:
@@ -97,10 +109,15 @@ def test_checker_ignores_non_path_colons(tmp_path: Path) -> None:
 
 
 def test_checker_scans_tracked_debug_artifact_outside_reports(tmp_path: Path) -> None:
-    write(tmp_path / ".pytest_matplotlib_debug.json", json.dumps({"sys_path": [r"C:\Users\alice\repo"]}, indent=2))
+    write(
+        tmp_path / ".pytest_matplotlib_debug.json",
+        json.dumps({"sys_path": [r"C:\Users\alice\repo"]}, indent=2),
+    )
 
     result = run_checker(tmp_path)
 
     assert result.returncode == 1
-    report = json.loads((tmp_path / "reports/quality/no_local_paths_report.json").read_text(encoding="utf-8"))
+    report = json.loads(
+        (tmp_path / "reports/quality/no_local_paths_report.json").read_text(encoding="utf-8")
+    )
     assert report["violations"][0]["artifact"] == ".pytest_matplotlib_debug.json"

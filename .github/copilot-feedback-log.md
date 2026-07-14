@@ -39,3 +39,17 @@ Format:
 **Durable fix:** Reverted the inconsistent, premature narrowing in `pyproject.toml`: `include` now lists `external_plugins` and `external_plugins.*` alongside the `calibrated_explanations` entries, restoring the package to the wheel. This is a reversion of the 554c3110 packaging change, not a new decision.
 **Verification:** Delete both `*.egg-info` dirs (`python -c "import shutil; shutil.rmtree('calibrated_explanations.egg-info', ignore_errors=True); shutil.rmtree('src/calibrated_explanations.egg-info', ignore_errors=True)"`) to force a clean build, then `pytest -q tests/integration/test_doc_examples_smoke.py::test_wheel_install_supports_importable_fast_helper_but_not_python_m_execution`.
 **Status:** ✅ incorporated
+
+## 2026-07-14 – Release automation omitted release-file preparation
+**Feedback:** `make release-preflight` was intended to supersede release.md steps 1-10, but it validated already-edited metadata instead of updating the complete "Files that must be updated for a release" list; post-publish steps also lacked one version-agnostic, executable handoff.
+**Root cause:** The first preflight implementation automated tests/build/smoke only and retained a hard-coded active-plan pointer plus next-patch assumptions. Release planning guidance duplicated the old manual checklist instead of treating the 17-step runbook as an executable contract.
+**Durable fix:** Updated `scripts/local_checks.py`, `Makefile`, Task 61, the canonical release planner/finalizer skills and references, `CONTRIBUTOR_INSTRUCTIONS.md`, and release workflow tests. Preflight now owns steps 1-10 including deterministic release-file updates; only steps 11-13 are human-gated; postcommit owns 14-17 and follows the master plan or an explicit next-version override.
+**Verification:** `make local-checks-task TASK=61`; focused parameterized tests cover multiple stable versions plus a release-candidate handoff.
+**Status:** ✅ incorporated
+
+## 2026-07-14 – Incomplete release preflight reported exit status zero
+**Feedback:** An interrupted `make release-preflight` left `exit_status: 0` in the latest report, while `make release-finalize` rejected the same report with only a generic failure message.
+**Root cause:** Each successful intermediate checkpoint copied its step return code into the report's top-level `exit_status`, even though the complete preflight had not reached the final wheel smoke. The separate `preflight_passed: false` field kept the guard safe but made the report contradictory to a maintainer reading only the exit status.
+**Durable fix:** Updated `scripts/local_checks.py` so successful incomplete checkpoints record `exit_status: null`, and so finalize distinguishes incomplete, failed, and internally inconsistent reports. Updated `tests/scripts/test_local_checks_release_workflow.py` with interrupted-run and backward-compatible incomplete-report regressions.
+**Verification:** `python -m pytest -q tests/scripts/test_local_checks_release_workflow.py -k "not_publish_green or explain_incomplete" -o addopts= --no-cov`.
+**Status:** ✅ incorporated

@@ -146,6 +146,7 @@ def _run_step(step: Step) -> int:
         "All non-viz tests (no coverage)",
     }:
         env.pop("CE_DEPRECATIONS", None)
+    result: subprocess.CompletedProcess[str] | subprocess.CompletedProcess[bytes]
     try:
         if _is_pre_commit_step(step):
             result = subprocess.run(  # noqa: S603
@@ -1086,7 +1087,12 @@ def _release_steps(
 
 
 RELEASE_PREFLIGHT_REPORT = Path("reports/local_checks/release_preflight_report.json")
-RELEASE_MANUAL_STEP_RANGE = tuple(range(11, 18))
+RELEASE_TRANSIENT_ASYNC_LOGS: tuple[Path, ...] = (
+    Path("reports/local_checks/release_preflight_async.log"),
+    Path("reports/local_checks/release_preflight_async.err.log"),
+)
+RELEASE_MANUAL_STEP_RANGE = tuple(range(11, 14))
+RELEASE_POSTCOMMIT_STEP_RANGE = tuple(range(14, 18))
 RELEASE_STANDARD_NOTEBOOK_PATTERNS: tuple[str, ...] = (
     "notebooks/quickstart.ipynb",
     "notebooks/quickstart_guarded.ipynb",
@@ -1125,6 +1131,29 @@ def _resolve_release_notebook_paths(patterns: tuple[str, ...]) -> list[str]:
         joined = ", ".join(sorted(missing_patterns))
         raise RuntimeError(f"Release notebook patterns did not resolve to files: {joined}")
     return resolved_paths
+
+
+def _purge_release_transient_async_logs() -> None:
+    """Remove stale async release-preflight capture logs before governed checks.
+
+    These files are ad hoc workspace captures rather than governed release
+    artifacts. If left behind, they can leak local machine paths into the
+    report-scanning lane and invalidate an otherwise clean release handoff.
+    """
+    for path in RELEASE_TRANSIENT_ASYNC_LOGS:
+        if not path.exists():
+            continue
+        with suppress(OSError):
+            path.unlink()
+            print(f"Removed stale transient release log: {path.as_posix()}")
+            continue
+        with suppress(OSError):
+            path.write_text(
+                "Removed by scripts/local_checks.py before release validation.\n",
+                encoding="utf-8",
+                newline="\n",
+            )
+            print(f"Sanitized stale transient release log: {path.as_posix()}")
 
 
 def _release_notebook_steps() -> list[Step]:
@@ -1199,9 +1228,64 @@ def _pyproject_release_version() -> str:
     return str(payload["project"]["version"])
 
 
+def _canonical_version(version: str) -> str:
+    """Return the PEP 440 canonical form of ``version``."""
+    try:
+        from packaging.version import Version  # noqa: PLC0415
+
+        return str(Version(version))
+    except Exception as exc:  # noqa: BLE001 - converted to a release-workflow error
+        raise RuntimeError(f"Invalid release version {version!r}.") from exc
+
+
+def _version_lineage(version: str) -> tuple[tuple[int, ...], str | None]:
+    """Return the numeric release tuple and prerelease family for ``version``."""
+    try:
+        from packaging.version import Version  # noqa: PLC0415
+
+        parsed = Version(version)
+    except Exception as exc:  # noqa: BLE001 - converted to a release-workflow error
+        raise RuntimeError(f"Invalid release version {version!r}.") from exc
+    prerelease_family = parsed.pre[0] if parsed.pre is not None else None
+    return parsed.release, prerelease_family
+
+
+_PLAN_RELEASE_VERSION_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\*\*Release version:\*\*\s*`(?P<version>[^`]+)`", re.IGNORECASE),
+    re.compile(r"\*\*Release version:\s*`(?P<version>[^`]+)`", re.IGNORECASE),
+    re.compile(r"\*\*RC version string:\s*`(?P<version>[^`]+)`", re.IGNORECASE),
+)
+
+
+def _release_version_from_plan(plan_path: Path) -> str:
+    """Resolve the exact release version declared by a version plan."""
+    text = plan_path.read_text(encoding="utf-8")
+    for pattern in _PLAN_RELEASE_VERSION_PATTERNS:
+        match = pattern.search(text)
+        if match is not None:
+            return _canonical_version(match.group("version"))
+
+    filename_match = re.fullmatch(r"v(?P<version>.+)_plan\.md", plan_path.name)
+    if filename_match is not None:
+        return _canonical_version(filename_match.group("version"))
+
+    project_version = _canonical_version(_pyproject_release_version())
+    try:
+        from packaging.version import Version  # noqa: PLC0415
+
+        return str(Version(project_version).base_version)
+    except Exception as exc:  # pragma: no cover - canonicalization above already validates
+        raise RuntimeError("Could not infer the release version from the active plan.") from exc
+
+
+def _release_date_from_clock() -> str:
+    """Return the UTC release date used for deterministic release-file updates."""
+    return _utc_now_iso().split("T", 1)[0]
+
+
 def _release_task_checklist_state(
     plan_path: Path,
-) -> tuple[dict[int, dict[str, int | bool]], list[str]]:
+) -> tuple[dict[int, dict[str, int | bool | str]], list[str]]:
     """Parse per-task verification checklist completion state from the release plan."""
     text = plan_path.read_text(encoding="utf-8")
 
@@ -1252,7 +1336,11 @@ def _release_task_checklist_state(
     return states, parse_errors
 
 
-def _evaluate_release_plan_readiness(plan_path: Path) -> tuple[dict[str, object], list[str]]:
+def _evaluate_release_plan_readiness(
+    plan_path: Path,
+    *,
+    release_version: str | None = None,
+) -> tuple[dict[str, object], list[str]]:
     """Evaluate whether release-handoff prerequisites are satisfied.
 
     Every numbered task parsed from the active plan must have a fully checked
@@ -1265,10 +1353,12 @@ def _evaluate_release_plan_readiness(plan_path: Path) -> tuple[dict[str, object]
     task_checklist_state, parse_errors = _release_task_checklist_state(plan_path)
     branch = _current_git_branch()
     pyproject_version = _pyproject_release_version()
+    target_version = release_version or _release_version_from_plan(plan_path)
     observed: dict[str, object] = {
         "plan_path": plan_path.as_posix(),
         "branch": branch,
         "pyproject_version": pyproject_version,
+        "release_version": target_version,
         "task_checklist_state": task_checklist_state,
         "parse_errors": parse_errors,
     }
@@ -1281,9 +1371,10 @@ def _evaluate_release_plan_readiness(plan_path: Path) -> tuple[dict[str, object]
             f"Release-preflight must run from the main branch; current branch is {branch!r}."
         )
 
-    if "dev" in pyproject_version.lower():
+    if _version_lineage(pyproject_version) != _version_lineage(target_version):
         errors.append(
-            "pyproject.toml still carries a development version. Bump to the release version before preflight."
+            "pyproject.toml and the active release plan describe different release lines: "
+            f"{pyproject_version!r} vs {target_version!r}."
         )
 
     task_ids = sorted(task_checklist_state)
@@ -1306,9 +1397,16 @@ def _evaluate_release_plan_readiness(plan_path: Path) -> tuple[dict[str, object]
     return observed, errors
 
 
-def _run_release_readiness_guard(plan_path: Path) -> tuple[int, dict[str, object]]:
+def _run_release_readiness_guard(
+    plan_path: Path,
+    *,
+    release_version: str | None = None,
+) -> tuple[int, dict[str, object]]:
     """Run the release-readiness guard and return the observed state."""
-    observed, errors = _evaluate_release_plan_readiness(plan_path)
+    observed, errors = _evaluate_release_plan_readiness(
+        plan_path,
+        release_version=release_version,
+    )
     print("\n[Release readiness guard]")
     print(f"Active release plan: {plan_path.as_posix()}")
     if errors:
@@ -1316,8 +1414,324 @@ def _run_release_readiness_guard(plan_path: Path) -> tuple[int, dict[str, object
         for error in errors:
             print(f"- {error}")
         return 1, observed
-    print("PASS: release plan summary, branch, and version state are ready for release handoff.")
+    print("PASS: release plan summary, branch, and version lineage are ready for release handoff.")
     return 0, observed
+
+
+_INIT_VERSION_FALLBACK_RE = re.compile(r'(?m)^(?P<indent>[ \t]+)return "[^"]+"[ \t]*$')
+_CHANGELOG_VERSION_HEADING_RE = re.compile(
+    r"^## \[v?(?P<version>[^\]]+)\].*$",
+    re.MULTILINE,
+)
+RELEASE_PREPARED_FILES: tuple[str, ...] = (
+    "pyproject.toml",
+    "src/calibrated_explanations/__init__.py",
+    "CITATION.cff",
+    "docs/citing.md",
+    "METADATA.json",
+    "CHANGELOG.md",
+    "development/current-work/RELEASE_PLAN_v1.md",
+)
+
+
+def _write_text_if_changed(path: Path, text: str) -> bool:
+    """Write ``text`` with repository newlines and report whether it changed."""
+    original = path.read_text(encoding="utf-8")
+    if original.endswith(("\n", "\r")) and not text.endswith("\n"):
+        text += "\n"
+    if original == text:
+        return False
+    path.write_text(text, encoding="utf-8", newline="\n")
+    return True
+
+
+def _replace_required(
+    path: Path,
+    pattern: re.Pattern[str],
+    replacement: str,
+    *,
+    description: str,
+) -> bool:
+    """Replace one required release field and report whether the file changed."""
+    text = path.read_text(encoding="utf-8")
+    updated, count = pattern.subn(replacement, text, count=1)
+    if count != 1:
+        raise RuntimeError(f"Could not locate {description} in {path.as_posix()}.")
+    return _write_text_if_changed(path, updated)
+
+
+def _write_pyproject_version(version: str) -> bool:
+    """Set the first project version declaration in ``pyproject.toml``."""
+    return _replace_required(
+        Path("pyproject.toml"),
+        re.compile(r'(?m)^version\s*=\s*"[^"]+"\s*$'),
+        f'version = "{version}"',
+        description="[project].version",
+    )
+
+
+def _write_init_version_fallback(version: str) -> bool:
+    """Set the source-tree fallback used when package metadata is unavailable."""
+    path = Path("src/calibrated_explanations/__init__.py")
+    text = path.read_text(encoding="utf-8")
+    updated, count = _INIT_VERSION_FALLBACK_RE.subn(
+        lambda match: f'{match.group("indent")}return "{version}"',
+        text,
+        count=1,
+    )
+    if count != 1:
+        raise RuntimeError("Could not locate the __version__ fallback string in __init__.py.")
+    return _write_text_if_changed(path, updated)
+
+
+def _changelog_release_content(text: str) -> str:
+    """Return release-note content with generated compare links removed."""
+    lines = [
+        line
+        for line in text.strip().splitlines()
+        if not line.strip().startswith("[Full changelog](")
+    ]
+    return "\n".join(lines).strip()
+
+
+def _merge_changelog_release_content(*contents: str) -> str:
+    """Merge release-note category sections without duplicating headings."""
+    preamble: list[str] = []
+    section_order: list[str] = []
+    section_bodies: dict[str, list[str]] = {}
+    heading_pattern = re.compile(r"(?m)^###\s+.+$")
+
+    for content in contents:
+        headings = list(heading_pattern.finditer(content))
+        if not headings:
+            if content.strip():
+                preamble.append(content.strip())
+            continue
+        leading = content[: headings[0].start()].strip()
+        if leading:
+            preamble.append(leading)
+        for index, heading in enumerate(headings):
+            title = heading.group(0).strip()
+            end = headings[index + 1].start() if index + 1 < len(headings) else len(content)
+            body = content[heading.end() : end].strip()
+            if title not in section_bodies:
+                section_order.append(title)
+                section_bodies[title] = []
+            if body:
+                section_bodies[title].append(body)
+
+    merged = list(preamble)
+    for title in section_order:
+        section = title
+        if section_bodies[title]:
+            section += "\n\n" + "\n\n".join(section_bodies[title])
+        merged.append(section)
+    return "\n\n".join(merged)
+
+
+def _prepare_changelog_release(version: str, release_date: str) -> bool:
+    """Move Unreleased notes into an idempotent versioned CHANGELOG section."""
+    path = Path("CHANGELOG.md")
+    text = path.read_text(encoding="utf-8")
+    unreleased_match = re.search(r"^## \[Unreleased\]\s*$", text, re.MULTILINE)
+    if unreleased_match is None:
+        raise RuntimeError("Could not locate the CHANGELOG [Unreleased] section.")
+
+    headings = list(_CHANGELOG_VERSION_HEADING_RE.finditer(text, unreleased_match.end()))
+    if not headings:
+        raise RuntimeError("Could not locate a prior version section in CHANGELOG.md.")
+    target_heading = next(
+        (match for match in headings if _canonical_version(match.group("version")) == version),
+        None,
+    )
+    first_heading = headings[0]
+    unreleased_body = _changelog_release_content(
+        text[unreleased_match.end() : first_heading.start()]
+    )
+
+    if target_heading is not None:
+        later_headings = [match for match in headings if match.start() > target_heading.start()]
+        if not later_headings:
+            raise RuntimeError("The target CHANGELOG section has no prior-version section.")
+        prior_heading = later_headings[0]
+        target_body = _changelog_release_content(text[target_heading.end() : prior_heading.start()])
+        suffix = text[prior_heading.start() :]
+    else:
+        prior_heading = first_heading
+        target_body = ""
+        suffix = text[first_heading.start() :]
+
+    prior_version = _canonical_version(prior_heading.group("version"))
+    combined_body = _merge_changelog_release_content(unreleased_body, target_body)
+    release_section = (
+        f"## [v{version}](https://github.com/Moffran/calibrated_explanations/releases/tag/v{version}) "
+        f"- {release_date}\n\n"
+        "[Full changelog](https://github.com/Moffran/calibrated_explanations/compare/"
+        f"v{prior_version}...v{version})"
+    )
+    if combined_body:
+        release_section += f"\n\n{combined_body}"
+
+    prefix = text[: unreleased_match.start()].rstrip()
+    updated = (
+        f"{prefix}\n\n## [Unreleased]\n\n"
+        "[Full changelog](https://github.com/Moffran/calibrated_explanations/compare/"
+        f"v{version}...main)\n\n{release_section}\n\n{suffix.lstrip()}"
+    )
+    return _write_text_if_changed(path, updated)
+
+
+def _prepare_master_release_tracking(
+    version: str,
+    release_date: str,
+    plan_path: Path,
+) -> bool:
+    """Update deterministic current-version fields in the master release plan."""
+    path = Path("development/current-work/RELEASE_PLAN_v1.md")
+    text = path.read_text(encoding="utf-8")
+    replacements: tuple[tuple[re.Pattern[str], str, str], ...] = (
+        (
+            re.compile(r"(?m)^## Current released version:.*$"),
+            f"## Current released version: v{version}",
+            "current released version heading",
+        ),
+        (
+            re.compile(r"(?m)^> Status:.*$"),
+            (
+                f"> Status: v{version} prepared for release on {release_date}; publication "
+                "remains governed by release.md steps 11-13."
+            ),
+            "current release status",
+        ),
+        (
+            re.compile(r"(?m)^- \*\*Current released version:\*\*.*$"),
+            f"- **Current released version:** v{version}",
+            "control snapshot current version",
+        ),
+        (
+            re.compile(r"(?m)^- \*\*Active detailed milestone:\*\*.*$"),
+            (f"- **Active detailed milestone:** v{version} (`{plan_path.as_posix()}`)"),
+            "control snapshot active milestone",
+        ),
+    )
+    for pattern, replacement, description in replacements:
+        text, count = pattern.subn(replacement, text, count=1)
+        if count != 1:
+            raise RuntimeError(f"Could not locate {description} in {path.as_posix()}.")
+    return _write_text_if_changed(path, text)
+
+
+def _prepare_software_citation(version: str, release_datetime: datetime) -> bool:
+    """Update only the software BibTeX block in ``docs/citing.md``."""
+    path = Path("docs/citing.md")
+    text = path.read_text(encoding="utf-8")
+    marker = "To cite this software"
+    marker_index = text.find(marker)
+    if marker_index < 0:
+        raise RuntimeError(f"Could not locate the software citation in {path.as_posix()}.")
+    fence_start = text.find("```", marker_index)
+    if fence_start < 0:
+        raise RuntimeError(f"Could not locate the software BibTeX fence in {path.as_posix()}.")
+    fence_end = text.find("```", fence_start + 3)
+    if fence_end < 0:
+        raise RuntimeError(f"Could not locate the software BibTeX fence in {path.as_posix()}.")
+    block = text[fence_start:fence_end]
+    replacements: tuple[tuple[re.Pattern[str], str, str], ...] = (
+        (
+            re.compile(r"(?m)^(\s*version\s*=\s*)\{[^}]+\}(,?)\s*$"),
+            rf"\g<1>{{v{version}}}\g<2>",
+            "software BibTeX version",
+        ),
+        (
+            re.compile(r"(?m)^(\s*month\s*=\s*)\{[^}]+\}(,?)\s*$"),
+            rf"\g<1>{{{release_datetime.strftime('%B')}}}\g<2>",
+            "software BibTeX month",
+        ),
+        (
+            re.compile(r"(?m)^(\s*year\s*=\s*)\{[^}]+\}(,?)\s*$"),
+            rf"\g<1>{{{release_datetime.year}}}\g<2>",
+            "software BibTeX year",
+        ),
+    )
+    for pattern, replacement, description in replacements:
+        block, count = pattern.subn(replacement, block, count=1)
+        if count != 1:
+            raise RuntimeError(f"Could not locate {description} in {path.as_posix()}.")
+    updated = text[:fence_start] + block + text[fence_end:]
+    return _write_text_if_changed(path, updated)
+
+
+def _prepare_release_files(
+    plan_path: Path,
+    *,
+    release_version: str,
+    release_date: str,
+) -> list[str]:
+    """Update every deterministic release file owned by release.md steps 3-4."""
+    version = _canonical_version(release_version)
+    release_datetime = datetime.strptime(release_date, "%Y-%m-%d")
+    if release_datetime.strftime("%Y-%m-%d") != release_date:
+        raise ValueError(f"Release date must use YYYY-MM-DD form, got {release_date!r}.")
+    changed: list[str] = []
+
+    def record(path: str, did_change: bool) -> None:
+        if did_change:
+            changed.append(path)
+
+    record("pyproject.toml", _write_pyproject_version(version))
+    record(
+        "src/calibrated_explanations/__init__.py",
+        _write_init_version_fallback(version),
+    )
+    record(
+        "CITATION.cff",
+        _replace_required(
+            Path("CITATION.cff"),
+            re.compile(r"(?m)^version:\s*\S+\s*$"),
+            f"version: v{version}",
+            description="citation version",
+        ),
+    )
+    record(
+        "CITATION.cff",
+        _replace_required(
+            Path("CITATION.cff"),
+            re.compile(r"(?m)^date-released:\s*['\"][^'\"]+['\"]\s*$"),
+            f"date-released: '{release_date}'",
+            description="citation release date",
+        ),
+    )
+
+    record("docs/citing.md", _prepare_software_citation(version, release_datetime))
+
+    metadata_path = Path("METADATA.json")
+    record(
+        "METADATA.json",
+        _replace_required(
+            metadata_path,
+            re.compile(r'(?m)^(\s*"version"\s*:\s*)"[^"]+"(,?)\s*$'),
+            rf'\g<1>"{version}"\g<2>',
+            description="repository metadata version",
+        ),
+    )
+    record("CHANGELOG.md", _prepare_changelog_release(version, release_date))
+    record(
+        "development/current-work/RELEASE_PLAN_v1.md",
+        _prepare_master_release_tracking(version, release_date, plan_path),
+    )
+
+    docs_conf = Path("docs/conf.py")
+    if not docs_conf.exists():
+        raise RuntimeError("docs/conf.py is missing; dynamic release metadata cannot be verified.")
+    print(
+        f"Prepared release files for v{version} ({release_date}); docs/conf.py derives its "
+        "release/version from installed package metadata."
+    )
+    if changed:
+        print("Updated release files: " + ", ".join(dict.fromkeys(changed)))
+    else:
+        print("Release files were already up to date.")
+    return list(dict.fromkeys(changed))
 
 
 def _write_release_preflight_report(
@@ -1328,9 +1742,12 @@ def _write_release_preflight_report(
     observed: dict[str, object],
     exit_status: int,
     git_status_porcelain: str | None,
+    prepared_release_files: list[str] | None = None,
+    completed: bool = False,
 ) -> None:
     """Write the strict release-preflight report consumed by release-finalize."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    final_exit_status = exit_status if completed or exit_status != 0 else None
     payload = {
         "schema_version": 1,
         "generated_at": _utc_now_iso(),
@@ -1339,13 +1756,25 @@ def _write_release_preflight_report(
         "plan_path": observed.get("plan_path"),
         "branch": observed.get("branch"),
         "pyproject_version": observed.get("pyproject_version"),
+        "release_version": observed.get("release_version"),
         "task_checklist_state": observed.get("task_checklist_state", {}),
         "parse_errors": observed.get("parse_errors", []),
         "steps": records,
-        "exit_status": exit_status,
-        "preflight_passed": exit_status == 0,
+        "exit_status": final_exit_status,
+        "preflight_passed": completed and exit_status == 0,
         "git_status_porcelain": git_status_porcelain,
+        "automated_release_steps": list(range(1, 11)),
         "manual_release_steps": list(RELEASE_MANUAL_STEP_RANGE),
+        "postcommit_release_steps": list(RELEASE_POSTCOMMIT_STEP_RANGE),
+        "prepared_release_files": (
+            list(RELEASE_PREPARED_FILES) if prepared_release_files is not None else []
+        ),
+        "changed_release_files": prepared_release_files or [],
+        "verified_release_files": (
+            ["docs/conf.py", str(observed.get("plan_path"))]
+            if prepared_release_files is not None
+            else []
+        ),
         "total_elapsed_seconds": round(time.monotonic() - started_at, 3),
     }
     output_path.write_text(
@@ -1366,9 +1795,15 @@ def _run_release_twine_check() -> int:
 
 def _run_release_wheel_smoke() -> int:
     """Smoke-test the built wheel in an isolated temporary virtual environment."""
-    if not any(Path("dist").glob("*.whl")):
+    wheel_paths = sorted(
+        Path("dist").glob("*.whl"),
+        key=lambda path: path.stat().st_mtime,
+        reverse=True,
+    )
+    if not wheel_paths:
         print("ERROR: No wheel artifacts found under dist/ for the release smoke test.")
         return 1
+    wheel_path = wheel_paths[0].resolve()
 
     run_dir = Path(tempfile.mkdtemp(prefix="ce-release-wheel-smoke-")).resolve()
     venv_dir = run_dir / "venv-wheel"
@@ -1387,9 +1822,7 @@ def _run_release_wheel_smoke() -> int:
                 "-m",
                 "pip",
                 "install",
-                "calibrated_explanations",
-                "--find-links",
-                str(Path("dist").resolve()),
+                str(wheel_path),
             ],
         ),
         Step(
@@ -1408,10 +1841,21 @@ def _run_release_wheel_smoke() -> int:
     return 0
 
 
-def run_release_preflight(*, plan_path: Path | None = None) -> int:
+def run_release_preflight(
+    *,
+    plan_path: Path | None = None,
+    release_version: str | None = None,
+    release_date: str | None = None,
+) -> int:
     """Run the strict pre-step-11 release gate and persist a handoff snapshot."""
-    resolved_plan = _resolved_plan_path(plan_path)
+    _purge_release_transient_async_logs()
+    resolved_plan = _resolved_plan_path(plan_path, version=release_version)
+    target_version = _canonical_version(
+        release_version or _release_version_from_plan(resolved_plan)
+    )
+    target_date = release_date or _release_date_from_clock()
     records: list[dict[str, object]] = []
+    prepared_release_files: list[str] | None = None
     started_at = time.monotonic()
 
     def record_step(name: str, command: str, rc: int, step_started_at: float) -> None:
@@ -1425,7 +1869,10 @@ def run_release_preflight(*, plan_path: Path | None = None) -> int:
         )
 
     readiness_started_at = time.monotonic()
-    readiness_rc, observed = _run_release_readiness_guard(resolved_plan)
+    readiness_rc, observed = _run_release_readiness_guard(
+        resolved_plan,
+        release_version=target_version,
+    )
     record_step(
         "Release readiness guard",
         f"parse {resolved_plan.as_posix()} release gate summary",
@@ -1443,6 +1890,39 @@ def run_release_preflight(*, plan_path: Path | None = None) -> int:
     )
     if readiness_rc != 0:
         return readiness_rc
+
+    preparation_started_at = time.monotonic()
+    try:
+        prepared_release_files = _prepare_release_files(
+            resolved_plan,
+            release_version=target_version,
+            release_date=target_date,
+        )
+        preparation_rc = 0
+    except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        print(f"ERROR: Release file preparation failed: {exc}")
+        preparation_rc = 1
+    if preparation_rc == 0:
+        observed["pyproject_version"] = _pyproject_release_version()
+        observed["release_version"] = target_version
+    record_step(
+        "Release file preparation",
+        f"prepare release.md files for v{target_version} ({target_date})",
+        preparation_rc,
+        preparation_started_at,
+    )
+    git_status_porcelain = _current_git_status_porcelain()
+    _write_release_preflight_report(
+        records,
+        started_at,
+        RELEASE_PREFLIGHT_REPORT,
+        observed=observed,
+        exit_status=preparation_rc,
+        git_status_porcelain=git_status_porcelain,
+        prepared_release_files=prepared_release_files,
+    )
+    if preparation_rc != 0:
+        return preparation_rc
 
     steps = [
         Step("Full pytest suite", _python_cmd("-m", "pytest", "-q")),
@@ -1468,6 +1948,7 @@ def run_release_preflight(*, plan_path: Path | None = None) -> int:
             observed=observed,
             exit_status=rc,
             git_status_porcelain=git_status_porcelain,
+            prepared_release_files=prepared_release_files,
         )
         if rc != 0:
             return rc
@@ -1488,6 +1969,7 @@ def run_release_preflight(*, plan_path: Path | None = None) -> int:
         observed=observed,
         exit_status=twine_rc,
         git_status_porcelain=git_status_porcelain,
+        prepared_release_files=prepared_release_files,
     )
     if twine_rc != 0:
         return twine_rc
@@ -1508,12 +1990,15 @@ def run_release_preflight(*, plan_path: Path | None = None) -> int:
         observed=observed,
         exit_status=wheel_rc,
         git_status_porcelain=git_status_porcelain,
+        prepared_release_files=prepared_release_files,
+        completed=True,
     )
     return wheel_rc
 
 
 def run_release_finalize(*, plan_path: Path | None = None) -> int:
     """Verify that release-preflight is still valid before manual release steps."""
+    _purge_release_transient_async_logs()
     resolved_plan = _resolved_plan_path(plan_path)
     print("\n[Release finalize guard]")
     if not RELEASE_PREFLIGHT_REPORT.exists():
@@ -1528,9 +2013,47 @@ def run_release_finalize(*, plan_path: Path | None = None) -> int:
         print(f"ERROR: release-preflight report is not valid JSON: {exc}")
         return 1
 
-    if payload.get("exit_status") != 0 or not payload.get("preflight_passed"):
+    exit_status = payload.get("exit_status")
+    if not payload.get("preflight_passed"):
+        if exit_status in (None, 0):
+            steps = payload.get("steps")
+            last_step = steps[-1] if isinstance(steps, list) and steps else {}
+            last_step_name = (
+                last_step.get("name", "none") if isinstance(last_step, dict) else "unknown"
+            )
+            last_step_exit = (
+                last_step.get("exit_code", "unknown") if isinstance(last_step, dict) else "unknown"
+            )
+            print(
+                "ERROR: The latest release-preflight is incomplete. "
+                f"Last recorded step: {last_step_name!r} (exit code {last_step_exit}). "
+                "A successful checkpoint does not mean the complete preflight passed. "
+                "Re-run `make release-preflight` and let it finish before finalizing."
+            )
+            return 1
         print(
-            "ERROR: The latest release-preflight run did not pass. Re-run `make release-preflight`."
+            "ERROR: The latest release-preflight run failed with exit status "
+            f"{exit_status!r}. Re-run `make release-preflight`."
+        )
+        return 1
+    if exit_status != 0:
+        print(
+            "ERROR: The release-preflight report is inconsistent: it is marked passed "
+            f"but records exit status {exit_status!r}. Re-run `make release-preflight`."
+        )
+        return 1
+
+    try:
+        reported_version = _canonical_version(str(payload.get("release_version", "")))
+        current_version = _canonical_version(_pyproject_release_version())
+        plan_version = _release_version_from_plan(resolved_plan)
+    except RuntimeError as exc:
+        print(f"ERROR: Could not validate the release-preflight version snapshot: {exc}")
+        return 1
+    if reported_version != current_version or reported_version != plan_version:
+        print(
+            "ERROR: The release-preflight version no longer matches the project and active plan. "
+            f"Report: {reported_version!r}; project: {current_version!r}; plan: {plan_version!r}."
         )
         return 1
 
@@ -1555,7 +2078,351 @@ def run_release_finalize(*, plan_path: Path | None = None) -> int:
 
     print(
         "PASS: release-preflight is still valid. Continue with the manual release phase "
-        f"(steps {RELEASE_MANUAL_STEP_RANGE[0]}-{RELEASE_MANUAL_STEP_RANGE[-1]} in the private runbook)."
+        f"(steps {RELEASE_MANUAL_STEP_RANGE[0]}-{RELEASE_MANUAL_STEP_RANGE[-1]} in the private runbook: "
+        "commit/tag/push, publish docs on Read the Docs, upload to PyPI). "
+        f"Run `make release-postcommit` afterward for steps {RELEASE_POSTCOMMIT_STEP_RANGE[0]}-"
+        f"{RELEASE_POSTCOMMIT_STEP_RANGE[-1]}."
+    )
+    return 0
+
+
+def _next_patch_version(version: str) -> str:
+    """Return the next patch release version for a released ``X.Y.Z`` version."""
+    try:
+        from packaging.version import Version  # noqa: PLC0415
+
+        release = Version(version).release
+    except Exception as exc:  # noqa: BLE001 - converted to a release-workflow error
+        raise RuntimeError(f"Invalid released version {version!r}.") from exc
+    if len(release) != 3:
+        raise RuntimeError(f"Released version must have X.Y.Z form, got {version!r}.")
+    major, minor, patch = release
+    return f"{major}.{minor}.{patch + 1}"
+
+
+def _is_development_version(version: str) -> bool:
+    """Return whether ``version`` is a PEP 440 development release."""
+    try:
+        from packaging.version import Version  # noqa: PLC0415
+
+        return Version(version).is_devrelease
+    except Exception as exc:  # noqa: BLE001 - converted to a release-workflow error
+        raise RuntimeError(f"Invalid project version {version!r}.") from exc
+
+
+def _run_release_pypi_page_check(version: str) -> int:
+    """Verify that PyPI exposes the exact published release metadata."""
+    endpoint = f"https://pypi.org/pypi/calibrated-explanations/{version}/json"
+    project_page = f"https://pypi.org/project/calibrated-explanations/{version}/"
+    script = (
+        "import json, urllib.request; "
+        f"payload = json.load(urllib.request.urlopen({endpoint!r}, timeout=30)); "
+        "actual = payload['info']['version']; "
+        f"expected = {version!r}; "
+        "assert actual == expected, f'PyPI version mismatch: {actual!r} != {expected!r}'; "
+        f"page = urllib.request.urlopen({project_page!r}, timeout=30); "
+        "body = page.read(); "
+        "assert page.status == 200 and expected.encode() in body, "
+        "f'PyPI project page did not render release {expected}'; "
+        "print(actual)"
+    )
+    return _run_step(
+        Step(
+            "Postpublish smoke: verify PyPI project metadata",
+            _python_cmd("-c", script),
+        )
+    )
+
+
+def _run_release_pypi_install_smoke(version: str) -> int:
+    """Smoke-test the published PyPI release in an isolated temporary virtual environment."""
+    run_dir = Path(tempfile.mkdtemp(prefix="ce-release-postpublish-smoke-")).resolve()
+    venv_dir = run_dir / "venv-postpublish"
+    builder = venv.EnvBuilder(with_pip=True, clear=True)
+    builder.create(venv_dir)
+    venv_python = _venv_python(venv_dir)
+    smoke_steps = [
+        Step(
+            "Postpublish smoke: upgrade pip",
+            [str(venv_python), "-m", "pip", "install", "--upgrade", "pip"],
+        ),
+        Step(
+            "Postpublish smoke: install published release",
+            [
+                str(venv_python),
+                "-m",
+                "pip",
+                "install",
+                "--upgrade",
+                f"calibrated-explanations=={version}",
+            ],
+        ),
+        Step(
+            "Postpublish smoke: import published release",
+            [
+                str(venv_python),
+                "-c",
+                (
+                    "import calibrated_explanations as ce; "
+                    f"expected = {version!r}; actual = ce.__version__; "
+                    "assert actual == expected, "
+                    "f'Installed version mismatch: {actual!r} != {expected!r}'; "
+                    "print(actual)"
+                ),
+            ],
+        ),
+    ]
+    for step in smoke_steps:
+        rc = _run_step(step)
+        if rc != 0:
+            return rc
+    return 0
+
+
+def _scaffold_next_release_plan(
+    target: Path,
+    *,
+    released_version: str,
+    next_version: str,
+    development_version: str,
+) -> Path:
+    """Write a canonical next-release scaffold when no maintained plan exists."""
+    if target.exists():
+        print(f"Next release plan already exists, leaving as-is: {target.as_posix()}")
+        return target
+    scaffold = (
+        f"# v{next_version} Release Task Implementation Plan\n\n"
+        f"> **Release version:** `{next_version}`\n"
+        f"> **Development version:** `{development_version}`\n\n"
+        f"> Scaffolded by `make release-postcommit` after the v{released_version} release.\n"
+        "> Replace this placeholder with a real task breakdown derived from "
+        "`development/current-work/RELEASE_PLAN_v1.md` (see the `ce-release-planner` skill).\n\n"
+        "## Tasks\n\n"
+        "_TODO: add task sections._\n"
+    )
+    target.write_text(scaffold, encoding="utf-8", newline="\n")
+    print(f"Scaffolded next release plan: {target.as_posix()}")
+    return target
+
+
+_MASTER_NEXT_MILESTONE_RE = re.compile(r"(?m)^- \*\*Next milestone:\*\*\s*v?(?P<version>[^\s(]+)")
+_PLAN_DEVELOPMENT_VERSION_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\*\*Development version:\*\*\s*`(?P<version>[^`]+)`", re.IGNORECASE),
+    re.compile(r"\*\*Development version:\s*`(?P<version>[^`]+)`", re.IGNORECASE),
+    re.compile(r"development placeholders?\s*`(?P<version>[^`]+)`", re.IGNORECASE),
+)
+
+
+def _plan_label(plan_path: Path) -> str:
+    """Return the human/tag label encoded in a version-plan filename."""
+    match = re.fullmatch(r"v(?P<label>.+)_plan\.md", plan_path.name)
+    if match is None:
+        raise RuntimeError(f"Version plan has an unsupported filename: {plan_path.as_posix()}.")
+    return match.group("label")
+
+
+def _development_version_for_plan(plan_path: Path, release_version: str) -> str:
+    """Return the next plan's declared development placeholder or a safe default."""
+    if plan_path.exists():
+        text = plan_path.read_text(encoding="utf-8")
+        for pattern in _PLAN_DEVELOPMENT_VERSION_PATTERNS:
+            match = pattern.search(text)
+            if match is not None:
+                _canonical_version(match.group("version"))
+                return match.group("version")
+    return f"{release_version}-dev"
+
+
+def _next_release_details(
+    current_plan: Path,
+    released_version: str,
+    requested_next_version: str | None,
+) -> tuple[str, str, str, Path]:
+    """Resolve next release, plan label, development version, and plan path."""
+    if requested_next_version is not None:
+        next_label = requested_next_version.removeprefix("v")
+    else:
+        master_path = Path("development/current-work/RELEASE_PLAN_v1.md")
+        next_label = ""
+        if master_path.exists():
+            match = _MASTER_NEXT_MILESTONE_RE.search(master_path.read_text(encoding="utf-8"))
+            if match is not None:
+                next_label = match.group("version")
+        if not next_label:
+            next_label = _next_patch_version(released_version)
+
+    candidate = current_plan.parent / f"v{next_label}_plan.md"
+    if candidate.exists():
+        next_release_version = _release_version_from_plan(candidate)
+    else:
+        next_release_version = _canonical_version(next_label)
+    development_version = _development_version_for_plan(candidate, next_release_version)
+    return next_release_version, next_label, development_version, candidate
+
+
+def _finalize_master_release_tracking(
+    *,
+    released_version: str,
+    release_date: str,
+    next_label: str,
+    next_plan: Path,
+) -> None:
+    """Record the shipped release and activate the next maintained milestone."""
+    path = Path("development/current-work/RELEASE_PLAN_v1.md")
+    if not path.exists():
+        print("Master release plan is absent in this fixture; skipping release tracking update.")
+        return
+    text = path.read_text(encoding="utf-8")
+    replacements: tuple[tuple[re.Pattern[str], str], ...] = (
+        (
+            re.compile(r"(?m)^## Current released version:.*$"),
+            f"## Current released version: v{released_version}",
+        ),
+        (
+            re.compile(r"(?m)^> Status:.*$"),
+            (
+                f"> Status: v{released_version} shipped on {release_date}. Release artifacts "
+                "were verified on PyPI by `make release-postcommit`."
+            ),
+        ),
+        (
+            re.compile(r"(?m)^- \*\*Current released version:\*\*.*$"),
+            f"- **Current released version:** v{released_version}",
+        ),
+        (
+            re.compile(r"(?m)^- \*\*Active detailed milestone:\*\*.*$"),
+            f"- **Active detailed milestone:** v{next_label} (`{next_plan.as_posix()}`)",
+        ),
+    )
+    for pattern, replacement in replacements:
+        text, count = pattern.subn(replacement, text, count=1)
+        if count != 1:
+            raise RuntimeError(f"Could not update release tracking in {path.as_posix()}.")
+
+    milestone_headings = list(re.finditer(r"(?m)^### v(?P<label>[^\s(]+).*$", text))
+    matching_index = next(
+        (
+            index
+            for index, heading in enumerate(milestone_headings)
+            if heading.group("label") == next_label
+        ),
+        None,
+    )
+    if matching_index is not None and matching_index + 1 < len(milestone_headings):
+        following_label = milestone_headings[matching_index + 1].group("label")
+        text = _MASTER_NEXT_MILESTONE_RE.sub(
+            f"- **Next milestone:** v{following_label}",
+            text,
+            count=1,
+        )
+    _write_text_if_changed(path, text)
+
+
+def _archive_release_plan(current_plan: Path) -> Path:
+    """Move the completed version plan into ``development/finished-work``."""
+    finished_dir = current_plan.parent.parent / "finished-work"
+    finished_dir.mkdir(parents=True, exist_ok=True)
+    target = finished_dir / current_plan.name
+    if target.exists():
+        raise RuntimeError(
+            "Refusing to archive the release plan because both current-work and "
+            f"finished-work contain {current_plan.name}: {target.as_posix()}"
+        )
+    shutil.move(str(current_plan), str(target))
+    print(f"Archived released plan: {target.as_posix()}")
+    return target
+
+
+def run_release_postcommit(
+    *,
+    plan_path: Path | None = None,
+    next_version: str | None = None,
+    release_date: str | None = None,
+) -> int:
+    """Run the automatable post-publish steps (release.md steps 14-17).
+
+    Steps 11-13 (commit/tag/push, Read the Docs publish, PyPI upload) remain
+    manual and must already be done before this runs.
+    """
+    print(
+        f"\n[Release postcommit: steps {RELEASE_POSTCOMMIT_STEP_RANGE[0]}-"
+        f"{RELEASE_POSTCOMMIT_STEP_RANGE[-1]}]"
+    )
+    try:
+        released_version = _canonical_version(_pyproject_release_version())
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(f"ERROR: Could not resolve the published release version: {exc}")
+        return 1
+    if _is_development_version(released_version):
+        print(
+            "ERROR: pyproject.toml still reports a -dev version "
+            f"({released_version!r}). Run release-postcommit only after step 13 "
+            "(PyPI upload) has published the release version."
+        )
+        return 1
+
+    page_rc = _run_release_pypi_page_check(released_version)
+    if page_rc != 0:
+        return page_rc
+    print(f"Step 14: PyPI exposes calibrated-explanations=={released_version}.")
+
+    smoke_rc = _run_release_pypi_install_smoke(released_version)
+    if smoke_rc != 0:
+        return smoke_rc
+    print(
+        f"Step 15: installed calibrated-explanations=={released_version} from PyPI in a clean venv."
+    )
+
+    completed_date = release_date or _release_date_from_clock()
+    try:
+        completed_datetime = datetime.strptime(completed_date, "%Y-%m-%d")
+        if completed_datetime.strftime("%Y-%m-%d") != completed_date:
+            raise ValueError
+    except ValueError:
+        print(f"ERROR: Release date must use YYYY-MM-DD form, got {completed_date!r}.")
+        return 1
+
+    try:
+        resolved_plan = _resolved_plan_path(plan_path, version=released_version)
+        archive_target = resolved_plan.parent.parent / "finished-work" / resolved_plan.name
+        if archive_target.exists():
+            print(
+                "ERROR: release-plan archive collision: both current-work and finished-work "
+                f"contain {resolved_plan.name}. Resolve the duplicate before rerunning postcommit."
+            )
+            return 1
+        next_release, next_label, development_version, next_plan = _next_release_details(
+            resolved_plan,
+            released_version,
+            next_version,
+        )
+        _scaffold_next_release_plan(
+            next_plan,
+            released_version=released_version,
+            next_version=next_release,
+            development_version=development_version,
+        )
+        _finalize_master_release_tracking(
+            released_version=released_version,
+            release_date=completed_date,
+            next_label=next_label,
+            next_plan=next_plan,
+        )
+        archived_plan = _archive_release_plan(resolved_plan)
+
+        _write_pyproject_version(development_version)
+        _write_init_version_fallback(_canonical_version(development_version))
+    except (OSError, RuntimeError, ValueError) as exc:
+        print(f"ERROR: Release plan handoff or development-version bump failed: {exc}")
+        return 1
+    print(
+        f"Step 16: next plan is {next_plan.as_posix()}; released plan archived at "
+        f"{archived_plan.as_posix()}. Complete any scaffold through `ce-release-planner`."
+    )
+
+    print(
+        f"Step 17: bumped the working version to {development_version} in pyproject.toml "
+        "and its canonical fallback in __init__.py."
     )
     return 0
 
@@ -1574,7 +2441,6 @@ def _common_skipped_heavy_gates() -> list[dict[str, str]]:
     ]
 
 
-ACTIVE_RELEASE_PLAN = Path("development/current-work/v0.11.6_plan.md")
 _TASK_VERIFICATION_BLOCK_RE = re.compile(
     r"```toml ce-task-verification\r?\n(?P<body>.*?)```",
     re.DOTALL,
@@ -1601,9 +2467,31 @@ def _load_task_verification_config(plan_path: Path) -> dict[str, object]:
     return config
 
 
-def _resolved_plan_path(plan_path: Path | None) -> Path:
-    """Return the active plan path or an explicit override."""
-    return ACTIVE_RELEASE_PLAN if plan_path is None else plan_path
+def _resolved_plan_path(plan_path: Path | None, *, version: str | None = None) -> Path:
+    """Return an explicit plan or discover the active plan from project version lineage."""
+    if plan_path is not None:
+        return plan_path
+    project_version = version or _pyproject_release_version()
+    project_lineage = _version_lineage(project_version)
+    candidates: list[Path] = []
+    for candidate in sorted(Path("development/current-work").glob("v*_plan.md")):
+        try:
+            if _version_lineage(_release_version_from_plan(candidate)) == project_lineage:
+                candidates.append(candidate)
+        except RuntimeError:
+            continue
+    if len(candidates) == 1:
+        return candidates[0]
+    if not candidates:
+        raise ValueError(
+            "Could not discover an active version plan matching project version "
+            f"{project_version!r}; pass --plan explicitly."
+        )
+    joined = ", ".join(path.as_posix() for path in candidates)
+    raise ValueError(
+        f"Multiple active version plans match project version {project_version!r}: {joined}. "
+        "Pass --plan explicitly."
+    )
 
 
 def _task_verification_tasks(plan_path: Path | None = None) -> dict[int, dict[str, object]]:
@@ -1813,6 +2701,8 @@ def run_profile_plan(
     requested_paths: list[str] | None = None,
 ) -> int:
     """Run a planned profile and optionally persist a task-profile report."""
+    if plan.profile == "release":
+        _purge_release_transient_async_logs()
     commands_run: list[str] = []
     exit_status = 0
     for step in plan.steps:
@@ -1841,7 +2731,7 @@ def main() -> int:
         choices=("quick", "task", "pr", "full", "release"),
         help="Verification profile to run. Defaults to 'full' unless --skip-main is used.",
     )
-    parser.add_argument("--task", type=int, help="Focused v0.11.6 task id for --profile task.")
+    parser.add_argument("--task", type=int, help="Focused release-plan task id for --profile task.")
     parser.add_argument(
         "--plan",
         type=Path,
@@ -1894,6 +2784,35 @@ def main() -> int:
         help="Validate the latest release-preflight snapshot before manual release steps.",
     )
     parser.add_argument(
+        "--release-postcommit",
+        action="store_true",
+        help=(
+            "Run the automatable post-publish steps (release.md steps 14-17): PyPI page "
+            "verification, clean-venv install smoke test, next-plan handoff, dev version bump."
+        ),
+    )
+    parser.add_argument(
+        "--release-version",
+        default=None,
+        help=(
+            "Optional exact target version for release-preflight; otherwise discover the active "
+            "plan from the project version and infer its declared release version."
+        ),
+    )
+    parser.add_argument(
+        "--next-version",
+        default=None,
+        help=(
+            "Optional next milestone label/version for release-postcommit; otherwise use "
+            "RELEASE_PLAN_v1.md and fall back to the next patch."
+        ),
+    )
+    parser.add_argument(
+        "--release-date",
+        default=None,
+        help="Optional YYYY-MM-DD release date override for reproducible release-file updates.",
+    )
+    parser.add_argument(
         "--print-mypy-targets",
         action="store_true",
         help=(
@@ -1917,9 +2836,19 @@ def main() -> int:
     if args.deprecation_ledger:
         return run_deprecation_ledger_gate()
     if args.release_preflight:
-        return run_release_preflight(plan_path=args.plan)
+        return run_release_preflight(
+            plan_path=args.plan,
+            release_version=args.release_version,
+            release_date=args.release_date,
+        )
     if args.release_finalize:
         return run_release_finalize(plan_path=args.plan)
+    if args.release_postcommit:
+        return run_release_postcommit(
+            plan_path=args.plan,
+            next_version=args.next_version,
+            release_date=args.release_date,
+        )
 
     if args.ci_parity:
         print("Run-block smoke mode: delegating to scripts/run_ci_locally.py")

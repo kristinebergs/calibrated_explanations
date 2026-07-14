@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import json
 import re
 from dataclasses import dataclass
@@ -77,7 +78,7 @@ class Violation:
         payload: dict[str, object] = {
             "artifact": self.artifact,
             "category": self.category,
-            "match": self.match,
+            "match_redacted": _redact_match(self.category),
             "reason": self.reason,
         }
         if self.line is not None:
@@ -196,6 +197,53 @@ def _scan_json_value(
             )
 
 
+def _redact_match(category: str) -> str:
+    """Return a safe placeholder for a redacted local-path match."""
+    placeholders = {
+        "windows_drive": "<redacted:windows-drive-path>",
+        "unc_path": "<redacted:unc-path>",
+        "unix_absolute": "<redacted:unix-absolute-path>",
+    }
+    return placeholders.get(category, "<redacted:local-path>")
+
+
+def _location_for(violation: Violation) -> str:
+    """Return a stable location label for a violation."""
+    return violation.json_path if violation.json_path is not None else f"line {violation.line}"
+
+
+def _build_summary(violations: list[Violation]) -> dict[str, object]:
+    """Return per-artifact and per-category summaries for the JSON report."""
+    artifact_counter = Counter(violation.artifact for violation in violations)
+    category_counter = Counter(violation.category for violation in violations)
+
+    artifact_summaries = []
+    for artifact in sorted(artifact_counter):
+        artifact_violations = [v for v in violations if v.artifact == artifact]
+        artifact_categories = Counter(v.category for v in artifact_violations)
+        sample_locations: list[str] = []
+        for violation in artifact_violations:
+            location = _location_for(violation)
+            if location not in sample_locations:
+                sample_locations.append(location)
+            if len(sample_locations) == 5:
+                break
+        artifact_summaries.append(
+            {
+                "artifact": artifact,
+                "violation_count": artifact_counter[artifact],
+                "categories": dict(sorted(artifact_categories.items())),
+                "sample_locations": sample_locations,
+            }
+        )
+
+    return {
+        "artifacts_with_violations": len(artifact_counter),
+        "category_counts": dict(sorted(category_counter.items())),
+        "artifacts": artifact_summaries,
+    }
+
+
 def scan_path(path: Path, repo_root: Path) -> list[Violation]:
     """Scan a single artifact for local absolute paths."""
     if path.suffix.lower() in BINARY_SKIP_SUFFIXES:
@@ -234,6 +282,7 @@ def write_report(report_path: Path, violations: list[Violation]) -> None:
         "version": 1,
         "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "total_violations": len(violations),
+        "summary": _build_summary(violations),
         "violations": [
             violation.to_dict()
             for violation in sorted(violations, key=lambda item: item.sort_key())
@@ -290,20 +339,29 @@ def main(argv: list[str] | None = None) -> int:
         violations.extend(scan_path(target, repo_root))
 
     violations = sorted(violations, key=lambda item: item.sort_key())
-    write_report(args.report, violations)
+    write_report(report_path, violations)
 
     if violations:
         print("Generated artifact local-path violations detected:")
-        for violation in violations:
-            location = (
-                violation.json_path if violation.json_path is not None else f"line {violation.line}"
+        summary = _build_summary(violations)
+        print(
+            f"- {summary['artifacts_with_violations']} artifacts affected; "
+            f"{len(violations)} violations total"
+        )
+        for category, count in summary["category_counts"].items():
+            print(f"- category {category}: {count}")
+        for artifact_summary in summary["artifacts"]:
+            locations = ", ".join(artifact_summary["sample_locations"])
+            print(
+                f"- {artifact_summary['artifact']}: "
+                f"{artifact_summary['violation_count']} violations "
+                f"at {locations}"
             )
-            print(f"- {violation.artifact} ({location}) [{violation.category}] {violation.match}")
-        print(f"Report written to {args.report}")
+        print(f"Report written to {report_path}")
         return 1 if args.check else 0
 
     print("No local absolute paths detected in scanned reports/artifacts.")
-    print(f"Report written to {args.report}")
+    print(f"Report written to {report_path}")
     return 0
 
 

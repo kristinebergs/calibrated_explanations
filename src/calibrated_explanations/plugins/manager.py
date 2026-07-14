@@ -18,6 +18,7 @@ Responsibilities:
 from __future__ import annotations
 
 import contextlib
+import copy
 import logging
 import sys
 import warnings
@@ -95,6 +96,50 @@ def _plugin_meta_trusted(meta_source: Mapping[str, Any], *, default: bool = Fals
     if isinstance(trust_value, Mapping):
         return bool(trust_value.get("trusted", default))
     return bool(trust_value)
+
+
+def _deepcopy_preserving_proxies(value: Any, memo: Dict[int, Any]) -> Any:
+    """Deep-copy ``value``, recreating ``MappingProxyType`` wrappers recursively.
+
+    ``copy.deepcopy`` cannot handle ``MappingProxyType`` on its own, and the
+    process-wide ``copyreg`` reducer was removed per Task 56 / S4-I1 decision
+    (b), so proxies nested inside plugin-manager state (e.g. frozen
+    interval-context metadata) must be recreated CE-locally. Recursing through
+    the plain container types keeps nested proxies intact instead of failing
+    over to shallow sharing (Task 53 / D-53).
+    """
+    existing = memo.get(id(value))
+    if existing is not None:
+        return existing
+    if isinstance(value, MappingProxyType):
+        copied_proxy = MappingProxyType(
+            {
+                copy.deepcopy(key, memo): _deepcopy_preserving_proxies(item, memo)
+                for key, item in value.items()
+            }
+        )
+        memo[id(value)] = copied_proxy
+        memo.setdefault(id(memo), []).append(value)
+        return copied_proxy
+    if type(value) is dict:
+        copied_dict: Dict[Any, Any] = {}
+        memo[id(value)] = copied_dict
+        memo.setdefault(id(memo), []).append(value)
+        for key, item in value.items():
+            copied_dict[copy.deepcopy(key, memo)] = _deepcopy_preserving_proxies(item, memo)
+        return copied_dict
+    if type(value) is list:
+        copied_list: List[Any] = []
+        memo[id(value)] = copied_list
+        memo.setdefault(id(memo), []).append(value)
+        copied_list.extend(_deepcopy_preserving_proxies(item, memo) for item in value)
+        return copied_list
+    if type(value) is tuple:
+        copied_tuple = tuple(_deepcopy_preserving_proxies(item, memo) for item in value)
+        memo[id(value)] = copied_tuple
+        memo.setdefault(id(memo), []).append(value)
+        return copied_tuple
+    return copy.deepcopy(value, memo)
 
 
 class PluginManager:
@@ -483,69 +528,21 @@ class PluginManager:
         return self._default_explanation_identifiers
 
     def __deepcopy__(self, memo):
-        """Deepcopy the plugin manager, handling circular references and unpicklable objects."""
-        import copy
+        """Deepcopy the plugin manager, handling circular references.
 
+        Nested ``MappingProxyType`` values (e.g. frozen interval-context
+        metadata) are recreated recursively via
+        :func:`_deepcopy_preserving_proxies`. There is deliberately no silent
+        shallow-copy fallback here: an unexpected deepcopy failure escalates
+        to ``CalibratedExplainer.__deepcopy__``'s governed, visible fallback
+        (UserWarning + INFO) instead of invisibly sharing mutable state with
+        the live manager (Task 53 / decision D-53).
+        """
         cls = self.__class__
         result = cls.__new__(cls)
         memo[id(self)] = result
         for k, v in self.__dict__.items():
-            # Preserve MappingProxyType instances explicitly: deepcopy may
-            # route through copyreg reducers (registered for pickling) which
-            # would convert mappingproxy -> dict; to keep the proxy type, we
-            # recreate a MappingProxyType with the same contents.
-            if isinstance(v, MappingProxyType):
-                try:
-                    setattr(result, k, MappingProxyType(dict(v)))
-                    continue
-                except (TypeError, AttributeError) as exc:
-                    # Fall back to original reference when recreation fails;
-                    # log the reason at debug level and continue. Narrowing
-                    # the exception types avoids masking unrelated errors
-                    # per ADR-002.
-                    self._logger.debug(
-                        "__deepcopy__ preserve MappingProxyType failed for %s: %s",
-                        k,
-                        exc,
-                    )
-                    setattr(result, k, v)
-                    continue
-
-            try:
-                # Special-case dicts to preserve MappingProxyType values
-                if isinstance(v, dict):
-                    try:
-                        new_dict: Dict[Any, Any] = {}
-                        for ik, iv in v.items():
-                            if isinstance(iv, MappingProxyType):
-                                # Recreate the mapping proxy to preserve immutability
-                                new_dict[ik] = MappingProxyType(dict(iv))
-                            else:
-                                new_dict[ik] = copy.deepcopy(iv, memo)
-                        setattr(result, k, new_dict)
-                        continue
-                    except (TypeError, AttributeError, RecursionError) as exc:
-                        # Fallback to shallow copy of the dict on specific
-                        # conversion errors; log at debug level to keep
-                        # failures visible while avoiding broad catches.
-                        self._logger.debug("__deepcopy__ dict-preserve failed for %s: %s", k, exc)
-                        setattr(result, k, v.copy())
-                        continue
-
-                setattr(result, k, copy.deepcopy(v, memo))
-            except BaseException:
-                exc_type = sys.exc_info()[0]
-                if exc_type is not TypeError:
-                    raise
-                # Fallback for unpicklable objects (e.g., other mappingproxy-like)
-                # We shallow copy containers to avoid sharing the container itself,
-                # while sharing the unpicklable items (which are likely immutable).
-                if isinstance(v, dict):
-                    setattr(result, k, v.copy())
-                elif isinstance(v, list):
-                    setattr(result, k, v[:])
-                else:
-                    setattr(result, k, v)
+            setattr(result, k, _deepcopy_preserving_proxies(v, memo))
         return result
 
     @property
