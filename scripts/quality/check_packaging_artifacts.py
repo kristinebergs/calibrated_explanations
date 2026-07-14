@@ -6,11 +6,15 @@ import argparse
 import json
 import sys
 import tarfile
-import tomllib
 import zipfile
 from dataclasses import asdict, dataclass
 from email import message_from_bytes
 from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python < 3.11 (dev extras provide tomli)
+    import tomli as tomllib  # type: ignore[no-redef]
 
 
 PACKAGE_NAME = "calibrated_explanations"

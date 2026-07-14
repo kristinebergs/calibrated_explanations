@@ -31,8 +31,12 @@ import importlib.util
 import json
 import re
 import sys
-import tomllib
 from pathlib import Path
+
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python < 3.11 (dev extras provide tomli)
+    import tomli as tomllib  # type: ignore[no-redef]
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
