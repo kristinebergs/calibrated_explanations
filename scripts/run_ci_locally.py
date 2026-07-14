@@ -23,8 +23,8 @@ Usage examples:
   # Show the commands that would run
   python scripts/run_ci_locally.py --dry-run
 
-  # Run lint and test workflows (may be slow)
-  python scripts/run_ci_locally.py --workflow lint --workflow test
+  # Run only the ci.yml run-blocks (may be slow)
+  python scripts/run_ci_locally.py --workflow ci
 
   # Run in PowerShell explicitly
   python scripts/run_ci_locally.py --shell pwsh

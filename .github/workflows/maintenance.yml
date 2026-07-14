@@ -1,104 +1,82 @@
-# CI: Maintenance (manual)
-# Purpose: Manual maintenance workflow for baseline updates and docs regeneration.
-# Scope: Manual `workflow_dispatch` actions; requires write permissions.
-name: CI — Maintenance (manual)
+# Responsibility: the only workflow permitted to request write scopes.
+# Manually dispatched performance-baseline refresh that never pushes to main:
+# it opens a reviewable PR on a unique branch and requires a human-provided
+# reason. Safe to re-run; generated files are clearly identified.
+name: Maintenance
 on:
   workflow_dispatch:
     inputs:
-      task:
-        required: true
-        type: choice
-        options:
-          - update-baseline
-          - regen-docs
-      create_pr:
-        description: "For update-baseline: create a PR with the new baseline (yes/no)"
-        required: false
-        default: "yes"
-        type: choice
-        options:
-          - "yes"
-          - "no"
       reason:
-        description: "For update-baseline: why update the baseline?"
-        required: false
+        description: "Why is the micro performance baseline being updated?"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maintenance
+  cancel-in-progress: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
-  maintenance:
+  update-baseline:
+    name: Update micro performance baseline
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
-      - name: Setup Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/setup-ce-python
         with:
           python-version: '3.11'
-          cache: pip
-          cache-dependency-path: |
-            requirements.txt
-            constraints.txt
-            pyproject.toml
-      - name: Install deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt -c constraints.txt
-          pip install -e .[dev,eval] -c constraints.txt
-      - name: Update baseline (micro benchmarks)
-        if: ${{ github.event.inputs.task == 'update-baseline' }}
+          extras: 'dev,eval'
+      - name: Generate new micro baseline (generated files under tests/benchmarks/)
         id: gen
         run: |
-          set -e
+          set -euo pipefail
           DATE_TAG=$(date -u +%Y%m%d)
           mkdir -p tests/benchmarks
+          OLD=$(ls tests/benchmarks/micro_*.json 2>/dev/null | sort | tail -n 1 || true)
           python scripts/perf/micro_bench_perf.py --explain-backend legacy > tests/benchmarks/micro_${DATE_TAG}.json
-
           echo "date_tag=$DATE_TAG" >> $GITHUB_OUTPUT
 
-          OLD=$(ls tests/benchmarks/micro_*.json 2>/dev/null | sort | tail -n 1 || true)
           NEW=tests/benchmarks/micro_${DATE_TAG}.json
-          echo "Reason: ${{ github.event.inputs.reason || 'manual update' }}" > tests/benchmarks/perf_diff.txt
+          echo "Reason: ${{ github.event.inputs.reason }}" > tests/benchmarks/perf_diff.txt
           echo "Old micro baseline: $OLD" >> tests/benchmarks/perf_diff.txt
           echo "New micro baseline: $NEW" >> tests/benchmarks/perf_diff.txt
-          if [ -n "$OLD" ]; then python scripts/check_perf_micro.py "$OLD" "$NEW" tests/benchmarks/perf_thresholds.json >> tests/benchmarks/perf_diff.txt || true; else echo "No existing micro baseline found." >> tests/benchmarks/perf_diff.txt; fi
+          if [ -n "$OLD" ]; then
+            python scripts/perf/check_perf_micro.py "$OLD" "$NEW" tests/benchmarks/perf_thresholds.json >> tests/benchmarks/perf_diff.txt || true
+          else
+            echo "No existing micro baseline found." >> tests/benchmarks/perf_diff.txt
+          fi
           cat tests/benchmarks/perf_diff.txt
-
       - name: Upload baseline artifacts
-        if: ${{ github.event.inputs.task == 'update-baseline' }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v6
         with:
-          name: new-micro-baseline
+          name: new-micro-baseline-${{ steps.gen.outputs.date_tag }}
           path: |
             tests/benchmarks/micro_${{ steps.gen.outputs.date_tag }}.json
             tests/benchmarks/perf_diff.txt
-
-      - name: Create Pull Request with new baseline
-        if: ${{ github.event.inputs.task == 'update-baseline' && github.event.inputs.create_pr == 'yes' }}
-        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1
+          retention-days: 30
+      - name: Open reviewable PR with the new baseline
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v7
         with:
-          commit-message: "chore: update micro performance baseline"
-          title: "Update micro performance baseline"
+          commit-message: "chore: update micro performance baseline ${{ steps.gen.outputs.date_tag }}"
+          title: "Update micro performance baseline ${{ steps.gen.outputs.date_tag }}"
           body: |
-            Reason: ${{ github.event.inputs.reason || 'manual update' }}
+            Reason: ${{ github.event.inputs.reason }}
 
-            Includes:
-            - tests/benchmarks/micro_*.json
-
-            Perf summary:
-            ```
-            (see tests/benchmarks/perf_diff.txt in the PR)
-            ```
-          branch: chore/update-baseline
+            Generated files:
+            - tests/benchmarks/micro_${{ steps.gen.outputs.date_tag }}.json
+            - tests/benchmarks/perf_diff.txt (comparison summary)
+          branch: chore/update-baseline-${{ steps.gen.outputs.date_tag }}-${{ github.run_id }}
           base: main
           add-paths: |
             tests/benchmarks/micro_${{ steps.gen.outputs.date_tag }}.json
             tests/benchmarks/perf_diff.txt
           labels: performance, baseline-update
-      - name: Regenerate docs
-        if: ${{ github.event.inputs.task == 'regen-docs' }}
-        run: |
-          cd docs
-          sphinx-build -b html . _build/html

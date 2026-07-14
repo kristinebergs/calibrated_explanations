@@ -1,0 +1,307 @@
+# Responsibility: PR-to-main and push-to-main validation. The canonical PR
+# gate is the repository-owned profile `make local-checks-pr` (reproduced, not
+# reimplemented, in YAML), plus path-sensitive specialist jobs and an
+# always-run CI-policy inventory guard. Main pushes add coverage/Codecov,
+# package build + clean-wheel smoke, and a strict docs build without repeating
+# PR-established static gates.
+# Required branch-protection check: "CI / required" (see ADR-035).
+name: CI
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ main ]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  # Cancel superseded PR runs; never cancel main-push runs.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
+jobs:
+  # Always-run, inexpensive inventory guard (layer 1 of 3; the other layers
+  # are the local-checks-pr profile and the .github/-scoped pre-commit hook).
+  policy:
+    name: CI policy (full inventory)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: '3.11'
+      - name: Validate complete workflow inventory (blocking)
+        run: python scripts/quality/validate_ci_policy.py --full-inventory
+
+  changes:
+    name: Detect specialist paths
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      viz: ${{ steps.filter.outputs.viz }}
+      docs: ${{ steps.filter.outputs.docs }}
+      packaging: ${{ steps.filter.outputs.packaging }}
+      governance: ${{ steps.filter.outputs.governance }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - name: Detect changed specialist paths
+        id: filter
+        uses: dorny/paths-filter@fbd0ab8f3e69293af611ebaee6363fc25e6d187d # v3
+        with:
+          filters: |
+            viz:
+              - 'src/calibrated_explanations/viz/**'
+              - 'src/calibrated_explanations/plotting.py'
+              - 'src/calibrated_explanations/plugins/**'
+              - 'tests/**/viz/**'
+              - 'tests/**/test_plotting.py'
+              - 'pyproject.toml'
+              - 'requirements.txt'
+              - 'constraints.txt'
+              - '.github/workflows/ci.yml'
+            docs:
+              - 'docs/**'
+              - 'README.md'
+              - 'CHANGELOG.md'
+              - '.github/workflows/ci.yml'
+            packaging:
+              - 'pyproject.toml'
+              - 'requirements.txt'
+              - 'constraints.txt'
+              - 'LICENSE'
+              - 'scripts/quality/check_packaging_artifacts.py'
+              - '.github/workflows/ci.yml'
+            governance:
+              - 'src/calibrated_explanations/plugins/registry.py'
+              - 'src/calibrated_explanations/governance/**'
+              - 'src/calibrated_explanations/schemas/governance_event_schema_v1.json'
+              - 'scripts/quality/check_governance_event_schema.py'
+              - 'tests/observability/test_governance_events.py'
+              - 'tests/scripts/test_check_governance_event_schema.py'
+              - 'docs/foundations/governance/governance_events.md'
+              - '.github/workflows/ci.yml'
+
+  # Canonical PR gate: the repository-owned PR profile on the minimum
+  # supported Python version.
+  pr-gate:
+    name: PR gate (local-checks-pr, Python 3.10)
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/setup-ce-python
+        with:
+          python-version: '3.10'
+          extras: 'dev,eval'
+      - name: Run the canonical PR profile
+        run: make local-checks-pr
+
+  # Newest supported Python version: full non-viz test suite only (static
+  # gates are established once by pr-gate).
+  tests-newest:
+    name: Tests (Python 3.13)
+    if: github.event_name != 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/setup-ce-python
+        with:
+          python-version: '3.13'
+          extras: 'dev'
+      - name: Run non-viz tests
+        run: pytest -q -m "not viz" -o addopts= --no-cov
+
+  viz-tests:
+    name: Visual tests (path-sensitive)
+    needs: [changes]
+    if: ${{ !cancelled() && needs.changes.outputs.viz == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/setup-ce-python
+        with:
+          python-version: '3.11'
+          extras: 'dev,viz'
+      - name: Run viz-marked tests
+        run: pytest -q -m viz -o addopts= --no-cov
+
+  docs-build:
+    name: Docs build (strict)
+    needs: [changes]
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.changes.outputs.docs == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: |
+            docs/requirements-doc.txt
+            requirements.txt
+            constraints.txt
+            pyproject.toml
+      - name: Install docs dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r docs/requirements-doc.txt -c constraints.txt
+          pip install -r requirements.txt -c constraints.txt
+      - name: Build docs (strict)
+        run: python -m sphinx -W --keep-going -b html docs docs/_build/html
+
+  packaging:
+    name: Packaging validation (path-sensitive)
+    needs: [changes]
+    if: ${{ !cancelled() && needs.changes.outputs.packaging == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/setup-ce-python
+        with:
+          python-version: '3.11'
+          extras: 'dev'
+      - name: Build wheel and sdist
+        run: python -m build
+      - name: Validate built artifact contents
+        run: python scripts/quality/check_packaging_artifacts.py --report reports/packaging/license_artifact_check.json
+
+  governance-schema:
+    name: Governance event schema (path-sensitive)
+    needs: [changes]
+    if: ${{ !cancelled() && needs.changes.outputs.governance == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/setup-ce-python
+        with:
+          python-version: '3.11'
+          extras: 'dev'
+      - name: Run governance-event schema checker
+        run: python scripts/quality/check_governance_event_schema.py
+      - name: Run governance-event tests
+        run: pytest -q --no-cov tests/observability/test_governance_events.py tests/scripts/test_check_governance_event_schema.py
+
+  # Single stable aggregate required check for branch protection.
+  # Fails on any failed or cancelled required child; path-skips count as pass.
+  required:
+    name: required
+    needs:
+      - policy
+      - changes
+      - pr-gate
+      - tests-newest
+      - viz-tests
+      - docs-build
+      - packaging
+      - governance-schema
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Evaluate required child results
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          set -euo pipefail
+          echo "$NEEDS_JSON"
+          if echo "$NEEDS_JSON" | grep -Eq '"result": *"(failure|cancelled)"'; then
+            echo "One or more required child jobs failed or were cancelled."
+            exit 1
+          fi
+          echo "All required child jobs succeeded or were legitimately skipped."
+
+  # Main-only assurance: canonical coverage + Codecov upload. Does not repeat
+  # the PR-established static gates.
+  coverage:
+    name: Coverage and per-module gates (main)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/setup-ce-python
+        with:
+          python-version: '3.11'
+          extras: 'dev,eval'
+      - name: Run tests with coverage
+        run: |
+          pytest -q -o addopts= \
+            --cov=src/calibrated_explanations \
+            --cov-config=pyproject.toml \
+            --cov-report=xml:coverage.xml \
+            --cov-context=test \
+            --cov-fail-under=90
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+      - name: Run per-module coverage gates
+        run: python scripts/quality/check_coverage_gates.py coverage.xml
+
+  # Main-only assurance: wheel/sdist build, artifact-content validation, and a
+  # clean-environment install + public-API smoke from the built wheel.
+  package-validation:
+    name: Package build and clean-wheel smoke (main)
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+      - uses: ./.github/actions/setup-ce-python
+        with:
+          python-version: '3.11'
+          extras: 'dev'
+      - name: Build wheel and sdist
+        run: python -m build
+      - name: Validate built artifact contents
+        run: python scripts/quality/check_packaging_artifacts.py --report reports/packaging/license_artifact_check.json
+      - name: Clean-environment install and public-API smoke
+        run: |
+          set -euo pipefail
+          python -m venv wheel-smoke-venv
+          wheel-smoke-venv/bin/python -m pip install --upgrade pip
+          wheel-smoke-venv/bin/pip install calibrated_explanations --find-links dist -c constraints.txt
+          wheel-smoke-venv/bin/python -c "import calibrated_explanations as ce; from calibrated_explanations import WrapCalibratedExplainer; print(ce.__version__)"
+      - name: Upload built artifacts
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v6
+        with:
+          name: dist-${{ github.sha }}
+          path: dist/
+          retention-days: 14

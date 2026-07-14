@@ -45,11 +45,6 @@ ci-local:
 ci-local-runblocks:
 	python scripts/local_checks.py --ci-parity
 
-# Run only the new CI entrypoints (keeps legacy duplicates out of the run).
-.PHONY: ci-local-new
-ci-local-new:
-	python scripts/run_ci_locally.py --shell bash --workflow ci-pr --workflow ci-full --workflow ci-main --workflow ci-nightly
-
 .PHONY: check-private-members
 check-private-members:
 	python scripts/anti-pattern-analysis/scan_private_usage.py --check
@@ -62,11 +57,12 @@ check-agent-instructions:
 check-report-paths:
 	python scripts/quality/check_no_local_paths_in_reports.py --check --report reports/quality/no_local_paths_report.json
 
+# Blocking full-inventory CI-policy validation (ADR-035, v0.11.6 Task 60).
+# The identical command runs in the ci.yml policy job, the local-checks-pr
+# profile, and the .github/-scoped pre-commit hook.
 .PHONY: check-ci-policy
 check-ci-policy:
-	# Includes full-SHA action pin enforcement, reusable-workflow checks, and release-docs gate.
-	# Reusable workflows (reusable-*.yml) are exempt from heavy-gating; they are gated by callers.
-	python scripts/quality/validate_ci_policy.py --base-sha HEAD~1 --head-sha HEAD --advisory
+	python scripts/quality/validate_ci_policy.py --full-inventory
 
 .PHONY: uv-install-smoke
 uv-install-smoke:

@@ -498,6 +498,25 @@ def deprecation_closure_steps() -> list[Step]:
     ]
 
 
+def run_deprecation_ledger_gate() -> int:
+    """Fail when any active deprecation remains in the ledger.
+
+    This is the v1 zero-active-deprecation enforcement folded into the PR
+    profile by v0.11.6 Task 60 (it replaces the removed
+    ``deprecation-check.yml`` workflow, which re-ran the full unit suite on
+    every PR). The heavier focused-test lane remains available via
+    ``--deprecation-closure``.
+    """
+    try:
+        rows = _active_deprecation_rows(Path("docs/migration/deprecations.md"))
+    except RuntimeError as exc:
+        print(f"ERROR: {exc}")
+        return 1
+    return _write_active_deprecations_report(
+        rows, Path("reports/deprecations/active_deprecations_check.json")
+    )
+
+
 def run_deprecation_closure() -> int:
     """Run the pre-v1.0 deprecation-closure lane and emit timing evidence."""
     ledger_report = Path("reports/deprecations/active_deprecations_check.json")
@@ -707,6 +726,44 @@ def _pr_steps(
     steps = list(_quick_steps(mypy_targets, lint_targets))
     steps.extend(
         [
+            Step(
+                "CI policy (full inventory)",
+                _python_cmd("scripts/quality/validate_ci_policy.py", "--full-inventory"),
+            ),
+            Step(
+                "Ruff naming enforcement (ADR-017)",
+                _python_cmd("-m", "ruff", "check", "--select", "N"),
+            ),
+            Step(
+                "Notebook naming lint (ADR-018 notebooks)",
+                _python_cmd("-m", "nbqa", "ruff", "notebooks", "--select", "N"),
+            ),
+            Step(
+                "pydocstyle (ADR-018 baseline)",
+                _python_cmd("-m", "pydocstyle", "src", "tests"),
+            ),
+            Step(
+                "Agent instruction consistency",
+                _python_cmd("scripts/quality/check_agent_instruction_consistency.py"),
+            ),
+            Step(
+                "Zero-active-deprecation ledger gate (v1)",
+                _python_cmd("scripts/local_checks.py", "--deprecation-ledger"),
+            ),
+            Step(
+                "evaluation/ freeze guard (tracked files)",
+                _python_cmd(
+                    "-c",
+                    (
+                        "import subprocess, sys; "
+                        "out = subprocess.run(['git', 'ls-files', 'evaluation'], "
+                        "capture_output=True, text=True, check=True).stdout; "
+                        "bad = [line for line in out.splitlines() "
+                        "if line and not line.endswith('README.md')]; "
+                        "print('\\n'.join(bad)); sys.exit(1 if bad else 0)"
+                    ),
+                ),
+            ),
             Step(
                 "Docstring coverage",
                 _python_cmd("scripts/quality/check_docstring_coverage.py", "--fail-under", "94.0"),
@@ -1144,7 +1201,7 @@ def _release_task_checklist_state(
     """Parse per-task verification checklist completion state from the release plan."""
     text = plan_path.read_text(encoding="utf-8")
 
-    header_pattern = re.compile(r"^##\s+(\d+)\)\s+", re.MULTILINE)
+    header_pattern = re.compile(r"^##\s+(\d+)\)\s+(?P<title>.*?)\s*$", re.MULTILINE)
     checklist_header_pattern = re.compile(
         r"^###\s+\d+\.\d+\s+Verification checklist\s*$", re.MULTILINE
     )
@@ -1154,11 +1211,12 @@ def _release_task_checklist_state(
     if not task_sections:
         raise ValueError(f"Could not locate any numbered task sections in {plan_path.as_posix()}.")
 
-    states: dict[int, dict[str, int | bool]] = {}
+    states: dict[int, dict[str, int | bool | str]] = {}
     parse_errors: list[str] = []
 
     for index, match in enumerate(task_sections):
         task_id = int(match.group(1))
+        title = match.group("title")
         start = match.start()
         end = task_sections[index + 1].start() if index + 1 < len(task_sections) else len(text)
         section = text[start:end]
@@ -1184,13 +1242,22 @@ def _release_task_checklist_state(
             "all_items_checked": checked_items == total_items,
             "checked_items": checked_items,
             "total_items": total_items,
+            "title": title,
         }
 
     return states, parse_errors
 
 
 def _evaluate_release_plan_readiness(plan_path: Path) -> tuple[dict[str, object], list[str]]:
-    """Evaluate whether Task 45 prerequisites are satisfied for release handoff."""
+    """Evaluate whether release-handoff prerequisites are satisfied.
+
+    Every numbered task parsed from the active plan must have a fully checked
+    verification checklist, except the release-preparation task itself (its
+    checklist records the outcome of the manual release phase this guard
+    unlocks). Task ids must be contiguous so a deleted task section cannot
+    silently escape enforcement (v0.11.6 Task 60 replaced the previous
+    hardcoded ``range(1, 45)``).
+    """
     task_checklist_state, parse_errors = _release_task_checklist_state(plan_path)
     branch = _current_git_branch()
     pyproject_version = _pyproject_release_version()
@@ -1215,12 +1282,15 @@ def _evaluate_release_plan_readiness(plan_path: Path) -> tuple[dict[str, object]
             "pyproject.toml still carries a development version. Bump to the release version before preflight."
         )
 
-    for task_id in range(1, 45):
-        state = task_checklist_state.get(task_id)
-        if state is None:
+    task_ids = sorted(task_checklist_state)
+    if task_ids:
+        for missing_id in sorted(set(range(1, task_ids[-1] + 1)) - set(task_ids)):
             errors.append(
-                f"Task {task_id} verification checklist state is unavailable for release handoff."
+                f"Task {missing_id} verification checklist state is unavailable for release handoff."
             )
+    for task_id in task_ids:
+        state = task_checklist_state[task_id]
+        if str(state.get("title", "")).strip().lower() == "release preparation":
             continue
         if not bool(state["all_items_checked"]):
             open_items = int(state["total_items"]) - int(state["checked_items"])
@@ -1233,7 +1303,7 @@ def _evaluate_release_plan_readiness(plan_path: Path) -> tuple[dict[str, object]
 
 
 def _run_release_readiness_guard(plan_path: Path) -> tuple[int, dict[str, object]]:
-    """Run the Task 45 readiness guard and return the observed state."""
+    """Run the release-readiness guard and return the observed state."""
     observed, errors = _evaluate_release_plan_readiness(plan_path)
     print("\n[Release readiness guard]")
     print(f"Active release plan: {plan_path.as_posix()}")
@@ -1242,7 +1312,7 @@ def _run_release_readiness_guard(plan_path: Path) -> tuple[int, dict[str, object
         for error in errors:
             print(f"- {error}")
         return 1, observed
-    print("PASS: release plan summary, branch, and version state are ready for Task 45.")
+    print("PASS: release plan summary, branch, and version state are ready for release handoff.")
     return 0, observed
 
 
@@ -1805,6 +1875,11 @@ def main() -> int:
         help="Run the pre-v1.0 deprecation-closure lane and timing report.",
     )
     parser.add_argument(
+        "--deprecation-ledger",
+        action="store_true",
+        help="Run only the zero-active-deprecation ledger gate (v1 PR-profile check).",
+    )
+    parser.add_argument(
         "--release-preflight",
         action="store_true",
         help="Run the strict pre-step-11 release gate and write the handoff report.",
@@ -1835,6 +1910,8 @@ def main() -> int:
         return run_adr030_ratification()
     if args.deprecation_closure:
         return run_deprecation_closure()
+    if args.deprecation_ledger:
+        return run_deprecation_ledger_gate()
     if args.release_preflight:
         return run_release_preflight(plan_path=args.plan)
     if args.release_finalize:
