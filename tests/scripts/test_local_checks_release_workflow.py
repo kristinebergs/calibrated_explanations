@@ -601,6 +601,128 @@ def test_should_pass_release_finalize_when_snapshot_and_plan_still_match(
     assert rc == 0
 
 
+def test_should_pass_release_finalize_when_committed_content_matches_snapshot(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """A dirty-to-committed status transition should not invalidate an unchanged snapshot.
+
+    Regression test: release-preflight's own output (e.g. regenerated
+    fixtures/reports) can legitimately be committed between
+    ``release-preflight`` finishing and ``release-finalize`` running. The old
+    exact ``git status --short`` string comparison rejected this even though
+    no file content actually changed.
+    """
+    # Arrange
+    plan_path = tmp_path / "release_readiness_fixture.md"
+    write_release_plan(plan_path)
+    report_path = tmp_path / local_checks.RELEASE_PREFLIGHT_REPORT
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(
+        json.dumps(
+            {
+                "exit_status": 0,
+                "preflight_passed": True,
+                "release_version": "0.11.6",
+                "branch": "main",
+                "git_status_porcelain": "M CHANGELOG.md",
+                "worktree_changed_files": {"CHANGELOG.md": "same-hash"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(local_checks, "_current_git_branch", lambda: "main")
+    monkeypatch.setattr(local_checks, "_pyproject_release_version", lambda: "0.11.6")
+    # Worktree is now clean because CHANGELOG.md was committed, unlike the
+    # recorded dirty snapshot.
+    monkeypatch.setattr(local_checks, "_current_git_status_porcelain", lambda: "")
+    monkeypatch.setattr(local_checks, "_changed_paths_since", lambda head_sha: set())
+    monkeypatch.setattr(local_checks, "_file_content_hash", lambda path: "same-hash")
+
+    # Act
+    rc = local_checks.run_release_finalize(plan_path=plan_path)
+
+    # Assert
+    assert rc == 0
+
+
+def test_should_fail_release_finalize_when_content_diverges_after_commit(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """A committed file whose content actually changed must still fail finalize."""
+    # Arrange
+    plan_path = tmp_path / "release_readiness_fixture.md"
+    write_release_plan(plan_path)
+    report_path = tmp_path / local_checks.RELEASE_PREFLIGHT_REPORT
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(
+        json.dumps(
+            {
+                "exit_status": 0,
+                "preflight_passed": True,
+                "release_version": "0.11.6",
+                "branch": "main",
+                "git_status_porcelain": "M CHANGELOG.md",
+                "worktree_changed_files": {"CHANGELOG.md": "recorded-hash"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(local_checks, "_current_git_branch", lambda: "main")
+    monkeypatch.setattr(local_checks, "_pyproject_release_version", lambda: "0.11.6")
+    monkeypatch.setattr(local_checks, "_current_git_status_porcelain", lambda: "")
+    monkeypatch.setattr(local_checks, "_changed_paths_since", lambda head_sha: set())
+    monkeypatch.setattr(local_checks, "_file_content_hash", lambda path: "different-hash")
+
+    # Act
+    rc = local_checks.run_release_finalize(plan_path=plan_path)
+
+    # Assert
+    assert rc == 1
+
+
+def test_should_fail_release_finalize_when_unexpected_file_changed_after_commit(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """A file changing outside the recorded snapshot must still fail finalize."""
+    # Arrange
+    plan_path = tmp_path / "release_readiness_fixture.md"
+    write_release_plan(plan_path)
+    report_path = tmp_path / local_checks.RELEASE_PREFLIGHT_REPORT
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(
+        json.dumps(
+            {
+                "exit_status": 0,
+                "preflight_passed": True,
+                "release_version": "0.11.6",
+                "branch": "main",
+                "git_status_porcelain": "M CHANGELOG.md",
+                "worktree_changed_files": {"CHANGELOG.md": "same-hash"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(local_checks, "_current_git_branch", lambda: "main")
+    monkeypatch.setattr(local_checks, "_pyproject_release_version", lambda: "0.11.6")
+    monkeypatch.setattr(local_checks, "_current_git_status_porcelain", lambda: "M README.md")
+    monkeypatch.setattr(
+        local_checks, "_changed_paths_since", lambda head_sha: {"README.md"}
+    )
+    monkeypatch.setattr(local_checks, "_file_content_hash", lambda path: "same-hash")
+
+    # Act
+    rc = local_checks.run_release_finalize(plan_path=plan_path)
+
+    # Assert
+    assert rc == 1
+
+
 def test_should_fail_release_finalize_when_report_version_is_stale(
     monkeypatch,
     tmp_path: Path,

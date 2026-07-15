@@ -78,6 +78,20 @@
   was introduced. `.github/workflows/scheduled.yml` now runs each
   `examples/use_cases/*.py` script directly and fails the job if any script
   exits non-zero; all six scripts pass locally.
+- **Task 7 (2026-07-15): `release-finalize` worktree check compared exact
+  `git status --short` text instead of content.** `release.md`'s sequence is
+  preflight, then finalize, then commit/tag/push (step 11) — finalize is
+  meant to confirm nothing changed since preflight finished, while the tree
+  is still dirty. Committing exactly what preflight produced (its own
+  regenerated evidence files) before running finalize always failed, because
+  a "N files modified" status string can never equal a clean `""` status,
+  even with byte-identical file content. `scripts/local_checks.py` now
+  records `worktree_changed_files` (a `{path: sha256}` map, excluding the
+  report's own path) alongside the existing status string; `release-finalize`
+  falls back to that map when the status strings differ, so a dirty-to-
+  committed transition passes as long as content is unchanged, while genuine
+  drift or an unrelated extra change still fails. Covered by 3 new tests in
+  `tests/scripts/test_local_checks_release_workflow.py` (25/25 passing).
 
 ## [v0.11.6](https://github.com/Moffran/calibrated_explanations/releases/tag/v0.11.6) - 2026-07-15
 

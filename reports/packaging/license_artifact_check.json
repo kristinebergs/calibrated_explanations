@@ -178,10 +178,7 @@
     "calibrated_explanations"
   ],
   "unexpected_top_level_packages": [],
-  "stale_artifacts_removed": [
-    "calibrated_explanations-0.11.6-py3-none-any.whl",
-    "calibrated_explanations-0.11.6.tar.gz"
-  ],
+  "stale_artifacts_removed": [],
   "status": "pass",
   "errors": []
 }

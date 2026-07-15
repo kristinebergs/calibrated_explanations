@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 from contextlib import suppress
+import hashlib
 import importlib.util
 import json
 import os
@@ -1242,6 +1243,77 @@ def _current_git_status_porcelain() -> str | None:
     return _git_text("status", "--short")
 
 
+# The release-preflight report records its own change set inside itself, so
+# its own path must be excluded from that change set or recording the
+# fingerprint would change the file whose fingerprint was just recorded.
+_FINGERPRINT_EXCLUDED_PATHS = frozenset({"reports/local_checks/release_preflight_report.json"})
+
+
+def _parse_git_status_paths(status_text: str) -> set[str]:
+    """Return changed/untracked paths from ``git status --porcelain`` output.
+
+    Rename entries (``old -> new``) resolve to the new path. The
+    release-preflight report's own path is dropped (see
+    ``_FINGERPRINT_EXCLUDED_PATHS``).
+    """
+    paths: set[str] = set()
+    for line in status_text.splitlines():
+        if len(line) < 4:
+            continue
+        raw_path = line[3:].strip()
+        if " -> " in raw_path:
+            raw_path = raw_path.split(" -> ", 1)[1]
+        raw_path = raw_path.strip('"')
+        if raw_path and raw_path not in _FINGERPRINT_EXCLUDED_PATHS:
+            paths.add(raw_path)
+    return paths
+
+
+def _file_content_hash(path: str) -> str | None:
+    """Return the sha256 hex digest of ``path``'s current bytes, or ``None`` if absent."""
+    file_path = Path(path)
+    if not file_path.is_file():
+        return None
+    try:
+        return hashlib.sha256(file_path.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def _worktree_changed_file_hashes() -> dict[str, str | None]:
+    """Return ``{path: content_hash}`` for every changed/untracked file.
+
+    Unlike ``git status --short`` text, this survives a file moving between
+    untracked/modified/staged/committed as long as its bytes do not change,
+    which is what ``release-finalize`` needs to tolerate committing exactly
+    what ``release-preflight`` produced before step 11.
+    """
+    status_text = _git_text("status", "--porcelain", "--untracked-files=all") or ""
+    return {path: _file_content_hash(path) for path in sorted(_parse_git_status_paths(status_text))}
+
+
+def _changed_paths_since(recorded_head_sha: str | None) -> set[str]:
+    """Return every path touched since ``recorded_head_sha``, committed or not.
+
+    Comparing only the *currently dirty* status against the recorded set
+    misses changes that get committed on top of exactly what
+    release-preflight produced: once committed, the tree is clean again and
+    there is no dirty-status line left to flag as unexpected. Diffing from
+    the ``HEAD`` recorded at preflight completion catches paths touched by
+    any commit made since, in addition to whatever is still uncommitted.
+    """
+    paths = set(_parse_git_status_paths(_git_text("status", "--porcelain", "--untracked-files=all") or ""))
+    current_head_sha = _git_text("rev-parse", "HEAD")
+    if recorded_head_sha and current_head_sha and recorded_head_sha != current_head_sha:
+        committed_diff = _git_text("diff", "--name-only", recorded_head_sha, current_head_sha) or ""
+        paths.update(
+            line.strip()
+            for line in committed_diff.splitlines()
+            if line.strip() and line.strip() not in _FINGERPRINT_EXCLUDED_PATHS
+        )
+    return paths
+
+
 def _pyproject_release_version() -> str:
     """Return the raw project version from pyproject.toml."""
     payload = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
@@ -1836,6 +1908,8 @@ def _write_release_preflight_report(
         "exit_status": final_exit_status,
         "preflight_passed": completed and exit_status == 0,
         "git_status_porcelain": git_status_porcelain,
+        "worktree_changed_files": _worktree_changed_file_hashes(),
+        "head_sha": _git_text("rev-parse", "HEAD"),
         "automated_release_steps": list(range(1, 11)),
         "manual_release_steps": list(RELEASE_MANUAL_STEP_RANGE),
         "postcommit_release_steps": list(RELEASE_POSTCOMMIT_STEP_RANGE),
@@ -2143,11 +2217,42 @@ def run_release_finalize(*, plan_path: Path | None = None) -> int:
         return 1
 
     current_status = _current_git_status_porcelain()
-    if current_status != payload.get("git_status_porcelain"):
-        print(
-            "ERROR: The worktree changed after release-preflight. Re-run `make release-preflight` before step 11."
+    recorded_status = payload.get("git_status_porcelain")
+    recorded_files = payload.get("worktree_changed_files")
+    if current_status != recorded_status:
+        if not isinstance(recorded_files, dict):
+            # Report predates the per-file content-hash field; fall back to
+            # the strict status-string comparison this replaces.
+            print(
+                "ERROR: The worktree changed after release-preflight. Re-run `make release-preflight` before step 11."
+            )
+            return 1
+        changed_paths = _changed_paths_since(
+            payload.get("head_sha") if isinstance(payload.get("head_sha"), str) else None
         )
-        return 1
+        unexpected_new = sorted(changed_paths - set(recorded_files))
+        if unexpected_new:
+            print(
+                "ERROR: The worktree changed after release-preflight with file(s) outside the "
+                f"preflight snapshot: {', '.join(unexpected_new)}. Re-run `make release-preflight` before step 11."
+            )
+            return 1
+        content_mismatches = sorted(
+            path
+            for path, recorded_hash in recorded_files.items()
+            if _file_content_hash(path) != recorded_hash
+        )
+        if content_mismatches:
+            print(
+                "ERROR: The following file(s) changed content after release-preflight (not "
+                f"just commit status): {', '.join(content_mismatches)}. Re-run `make release-preflight` before step 11."
+            )
+            return 1
+        print(
+            "NOTE: The worktree's commit status changed since release-preflight (e.g. its "
+            "output was committed), but every affected file's content is byte-identical to the "
+            "successful preflight snapshot. Continuing."
+        )
 
     print(
         "PASS: release-preflight is still valid. Continue with the manual release phase "
