@@ -89,6 +89,15 @@ exp[0].plot()
 
 ---
 
+## Compatibility
+
+**Public API:** The public API is frozen as of `1.0.0rc1`. Only patch-level
+defect fixes will be accepted before GA. See the
+[v1.0.0 upgrade checklist](docs/upgrade/v1.0.0-upgrade-checklist.md) for
+cumulative migration guidance for documented legacy workflows since v0.6.1.
+
+---
+
 ## What Can It Explain?
 
 | Task | Description | Key Method |

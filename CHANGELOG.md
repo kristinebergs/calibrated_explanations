@@ -13,6 +13,11 @@
   opt-in). Patch releases may add documented `metadata` or `provenance` sub-keys,
   but top-level semantics and stable fields will not be renamed or removed before
   a v2 schema cycle.
+- **Public API:** The public API is frozen as of `1.0.0rc1`. Only patch-level
+  defect fixes will be accepted before GA. The ADR-020 protected legacy workflow
+  is verified against its v0.7.0-era baseline, and the
+  [v1.0.0 upgrade checklist](docs/upgrade/v1.0.0-upgrade-checklist.md) provides
+  cumulative migration guidance for documented workflows since v0.6.1.
 
 ## [v0.11.6](https://github.com/Moffran/calibrated_explanations/releases/tag/v0.11.6) - 2026-07-15
 

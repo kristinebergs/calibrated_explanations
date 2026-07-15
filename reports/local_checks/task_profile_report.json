@@ -1,15 +1,16 @@
 {
   "commands_run": [
-    "python -m ruff check scripts/archived/quality_detect_test_anti_patterns_legacy_wrapper.py",
-    "python -m ruff format --check scripts/archived/quality_detect_test_anti_patterns_legacy_wrapper.py",
+    "python -m ruff check src tests scripts",
+    "python -m ruff format --check src tests scripts",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python -m pytest -q tests/unit/explanations tests/capabilities/test_visualization_contracts.py -o addopts= --no-cov"
+    "python -m pytest -q tests/capabilities tests/unit/api/test_legacy_user_api_contract.py tests/unit/core/test_wrap_explainer_core.py tests/unit/core/test_wrap_explainer_helpers.py tests/unit/core/test_wrap_explainer_persistence.py tests/unit/core/test_wrap_explainer_state.py -o addopts= --no-cov",
+    "python scripts/quality/snapshot_public_api.py"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-15T05:50:25.012454+00:00",
+  "generated_at": "2026-07-15T06:37:13.524763+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -47,5 +48,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 1
+  "task_id": 2
 }
