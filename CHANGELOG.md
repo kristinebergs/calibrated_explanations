@@ -7,6 +7,11 @@
 
 ### Changed
 
+- **RC cache/parallel staging sign-off:** the opt-in cache and explicit thread
+  strategy paths passed the `1.0.0rc1` staging-equivalent smoke. The safe-defaults
+  guide now names the optional `cache_hit` / `cache_miss` events and
+  `parallel_execution.worker_utilisation_pct` evidence field, and clarifies that
+  v1 parallel activation requires an explicit strategy.
 - **Explanation Schema v1 freeze:** the payload contract is frozen as of
   `1.0.0rc1`. The stable `explanation_type` enum includes `factual`,
   `alternative`, and `fast` (the FAST runtime pathway remains experimental and

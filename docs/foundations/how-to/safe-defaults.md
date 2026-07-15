@@ -15,7 +15,7 @@ production.
 | Key | Production recommendation | Notes |
 |-----|--------------------------|-------|
 | `CE_CACHE` | **Unset** (disabled by default) | Enable only after benchmarking; see [tune_runtime_performance.md](tune_runtime_performance.md) for sizing |
-| `CE_PARALLEL` | **Unset** (disabled by default) | Enable only after understanding fork/spawn hygiene in your deployment environment |
+| `CE_PARALLEL` | **Unset** (disabled by default) | Enable only with an explicit strategy after understanding fork/spawn hygiene in your deployment environment |
 | `CE_STRICT_OBSERVABILITY` | Unset or `false` | Set `true` in CI to surface soft observability errors |
 | `CE_TELEMETRY_DIAGNOSTIC_MODE` | Unset or `false` | Set `true` only for diagnostic sessions |
 | `CE_DEBUG_TRUST_INVARIANTS` | **Never set in production** | Bypasses trust invariant checks; is a sanctioned direct `os.getenv` read not governed by ConfigManager — setting it disables plugin trust enforcement |
@@ -27,6 +27,33 @@ For any plugin selection keys (`CE_EXPLANATION_PLUGIN_*`, `CE_INTERVAL_PLUGIN_*`
 `CE_PLOT_STYLE`, etc.) — if not set, the library uses the pyproject.toml value
 then the versioned default. Override only when you have a specific non-default
 plugin to use.
+
+### Validate cache and parallel telemetry in staging
+
+Cache and parallel telemetry are optional diagnostic instrumentation. Enabling
+`CE_CACHE` or `CE_PARALLEL` does not install a collector; register a callback
+with `ExplainerBuilder.perf_telemetry(...)`, `CacheConfig.telemetry`, or
+`ParallelConfig.telemetry` when staging evidence is needed.
+
+Parallel execution in v1 requires an explicit strategy. `CE_PARALLEL=1` enables
+parallelism but leaves the removed `auto` strategy selected, so work dispatch
+fails fast with `ConfigurationError`. Use an explicit value such as:
+
+```bash
+CE_PARALLEL="enable,threads,workers=2,min_batch=1,min_instances=1,tiny=1" python serve.py
+```
+
+The optional callback receives the following evidence fields. These names
+describe the current diagnostic surface; ADR-003 and ADR-004 do not make
+telemetry collection mandatory for production deployments.
+
+| Subsystem | Event | Evidence fields |
+|-----------|-------|-----------------|
+| Cache | `cache_hit`, `cache_miss` | `namespace` and `key`; `CacheMetrics.snapshot()` exposes aggregate `hits` and `misses` counters |
+| Parallel | `parallel_execution` | `strategy`, `items`, `duration`, `workers`, `worker_utilisation_pct`, `work_items`, and threshold/granularity context |
+
+`worker_utilisation_pct` is a saturation proxy calculated from submitted items
+and configured workers; it is not an operating-system CPU utilisation measure.
 
 ---
 
