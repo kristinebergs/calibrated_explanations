@@ -73,10 +73,10 @@ A milestone cannot close while any of the following remains open:
 ### Active control items
 
 - **Milestone execution control**
-  - **Status:** Active milestone is v0.11.5 (inserted 2026-07-07 between v0.11.4 and v1.0.0-rc); `development/current-work/v0.11.5_plan.md` is the maintained detailed control surface. `development/current-work/v1.0.0-rc_plan.md` remains baselined and resumes unchanged after v0.11.5 closes.
-  - **Next action:** Execute v0.11.5: release the already-implemented RC Task 0 deprecation-closure work currently unreleased on main, and implement ADR-039 conditional (Mondrian) calibration remediation as fail-fast bug fixes with zero new deprecation cycles. Then re-enter v1.0.0-rc validation and freeze.
+  - **Status:** Active milestone is v1.0.0-rc; `development/current-work/v1.0.0-rc_plan.md` is the maintained detailed control surface. v0.11.6 shipped 2026-07-15 and its plan is archived at `development/finished-work/v0.11.6_plan.md`.
+  - **Next action:** Execute the v1.0.0-rc validation-and-freeze plan: validate the v0.11.6 outcomes (plan Section 0.1, including resolving the open ADR-038 `**kwargs` graduation-gate appendix row), then run RC Tasks 1–7 and fill the Section 9 release evidence before tagging `1.0.0rc1`.
 - **Future milestone discipline**
-  - **Status:** v1.0.0-rc is validation-and-freeze only; all pre-RC implementation work closes in v0.11.5 (replanned 2026-07-07 from v0.11.4 to carry ADR-039 conditional-calibration remediation and the already-finished RC deprecation-closure work). Next planned GA is v1.0.0.
+  - **Status:** v1.0.0-rc is validation-and-freeze only; all pre-RC implementation work closed with v0.11.6 (re-baselined 2026-07-08; previously v0.11.5). Next planned GA is v1.0.0.
   - **Next action:** After all v1.0.0-rc gates pass, promote to v1.0.0 GA and close the release series.
 - **Boundary-update policy**
   - **Status:** Governance/planning docs are updated at milestone boundaries, not on every PR.

@@ -203,7 +203,6 @@ reports/archived/
 .precommit-cache/
 docs/contracts/*
 scripts/contracts/*
-release.md
 .tmp*
 evaluation/
 .mcp.json
