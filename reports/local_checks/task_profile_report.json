@@ -1,16 +1,15 @@
 {
   "commands_run": [
-    "python -m ruff check scripts/local_checks.py tests/scripts/test_local_checks_release_workflow.py",
-    "python -m ruff format --check scripts/local_checks.py tests/scripts/test_local_checks_release_workflow.py",
+    "python -m ruff check scripts/archived/quality_detect_test_anti_patterns_legacy_wrapper.py",
+    "python -m ruff format --check scripts/archived/quality_detect_test_anti_patterns_legacy_wrapper.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python -m pytest -q tests/scripts/test_local_checks_release_workflow.py -o addopts= --no-cov",
-    "python scripts/quality/check_agent_instruction_consistency.py"
+    "python -m pytest -q tests/unit/explanations tests/capabilities/test_visualization_contracts.py -o addopts= --no-cov"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-14T21:28:52.111364+00:00",
+  "generated_at": "2026-07-15T05:50:25.012454+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -48,5 +47,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 61
+  "task_id": 1
 }

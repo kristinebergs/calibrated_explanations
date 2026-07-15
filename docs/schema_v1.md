@@ -6,18 +6,37 @@ This page summarizes the stable JSON contract for serialized explanations in v1.
 - Version: `schema_version` (string, optional; recommended)
 - Purpose: round-trip Explanation domain objects to a portable JSON payload.
 
+## Schema freeze statement
+
+**v1.0.0 schema freeze:** The Explanation Schema v1 is frozen as of `1.0.0rc1`.
+Top-level schema semantics and the set of stable fields are frozen for v1.
+Additive additions to `metadata` and `provenance` in patch releases are permitted
+and will be documented as additive-only. Field renaming or removal will not occur
+until a v2 schema cycle.
+
 ## Top-level fields
 
 - `schema_version` (string, optional; recommended): a suggested schema version string (e.g. `"1.0.0"`). The schema does not require a fixed literal; including the version is recommended for interoperability.
 - `task` (string): e.g., `classification` or `regression`.
 - `index` (integer): item index the explanation refers to.
-- `explanation_type` (string): either `"factual"` or `"alternative"`.
+- `explanation_type` (string): one of `"factual"`, `"alternative"`, or `"fast"`.
+  The implementation emits `"fast"` for `FastExplanation` payloads. This value is
+  part of the stable v1 schema enum, while the FAST runtime pathway remains
+  experimental and opt-in; practitioner workflows should continue to rely
+  primarily on `"factual"` and `"alternative"`.
 - `prediction` (object): calibrated prediction values from the underlying model, e.g., `{predict, low, high}` with uncertainty interval. This is always the factual calibrated prediction for reference.
 - `rules` (array of objects): feature rules composing the explanation.
 - `provenance` (object|null): optional metadata (library version, timestamp, etc.). Recommended minimal keys: `library_version`, `created_at` (ISO8601), and `generator` (e.g., plugin or pipeline id). Note: these are conventions only and not validated by the schema.
-- `metadata` (object|null): additional caller-provided info.
+- `metadata` (object|null): additional caller-provided info. Serializers also use
+  the optional `calibration_metadata` object with a `method` string and the
+  optional `model_metadata` object with a `type` string to preserve the typed
+  descriptors from the Explanation domain model.
 
-`provenance` and `metadata` are the stable extension surface for runtime context; the v1 contract is payload-only and does not require an outer envelope.
+`provenance` and `metadata` are the stable extension surface for runtime context;
+the v1 contract is payload-only and does not require an outer envelope. Patch
+releases may add documented sub-keys beneath these objects. They will not rename
+or remove existing fields, or change top-level field semantics, until a v2 schema
+cycle.
 
 ## Rule fields (per entry in `rules`)
 
@@ -43,4 +62,4 @@ If `jsonschema` is installed, `calibrated_explanations.schema.validate_payload(o
 
 See the tests for round-trip examples:
 
-- `tests/integration/core/test_golden_fixture.py::test_golden_fixture_roundtrip_and_validate`
+- `tests/unit/test_schema_validation_minimal.py::test_should_validate_golden_explanation_fixture`

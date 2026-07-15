@@ -5,7 +5,7 @@ an explicit schema contract.
 
 ## Explanation payload schema
 
-- **Schema file**: `src/calibrated_explanations/schemas/explanation_schema_v1.json`
+- **Packaged schema resource**: `calibrated_explanations/schemas/explanation_schema_v1.json`
 - **Reference doc**: `docs/schema_v1.md`
 - **Validator**: `calibrated_explanations.schema.validate_payload`
 

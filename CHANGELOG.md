@@ -5,6 +5,15 @@
 
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v0.11.6...main)
 
+### Changed
+
+- **Explanation Schema v1 freeze:** the payload contract is frozen as of
+  `1.0.0rc1`. The stable `explanation_type` enum includes `factual`,
+  `alternative`, and `fast` (the FAST runtime pathway remains experimental and
+  opt-in). Patch releases may add documented `metadata` or `provenance` sub-keys,
+  but top-level semantics and stable fields will not be renamed or removed before
+  a v2 schema cycle.
+
 ## [v0.11.6](https://github.com/Moffran/calibrated_explanations/releases/tag/v0.11.6) - 2026-07-15
 
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v0.11.5...v0.11.6)
