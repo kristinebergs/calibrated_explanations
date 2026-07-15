@@ -22,7 +22,9 @@ and a git/citation display version with a leading `v`.
 
 ## Files that must be updated for a release
 
-`make release-preflight` updates the deterministic fields below. The list is
+`make release-prepare-files` updates the deterministic fields below while
+version-dependent task checklists are still open. `make release-preflight`
+repeats the same update idempotently before running the strict gate. The list is
 kept here as the contract that the automation and its tests must cover.
 
 1. Packaging/runtime version
@@ -68,6 +70,17 @@ It infers the exact version from the active version plan (or accepts
 `VERSION=<version>`), uses the UTC date (or `RELEASE_DATE=YYYY-MM-DD`), updates
 the release files above, and runs the strict gates. The descriptions below are
 the behavioral contract for that one command.
+
+For release tasks that must verify the final version before their checklist can
+close, prepare the deterministic files first:
+
+```bash
+make release-prepare-files VERSION=X.Y.Z RELEASE_DATE=YYYY-MM-DD
+```
+
+This focused command does not run readiness checks, build artifacts, write a
+green preflight report, or unlock publication. The complete preflight below is
+still mandatory after all prerequisite task checklists are closed.
 
 1. Verify `main`, the version lineage, and release-plan closure readiness.
 2. Run the full pytest suite and strict release profile (the local replacement

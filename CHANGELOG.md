@@ -3,10 +3,18 @@
 
 ## [Unreleased]
 
-[Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v0.11.6...main)
+[Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v1.0.0rc1...main)
+
+## [v1.0.0rc1](https://github.com/Moffran/calibrated_explanations/releases/tag/v1.0.0rc1) - 2026-07-15
+
+[Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v0.11.6...v1.0.0rc1)
 
 ### Changed
 
+- **Install and Python support:** install this release candidate reproducibly
+  with `pip install calibrated-explanations==1.0.0rc1`. Python 3.10 is the
+  v1.0.0 support floor (`requires-python >=3.10`); the supported CI matrix is
+  Python 3.10–3.13.
 - **RC documentation readiness:** added the exact `1.0.0rc1` install pin and
   visible Beta/API-freeze notice to the README and public docs landing paths;
   corrected API examples that still used removed `.explain(...)` and private
@@ -17,7 +25,8 @@
   guide now names the optional `cache_hit` / `cache_miss` events and
   `parallel_execution.worker_utilisation_pct` evidence field, and clarifies that
   v1 parallel activation requires an explicit strategy.
-- **Explanation Schema v1 freeze:** the payload contract is frozen as of
+- **Explanation Schema v1 freeze:** the
+  [payload contract](docs/schema_v1.md) is frozen as of
   `1.0.0rc1`. The stable `explanation_type` enum includes `factual`,
   `alternative`, and `fast` (the FAST runtime pathway remains experimental and
   opt-in). Patch releases may add documented `metadata` or `provenance` sub-keys,
@@ -28,6 +37,29 @@
   is verified against its v0.7.0-era baseline, and the
   [v1.0.0 upgrade checklist](docs/upgrade/v1.0.0-upgrade-checklist.md) provides
   cumulative migration guidance for documented workflows since v0.6.1.
+- **ADR-038 API graduation and deprecation closure:** closed/stable per-method
+  keyword surfaces now reject unknown, removed, and cross-method arguments with
+  `ConfigurationError`. The documented experimental explanation-plugin seam
+  retains `multi_labels_enabled` (the sole canonical spelling) and
+  `interval_summary` in `**kwargs` until those parameters graduate. Zero active
+  deprecations were verified by `make deprecation-closure`.
+- **Deliberate deferral:** TIF architecture documentation gaps remain
+  non-blocking under release decision D10; this RC makes no new TIF-specific
+  public capability claim.
+
+### Release-blocking defect patches
+
+- Added `make release-prepare-files` as a focused, deterministic preparation
+  lane for version-dependent release tasks. It reuses the release-preflight
+  updater without requiring checklist closure or producing a publication
+  handoff report, breaking the circular dependency where Task 6 required the
+  final version before the readiness guard allowed that version to be written.
+  The strict `make release-preflight` gate remains mandatory and reruns the
+  preparation idempotently after prerequisite task checklists close.
+- Corrected the version-alignment gate to strip only development/local version
+  data from release-facing metadata. Release-candidate markers such as `rc1`
+  are now preserved, so the checker agrees with the exact prerelease written to
+  `CITATION.cff` and `METADATA.json` by the release updater.
 
 ## [v0.11.6](https://github.com/Moffran/calibrated_explanations/releases/tag/v0.11.6) - 2026-07-15
 

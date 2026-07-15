@@ -6,7 +6,7 @@ import scripts.quality.check_version_alignment as check_version_alignment
 
 
 def test_should_report_no_errors_when_versions_follow_task_36_policy(monkeypatch) -> None:
-    """The checker should accept normalized docs/runtime alignment plus base-version metadata."""
+    """The checker should accept normalized alignment plus dev-free release metadata."""
     monkeypatch.setattr(check_version_alignment, "_pyproject_version", lambda: "0.11.6-dev")
     monkeypatch.setattr(check_version_alignment, "_runtime_version", lambda: "0.11.6.dev0")
     monkeypatch.setattr(check_version_alignment, "_metadata_version", lambda: "0.11.6.dev0")
@@ -18,10 +18,10 @@ def test_should_report_no_errors_when_versions_follow_task_36_policy(monkeypatch
     observed, errors = check_version_alignment.evaluate_alignment(allow_normalized=True)
 
     assert errors == []
-    assert observed["pyproject_base_version"] == "0.11.6"
+    assert observed["pyproject_release_metadata_version"] == "0.11.6"
 
 
-def test_should_report_errors_when_release_metadata_does_not_match_pyproject_base(
+def test_should_report_errors_when_release_metadata_does_not_match_release_target(
     monkeypatch,
 ) -> None:
     """The checker should fail when CITATION.cff or METADATA.json lag the target release."""
@@ -39,7 +39,28 @@ def test_should_report_errors_when_release_metadata_does_not_match_pyproject_bas
     assert any("METADATA.json version" in error for error in errors)
 
 
-def test_should_require_allow_normalized_for_pep440_equivalent_runtime_versions(monkeypatch) -> None:
+def test_should_preserve_prerelease_segment_in_release_metadata(monkeypatch) -> None:
+    """RC citation and repository metadata must retain the exact prerelease."""
+    # Arrange
+    monkeypatch.setattr(check_version_alignment, "_pyproject_version", lambda: "1.0.0rc1")
+    monkeypatch.setattr(check_version_alignment, "_runtime_version", lambda: "1.0.0rc1")
+    monkeypatch.setattr(check_version_alignment, "_metadata_version", lambda: "1.0.0rc1")
+    monkeypatch.setattr(check_version_alignment, "_docs_release", lambda: "1.0.0rc1")
+    monkeypatch.setattr(check_version_alignment, "_docs_version", lambda: "1.0")
+    monkeypatch.setattr(check_version_alignment, "_citation_version", lambda: "v1.0.0rc1")
+    monkeypatch.setattr(check_version_alignment, "_metadata_json_version", lambda: "1.0.0rc1")
+
+    # Act
+    observed, errors = check_version_alignment.evaluate_alignment(allow_normalized=True)
+
+    # Assert
+    assert errors == []
+    assert observed["pyproject_release_metadata_version"] == "1.0.0rc1"
+
+
+def test_should_require_allow_normalized_for_pep440_equivalent_runtime_versions(
+    monkeypatch,
+) -> None:
     """The checker should only accept equivalent dev spellings when normalization is enabled."""
     monkeypatch.setattr(check_version_alignment, "_pyproject_version", lambda: "0.11.6-dev")
     monkeypatch.setattr(check_version_alignment, "_runtime_version", lambda: "0.11.6-dev")

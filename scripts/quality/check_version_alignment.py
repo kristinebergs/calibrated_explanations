@@ -16,8 +16,9 @@ Policy
 - Runtime, installed package metadata, and docs ``release`` must agree after
   optional PEP 440 normalization.
 - ``CITATION.cff`` and ``METADATA.json`` are release-facing metadata and must
-  track the base release version derived from ``pyproject.toml``. They may omit
-  the development suffix during the pre-tag window.
+  track the release target derived from ``pyproject.toml``. They omit only the
+  development suffix during the pre-tag window, preserving prerelease markers
+  such as ``rc1``.
 - Every "Python >= X.Y" / "Python ≥ X.Y" prose claim in the tracked
   user-facing docs listed in ``PYTHON_FLOOR_DOC_TARGETS`` must state the same
   floor as ``requires-python``.
@@ -64,11 +65,13 @@ def _canonicalize(version: str) -> str:
         return version.replace("-dev", ".dev0")
 
 
-def _base_release_version(version: str) -> str:
+def _release_metadata_version(version: str) -> str:
+    """Return the release-facing version with only development/local data removed."""
     try:
         from packaging.version import Version  # noqa: PLC0415
 
-        return Version(version).base_version
+        public = Version(version).public
+        return re.sub(r"\.dev\d+$", "", public)
     except Exception:  # noqa: BLE001 - fallback keeps the checker runnable
         normalized = _canonicalize(version)
         return normalized.split(".dev", 1)[0]
@@ -177,7 +180,7 @@ def _expected_docs_version(release: str) -> str:
 
 def _evaluate_alignment(*, allow_normalized: bool) -> tuple[dict[str, str], list[str]]:
     pyproject_raw = _pyproject_version()
-    pyproject_base = _base_release_version(pyproject_raw)
+    pyproject_release_metadata = _release_metadata_version(pyproject_raw)
     runtime_raw = _runtime_version()
     metadata_raw = _metadata_version()
     docs_release = _docs_release()
@@ -188,7 +191,7 @@ def _evaluate_alignment(*, allow_normalized: bool) -> tuple[dict[str, str], list
 
     observed = {
         "pyproject_version": pyproject_raw,
-        "pyproject_base_version": pyproject_base,
+        "pyproject_release_metadata_version": pyproject_release_metadata,
         "runtime_version": runtime_raw,
         "package_metadata_version": metadata_raw,
         "docs_release": docs_release,
@@ -226,16 +229,16 @@ def _evaluate_alignment(*, allow_normalized: bool) -> tuple[dict[str, str], list
         )
 
     citation = _strip_leading_v(citation_raw)
-    if citation != pyproject_base:
+    if citation != pyproject_release_metadata:
         errors.append(
-            "CITATION.cff version must match the pyproject base release version "
-            "(dev suffix omitted by policy)."
+            "CITATION.cff version must match the pyproject release target "
+            "(only the dev suffix is omitted by policy)."
         )
 
-    if metadata_json_raw != pyproject_base:
+    if metadata_json_raw != pyproject_release_metadata:
         errors.append(
-            "METADATA.json version must match the pyproject base release version "
-            "(dev suffix omitted by policy)."
+            "METADATA.json version must match the pyproject release target "
+            "(only the dev suffix is omitted by policy)."
         )
 
     errors.extend(_doc_python_floor_claims(requires_python_floor=requires_python_floor))
@@ -265,7 +268,7 @@ def main() -> int:
     observed, errors = evaluate_alignment(allow_normalized=args.allow_normalized)
 
     print(f"pyproject version:         {observed['pyproject_version']}")
-    print(f"pyproject base version:    {observed['pyproject_base_version']}")
+    print(f"release metadata target:  {observed['pyproject_release_metadata_version']}")
     print(f"runtime __version__:       {observed['runtime_version']}")
     print(f"package metadata:          {observed['package_metadata_version']}")
     print(f"docs/conf.py release:      {observed['docs_release']}")

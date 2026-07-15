@@ -246,6 +246,46 @@ def test_should_not_publish_green_preflight_report_before_all_steps_complete(
     assert report["prepared_release_files"] == list(local_checks.RELEASE_PREPARED_FILES)
 
 
+def test_should_prepare_release_files_when_task_checklists_are_pending(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """Focused preparation should break the checklist/version-alignment cycle."""
+    # Arrange
+    release_version = "1.0.0rc1"
+    plan_path = tmp_path / "development/current-work/v1.0.0-rc_plan.md"
+    plan_path.parent.mkdir(parents=True)
+    write_release_plan(plan_path, unchecked_tasks={5, 6})
+    write_release_file_fixture(
+        tmp_path,
+        release_version=release_version,
+        development_version="1.0.0-rc-dev",
+        previous_version="0.11.6",
+    )
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(local_checks, "_current_git_branch", lambda: "main")
+
+    # Act
+    rc = local_checks.run_release_prepare_files(
+        plan_path=plan_path,
+        release_version=release_version,
+        release_date="2031-08-09",
+    )
+
+    # Assert
+    assert rc == 0
+    assert (tmp_path / "pyproject.toml").read_text(encoding="utf-8") == (
+        '[project]\nversion = "1.0.0rc1"\n'
+    )
+    assert 'return "1.0.0rc1"' in (tmp_path / "src/calibrated_explanations/__init__.py").read_text(
+        encoding="utf-8"
+    )
+    changelog = (tmp_path / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert "## [v1.0.0rc1]" in changelog
+    assert "Release automation is complete." in changelog.split("## [v1.0.0rc1]", 1)[1]
+    assert not local_checks.RELEASE_PREFLIGHT_REPORT.exists()
+
+
 @pytest.mark.parametrize(
     ("release_version", "previous_version"),
     [("0.12.3", "0.12.2"), ("2.4.0", "2.3.9"), ("1.0.0rc2", "1.0.0rc1")],

@@ -128,6 +128,12 @@ local-checks-pr:
 local-checks-release:
 	python scripts/local_checks.py --profile release
 
+# Prepare deterministic release files while version-dependent task checklists
+# are still open. The strict preflight repeats this step and remains mandatory.
+.PHONY: release-prepare-files
+release-prepare-files:
+	python scripts/local_checks.py --release-prepare-files $(if $(VERSION),--release-version $(VERSION),) $(if $(RELEASE_DATE),--release-date $(RELEASE_DATE),)
+
 # Pre-tag release gate: release.md steps 1-10, including deterministic release
 # file updates, strict validation, build, artifact checks, and wheel smoke.
 # VERSION=X.Y.Z and RELEASE_DATE=YYYY-MM-DD are optional inference overrides.

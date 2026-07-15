@@ -1754,6 +1754,59 @@ def _prepare_release_files(
     return list(dict.fromkeys(changed))
 
 
+def run_release_prepare_files(
+    *,
+    plan_path: Path | None = None,
+    release_version: str | None = None,
+    release_date: str | None = None,
+) -> int:
+    """Prepare deterministic release files without requiring checklist closure.
+
+    This focused lane exists so version-dependent release tasks can align and
+    verify package metadata before the strict release-preflight readiness guard
+    runs. The full preflight repeats the same preparation idempotently and
+    remains the only command that can produce a publication handoff report.
+    """
+    try:
+        resolved_plan = _resolved_plan_path(plan_path, version=release_version)
+        target_version = _canonical_version(
+            release_version or _release_version_from_plan(resolved_plan)
+        )
+        target_date = release_date or _release_date_from_clock()
+        branch = _current_git_branch()
+        if branch is None:
+            raise RuntimeError("Git is unavailable; release-file preparation requires a checkout.")
+        if branch != "main":
+            raise RuntimeError(
+                "Release-file preparation must run from the main branch; "
+                f"current branch is {branch!r}."
+            )
+        project_version = _pyproject_release_version()
+        if _version_lineage(project_version) != _version_lineage(target_version):
+            raise RuntimeError(
+                "pyproject.toml and the active release plan describe different release lines: "
+                f"{project_version!r} vs {target_version!r}."
+            )
+        changed = _prepare_release_files(
+            resolved_plan,
+            release_version=target_version,
+            release_date=target_date,
+        )
+    except (OSError, RuntimeError, ValueError, json.JSONDecodeError) as exc:
+        print(f"ERROR: Release-file preparation failed: {exc}")
+        return 1
+
+    if changed:
+        print("PASS: Deterministic release files prepared for task verification.")
+    else:
+        print("PASS: Deterministic release files already match the requested release.")
+    print(
+        "This command does not create a release handoff. Run `make release-preflight` "
+        "after all prerequisite task checklists are closed."
+    )
+    return 0
+
+
 def _write_release_preflight_report(
     records: list[dict[str, object]],
     started_at: float,
@@ -2795,6 +2848,14 @@ def main() -> int:
         help="Run only the zero-active-deprecation ledger gate (v1 PR-profile check).",
     )
     parser.add_argument(
+        "--release-prepare-files",
+        action="store_true",
+        help=(
+            "Prepare deterministic release files before checklist closure; the strict "
+            "release-preflight must still run before publication."
+        ),
+    )
+    parser.add_argument(
         "--release-preflight",
         action="store_true",
         help="Run the strict pre-step-11 release gate and write the handoff report.",
@@ -2856,6 +2917,12 @@ def main() -> int:
         return run_deprecation_closure()
     if args.deprecation_ledger:
         return run_deprecation_ledger_gate()
+    if args.release_prepare_files:
+        return run_release_prepare_files(
+            plan_path=args.plan,
+            release_version=args.release_version,
+            release_date=args.release_date,
+        )
     if args.release_preflight:
         return run_release_preflight(
             plan_path=args.plan,
