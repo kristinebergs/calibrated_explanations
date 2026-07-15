@@ -799,6 +799,7 @@ active v0.11.6 plan.
    public API is frozen except for release-blocking defects.
 
 Release gate: Explanation Schema v1 frozen and compatibility statement published; the ADR-020 legacy wrap contract is verified against its v0.7.0-era baseline, intentional migration changes since v0.6.1 are accounted for, the exception taxonomy is preserved, and no unintended public-surface change exists from v0.11.6 to RC; caching/parallel staging validation signed off and telemetry verified against v0.11.3 documentation; Standard-002 ≥94% verified; upgrade checklist present, accurate, and reviewed; deprecation ledger is empty (zero active deprecations, proven during RC by the `make deprecation-closure` gate corrected in v0.11.6); RC package metadata is `Development Status :: 4 - Beta`; RC release notes state the public API freeze posture.
+
 ### v1.0.0 (stability declaration)
 
 <!-- Removed item #6 (Ratify ADR-030): moved to v0.11.3 so ratification informs RC readiness. -->

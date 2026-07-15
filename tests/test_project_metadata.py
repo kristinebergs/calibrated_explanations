@@ -26,7 +26,7 @@ def test_pyproject_development_status_classifier_matches_release_phase() -> None
 
     assert "Development Status :: 3 - Alpha" not in development_status_classifiers
 
-    if version.startswith("0.") or "rc" in version:
+    if version.startswith("0.") or "rc" in version or "dev" in version:
         expected = "Development Status :: 4 - Beta"
     else:
         expected = "Development Status :: 5 - Production/Stable"
