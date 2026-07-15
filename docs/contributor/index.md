@@ -2,9 +2,9 @@
 
 Use this hub to change code or docs without breaking CE semantics.
 
-Repository authority:
-- `kristinebergs/calibrated_explanations` is the active development mirror.
-- `Moffran/calibrated_explanations` is authoritative for releases, tags, PyPI publication, changelog, security advisories, and published docs.
+The authoritative public source, issue tracker, tags, releases, changelog, and
+published documentation belong to
+[`Moffran/calibrated_explanations`](https://github.com/Moffran/calibrated_explanations).
 
 ## Core path
 

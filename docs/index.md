@@ -2,9 +2,26 @@
 
 Use this site by audience and by task.
 
-Repository authority:
-- `kristinebergs/calibrated_explanations` is an active development mirror.
-- `Moffran/calibrated_explanations` is authoritative for versions, tags, GitHub releases, PyPI publication, changelog, security advisories, and published documentation.
+The public source, issue tracker, tags, and releases are maintained in
+[`Moffran/calibrated_explanations`](https://github.com/Moffran/calibrated_explanations).
+Install published packages from
+[PyPI](https://pypi.org/project/calibrated-explanations/), report problems in the
+[public issue tracker](https://github.com/Moffran/calibrated_explanations/issues),
+and read the
+[release notes](https://github.com/Moffran/calibrated_explanations/blob/main/CHANGELOG.md).
+
+```{admonition} 1.0.0rc1 release candidate
+:class: important
+
+The public API is frozen as of `1.0.0rc1`; only release-blocking defect fixes
+will be accepted before GA. Install the exact candidate with
+`pip install calibrated-explanations==1.0.0rc1` (or use
+`pip install --pre calibrated-explanations` to select the newest pre-release).
+The package remains classified as Beta during the RC. Before adoption, review
+the {doc}`v1.0.0 upgrade checklist <upgrade/v1.0.0-upgrade-checklist>`, the
+{doc}`Explanation Schema v1 freeze <schema_v1>`, and the
+[RC release notes](https://github.com/Moffran/calibrated_explanations/blob/main/CHANGELOG.md).
+```
 
 - New users start in {doc}`get-started/index`.
 - Practitioners use {doc}`practitioner/index`.

@@ -1,7 +1,7 @@
 # Tune runtime performance (opt-in)
 
-v0.9.0 introduces three performance controls that stay disabled by default: the
-calibrator cache, a multiprocessing backend, and vectorised perturbations baked
+CE provides three performance controls that stay disabled by default: the
+calibrator cache, a parallel backend, and vectorised perturbations baked
 into the core explainer. This guide shows how to enable each feature
 consciously, how to tune the new configuration surface, and how to revert to the
 baseline behaviour if they are not a fit for your deployment.
@@ -140,11 +140,12 @@ from calibrated_explanations.api.config import ExplainerBuilder
 builder = ExplainerBuilder(model)
 config = (
     builder
-    .perf_parallel(True, backend="threads", workers=4, granularity="feature")
+    .perf_parallel(True, backend="threads", workers=4, granularity="instance")
     .perf_feature_filter(True, per_instance_top_k=8)
     .build_config()
 )
-wrapper = WrapCalibratedExplainer._from_config(config)
+wrapper = WrapCalibratedExplainer.from_config(config)
+wrapper.fit(x_proper, y_proper)
 wrapper.calibrate(x_cal, y_cal)
 explanations = wrapper.explain_factual(x_test)
 ```
@@ -161,8 +162,9 @@ Internally, each factual/alternative call:
 - aggregates those weights and keeps at most ``top_k`` features for the batch,
 - passes the resulting ``features_to_ignore`` to the existing execution plugins.
 
-If the FAST plugin is not installed or fails, the filter is skipped and the
-behaviour falls back to the unfiltered explainers.
+If the FAST plugin is not installed or fails, the filter is skipped with a
+visible `UserWarning` and INFO log, and execution continues with the unfiltered
+explainers.
 
 ## Roll back to the baseline runtime
 
@@ -175,9 +177,8 @@ behaviour falls back to the unfiltered explainers.
    process-level telemetry counters.
 
 Document the change in your release notes or change log so operators know the
-performance toggles returned to their v0.8.x defaults. Capture cache metrics via
-``explainer._perf_cache.metrics.snapshot()`` or the telemetry callback if you
-need before/after validation.
+performance toggles returned to their defaults. Capture cache hit/miss events
+through the configured telemetry callback when you need before/after validation.
 
 ## See also
 

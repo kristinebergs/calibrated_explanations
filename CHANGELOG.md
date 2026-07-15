@@ -7,6 +7,11 @@
 
 ### Changed
 
+- **RC documentation readiness:** added the exact `1.0.0rc1` install pin and
+  visible Beta/API-freeze notice to the README and public docs landing paths;
+  corrected API examples that still used removed `.explain(...)` and private
+  `_from_config(...)` forms; aligned guarded-option defaults, feature-filter
+  metadata, and upgrade guidance with the frozen runtime contracts.
 - **RC cache/parallel staging sign-off:** the opt-in cache and explicit thread
   strategy paths passed the `1.0.0rc1` staging-equivalent smoke. The safe-defaults
   guide now names the optional `cache_hit` / `cache_miss` events and

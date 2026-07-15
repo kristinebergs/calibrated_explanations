@@ -1,25 +1,22 @@
 {
   "commands_run": [
-    "python -m ruff check src tests scripts",
-    "python -m ruff format --check src tests scripts",
+    "python -m ruff check tests/integration/test_doc_examples_smoke.py tests/unit/core/explain/test_guarded_explain_api.py",
+    "python -m ruff format --check tests/integration/test_doc_examples_smoke.py tests/unit/core/explain/test_guarded_explain_api.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python scripts/quality/check_docstring_coverage.py --fail-under 94.0"
+    "python -m sphinx -W --keep-going docs docs/_build/html",
+    "python -m sphinx -b linkcheck docs docs/_build/linkcheck"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-15T08:13:30.506141+00:00",
+  "generated_at": "2026-07-15T09:02:46.049393+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
   "skipped_heavy_gates": [
     {
       "gate": "coverage",
-      "reason": "Reserved for full/release validation."
-    },
-    {
-      "gate": "docs_html",
       "reason": "Reserved for full/release validation."
     },
     {
@@ -47,5 +44,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 4
+  "task_id": 5
 }

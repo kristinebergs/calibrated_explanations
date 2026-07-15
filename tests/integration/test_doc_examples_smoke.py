@@ -22,6 +22,7 @@ matplotlib.use("Agg")
 
 _README_PATH = Path("README.md")
 _QUICK_API_PATH = Path("docs/get-started/quick_api.md")
+_API_REFERENCE_PATH = Path("docs/api/calibrated_explainer.md")
 _DEPRECATIONS_PATH = Path("docs/migration/deprecations.md")
 _USE_PLUGINS_PATH = Path("docs/practitioner/advanced/use_plugins.md")
 
@@ -140,6 +141,16 @@ def test_quick_api_python_examples_execute_without_error() -> None:
     regression_globals = _build_regression_context()
     exec(quick_api_blocks[2], regression_globals)
     exec(quick_api_blocks[3], regression_globals)
+
+
+def test_should_execute_api_reference_core_examples_without_error() -> None:
+    api_text = _API_REFERENCE_PATH.read_text(encoding="utf-8")
+    api_blocks = _python_blocks(_API_REFERENCE_PATH)
+
+    assert len(api_blocks) >= 2
+    assert ".explain(" not in api_text
+    exec(api_blocks[0], {})
+    exec(api_blocks[1], {})
 
 
 def test_deprecations_guarded_examples_execute_without_error() -> None:

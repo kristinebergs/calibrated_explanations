@@ -22,10 +22,12 @@ from sklearn.model_selection import train_test_split
 
 # Load data
 X, y = load_iris(return_X_y=True)
-x_train, x_cal, y_train, y_cal = train_test_split(X, y, test_size=0.2)
+x_train, x_cal, y_train, y_cal = train_test_split(
+    X, y, test_size=0.2, stratify=y, random_state=0
+)
 
 # Train model
-model = RandomForestClassifier()
+model = RandomForestClassifier(random_state=0)
 model.fit(x_train, y_train)
 
 # Initialize explainer
@@ -33,7 +35,7 @@ explainer = CalibratedExplainer(model, x_cal, y_cal, mode='classification')
 
 # Explain a test instance
 x_test = x_cal[:1]
-explanations = explainer.explain(x_test)
+explanations = explainer.explain_factual(x_test)
 ```
 
 `{eval-rst}
@@ -46,7 +48,7 @@ explanations = explainer.explain(x_test)
 
 ### WrapCalibratedExplainer
 
-The `WrapCalibratedExplainer` acts as a wrapper around `CalibratedExplainer` to provide a standard scikit-learn interface (`fit`, `predict`, `predict_proba`). It simplifies the workflow by handling the splitting of data into calibration and training sets (if needed) and managing the underlying `CalibratedExplainer` instance.
+The `WrapCalibratedExplainer` acts as a wrapper around `CalibratedExplainer` to provide a standard scikit-learn interface (`fit`, `predict`, `predict_proba`). Callers retain control of the proper-training and held-out calibration splits: call `fit(...)`, then `calibrate(...)`, before requesting predictions or explanations.
 
 **Example Usage:**
 
@@ -54,20 +56,27 @@ The `WrapCalibratedExplainer` acts as a wrapper around `CalibratedExplainer` to 
 from calibrated_explanations import WrapCalibratedExplainer
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.datasets import load_iris
+from sklearn.model_selection import train_test_split
 
 # Load data
 X, y = load_iris(return_X_y=True)
+x_train, x_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.2, stratify=y, random_state=0
+)
+x_proper, x_cal, y_proper, y_cal = train_test_split(
+    x_train, y_train, test_size=0.25, stratify=y_train, random_state=0
+)
 
 # Initialize wrapper with a base model
-model = RandomForestClassifier()
+model = RandomForestClassifier(random_state=0)
 wrapper = WrapCalibratedExplainer(model)
 
-# Fit and calibrate (automatically handles data splitting if not provided)
-wrapper.fit(X, y)
+# Fit on the proper-training split and calibrate on held-out data
+wrapper.fit(x_proper, y_proper)
+wrapper.calibrate(x_cal, y_cal)
 
-# Explain
-x_test = X[:1]
-explanations = wrapper.explain(x_test)
+# Explain through the canonical public method
+explanations = wrapper.explain_factual(x_test[:1])
 ```
 
 `{eval-rst}
@@ -84,7 +93,7 @@ When you request explanations for a set of instances, the result is returned in 
 
 ### CalibratedExplanations
 
-A `CalibratedExplanations` object is returned when you call `explain()` on a `CalibratedExplainer`. It is a collection of explanations for the provided test instances. It serves as a container that allows you to iterate over individual explanations, visualize them, or export them.
+A `CalibratedExplanations` object is returned when you call `explain_factual()` on a `CalibratedExplainer` or `WrapCalibratedExplainer`. It is a collection of explanations for the provided test instances. It serves as a container that allows you to iterate over individual explanations, visualize them, or export them.
 
 **Example Usage:**
 
@@ -105,8 +114,7 @@ first_explanation = explanations[0]
 
 When FAST-based feature filtering is enabled (experimental), the `CalibratedExplanations` object may include additional metadata for transparency and debugging:
 
-- `features_to_ignore_per_instance`: A list of numpy arrays, one per instance, containing the feature indices ignored for that instance due to filtering. This is best-effort metadata and not part of the stable API.
-- `feature_filter_per_instance_ignore`: (On the `CalibratedExplainer` instance) The raw ignore masks from the most recent filtered batch.
+- `feature_filter_per_instance_ignore`: On the returned collection, a best-effort list of per-instance feature-index masks produced by filtering. The `CalibratedExplainer` also exposes the transient mask from the most recent filtered batch under the same attribute name. This diagnostic metadata is not part of the stable API.
 
 `{eval-rst}
 .. autoclass:: calibrated_explanations.explanations.explanations.CalibratedExplanations
@@ -134,7 +142,7 @@ This is the abstract base class for a single explanation. It contains the instan
 
 ### FactualExplanation
 
-A `FactualExplanation` explains *why* a model made a specific prediction for an instance. It identifies the feature values (conditions) that, if changed, would most likely alter the prediction. It focuses on the features present in the instance.
+A `FactualExplanation` explains the model's calibrated prediction for an instance through local feature rules, weights, and uncertainty intervals. It describes the observed instance; use `explore_alternatives(...)` when you need candidate changes.
 
 **Example Usage:**
 
@@ -172,3 +180,5 @@ alternative_explanation.plot()
    :show-inheritance:
    :inherited-members:
 `
+
+Entry-point tier: Tier 3.

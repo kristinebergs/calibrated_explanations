@@ -36,7 +36,9 @@ When telemetry is enabled, the following events are emitted:
 
 ### Logging and Observability
 
-Operational and governance logs follow :doc:`../standards/STD-005-logging-and-observability-standard`, keeping traces under domain-specific logger names and structured `extra` fields.
+Operational and governance logs follow the guidance in
+{doc}`../foundations/how-to/configure_telemetry`, keeping traces under
+domain-specific logger names and structured `extra` fields.
 
 Sample operational log emitted by `calibrated_explanations.core.explain.feature_filter` when filtering falls back:
 
@@ -98,7 +100,7 @@ Governance logs follow Standard-005’s domain differentiation, so they can be f
 Filtered explanations include best-effort metadata for transparency:
 
 ```python
-explanations = explainer.explain(x_test)
+explanations = explainer.explain_factual(x_test)
 if hasattr(explanations, 'feature_filter_per_instance_ignore'):
     for i, ignored in enumerate(explanations.feature_filter_per_instance_ignore):
         print(f"Instance {i} ignored features: {ignored}")

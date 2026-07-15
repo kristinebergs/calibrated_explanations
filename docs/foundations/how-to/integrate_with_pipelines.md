@@ -85,7 +85,7 @@ available), and whether auto-encoding is enabled.
 - Keep preprocessing deterministic so calibration and inference remain aligned.
 - Prefer column selectors over positional slicing when working with pandas
   DataFrames.
-- When migrating to a public configuration API, replace `_from_config` with the
-  official constructor provided by the release notes.
+- Construct configured wrappers through the public
+  `WrapCalibratedExplainer.from_config(config)` factory.
 
 > **Telemetry note:** Runtime telemetry remains opt-in. Enable it only when governance teams need pipeline provenance, then follow :doc:`configure_telemetry` to capture preprocessing metadata for each batch.

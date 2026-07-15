@@ -504,8 +504,24 @@ def test_guarded_docs__should_keep_significance_wording_aligned_with_api_contrac
     )
 
     assert "Lower values apply stricter filtering." not in concepts
-    assert "Larger values apply stricter filtering." in concepts
+    assert "Higher values are more inclusive" in concepts
     assert "representative perturbation passed the guard" not in quickstart
+
+
+def test_should_match_guarded_options_defaults_in_guarded_docs():
+    repo_root = Path(__file__).resolve().parents[4]
+    concepts = (
+        repo_root / "docs" / "foundations" / "concepts" / "guarded_explanations.md"
+    ).read_text(encoding="utf-8")
+    defaults = GuardedOptions()
+
+    expected = (
+        "`GuardedOptions` fields (all optional): "
+        f"`confidence={defaults.confidence}`, `n_neighbors={defaults.n_neighbors}`,\n"
+        f"`normalize={defaults.normalize}`, `merge_adjacent={defaults.merge_adjacent}`, "
+        f"`verbose={defaults.verbose}`."
+    )
+    assert expected in concepts
 
 
 # ---------------------------------------------------------------------------

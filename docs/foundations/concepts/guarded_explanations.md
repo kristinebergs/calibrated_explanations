@@ -25,8 +25,8 @@ guarded_factual = explainer.explain_factual(X, guarded_options=GuardedOptions(co
 guarded_alts = explainer.explore_alternatives(X, guarded_options=GuardedOptions(confidence=0.9))
 ```
 
-`GuardedOptions` fields (all optional): `confidence=0.9`, `n_neighbors=None`,
-`normalize=False`, `merge_adjacent=False`.
+`GuardedOptions` fields (all optional): `confidence=0.9`, `n_neighbors=5`,
+`normalize=True`, `merge_adjacent=False`, `verbose=False`.
 
 > **Migration note**: `guarded=True` was removed in v0.11.5. Replace
 > `guarded=True, significance=0.1` with `guarded_options=GuardedOptions(confidence=0.9)`
@@ -43,7 +43,7 @@ guarded_alts = explainer.explore_alternatives(X, guarded_options=GuardedOptions(
 **Interval-level false positive rate (FPR).**
 The conformal guarantee operates at the representative-point level, not over
 the full interval.  Empirically, the interval-level FPR can exceed the nominal
-significance level, especially for wide bins whose representative point is
+derived significance level, especially for wide bins whose representative point is
 near the distribution boundary.  Do not treat `significance` as a certified
 per-interval false positive bound.
 
@@ -78,10 +78,11 @@ guarded interval candidates.
 
 | Parameter | Meaning |
 | --- | --- |
-| `significance` | Larger values apply stricter filtering. |
+| `confidence` | Coverage-style conformity threshold. Higher values are more inclusive (`significance = 1 - confidence`). |
 | `merge_adjacent` | Merge adjacent conforming bins when enabled. |
 | `n_neighbors` | KNN neighbors for conformity scoring. |
-| `normalize_guard` | Apply per-feature normalization before distance calculations. |
+| `normalize` | Apply per-feature normalization before distance calculations. |
+| `verbose` | Emit additional guarded-mode diagnostic warnings when enabled. |
 
 ## Related pages
 

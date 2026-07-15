@@ -20,10 +20,10 @@ pip install calibrated-explanations scikit-learn
 ## 1. Load data and split sets
 
 ```python
-from sklearn.datasets import load_breast_cancer
+from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
 
-dataset = load_breast_cancer()
+dataset = load_iris()
 x = dataset.data
 y = dataset.target
 
@@ -57,6 +57,9 @@ For multiclass all-class explanations:
 ```python
 multi_factual = explainer.explain_factual(x_test[:5], multi_labels_enabled=True)
 ```
+
+`multi_labels_enabled` remains an explicitly experimental call-time option; its
+spelling is canonical, but its contract is not part of the frozen stable surface.
 
 ## 4. Explore calibrated alternatives
 

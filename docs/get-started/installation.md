@@ -4,6 +4,21 @@ Calibrated Explanations is published on PyPI and conda-forge. Install the base
 package first, then add extras that unlock plotting, notebook examples, or
 contributor tooling.
 
+## Try the 1.0.0 release candidate
+
+Use the exact pin when testing the frozen v1 API:
+
+```bash
+pip install calibrated-explanations==1.0.0rc1
+```
+
+Use the pre-release selector only when you intentionally want the newest
+available candidate:
+
+```bash
+pip install --pre calibrated-explanations
+```
+
 ## PyPI
 
 ```bash
@@ -35,7 +50,8 @@ package via conda and then add the relevant extras with `pip`.
 python -c "import calibrated_explanations; print(calibrated_explanations.__version__)"
 ```
 
-The command should echo `0.10.3` or later once your environment is ready.
+The exact RC pin should print `1.0.0rc1`. For an unpinned installation, the
+command prints the version selected by your package manager.
 
 ## Optional contributor fast path
 
@@ -53,4 +69,6 @@ uv pip install -e .[dev] -c constraints.txt
 ```
 
 This `uv` command is optional and constraint-based. The project does not treat
-`uv.lock` as an authoritative lockfile for v0.11.3.
+`uv.lock` as an authoritative dependency lockfile.
+
+Entry-point tier: Tier 2.

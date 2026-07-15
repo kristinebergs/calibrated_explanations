@@ -46,6 +46,6 @@ aliases (for example `alpha`/`alphas`, `n_jobs`) and raises
 `ConfigurationError` with canonical replacements.
 
 `calibrated_explanations.api.config.ExplainerConfig` and the accompanying
-builder expose typed configuration scaffolding. In v0.9.0 the helper remains a
-private entry point for the wrapper (`WrapCalibratedExplainer._from_config`), but
-telemetry records any supplied defaults or preprocessors.
+builder expose the public typed configuration surface. Construct a configured
+wrapper with `WrapCalibratedExplainer.from_config(config)`; the removed private
+`_from_config` helper is not part of the v1 API.
