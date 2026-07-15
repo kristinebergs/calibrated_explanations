@@ -201,9 +201,17 @@ jobs:
           extras: 'dev,viz'
       - name: Run examples smoke
         run: |
+          set -o pipefail
           mkdir -p artifacts
-          pytest examples -q --no-cov 2>&1 | tee artifacts/examples_smoke.log
-          exit ${PIPESTATUS[0]}
+          status=0
+          for script in examples/use_cases/*.py; do
+            echo "::group::$script"
+            if ! python "$script" 2>&1 | tee -a artifacts/examples_smoke.log; then
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "$status"
       - name: Upload examples logs
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v6

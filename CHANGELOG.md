@@ -60,6 +60,24 @@
   data from release-facing metadata. Release-candidate markers such as `rc1`
   are now preserved, so the checker agrees with the exact prerelease written to
   `CITATION.cff` and `METADATA.json` by the release updater.
+- **Task 6 CI evidence (2026-07-15):** dispatching `scheduled.yml` on the RC
+  candidate commit (run `29410010188`) surfaced two failures unrelated to the
+  full 3.10-3.13 Python matrix, which passed. `tests/parity_reference/*.json`
+  fixtures for the `classification` and `multiclass` datasets were stale
+  against the intentional, already-documented and already-tested v0.11.6
+  `predict(...)` label-dtype change above (commit `3f6e0d9a`): the fixtures
+  still expected coerced string labels (`"C0"`/`"C1"`) instead of the
+  preserved original label dtype. Regenerated via
+  `python tests/parity_reference/run_parity_reference.py --dataset
+  {classification,multiclass} [--condition-source prediction] --update`;
+  parity now holds for all four datasets across both condition sources. No
+  production code changed. Separately, the `examples-smoke` job added by the
+  v0.11.6 Task 60 CI consolidation ran `pytest examples -q`, which always
+  collected zero tests (`examples/` holds runnable demo scripts, not
+  `test_*.py` files) and failed with exit code 5 on every dispatch since it
+  was introduced. `.github/workflows/scheduled.yml` now runs each
+  `examples/use_cases/*.py` script directly and fails the job if any script
+  exits non-zero; all six scripts pass locally.
 
 ## [v0.11.6](https://github.com/Moffran/calibrated_explanations/releases/tag/v0.11.6) - 2026-07-15
 
