@@ -2131,19 +2131,20 @@ def _is_development_version(version: str) -> bool:
 
 
 def _run_release_pypi_page_check(version: str) -> int:
-    """Verify that PyPI exposes the exact published release metadata."""
+    """Verify that PyPI exposes the exact published release metadata.
+
+    Only the JSON API is checked. The rendered project page is not: PyPI's
+    CDN serves a bot-protection JS challenge page to plain scripted requests,
+    so asserting on its body is unreliable regardless of release state, while
+    the JSON API is the authoritative source for published version metadata.
+    """
     endpoint = f"https://pypi.org/pypi/calibrated-explanations/{version}/json"
-    project_page = f"https://pypi.org/project/calibrated-explanations/{version}/"
     script = (
         "import json, urllib.request; "
         f"payload = json.load(urllib.request.urlopen({endpoint!r}, timeout=30)); "
         "actual = payload['info']['version']; "
         f"expected = {version!r}; "
         "assert actual == expected, f'PyPI version mismatch: {actual!r} != {expected!r}'; "
-        f"page = urllib.request.urlopen({project_page!r}, timeout=30); "
-        "body = page.read(); "
-        "assert page.status == 200 and expected.encode() in body, "
-        "f'PyPI project page did not render release {expected}'; "
         "print(actual)"
     )
     return _run_step(

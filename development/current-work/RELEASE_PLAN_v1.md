@@ -6,7 +6,7 @@
 
 ## Current released version: v0.11.6
 
-> Status: v0.11.6 prepared for release on 2026-07-15; publication remains governed by release.md steps 11-13.
+> Status: v0.11.6 shipped on 2026-07-15. Release artifacts were verified on PyPI by `make release-postcommit`.
 
 
 Maintainers: Core team
@@ -34,8 +34,8 @@ Detailed ADR/Standard status tables, gap inventories, and historical compliance 
 ### Control snapshot
 
 - **Current released version:** v0.11.6
-- **Active detailed milestone:** v0.11.6 (`development/current-work/v0.11.6_plan.md`)
-- **Next milestone:** v1.0.0-rc
+- **Active detailed milestone:** v1.0.0-rc (`development/current-work/v1.0.0-rc_plan.md`)
+- **Next milestone:** v1.0.0
 - **Status appendix:** `development/current-work/RELEASE_PLAN_status_appendix.md`
 
 ### Release-blocking conditions
