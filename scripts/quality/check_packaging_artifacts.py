@@ -281,7 +281,9 @@ def main() -> int:
 
     report_path = Path(args.report)
     report_path.parent.mkdir(parents=True, exist_ok=True)
-    report_path.write_text(json.dumps(asdict(result), indent=2) + "\n", encoding="utf-8")
+    report_path.write_text(
+        json.dumps(asdict(result), indent=2) + "\n", encoding="utf-8", newline="\n"
+    )
 
     if result.errors:
         for error in result.errors:

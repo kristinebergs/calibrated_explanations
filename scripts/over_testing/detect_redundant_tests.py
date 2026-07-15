@@ -19,6 +19,7 @@ import sqlite3
 import hashlib
 import json
 import csv
+import os
 import sys
 from pathlib import Path
 from collections import defaultdict
@@ -88,7 +89,7 @@ def get_coverage_data_via_api() -> Dict[str, Set[Tuple[str, int]]]:
     """Fallback using official coverage API."""
     from coverage import CoverageData
 
-    cd = CoverageData()
+    cd = CoverageData(basename=os.environ.get("COVERAGE_FILE", ".coverage"))
     cd.read()
 
     test_coverage = defaultdict(set)

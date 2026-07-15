@@ -319,7 +319,7 @@ def _validate_existing_evidence() -> int:
 def _write(payload: dict[str, Any]) -> None:
     out = _OUT_DIR / f"{payload['evidence_id']}.json"
     _validate_payload(payload, out.stem)
-    out.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+    out.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8", newline="\n")
     print(f"  wrote {out.name}")
 
 

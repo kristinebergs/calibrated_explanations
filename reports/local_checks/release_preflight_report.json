@@ -1,333 +1,486 @@
 {
+  "automated_release_steps": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10
+  ],
   "branch": "main",
-  "exit_status": 1,
-  "generated_at": "2026-07-13T06:51:26.915661+00:00",
-  "git_status_porcelain": "",
+  "changed_release_files": [
+    "CITATION.cff",
+    "CHANGELOG.md",
+    "development/current-work/RELEASE_PLAN_v1.md"
+  ],
+  "exit_status": 0,
+  "generated_at": "2026-07-15T01:25:41.213798+00:00",
+  "git_status_porcelain": "M .github/copilot-feedback-log.md\n M CHANGELOG.md\n M CITATION.cff\n M development/current-work/RELEASE_PLAN_v1.md\n M docs/citing.md\n M notebooks/advanced/demo_conditional.ipynb\n M notebooks/advanced/demo_config_management.ipynb\n M notebooks/advanced/demo_narrative_explanations.ipynb\n M notebooks/advanced/demo_plugin_wiring.ipynb\n M notebooks/advanced/demo_reject.ipynb\n M notebooks/advanced/demo_under_the_hood.ipynb\n M notebooks/advanced/fast_feature_filtering_demo.ipynb\n M notebooks/core_demos/demo_binary_classification.ipynb\n M notebooks/core_demos/demo_multiclass_glass.ipynb\n M notebooks/core_demos/demo_probabilistic_regression.ipynb\n M notebooks/core_demos/demo_regression.ipynb\n M notebooks/miscellaneous/demo_speeddating.ipynb\n M notebooks/miscellaneous/imbalanced_wrap.ipynb\n M notebooks/miscellaneous/support_xgboost_lightgbm_catboost_issue_92.ipynb\n M notebooks/paper_based/ensured.ipynb\n M notebooks/quickstart.ipynb\n M notebooks/quickstart_guarded.ipynb\n M notebooks/quickstart_tiny.ipynb\n M pyproject.toml\n M reports/anti-pattern-analysis/adr030_ratification_timing.json\n M reports/anti-pattern-analysis/test_helper_wrapper_report.json\n M reports/anti-pattern-analysis/test_quality_report.json\n M reports/config_manager_usage_report.json\n M reports/deprecations/active_deprecations_check.json\n M reports/deprecations/deprecation_closure_timing.json\n M reports/local_checks/release_preflight_report.json\n M reports/local_checks/task_profile_report.json\n M reports/marker-hygiene/marker_hygiene_report.json\n M reports/over_testing/block_coverage_counts.csv\n M reports/over_testing/line_coverage_counts.csv\n M reports/over_testing/metadata.json\n M reports/over_testing/redundant_tests.csv\n M reports/over_testing/summary.json\n M reports/packaging/license_artifact_check.json\n M reports/quality/config_manager_usage_report.json\n M reports/quality/logging_domain_report.json\n M reports/quality/meta_test_guard.json\n M reports/quality/no_local_paths_report.json\n M reports/quality/warning_policy.json\n M reports/trust_mutation_inventory.json\n M scripts/docs/run_notebooks.py\n M scripts/generate_tif_evidence.py\n M scripts/local_checks.py\n M scripts/over_testing/detect_redundant_tests.py\n M scripts/over_testing/over_testing_triage.py\n M scripts/over_testing/prune_generated_tests.py\n M scripts/quality/check_config_manager_usage.py\n M scripts/quality/check_core_extras_parity.py\n M scripts/quality/check_governance_event_schema.py\n M scripts/quality/check_packaging_artifacts.py\n M scripts/quality/check_warning_policy.py\n M src/calibrated_explanations/__init__.py\n?? reports/verification/CE-EVID-EXPL-001-20260714.json\n?? reports/verification/CE-EVID-EXPL-001-20260715.json\n?? reports/verification/CE-EVID-EXPL-CONJ-001-20260714.json\n?? reports/verification/CE-EVID-EXPL-CONJ-001-20260715.json\n?? reports/verification/CE-EVID-FILTER-001-20260714.json\n?? reports/verification/CE-EVID-FILTER-001-20260715.json\n?? reports/verification/CE-EVID-GUARD-001-20260714.json\n?? reports/verification/CE-EVID-GUARD-001-20260715.json\n?? reports/verification/CE-EVID-MOND-001-20260714.json\n?? reports/verification/CE-EVID-MOND-001-20260715.json\n?? reports/verification/CE-EVID-NARR-001-20260714.json\n?? reports/verification/CE-EVID-NARR-001-20260715.json\n?? reports/verification/CE-EVID-PRED-001-20260714.json\n?? reports/verification/CE-EVID-PRED-001-20260715.json\n?? reports/verification/CE-EVID-PRED-CLASS-001-20260714.json\n?? reports/verification/CE-EVID-PRED-CLASS-001-20260715.json\n?? reports/verification/CE-EVID-PRED-PROB-001-20260714.json\n?? reports/verification/CE-EVID-PRED-PROB-001-20260715.json\n?? reports/verification/CE-EVID-REJECT-001-20260714.json\n?? reports/verification/CE-EVID-REJECT-001-20260715.json\n?? reports/verification/CE-EVID-VIZ-001-20260714.json\n?? reports/verification/CE-EVID-VIZ-001-20260715.json\n?? scripts/tests/benchmarks/api_public_20260714_233317.txt\n?? scripts/tests/benchmarks/api_public_20260715_012357.txt",
   "manual_release_steps": [
     11,
     12,
-    13,
+    13
+  ],
+  "parse_errors": [],
+  "plan_path": "development/current-work/v0.11.6_plan.md",
+  "platform": "Windows",
+  "postcommit_release_steps": [
     14,
     15,
     16,
     17
   ],
-  "parse_errors": [],
-  "plan_path": "development/current-work/v0.11.6_plan.md",
-  "platform": "Windows",
-  "preflight_passed": false,
-  "pyproject_version": "0.11.6-dev",
-  "python_version": "3.14.4",
+  "preflight_passed": true,
+  "prepared_release_files": [
+    "pyproject.toml",
+    "src/calibrated_explanations/__init__.py",
+    "CITATION.cff",
+    "docs/citing.md",
+    "METADATA.json",
+    "CHANGELOG.md",
+    "development/current-work/RELEASE_PLAN_v1.md"
+  ],
+  "pyproject_version": "0.11.6",
+  "python_version": "3.11.9",
+  "release_version": "0.11.6",
   "schema_version": 1,
   "steps": [
     {
       "command": "parse development/current-work/v0.11.6_plan.md release gate summary",
-      "elapsed_seconds": 0.208,
-      "exit_code": 1,
+      "elapsed_seconds": 0.109,
+      "exit_code": 0,
       "name": "Release readiness guard"
+    },
+    {
+      "command": "prepare release.md files for v0.11.6 (2026-07-15)",
+      "elapsed_seconds": 0.015,
+      "exit_code": 0,
+      "name": "Release file preparation"
+    },
+    {
+      "command": "python -m pytest -q",
+      "elapsed_seconds": 317.157,
+      "exit_code": 0,
+      "name": "Full pytest suite"
+    },
+    {
+      "command": "python -m pip install -e .[dev]",
+      "elapsed_seconds": 14.219,
+      "exit_code": 0,
+      "name": "Editable install (release tree)"
+    },
+    {
+      "command": "python -c import calibrated_explanations as ce; print(ce.__version__)",
+      "elapsed_seconds": 0.203,
+      "exit_code": 0,
+      "name": "Editable install version smoke"
+    },
+    {
+      "command": "python -m jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=600 notebooks/quickstart.ipynb notebooks/quickstart_guarded.ipynb notebooks/quickstart_tiny.ipynb notebooks/core_demos/demo_binary_classification.ipynb notebooks/core_demos/demo_multiclass_glass.ipynb notebooks/core_demos/demo_probabilistic_regression.ipynb notebooks/core_demos/demo_regression.ipynb notebooks/miscellaneous/demo_speeddating.ipynb notebooks/miscellaneous/imbalanced_wrap.ipynb notebooks/miscellaneous/support_xgboost_lightgbm_catboost_issue_92.ipynb notebooks/paper_based/ensured.ipynb notebooks/advanced/demo_conditional.ipynb notebooks/advanced/demo_config_management.ipynb notebooks/advanced/demo_narrative_explanations.ipynb notebooks/advanced/demo_plugin_wiring.ipynb notebooks/advanced/demo_reject.ipynb notebooks/advanced/demo_under_the_hood.ipynb",
+      "elapsed_seconds": 705.094,
+      "exit_code": 0,
+      "name": "Release notebooks (saved in-place)"
+    },
+    {
+      "command": "python -m jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=5400 notebooks/advanced/fast_feature_filtering_demo.ipynb",
+      "elapsed_seconds": 753.86,
+      "exit_code": 0,
+      "name": "Release slow notebook (saved in-place)"
+    },
+    {
+      "command": "python scripts/local_checks.py --profile release",
+      "elapsed_seconds": 2127.375,
+      "exit_code": 0,
+      "name": "Release profile"
+    },
+    {
+      "command": "python -m twine check dist/*",
+      "elapsed_seconds": 0.812,
+      "exit_code": 0,
+      "name": "Release artifact validation"
+    },
+    {
+      "command": "create temp venv; install calibrated_explanations from dist; import version",
+      "elapsed_seconds": 95.281,
+      "exit_code": 0,
+      "name": "Release wheel smoke"
     }
   ],
   "task_checklist_state": {
     "1": {
       "all_items_checked": true,
       "checked_items": 7,
+      "title": "Fix the deprecation-closure gate",
       "total_items": 7
     },
     "2": {
       "all_items_checked": true,
       "checked_items": 7,
+      "title": "Guarded kwarg fail-fast closure (bug-list Finding 1; ledger items 1\u20135)",
       "total_items": 7
     },
     "3": {
       "all_items_checked": true,
       "checked_items": 6,
+      "title": "`predict_reject` / `apply_policy` unknown-kwarg validation (bug-list Finding 2; ledger item 6)",
       "total_items": 6
     },
     "4": {
       "all_items_checked": true,
       "checked_items": 7,
+      "title": "Coercer fail-fast: normalization strategy and interval summary (bug-list Findings 3\u20134; ledger item 7)",
       "total_items": 7
     },
     "5": {
       "all_items_checked": true,
       "checked_items": 15,
+      "title": "ADR-038 parameter-surface hardening and public API graduation (former RC Task 0b)",
       "total_items": 15
     },
     "6": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Scoped warnings handling in `venn_abers.py` (bug-list Finding 5)",
       "total_items": 4
     },
     "7": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Documentation corrections (bug-list Findings 7\u20138)",
       "total_items": 4
     },
     "8": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "`ncf=\"entropy\"` alias decision and lint hygiene (bug-list low-severity items)",
       "total_items": 4
     },
     "9": {
       "all_items_checked": true,
       "checked_items": 19,
+      "title": "Local verification profile cleanup and development-loop simplification",
       "total_items": 19
     },
     "10": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Pre-v1 audit blocker: close ADR-030 assertion-less tests",
       "total_items": 5
     },
     "11": {
       "all_items_checked": true,
       "checked_items": 6,
+      "title": "Pre-v1 audit blocker: include BSD license text in release artifacts",
       "total_items": 6
     },
     "12": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Pre-v1 audit: fix `to_narrative(format=...)` silent no-op guidance",
       "total_items": 4
     },
     "13": {
       "all_items_checked": true,
-      "checked_items": 5,
-      "total_items": 5
+      "checked_items": 8,
+      "title": "Pre-v1 audit: align runtime version and package metadata",
+      "total_items": 8
     },
     "14": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Pre-v1 audit: guarded removed-kwarg docs, skills, and ADR sweep",
       "total_items": 4
     },
     "15": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Pre-v1 audit: remove `tests.helpers` imports from public docs",
       "total_items": 4
     },
     "16": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Pre-v1 audit: empty calibration data must raise a CE error",
       "total_items": 5
     },
     "17": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Pre-v1 audit: refresh stale notebook warning outputs",
       "total_items": 4
     },
     "18": {
       "all_items_checked": true,
       "checked_items": 3,
+      "title": "Pre-v1 audit: fix missing legacy API contract link",
       "total_items": 3
     },
     "19": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Pre-v1 audit: align narrative template docs and fallback contract",
       "total_items": 4
     },
     "20": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Pre-v1 audit: resolve PlotSpec schema/package-data drift",
       "total_items": 4
     },
     "21": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Pre-v1 audit: resolve suspicious follow-ups before RC handoff",
       "total_items": 4
     },
     "22": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Optional: promote shared test-utility private helpers (non-blocking hygiene)",
       "total_items": 5
     },
     "23": {
       "all_items_checked": true,
       "checked_items": 6,
+      "title": "Pre-v2 audit: numeric class-label encoding policy (pre-v2-gaps P3)",
       "total_items": 6
     },
     "24": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Pre-v2 audit: runtime deprecation closure and `narrative_format=` disposition (pre-v2-gaps P2)",
       "total_items": 5
     },
     "25": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Pre-v2 audit: restore fallback-visibility warning enforcement (pre-v2-gaps P6)",
       "total_items": 4
     },
     "26": {
       "all_items_checked": true,
       "checked_items": 6,
+      "title": "Pre-v2 audit: packaging metadata sanity and release-profile artifact smoke (pre-v2-gaps P4/P5/P7)",
       "total_items": 6
     },
     "27": {
       "all_items_checked": true,
       "checked_items": 6,
+      "title": "Pre-v2 audit: close narrative/plot kwarg seams and plugin-forwarding visibility (pre-v2-gaps P8; Task 5 follow-up)",
       "total_items": 6
     },
     "28": {
       "all_items_checked": true,
-      "checked_items": 5,
-      "total_items": 5
+      "checked_items": 6,
+      "title": "Pre-v2 audit: evidence and bookkeeping reconciliation (pre-v2-gaps P9/P10/P12)",
+      "total_items": 6
     },
     "29": {
       "all_items_checked": true,
       "checked_items": 11,
+      "title": "Pre-v1 test-quality correction: remove release-specific local-check meta-tests",
       "total_items": 11
     },
     "30": {
       "all_items_checked": true,
       "checked_items": 6,
+      "title": "Third-pass audit blocker: classification label inverse-mapping returns wrong labels",
       "total_items": 6
     },
     "31": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Third-pass audit blocker: preserve original label dtype in classification predictions",
       "total_items": 5
     },
     "32": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Third-pass audit blocker: validate interval threshold tuples in probabilistic regression",
       "total_items": 5
     },
     "33": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Third-pass audit: close uncalibrated predict/predict_proba kwarg and preprocessing bypass",
       "total_items": 5
     },
     "34": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Third-pass audit: QUICK_API contract corrections",
       "total_items": 5
     },
     "35": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Third-pass audit: doc-gate failure, mojibake, and encoding-safe tooling",
       "total_items": 5
     },
     "36": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Third-pass audit: version-source alignment for CITATION.cff, METADATA.json, and docs",
       "total_items": 4
     },
     "37": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Third-pass audit: remove shipped packaging cruft and normalize `preprocessing` package",
       "total_items": 5
     },
     "38": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Third-pass audit: deferred findings and maintainer-decision ledger",
       "total_items": 4
     },
     "39": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Fourth-pass audit blocker: narrative output correctness (pre-v3 B1, M7, M8)",
       "total_items": 5
     },
     "40": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Fourth-pass audit: reject prediction-path metadata contract (pre-v3 H1)",
       "total_items": 4
     },
     "41": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Fourth-pass audit: repair the two red release gates (pre-v3 H2, H3)",
       "total_items": 4
     },
     "42": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Fourth-pass audit: public doc examples must run (pre-v3 M1, M3, L1)",
       "total_items": 4
     },
     "43": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Fourth-pass audit: Windows encoding failures in user-facing output (pre-v3 H4, L6)",
       "total_items": 4
     },
     "44": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Fourth-pass audit: call-time validation seams (pre-v3 M4, M5)",
       "total_items": 4
     },
     "45": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Fifth-pass audit blocker: preprocessor transform failures must fail fast, not silently substitute raw data",
       "total_items": 5
     },
     "46": {
       "all_items_checked": true,
       "checked_items": 6,
+      "title": "Fifth-pass audit blocker: warning-policy gate must detect missing fallback signals",
       "total_items": 6
     },
     "47": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Fifth-pass audit blocker: rejected recalibration must not partially commit state",
       "total_items": 5
     },
     "48": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Fifth-pass audit blocker: `interval_summary` must apply consistently across prediction and explanation payloads",
       "total_items": 4
     },
     "49": {
       "all_items_checked": true,
       "checked_items": 7,
+      "title": "Fifth-pass audit: disposition of test-only public API aliases (pre-v4 S4-H1)",
       "total_items": 7
     },
     "50": {
       "all_items_checked": true,
       "checked_items": 7,
+      "title": "Fifth-pass audit: centralized validation for parameter values crossing the public boundary (pre-v4 S4-H2)",
       "total_items": 7
     },
     "51": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Fifth-pass audit: direct-core plugin-kwarg consumption policy (pre-v4 S4-H3)",
       "total_items": 5
     },
     "52": {
       "all_items_checked": true,
       "checked_items": 6,
+      "title": "Fifth-pass audit: correct stale guarded/FAST doc examples and plugin packaging mismatch (pre-v4 S4-H4)",
       "total_items": 6
     },
     "53": {
       "all_items_checked": true,
-      "checked_items": 4,
-      "total_items": 4
+      "checked_items": 6,
+      "title": "Fifth-pass audit: frozen explanation snapshots must not share live mutable state (pre-v4 S4-H5)",
+      "total_items": 6
     },
     "54": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Fifth-pass audit: unify plot and prediction validation contracts (pre-v4 S4-H6)",
       "total_items": 5
     },
     "55": {
       "all_items_checked": true,
       "checked_items": 4,
+      "title": "Fifth-pass audit: align Python-floor documentation with package metadata (pre-v4 S4-M1)",
       "total_items": 4
     },
     "56": {
       "all_items_checked": true,
-      "checked_items": 4,
-      "total_items": 4
+      "checked_items": 6,
+      "title": "Fifth-pass audit: FAST tuning-knob differential coverage and pickle-reducer disposition (pre-v4 S4-M2, S4-I1)",
+      "total_items": 6
     },
     "57": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Sixth-pass audit: correct stale exception docstrings on core prediction/explanation surfaces (pre-v5 M1)",
       "total_items": 5
     },
     "58": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Sixth-pass audit: align declared strict-mypy scope with the enforced gates (pre-v5 M2)",
       "total_items": 5
     },
     "59": {
       "all_items_checked": true,
       "checked_items": 5,
+      "title": "Sixth-pass audit: LOW-severity remainder cleanup (pre-v5 L1, L3, L4)",
       "total_items": 5
     },
     "60": {
+      "all_items_checked": true,
+      "checked_items": 14,
+      "title": "v1 CI consolidation: minimal, secure, locally reproducible workflows",
+      "total_items": 14
+    },
+    "61": {
       "all_items_checked": false,
-      "checked_items": 0,
-      "total_items": 11
+      "checked_items": 6,
+      "title": "Release preparation",
+      "total_items": 13
     }
   },
-  "total_elapsed_seconds": 0.52
+  "total_elapsed_seconds": 4040.625,
+  "verified_release_files": [
+    "docs/conf.py",
+    "development/current-work/v0.11.6_plan.md"
+  ]
 }

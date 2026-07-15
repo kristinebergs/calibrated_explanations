@@ -190,7 +190,9 @@ def main(argv: list[str] | None = None) -> int:
     if args.report:
         report_path = Path(args.report)
         report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(json.dumps(report_payload, indent=2), encoding="utf-8")
+        report_path.write_text(
+            json.dumps(report_payload, indent=2) + "\n", encoding="utf-8", newline="\n"
+        )
         print(f"\nReport written to: {args.report}")
 
     if args.check and not success:

@@ -254,7 +254,9 @@ def write_report(path: Path, package_root: Path, violations: list[Violation]) ->
         "violations": [item.to_dict() for item in violations],
     }
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    path.write_text(
+        json.dumps(payload, sort_keys=True, indent=2) + "\n", encoding="utf-8", newline="\n"
+    )
 
 
 def main(argv: list[str] | None = None) -> int:

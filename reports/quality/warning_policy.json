@@ -1,9 +1,9 @@
 {
   "policy": "Retained user-visible fallbacks must emit UserWarning plus an INFO log. Internal best-effort fallbacks may remain exempt only when this registry records a reason and the available logger signal.",
   "warnings": {
-    "total": 106,
+    "total": 110,
     "by_category": {
-      "USER_CONTRACT": 91,
+      "USER_CONTRACT": 95,
       "FALLBACK_VISIBLE": 10,
       "DEPRECATION": 5
     },
@@ -31,28 +31,35 @@
       },
       {
         "file": "core/calibrated_explainer.py",
-        "line": 377,
+        "line": 387,
         "context": "CalibratedExplainer.__init__",
         "message_snippet": "condition_source not provided; defaulting to 'prediction' in v0.10.3. Pass condition_source='observed' to retain previous behaviour.",
         "category": "USER_CONTRACT"
       },
       {
         "file": "core/calibrated_explainer.py",
-        "line": 1726,
+        "line": 605,
+        "context": "CalibratedExplainer.__deepcopy__",
+        "message_snippet": "",
+        "category": "USER_CONTRACT"
+      },
+      {
+        "file": "core/calibrated_explainer.py",
+        "line": 1660,
         "context": "CalibratedExplainer.explain_factual",
         "message_snippet": "_use_plugin has no effect on guarded explanation methods",
         "category": "USER_CONTRACT"
       },
       {
         "file": "core/calibrated_explainer.py",
-        "line": 1856,
+        "line": 1802,
         "context": "CalibratedExplainer.explore_alternatives",
         "message_snippet": "_use_plugin has no effect on guarded explanation methods",
         "category": "USER_CONTRACT"
       },
       {
         "file": "core/calibrated_explainer.py",
-        "line": 2467,
+        "line": 2428,
         "context": "CalibratedExplainer.predict",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
@@ -129,77 +136,77 @@
       },
       {
         "file": "core/explain/orchestrator.py",
-        "line": 117,
+        "line": 139,
         "context": "_warn_source_index_issue",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "core/explain/orchestrator.py",
-        "line": 725,
+        "line": 747,
         "context": "ExplanationOrchestrator.invoke",
         "message_snippet": "Reject wrapper upgrade skipped due to reject metadata/payload misalignment.",
         "category": "USER_CONTRACT"
       },
       {
         "file": "core/explain/orchestrator.py",
-        "line": 760,
+        "line": 797,
         "context": "ExplanationOrchestrator.invoke",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "core/explain/orchestrator.py",
-        "line": 781,
+        "line": 818,
         "context": "ExplanationOrchestrator.invoke",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "core/explain/orchestrator.py",
-        "line": 801,
+        "line": 838,
         "context": "ExplanationOrchestrator.invoke",
         "message_snippet": "Auto-selecting experimental 'fast' explanation mode for feature filtering. The 'fast' pathway is experimental and opt-in only. Set CE_FEATURE_FILTER=off or disa",
         "category": "USER_CONTRACT"
       },
       {
         "file": "core/explain/orchestrator.py",
-        "line": 1028,
+        "line": 1065,
         "context": "ExplanationOrchestrator.invoke_factual",
         "message_snippet": "multi_labels_enabled=True was requested but the problem appears to be binary; this mode is intended for 3+ class problems.",
         "category": "USER_CONTRACT"
       },
       {
         "file": "core/explain/orchestrator.py",
-        "line": 1227,
+        "line": 1264,
         "context": "ExplanationOrchestrator.invoke_alternative",
         "message_snippet": "multi_labels_enabled=True was requested but the problem appears to be binary; this mode is intended for 3+ class problems.",
         "category": "USER_CONTRACT"
       },
       {
         "file": "core/explain/orchestrator.py",
-        "line": 1474,
+        "line": 1511,
         "context": "ExplanationOrchestrator.invoke_guarded_factual",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "core/explain/orchestrator.py",
-        "line": 1495,
+        "line": 1532,
         "context": "ExplanationOrchestrator.invoke_guarded_factual",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "core/explain/orchestrator.py",
-        "line": 1638,
+        "line": 1675,
         "context": "ExplanationOrchestrator.invoke_guarded_alternative",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "core/explain/orchestrator.py",
-        "line": 1659,
+        "line": 1696,
         "context": "ExplanationOrchestrator.invoke_guarded_alternative",
         "message_snippet": "",
         "category": "USER_CONTRACT"
@@ -332,44 +339,44 @@
       },
       {
         "file": "explanations/explanation.py",
-        "line": 351,
+        "line": 71,
+        "context": "_log_forwarded_plot_kwargs",
+        "message_snippet": "",
+        "category": "USER_CONTRACT"
+      },
+      {
+        "file": "explanations/explanation.py",
+        "line": 360,
         "context": "CalibratedExplanation._validate_prediction_invariant",
         "message_snippet": "Prediction interval invariant violated: low > high",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 359,
+        "line": 368,
         "context": "CalibratedExplanation._validate_prediction_invariant",
         "message_snippet": "Prediction invariant violated: predict not in [low, high]",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 1457,
+        "line": 1466,
         "context": "CalibratedExplanation.add_new_rule_condition",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 1463,
+        "line": 1472,
         "context": "CalibratedExplanation.add_new_rule_condition",
         "message_snippet": "Alternatives for all categorical features are already included",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 1473,
+        "line": 1482,
         "context": "CalibratedExplanation.add_new_rule_condition",
         "message_snippet": "Rule already included",
-        "category": "USER_CONTRACT"
-      },
-      {
-        "file": "explanations/explanation.py",
-        "line": 1489,
-        "context": "CalibratedExplanation.add_new_rule_condition",
-        "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
@@ -381,140 +388,154 @@
       },
       {
         "file": "explanations/explanation.py",
-        "line": 1566,
+        "line": 1507,
+        "context": "CalibratedExplanation.add_new_rule_condition",
+        "message_snippet": "<f-string>",
+        "category": "USER_CONTRACT"
+      },
+      {
+        "file": "explanations/explanation.py",
+        "line": 1575,
         "context": "CalibratedExplanation.add_new_rule_condition",
         "message_snippet": "The alternative explanation is identical to the original explanation",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 1837,
+        "line": 1846,
         "context": "FactualExplanation._check_preconditions",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 1844,
+        "line": 1853,
         "context": "FactualExplanation._check_preconditions",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 2321,
+        "line": 2330,
         "context": "FactualExplanation.add_conjunctions",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 2329,
+        "line": 2338,
         "context": "FactualExplanation.add_conjunctions",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 2415,
+        "line": 2424,
         "context": "FactualExplanation.plot",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 2531,
+        "line": 2540,
         "context": "FactualExplanation.plot",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 2791,
+        "line": 2800,
         "context": "AlternativeExplanation._check_preconditions",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 2798,
+        "line": 2807,
         "context": "AlternativeExplanation._check_preconditions",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 3874,
+        "line": 3883,
         "context": "AlternativeExplanation.add_conjunctions",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 3886,
+        "line": 3895,
         "context": "AlternativeExplanation.add_conjunctions",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 3988,
+        "line": 3997,
         "context": "AlternativeExplanation.plot",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 4206,
+        "line": 4215,
         "context": "FastExplanation.add_conjunctions",
         "message_snippet": "The add_conjunctions method is currently not supported for `FastExplanation`, making this call resulting in no change.",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 4223,
+        "line": 4232,
         "context": "FastExplanation.add_new_rule_condition",
         "message_snippet": "The add_new_rule_condition method is currently not supported for `FastExplanation`, making this call resulting in no change.",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 4379,
+        "line": 4388,
         "context": "FastExplanation.plot",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanations.py",
-        "line": 2055,
-        "context": "FrozenCalibratedExplainer.__init__",
-        "message_snippet": "Deepcopy of explainer failed; using original instance for frozen wrapper",
+        "line": 57,
+        "context": "_log_forwarded_plot_kwargs",
+        "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanations.py",
-        "line": 2921,
+        "line": 2086,
+        "context": "FrozenCalibratedExplainer.__init__",
+        "message_snippet": "",
+        "category": "USER_CONTRACT"
+      },
+      {
+        "file": "explanations/explanations.py",
+        "line": 2949,
         "context": "MultiClassCalibratedExplanations.plot",
         "message_snippet": "No explanations found",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanations.py",
-        "line": 2953,
+        "line": 2981,
         "context": "MultiClassCalibratedExplanations.plot_alternative",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanations.py",
-        "line": 3013,
+        "line": 3041,
         "context": "MultiClassCalibratedExplanations.plot_alternative",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanations.py",
-        "line": 3223,
+        "line": 3251,
         "context": "MultiClassCalibratedExplanations.plot_factual",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
@@ -549,7 +570,14 @@
       },
       {
         "file": "plotting.py",
-        "line": 557,
+        "line": 347,
+        "context": "_reject_unconsumed_plot_kwargs",
+        "message_snippet": "",
+        "category": "USER_CONTRACT"
+      },
+      {
+        "file": "plotting.py",
+        "line": 599,
         "context": "_setup_plot_style",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
@@ -563,21 +591,21 @@
       },
       {
         "file": "plugins/manager.py",
-        "line": 1020,
+        "line": 1034,
         "context": "PluginManager.resolve_explanation_plugin",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "plugins/manager.py",
-        "line": 1061,
+        "line": 1075,
         "context": "PluginManager.resolve_explanation_plugin_for_mode",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "plugins/manager.py",
-        "line": 1342,
+        "line": 1356,
         "context": "PluginManager.resolve_plot_plugin",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
@@ -605,49 +633,49 @@
       },
       {
         "file": "plugins/registry.py",
-        "line": 1768,
+        "line": 1756,
         "context": "load_entrypoint_plugins",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "plugins/registry.py",
-        "line": 1799,
+        "line": 1787,
         "context": "load_entrypoint_plugins",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "plugins/registry.py",
-        "line": 1822,
+        "line": 1810,
         "context": "load_entrypoint_plugins",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "plugins/registry.py",
-        "line": 1837,
+        "line": 1825,
         "context": "load_entrypoint_plugins",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "plugins/registry.py",
-        "line": 1851,
+        "line": 1839,
         "context": "load_entrypoint_plugins",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "plugins/registry.py",
-        "line": 1870,
+        "line": 1858,
         "context": "load_entrypoint_plugins",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "plugins/registry.py",
-        "line": 1918,
+        "line": 1906,
         "context": "load_entrypoint_plugins",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
@@ -703,14 +731,14 @@
       },
       {
         "file": "viz/_matplotlib_compat.py",
-        "line": 654,
+        "line": 666,
         "context": "plot_global",
         "message_snippet": "All uncertainties are (almost) identical.",
         "category": "USER_CONTRACT"
       },
       {
         "file": "viz/_matplotlib_compat.py",
-        "line": 684,
+        "line": 696,
         "context": "plot_global",
         "message_snippet": "plot_global requires a scalar threshold for non-probabilistic explainers.",
         "category": "USER_CONTRACT"

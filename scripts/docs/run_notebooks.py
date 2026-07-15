@@ -511,7 +511,7 @@ def run_notebooks(
             return 1
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+    output_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8", newline="\n")
 
     print(f"Notebook execution report written to {output_path}")
     print(

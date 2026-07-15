@@ -95,7 +95,7 @@ def main(argv=None) -> int:
         plan = {"proposed_removals": proposed, "questionable": [r["file"] for r in rows]}
 
     PLAN.parent.mkdir(parents=True, exist_ok=True)
-    PLAN.write_text(json.dumps(plan, indent=2), encoding="utf-8")
+    PLAN.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8", newline="\n")
     print(f"Wrote prune plan to {PLAN}")
     if args.apply:
         if not plan.get("proposed_removals"):

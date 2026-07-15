@@ -4,9 +4,9 @@
 
 # Release Plan to v1.0.0
 
-## Current released version: v0.11.5
+## Current released version: v0.11.6
 
-> Status: v0.11.5 shipped on 2026-07-07. Release artifacts were validated in a clean venv, and RTD stable was verified against the `v0.11.5` tag.
+> Status: v0.11.6 prepared for release on 2026-07-15; publication remains governed by release.md steps 11-13.
 
 
 Maintainers: Core team
@@ -33,8 +33,8 @@ Detailed ADR/Standard status tables, gap inventories, and historical compliance 
 
 ### Control snapshot
 
-- **Current released version:** v0.11.5
-- **Active detailed milestone:** v0.11.5 (inserted 2026-07-07 before v1.0.0-rc)
+- **Current released version:** v0.11.6
+- **Active detailed milestone:** v0.11.6 (`development/current-work/v0.11.6_plan.md`)
 - **Next milestone:** v1.0.0-rc
 - **Status appendix:** `development/current-work/RELEASE_PLAN_status_appendix.md`
 

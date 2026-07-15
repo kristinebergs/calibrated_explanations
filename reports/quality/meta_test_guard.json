@@ -5,6 +5,7 @@
   "findings": [],
   "allowlist": {
     "tests/scripts/test_check_no_release_profile_meta_tests.py": "fixture content for this guard's own detection tests",
-    "tests/capabilities/test_adr_capability_links.py": "capability evidence-chain contract references the status appendix"
+    "tests/capabilities/test_adr_capability_links.py": "capability evidence-chain contract references the status appendix",
+    "tests/scripts/test_local_checks_release_workflow.py": "release-file I/O contract for run_release_preflight/run_release_postcommit; asserts stable path-handling behavior, not transient plan task-id/profile-step wiring"
   }
 }

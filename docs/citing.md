@@ -184,7 +184,7 @@ To cite this software, use the following bibtex entry:
 	license = 	{BSD-3-Clause},
 	title = 	{Calibrated Explanations},
 	url = 		{https://github.com/Moffran/calibrated_explanations},
-	version = 	{v0.11.5},
+	version = 	{v0.11.6},
 	month = 	{July},
 	year = 		{2026}
 }

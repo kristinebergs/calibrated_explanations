@@ -1,5 +1,10 @@
 {
-  "generated_at": "2026-07-10T23:12:23+00:00",
+  "generated_at": "2026-07-15T01:23:29+00:00",
+  "summary": {
+    "artifacts": [],
+    "artifacts_with_violations": 0,
+    "category_counts": {}
+  },
   "total_violations": 0,
   "version": 1,
   "violations": []

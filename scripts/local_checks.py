@@ -122,6 +122,24 @@ def _mypy_targets() -> list[str]:
     return [path for path in candidates if Path(path).is_file()]
 
 
+def _local_checks_coverage_file() -> str:
+    """Return the isolated coverage-data filename shared by writer and reader steps.
+
+    Stable for the lifetime of this process, so any step that writes or reads
+    coverage data during this run resolves to the same path.
+    """
+    return f".coverage.local_checks.{os.getpid()}"
+
+
+_COVERAGE_WRITER_STEPS = {
+    "Core tests with coverage",
+    "Over-testing coverage contexts",
+}
+_COVERAGE_READER_STEPS = {
+    "Redundant tests report",
+}
+
+
 def _run_step(step: Step) -> int:
     repo_root = Path.cwd()
     command = list(step.command)
@@ -137,8 +155,8 @@ def _run_step(step: Step) -> int:
     print(f"$ {cmd_text}")
     env = dict(os.environ)
     env.setdefault("PRE_COMMIT_HOME", str(Path(".cache/pre-commit").resolve()))
-    if "coverage" in step.name.lower():
-        env.setdefault("COVERAGE_FILE", f".coverage.local_checks.{os.getpid()}")
+    if step.name in _COVERAGE_WRITER_STEPS or step.name in _COVERAGE_READER_STEPS:
+        env.setdefault("COVERAGE_FILE", _local_checks_coverage_file())
     if step.name in {
         "Core tests (no viz/no cov)",
         "Core tests with coverage",
@@ -978,6 +996,8 @@ def _full_steps(
                 _python_cmd(
                     "scripts/over_testing/over_testing_report.py",
                     "--require-multiple-contexts",
+                    "--coverage-file",
+                    _local_checks_coverage_file(),
                     "--output-lines",
                     "reports/over_testing/line_coverage_counts.csv",
                     "--output-blocks",
