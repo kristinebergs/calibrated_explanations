@@ -13,6 +13,7 @@ import logging
 import os
 import sys
 import warnings
+from dataclasses import dataclass
 from pathlib import Path, PurePath
 from types import MappingProxyType
 from typing import Any, Dict, List, Mapping, Sequence
@@ -480,6 +481,198 @@ def _render_collection_plot_plugin(
     artifact = plugin.build(context)
     validate_plot_artifact(artifact, identifier=identifier)
     return plugin.render(artifact, context=context)
+
+
+# CE-owned style vocabulary: explanation-level semantic names plus the two
+# registered built-in style identifiers. Any other explicit style string is a
+# third-party plugin request and takes the strict dispatch path below.
+_CE_OWNED_PLOT_STYLES = _BUILTIN_INSTANCE_PLOT_STYLES | {"legacy", "plot_spec.default"}
+
+# Keys consumed by CE for route selection or output transport; everything else
+# in the caller's kwargs is plugin-owned and forwarded untouched.
+_THIRD_PARTY_SELECTION_KEYS = frozenset({"style", "renderer", "use_legacy"})
+_THIRD_PARTY_TRANSPORT_KEYS = frozenset({"show", "path", "filename", "save_ext"})
+
+# Reserved key under which plot_global exposes CE's validated prediction
+# payload to global/dashboard plugins.
+_GLOBAL_PAYLOAD_KEY = "payload"
+
+
+@dataclass(frozen=True)
+class _PlotDispatchOutcome:
+    """Result of a third-party plot dispatch.
+
+    ``handled`` is deliberately distinct from ``result is not None``: a
+    renderer that successfully handles a request may legitimately return
+    ``None``, and that must not re-trigger built-in rendering.
+    """
+
+    handled: bool
+    result: Any = None
+
+
+def _is_third_party_plot_style(style: Any) -> bool:
+    """Return True when *style* explicitly requests a non-CE-owned plot style."""
+    return isinstance(style, str) and bool(style) and style not in _CE_OWNED_PLOT_STYLES
+
+
+def _reject_conflicting_plot_selection(style: str, kwargs: Mapping[str, Any]) -> None:
+    """Raise ValidationError for contradictory explicit plot requests."""
+    from .utils.exceptions import ValidationError  # pylint: disable=import-outside-toplevel
+
+    if kwargs.get("use_legacy"):
+        raise ValidationError(
+            f"Contradictory plot request: style='{style}' selects a third-party "
+            "plot plugin but use_legacy=True selects the built-in legacy "
+            "renderer. Remove one of the two."
+        )
+    style_override = kwargs.get("style_override")
+    if isinstance(style_override, str) and style_override and style_override != style:
+        raise ValidationError(
+            f"Contradictory plot request: style='{style}' and "
+            f"style_override='{style_override}' name different styles. "
+            "Remove one of the two."
+        )
+
+
+def _normalize_third_party_transport(kwargs: Mapping[str, Any]) -> tuple[bool, Any, Any]:
+    """Return ``(show, path, save_ext)`` for a third-party plot request.
+
+    The renderer owns output formats: the path is taken verbatim from ``path``
+    (or ``filename`` as its alias) with no directory prefix, suffix rewrite,
+    or Matplotlib-oriented splitting.
+    """
+    from .utils.exceptions import ValidationError  # pylint: disable=import-outside-toplevel
+
+    path = kwargs.get("path")
+    filename = kwargs.get("filename")
+    if path is not None and filename is not None and path != filename:
+        raise ValidationError(
+            "Conflicting output arguments: path="
+            f"{path!r} and filename={filename!r} differ. Provide only one "
+            "output location for a third-party plot style."
+        )
+    effective_path = path if path is not None else filename
+    show = kwargs.get("show", effective_path is None)
+    save_ext = kwargs.get("save_ext")
+    if isinstance(save_ext, list):
+        save_ext = tuple(save_ext)
+    return show, effective_path, save_ext
+
+
+def _third_party_plot_options(kwargs: Mapping[str, Any]) -> dict[str, Any]:
+    """Extract plugin-owned options from *kwargs* without mutating the caller's mapping."""
+    excluded = _THIRD_PARTY_SELECTION_KEYS | _THIRD_PARTY_TRANSPORT_KEYS
+    options: dict[str, Any] = {}
+    for key, value in kwargs.items():
+        if key in excluded:
+            continue
+        if key == "style_override" and (value is None or isinstance(value, str)):
+            # A string style_override is a selection surface (already validated
+            # against the explicit style) and None is its absent default;
+            # mapping-valued overrides remain plugin-visible configuration.
+            continue
+        options[key] = value
+    return options
+
+
+def _dispatch_third_party_plot(
+    *,
+    explainer: Any,
+    explanation: Any,
+    intent_type: str,
+    instance_metadata: Mapping[str, Any],
+    style: str,
+    renderer_override: str | None,
+    show: Any,
+    path: Any,
+    save_ext: Any,
+    options: Mapping[str, Any],
+    runtime: Mapping[str, Any],
+) -> _PlotDispatchOutcome:
+    """Resolve *style* strictly and run build -> validate -> render.
+
+    Errors from resolution, the builder, artifact validation, or the renderer
+    surface to the caller: an explicitly requested third-party style never
+    falls back to built-in rendering.
+    """
+    from .plugins import PlotRenderContext, ensure_builtin_plugins
+    from .utils.exceptions import ConfigurationError
+
+    ensure_builtin_plugins()
+    manager = getattr(explainer, "plugin_manager", None)
+    resolver = getattr(manager, "resolve_plot_plugin_strict", None)
+    if not callable(resolver):
+        raise ConfigurationError(
+            f"Cannot resolve plot style '{style}': no plugin manager with "
+            "strict plot-style resolution is reachable from this explanation. "
+            "Third-party styles require an explainer created through the "
+            "public CalibratedExplainer/WrapCalibratedExplainer API."
+        )
+    plugin, identifier, trusted = resolver(style, renderer_override=renderer_override)
+
+    context = PlotRenderContext(
+        explanation=explanation,
+        instance_metadata=MappingProxyType(dict(instance_metadata)),
+        style=identifier,
+        intent=MappingProxyType(
+            {
+                "type": intent_type,
+                "explainer_mode": getattr(explainer, "_last_explanation_mode", None),
+            }
+        ),
+        show=show,
+        path=path,
+        save_ext=save_ext,
+        options=MappingProxyType(dict(options)),
+        plugin_config=_bind_plot_plugin_config(manager, identifier, plugin),
+        # ADR-006: live runtime references (explainer, request data) are
+        # granted to trusted plugins only.
+        runtime=runtime if trusted else {},
+    )
+    artifact = plugin.build(context)
+    validate_plot_artifact(artifact, identifier=identifier)
+    result = plugin.render(artifact, context=context)
+    return _PlotDispatchOutcome(handled=True, result=result)
+
+
+def _dispatch_explicit_instance_plot_style(
+    explanation: Any,
+    *,
+    intent_type: str,
+    filter_top: Any,
+    kwargs: Mapping[str, Any],
+) -> _PlotDispatchOutcome:
+    """Dispatch an explanation-level third-party plot request before any
+    built-in ranking, filtering, or transport rewriting can consume it."""
+    style = kwargs.get("style")
+    _reject_conflicting_plot_selection(style, kwargs)
+    show, path, save_ext = _normalize_third_party_transport(kwargs)
+    options = _third_party_plot_options(kwargs)
+    # filter_top is positional in explanation.plot; always forward it,
+    # including its default None, so plugins see the complete request.
+    options["filter_top"] = filter_top
+
+    explainer = _resolve_explainer_from_explanation(explanation)
+    instance_index = getattr(explanation, "index", None)
+    runtime = {
+        "scope": "instance",
+        "explainer": explainer,
+        "instance_index": instance_index,
+    }
+    return _dispatch_third_party_plot(
+        explainer=explainer,
+        explanation=explanation,
+        intent_type=intent_type,
+        instance_metadata={"type": "instance", "index": instance_index},
+        style=style,
+        renderer_override=kwargs.get("renderer"),
+        show=show,
+        path=path,
+        save_ext=save_ext,
+        options=options,
+        runtime=runtime,
+    )
 
 
 def _plugin_instance_index(explanation: Any, options: Mapping[str, Any]) -> Any:
@@ -1792,6 +1985,82 @@ def plot_alternative(
 
 
 # pylint: disable=duplicate-code, too-many-branches, too-many-statements, too-many-locals
+def _dispatch_explicit_global_plot_style(
+    explainer: Any,
+    x: Any,
+    y: Any,
+    threshold: Any,
+    style: str,
+    kwargs: Mapping[str, Any],
+) -> _PlotDispatchOutcome:
+    """Dispatch an explicit third-party global/dashboard style from plot_global."""
+    from .utils.exceptions import ValidationError  # pylint: disable=import-outside-toplevel
+
+    _reject_conflicting_plot_selection(style, kwargs)
+    if _GLOBAL_PAYLOAD_KEY in kwargs:
+        raise ValidationError(
+            f"'{_GLOBAL_PAYLOAD_KEY}' is a reserved plot_global option: CE "
+            "publishes its validated global prediction payload under this key "
+            "and will not overwrite or forward a caller-supplied value. Rename "
+            "the argument."
+        )
+    show, path, save_ext = _normalize_third_party_transport(kwargs)
+    bins = kwargs.get("bins")
+
+    # CE-owned validation of model outputs happens before dispatch so every
+    # global renderer observes the same validated prediction payload.
+    is_regularized = True
+    if "predict_proba" not in dir(explainer.learner) and threshold is None:
+        predict, (low, high) = explainer.predict(x, uq_interval=True, bins=bins)
+        proba = None
+        is_regularized = False
+    else:
+        proba, (low, high) = explainer.predict_proba(
+            x, uq_interval=True, threshold=threshold, bins=bins
+        )
+        predict = None
+    uncertainty = (
+        (np.array(high) - np.array(low)) if (low is not None and high is not None) else None
+    )
+    payload = {
+        "proba": proba,
+        "predict": predict,
+        "low": low,
+        "high": high,
+        "uncertainty": uncertainty,
+        "y": (list(y) if y is not None else None),
+        "is_regularized": is_regularized,
+        "threshold": threshold,
+        "class_labels": getattr(explainer, "class_labels", None),
+        "x": x,
+    }
+
+    options = _third_party_plot_options(kwargs)
+    options[_GLOBAL_PAYLOAD_KEY] = payload
+
+    runtime = {
+        "scope": "global",
+        "explainer": explainer,
+        "x": x,
+        "y": y,
+        "threshold": threshold,
+        "bins": bins,
+    }
+    return _dispatch_third_party_plot(
+        explainer=explainer,
+        explanation=getattr(explainer, "latest_explanation", None),
+        intent_type="global",
+        instance_metadata={"type": "global"},
+        style=style,
+        renderer_override=kwargs.get("renderer"),
+        show=show,
+        path=path,
+        save_ext=save_ext,
+        options=options,
+        runtime=runtime,
+    )
+
+
 def plot_global(explainer, x, y=None, threshold=None, **kwargs):
     """
     Generate a global explanation plot for the given test data.
@@ -1814,6 +2083,16 @@ def plot_global(explainer, x, y=None, threshold=None, **kwargs):
     **kwargs : dict
         Additional keyword arguments.
     """
+    requested_style = kwargs.get("style")
+    if not _is_third_party_plot_style(requested_style):
+        style_override_value = kwargs.get("style_override")
+        if _is_third_party_plot_style(style_override_value):
+            requested_style = style_override_value
+    if _is_third_party_plot_style(requested_style):
+        return _dispatch_explicit_global_plot_style(
+            explainer, x, y, threshold, requested_style, kwargs
+        ).result
+
     _reject_unconsumed_plot_kwargs("plot_global", kwargs, allowed=_PLOT_GLOBAL_KWARGS)
 
     show = kwargs.get("show", True)

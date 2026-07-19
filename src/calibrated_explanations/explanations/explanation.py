@@ -32,7 +32,14 @@ import numpy as np
 from pandas import Categorical
 
 from ..api.params import reject_unsupported_narrative_kwargs
-from ..plotting import plot_alternative, plot_probabilistic, plot_regression, plot_triangular
+from ..plotting import (
+    _dispatch_explicit_instance_plot_style,
+    _is_third_party_plot_style,
+    plot_alternative,
+    plot_probabilistic,
+    plot_regression,
+    plot_triangular,
+)
 from ..utils import (
     BinaryEntropyDiscretizer,
     BinaryRegressorDiscretizer,
@@ -2374,6 +2381,12 @@ class FactualExplanation(CalibratedExplanation):
               the ranking. Used with the 'ensured' ranking metric.
         """
         requested_style = kwargs.get("style")
+        # Third-party styles dispatch before any built-in option consumption,
+        # ranking, filtering, or transport rewriting (the plugin owns those).
+        if _is_third_party_plot_style(requested_style):
+            return _dispatch_explicit_instance_plot_style(
+                self, intent_type="factual", filter_top=filter_top, kwargs=kwargs
+            ).result
         custom_plot_style = isinstance(requested_style, str) and requested_style not in {
             "regular",
             "triangular",
@@ -3933,6 +3946,12 @@ class AlternativeExplanation(CalibratedExplanation):
                 The weight of the uncertainty in the ranking. Used with the 'ensured' ranking metric.
         """
         requested_style = kwargs.get("style")
+        # Third-party styles dispatch before built-in ranking, identical-to-base
+        # filtering, and ensured/triangular rewriting (the plugin owns those).
+        if _is_third_party_plot_style(requested_style):
+            return _dispatch_explicit_instance_plot_style(
+                self, intent_type="alternative", filter_top=filter_top, kwargs=kwargs
+            ).result
         custom_plot_style = isinstance(requested_style, str) and requested_style not in {
             "regular",
             "triangular",
