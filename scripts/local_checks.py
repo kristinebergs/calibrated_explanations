@@ -1302,7 +1302,9 @@ def _changed_paths_since(recorded_head_sha: str | None) -> set[str]:
     the ``HEAD`` recorded at preflight completion catches paths touched by
     any commit made since, in addition to whatever is still uncommitted.
     """
-    paths = set(_parse_git_status_paths(_git_text("status", "--porcelain", "--untracked-files=all") or ""))
+    paths = set(
+        _parse_git_status_paths(_git_text("status", "--porcelain", "--untracked-files=all") or "")
+    )
     current_head_sha = _git_text("rev-parse", "HEAD")
     if recorded_head_sha and current_head_sha and recorded_head_sha != current_head_sha:
         committed_diff = _git_text("diff", "--name-only", recorded_head_sha, current_head_sha) or ""

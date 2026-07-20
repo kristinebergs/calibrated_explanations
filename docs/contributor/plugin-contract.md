@@ -501,6 +501,113 @@ Plot styles control visualization rendering:
 - **pyproject.toml**: Under `[tool.calibrated_explanations.plots]` with key `style`
 - **Dependencies**: Seeded from explanation plugin metadata `plot_dependency`
 
+### Third-party style dispatch contract (v1.0.0rc2)
+
+CE owns the style vocabulary `regular`, `triangular`, `ensured`, `narrative`,
+`legacy`, and `plot_spec.default`. Any other string passed as `style=` to
+`FactualExplanation.plot(...)`, `AlternativeExplanation.plot(...)`, or
+`CalibratedExplainer.plot(...)` (via `plotting.plot_global`) is an **explicit
+third-party style request** and dispatches through the registry *before* any
+built-in option consumption, feature ranking, identical-to-base filtering,
+`ensured`/`triangular` rewriting, or Matplotlib-oriented path handling.
+`FastExplanation.plot(...)` is out of scope: it documents only CE-owned styles
+and keeps its pre-1.0.0rc2 behavior.
+
+**Strict resolution.** An explicit style resolves to the exact registered
+identifier or raises `ConfigurationError` stating whether it was unregistered,
+denied (`CE_DENY_PLUGIN`), or incomplete. CE never silently substitutes
+`plot_spec.default`, `legacy`, or any fallback for an explicit request, and
+builder/renderer/validation errors surface without built-in fallback.
+Configured preferences (manager `plot_style`, `CE_PLOT_STYLE`,
+pyproject) keep their governed chain-with-visible-fallback semantics. Passing
+`use_legacy=False` excludes the legacy renderer but does not disable a
+configured non-legacy third-party style.
+Contradictory explicit requests (for example `style="vendor.style"` together
+with `use_legacy=True`, or a differing string `style_override`) raise
+`ValidationError`.
+
+**Dispatch sequence.** `resolve (strict) -> build context -> plugin.build ->
+validate PlotSpec-like artifacts (``validate_plot_artifact``) ->
+plugin.render -> return result unchanged`. A renderer that returns `None` has
+still handled the request; CE never re-renders a built-in plot afterwards.
+
+**Transport fields.** `context.path` is `path=` if supplied, else `filename=`,
+else `None` — exact empty strings retain the historical no-save meaning;
+non-empty values are otherwise verbatim, with no `plots/` prefix, suffix
+rewriting, or directory creation (the renderer owns output formats).
+Supplying conflicting non-empty `path` and `filename` raises
+`ValidationError`. `context.show` defaults to
+`False` when an output path is present and `True` otherwise; an explicit
+`show=` always wins. `save_ext` is forwarded as given (lists become tuples);
+CE invents no default extensions for external renderers.
+
+**`context.options`.** All caller kwargs that are not selection
+(`style`, `renderer`, `use_legacy`, string `style_override`) or transport
+(`show`, `path`, `filename`, `save_ext`) fields arrive untouched — including
+`filter_top` (always present, `None` when defaulted), `uncertainty`,
+`rnk_metric`, `rnk_weight`, `bins`, `low_high_percentiles`, and arbitrary
+nested plugin options. Option mappings are shallow-copied into a read-only
+mapping; caller dictionaries are never mutated and nested values are not
+deep-copied.
+
+**Global reserved payload.** For global/dashboard styles, CE validates model
+outputs once and publishes them under the reserved `context.options["payload"]`
+key (`proba`/`predict`/`low`/`high`/`uncertainty`/`y`/`is_regularized`/
+`threshold`/`class_labels`/`x`). A caller-supplied `payload=` kwarg raises
+`ValidationError` rather than being silently overwritten. For unthresholded
+regression, payload `low`/`high` values are computed with the caller's
+`low_high_percentiles` when supplied, so numerical bounds and forwarded
+metadata describe the same interval request.
+
+**Runtime context (trusted plugins only).** `context.runtime` is a read-only
+mapping of live references (never deep copies). For instance plots:
+`{"scope": "instance", "explainer": <resolved public explainer snapshot>,
+"instance_index": explanation.index}`. For global/dashboard plots:
+`{"scope": "global", "explainer": explainer, "x": x, "y": y,
+"threshold": threshold, "bins": bins}`. It is populated **only** when both the
+builder and renderer passed the ADR-006 trust policy (`CE_TRUST_PLUGIN`,
+pyproject `[tool.calibrated_explanations.plugins].trusted`, or
+`mark_plot_builder_trusted`/`mark_plot_renderer_trusted`); untrusted plugins
+receive an empty mapping. Trusted visualization plugins execute arbitrary
+Python and can reach the model and input data through this runtime state —
+grant trust deliberately. Runtime state is process-local: pickling a
+`PlotRenderContext` drops it, and unpickling restores an empty read-only
+mapping.
+
+**Prohibition.** Plugins must not replace, wrap, or monkey-patch
+`FactualExplanation.plot`, `AlternativeExplanation.plot`,
+`plotting.plot_global`, or any other CE callable. The dispatch contract above
+makes such bridges unnecessary.
+
+Minimal factual example:
+
+```python
+factual = explainer.explain_factual(x_test)[0]
+result = factual.plot(
+    style="vendor.factual",       # exact registered style id
+    filter_top=5,                  # arrives in context.options unchanged
+    uncertainty=True,
+    vendor_options={"theme": "dark"},
+    show=False,
+)
+# result is whatever vendor.factual's renderer returned (None included).
+```
+
+Minimal global/dashboard example (trusted plugin):
+
+```python
+result = explainer.plot(
+    x_test,
+    y_test,
+    style="vendor.dashboard",
+    dashboard_options={"cards": ["overview"]},
+    show=False,
+)
+# The builder receives context.options["payload"] (validated predictions)
+# plus context.runtime["explainer"|"x"|"y"|"threshold"|"bins"] and may call
+# public explainer.explain_factual(...) / explore_alternatives(...) itself.
+```
+
 ---
 
 ## Wiring plugins into your explainer and explanations

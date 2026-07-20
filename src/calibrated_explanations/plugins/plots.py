@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib
 from dataclasses import dataclass, field
+from types import MappingProxyType
 from typing import (
     Any,
     Mapping,
@@ -36,7 +37,16 @@ PlotArtifact: TypeAlias = Union[PlotSpec, Mapping[str, Any], Any]
 
 @dataclass(frozen=True)
 class PlotRenderContext:
-    """Immutable context shared with plot plugins."""
+    """Immutable context shared with plot plugins.
+
+    ``runtime`` carries process-local runtime state (originating explainer and
+    the original plot request data) for trusted plugins. The top-level mapping
+    is read-only; contained objects are live references, not copies. Runtime
+    state is intentionally excluded from pickling: a round-tripped context
+    restores ``runtime`` as an empty read-only mapping (ADR-006: only trusted
+    plugins receive runtime access, and live explainer references are not
+    serialization-safe).
+    """
 
     explanation: Any
     instance_metadata: Mapping[str, Any]
@@ -47,21 +57,34 @@ class PlotRenderContext:
     save_ext: str | Sequence[str] | None
     options: Mapping[str, Any]
     plugin_config: Mapping[str, Any] = field(default_factory=dict)
+    runtime: Mapping[str, Any] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         """Freeze provisional plugin config before handing context to plugins."""
         object.__setattr__(self, "plugin_config", freeze_plugin_config(self.plugin_config))
+        object.__setattr__(self, "runtime", MappingProxyType(dict(self.runtime)))
 
     def __getstate__(self) -> dict:
-        """Return pickle-safe state with all MappingProxyType values thawed to plain dicts."""
-        return {k: thaw_plugin_config(v) for k, v in self.__dict__.items()}
+        """Return pickle-safe state with all MappingProxyType values thawed to plain dicts.
+
+        ``runtime`` holds live, process-local references (explainer, request
+        arrays) and is deliberately dropped: the pickled state stores an empty
+        mapping so unpickling never resurrects stale runtime objects.
+        """
+        state = {k: thaw_plugin_config(v) for k, v in self.__dict__.items() if k != "runtime"}
+        state["runtime"] = {}
+        return state
 
     def __setstate__(self, state: dict) -> None:
         """Restore state, re-freezing plugin_config via freeze_plugin_config."""
         for key, value in state.items():
             if key == "plugin_config":
                 value = freeze_plugin_config(value)
+            if key == "runtime":
+                value = MappingProxyType(dict(value or {}))
             object.__setattr__(self, key, value)
+        if "runtime" not in state:
+            object.__setattr__(self, "runtime", MappingProxyType({}))
 
 
 @dataclass

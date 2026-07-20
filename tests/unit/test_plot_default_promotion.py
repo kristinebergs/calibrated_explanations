@@ -70,7 +70,10 @@ def install_public_global_plot_plugin(
         plugin_meta = {"style": style}
 
         def build(self, context: object) -> object:
-            return {"plot_spec": context.style, "context": context}
+            # Renderer-native artifact shape: strict third-party dispatch runs
+            # validate_plot_artifact, which must pass non-PlotSpec artifacts
+            # through untouched.
+            return {"resolved_style": context.style, "context": context}
 
         def render(self, artifact: object, *, context: object) -> PlotRenderResult:
             return PlotRenderResult(artifact=artifact, figure=None, saved_paths=(), extras={})
@@ -88,6 +91,15 @@ def install_public_global_plot_plugin(
                 explicit_style or "plot_spec.default",
                 (explicit_style or "plot_spec.default", "legacy"),
             )
+        ),
+    )
+    # Explicit third-party styles resolve through the strict, no-fallback path.
+    monkeypatch.setattr(
+        explainer.plugin_manager,
+        "resolve_plot_plugin_strict",
+        lambda identifier, *, renderer_override=None: (
+            resolve_calls.append((identifier, renderer_override))
+            or (PlotPlugin(), identifier, True)
         ),
     )
     return resolve_calls
@@ -704,7 +716,7 @@ def test_should_return_plugin_result_from_calibrated_explainer_plot_when_explici
 
     assert isinstance(result, PlotRenderResult)
     assert result.artifact is not None
-    assert result.artifact["plot_spec"] == "plotly.global.instance_explorer"
+    assert result.artifact["resolved_style"] == "plotly.global.instance_explorer"
     assert resolve_calls == [("plotly.global.instance_explorer", None)]
 
 
@@ -723,7 +735,7 @@ def test_should_return_plugin_result_from_wrap_plot_with_targets_when_explicit_g
 
     assert isinstance(result, PlotRenderResult)
     assert result.artifact is not None
-    assert result.artifact["plot_spec"] == "plotly.global.instance_explorer"
+    assert result.artifact["resolved_style"] == "plotly.global.instance_explorer"
     assert resolve_calls == [("plotly.global.instance_explorer", None)]
 
 
@@ -737,7 +749,7 @@ def test_should_preserve_default_global_plot_behavior_from_wrap_plot_when_style_
 
     assert isinstance(result, PlotRenderResult)
     assert result.artifact is not None
-    assert result.artifact["plot_spec"] == "plot_spec.default"
+    assert result.artifact["resolved_style"] == "plot_spec.default"
     assert resolve_calls == [("plot_spec.default", None)]
 
 

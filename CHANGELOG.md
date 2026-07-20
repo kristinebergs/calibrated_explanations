@@ -5,6 +5,40 @@
 
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v1.0.0rc1...main)
 
+### Fixed
+
+- **Third-party plot-plugin dispatch:** fixed third-party visualization
+  dispatch through the public factual, alternative, global, and dashboard
+  plotting APIs. Explicitly selected registered styles now receive their
+  complete plugin option set (`filter_top`, `uncertainty`, `rnk_metric`,
+  `rnk_weight`, `bins`, `low_high_percentiles`, and arbitrary plugin-specific
+  kwargs) and documented runtime context without requiring replacement of CE
+  plotting functions. Explicit plugin failures no longer silently fall through
+  to built-in rendering, an explicitly requested style resolves exactly or
+  raises an actionable `ConfigurationError`, and a renderer legitimately
+  returning `None` is treated as handled instead of triggering built-in
+  plotting. Output transport for third-party styles is renderer-neutral:
+  non-empty `filename`/`path` values are forwarded verbatim (conflicts raise
+  `ValidationError`), exact empty strings retain their historical no-save
+  meaning, no `plots/` prefix or suffix rewriting is applied, and `show`
+  defaults follow the established save-implies-no-show convention. Configured
+  non-legacy plugin styles also remain active when callers explicitly pass
+  `use_legacy=False`, and global regression payload bounds now use the
+  requested `low_high_percentiles`.
+
+### Added
+
+- **`PlotRenderContext.runtime` (additive, trusted plugins only):** a
+  read-only mapping carrying the originating public explainer and original
+  plot request (`x`, `y`, `threshold`, `bins`, `instance_index`) so trusted
+  global/dashboard plugins can drive public explainer APIs without
+  monkey-patching. Populated only after ADR-006 trust resolution; excluded
+  from pickling (restored as an empty mapping). Existing positional and
+  keyword construction of `PlotRenderContext` remains valid.
+- **`PluginManager.resolve_plot_plugin_strict`:** exact-identifier plot style
+  resolution without fallback-chain expansion, used by the public plotting
+  surfaces for explicit third-party style requests.
+
 ## [v1.0.0rc1](https://github.com/Moffran/calibrated_explanations/releases/tag/v1.0.0rc1) - 2026-07-15
 
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v0.11.6...v1.0.0rc1)

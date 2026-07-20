@@ -1376,6 +1376,100 @@ class PluginManager:
             + ("; errors: " + "; ".join(errors) if errors else "")
         )
 
+    def resolve_plot_plugin_strict(
+        self,
+        identifier: str,
+        *,
+        renderer_override: str | None = None,
+    ) -> tuple[Any, str, bool]:
+        """Resolve exactly *identifier* to a registered plot plugin, or raise.
+
+        Unlike :meth:`resolve_plot_plugin`, no fallback identifiers are ever
+        appended: an explicitly requested style either resolves to the exact
+        registered plugin or fails with an actionable
+        :class:`~calibrated_explanations.utils.exceptions.ConfigurationError`.
+        Returns ``(plugin, identifier, trusted)`` where ``trusted`` reflects
+        whether both the builder and renderer passed the ADR-006 trust policy.
+        """
+        from .registry import (  # pylint: disable=import-outside-toplevel
+            find_plot_builder_descriptor,
+            find_plot_renderer_descriptor,
+            find_plot_style_descriptor,
+            list_plot_style_descriptors,
+        )
+
+        ensure_builtin_plugins()
+
+        if is_identifier_denied(identifier):
+            raise ConfigurationError(
+                f"Plot style '{identifier}' is denied via CE_DENY_PLUGIN. "
+                "Remove the identifier from the denylist to use it."
+            )
+
+        style_descriptor = find_plot_style_descriptor(identifier)
+        if style_descriptor is None:
+            registered = sorted(
+                descriptor.identifier for descriptor in list_plot_style_descriptors()
+            )
+            raise ConfigurationError(
+                f"Plot style '{identifier}' is not registered. Register the style "
+                "via calibrated_explanations.plugins.registry.register_plot_style "
+                f"(and its builder/renderer) before requesting it. Registered styles: {registered}."
+            )
+
+        builder_id = style_descriptor.metadata.get("builder_id")
+        renderer_id = style_descriptor.metadata.get("renderer_id")
+        builder_descriptor = find_plot_builder_descriptor(builder_id) if builder_id else None
+        renderer_descriptor = find_plot_renderer_descriptor(renderer_id) if renderer_id else None
+        if builder_descriptor is None or renderer_descriptor is None:
+            missing = []
+            if builder_descriptor is None:
+                missing.append(f"builder '{builder_id}'")
+            if renderer_descriptor is None:
+                missing.append(f"renderer '{renderer_id}'")
+            raise ConfigurationError(
+                f"Plot style '{identifier}' is registered but incomplete: "
+                f"missing {' and '.join(missing)}. Register the missing component(s) "
+                "before requesting the style."
+            )
+
+        trusted = find_plot_plugin_trusted(identifier) is not None
+        plugin = find_plot_plugin_trusted(identifier) or find_plot_plugin(identifier)
+        if plugin is None or not hasattr(plugin, "build") or not hasattr(plugin, "render"):
+            raise ConfigurationError(
+                f"Plot style '{identifier}' resolved to a plugin without build/render "
+                "implementations; check the registered builder and renderer objects."
+            )
+        if not renderer_override:
+            renderer_override = self._config_manager.env("CE_PLOT_RENDERER")
+        if not renderer_override:
+            py_settings = self._pyproject_plots or {}
+            renderer_override = py_settings.get("renderer")
+        if renderer_override:
+            override_descriptor = find_plot_renderer_descriptor(renderer_override)
+            if override_descriptor is None:
+                raise ConfigurationError(
+                    f"Requested plot renderer '{renderer_override}' is not registered; "
+                    f"cannot render explicitly requested style '{identifier}'."
+                )
+            with contextlib.suppress(Exception):
+                plugin.renderer = override_descriptor.renderer
+            # ADR-006: overriding the renderer changes the effective trust
+            # boundary. Runtime context must reflect the renderer actually in
+            # use, not the style's originally registered (and possibly more
+            # trusted) renderer -- otherwise an untrusted override renderer
+            # would inherit the original renderer's runtime access.
+            trusted = trusted and bool(override_descriptor.trusted)
+
+        if not trusted:
+            self._logger.info(
+                "Dispatching untrusted plot style '%s' without runtime context; "
+                "mark the builder and renderer trusted (ADR-006) to grant runtime access.",
+                identifier,
+            )
+
+        return plugin, identifier, trusted
+
     # =========================================================================
     # Orchestrator initialization (moved from CalibratedExplainer)
     # =========================================================================

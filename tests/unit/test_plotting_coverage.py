@@ -346,7 +346,14 @@ def test_plot_global__should_warn_and_log_when_renderer_override_missing(
                     )
                 return dummy, explicit_style or "dummy-style", ("dummy-style", "legacy")
 
-            self.plugin_manager = SimpleNamespace(resolve_plot_plugin=_resolve_plot_plugin)
+            # Configured (non-explicit) style preference: explicit styles now
+            # resolve strictly and raise instead of warning, so the visible
+            # renderer-override fallback is exercised through the configured
+            # manager preference path.
+            self.plugin_manager = SimpleNamespace(
+                resolve_plot_plugin=_resolve_plot_plugin,
+                plot_style_override="dummy-style",
+            )
 
         def predict_proba(self, _x: Any, *, uq_interval: bool, threshold: Any, bins: Any):
             return [0.2, 0.8], ([0.1, 0.7], [0.3, 0.9])
@@ -362,7 +369,6 @@ def test_plot_global__should_warn_and_log_when_renderer_override_missing(
             threshold=None,
             use_legacy=False,
             show=False,
-            style="dummy-style",
             renderer="nope",
         )
 

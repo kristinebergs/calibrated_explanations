@@ -227,6 +227,82 @@ def test_plot_context_is_frozen() -> None:
     assert ctx.style == original_style
 
 
+def test_should_default_runtime_to_empty_read_only_mapping_when_omitted() -> None:
+    ctx = PlotRenderContext(
+        explanation=None,
+        instance_metadata={"index": 0},
+        style="legacy",
+        intent={"kind": "bar"},
+        show=False,
+        path=None,
+        save_ext=None,
+        options={},
+    )
+
+    assert dict(ctx.runtime) == {}
+    with pytest.raises(TypeError):
+        ctx.runtime["explainer"] = object()  # type: ignore[index]
+
+
+def test_should_accept_positional_construction_without_runtime_field() -> None:
+    # Pre-runtime positional call shape must keep working unchanged.
+    ctx = PlotRenderContext(
+        None, {"index": 0}, "legacy", {"kind": "bar"}, False, None, None, {"dpi": 72}, {}
+    )
+
+    assert ctx.options == {"dpi": 72}
+    assert dict(ctx.runtime) == {}
+
+
+def test_should_share_runtime_references_without_mutating_caller_mapping() -> None:
+    explainer = object()
+    caller_runtime = {"scope": "instance", "explainer": explainer}
+    ctx = PlotRenderContext(
+        explanation=None,
+        instance_metadata={"index": 0},
+        style="vendor.style",
+        intent={"kind": "bar"},
+        show=False,
+        path=None,
+        save_ext=None,
+        options={},
+        runtime=caller_runtime,
+    )
+
+    # Live reference, not a deep copy; caller mapping stays untouched and
+    # detached from the frozen context copy.
+    assert ctx.runtime["explainer"] is explainer
+    caller_runtime["extra"] = "later"
+    assert "extra" not in ctx.runtime
+    assert caller_runtime == {"scope": "instance", "explainer": explainer, "extra": "later"}
+    with pytest.raises(TypeError):
+        ctx.runtime["scope"] = "global"  # type: ignore[index]
+
+
+def test_should_drop_runtime_state_when_context_is_pickled() -> None:
+    import pickle
+
+    ctx = PlotRenderContext(
+        explanation=None,
+        instance_metadata={"index": 0},
+        style="vendor.style",
+        intent={"kind": "bar"},
+        show=False,
+        path=None,
+        save_ext=None,
+        options={"filter_top": 3},
+        runtime={"scope": "instance", "explainer": object()},
+    )
+
+    restored = pickle.loads(pickle.dumps(ctx))
+
+    # Documented contract: runtime is process-local and never serialized;
+    # everything else round-trips.
+    assert dict(restored.runtime) == {}
+    assert restored.options == {"filter_top": 3}
+    assert restored.style == "vendor.style"
+
+
 class GoodPlotBuilder:
     plugin_meta = {
         "name": "plot",

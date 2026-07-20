@@ -60,7 +60,7 @@ def main():
     # unless explicitly re-exported by the root __init__.py.
 
     out_file = OUT_DIR / f"api_public_{ts}.txt"
-    out_file.write_text("\n".join(lines), encoding="utf-8")
+    out_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print(f"Wrote API snapshot to {out_file}")
 
 
