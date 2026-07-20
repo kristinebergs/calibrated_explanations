@@ -339,51 +339,44 @@
       },
       {
         "file": "explanations/explanation.py",
-        "line": 71,
+        "line": 80,
         "context": "_log_forwarded_plot_kwargs",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 360,
+        "line": 369,
         "context": "CalibratedExplanation._validate_prediction_invariant",
         "message_snippet": "Prediction interval invariant violated: low > high",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 368,
+        "line": 377,
         "context": "CalibratedExplanation._validate_prediction_invariant",
         "message_snippet": "Prediction invariant violated: predict not in [low, high]",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 1466,
+        "line": 1475,
         "context": "CalibratedExplanation.add_new_rule_condition",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 1472,
+        "line": 1481,
         "context": "CalibratedExplanation.add_new_rule_condition",
         "message_snippet": "Alternatives for all categorical features are already included",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 1482,
+        "line": 1491,
         "context": "CalibratedExplanation.add_new_rule_condition",
         "message_snippet": "Rule already included",
-        "category": "USER_CONTRACT"
-      },
-      {
-        "file": "explanations/explanation.py",
-        "line": 1498,
-        "context": "CalibratedExplanation.add_new_rule_condition",
-        "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
@@ -395,105 +388,112 @@
       },
       {
         "file": "explanations/explanation.py",
-        "line": 1575,
+        "line": 1516,
+        "context": "CalibratedExplanation.add_new_rule_condition",
+        "message_snippet": "<f-string>",
+        "category": "USER_CONTRACT"
+      },
+      {
+        "file": "explanations/explanation.py",
+        "line": 1584,
         "context": "CalibratedExplanation.add_new_rule_condition",
         "message_snippet": "The alternative explanation is identical to the original explanation",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 1846,
+        "line": 1855,
         "context": "FactualExplanation._check_preconditions",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 1853,
+        "line": 1862,
         "context": "FactualExplanation._check_preconditions",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 2330,
+        "line": 2339,
         "context": "FactualExplanation.add_conjunctions",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 2338,
+        "line": 2347,
         "context": "FactualExplanation.add_conjunctions",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 2424,
+        "line": 2458,
         "context": "FactualExplanation.plot",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 2540,
+        "line": 2574,
         "context": "FactualExplanation.plot",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 2800,
+        "line": 2834,
         "context": "AlternativeExplanation._check_preconditions",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 2807,
+        "line": 2841,
         "context": "AlternativeExplanation._check_preconditions",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 3883,
+        "line": 3917,
         "context": "AlternativeExplanation.add_conjunctions",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 3895,
+        "line": 3929,
         "context": "AlternativeExplanation.add_conjunctions",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 3997,
+        "line": 4055,
         "context": "AlternativeExplanation.plot",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 4215,
+        "line": 4273,
         "context": "FastExplanation.add_conjunctions",
         "message_snippet": "The add_conjunctions method is currently not supported for `FastExplanation`, making this call resulting in no change.",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 4232,
+        "line": 4290,
         "context": "FastExplanation.add_new_rule_condition",
         "message_snippet": "The add_new_rule_condition method is currently not supported for `FastExplanation`, making this call resulting in no change.",
         "category": "USER_CONTRACT"
       },
       {
         "file": "explanations/explanation.py",
-        "line": 4388,
+        "line": 4446,
         "context": "FastExplanation.plot",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
@@ -563,21 +563,21 @@
       },
       {
         "file": "plotting.py",
-        "line": 305,
+        "line": 285,
         "context": "_warn_and_log_plotspec_fallback",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "plotting.py",
-        "line": 347,
+        "line": 327,
         "context": "_reject_unconsumed_plot_kwargs",
         "message_snippet": "",
         "category": "USER_CONTRACT"
       },
       {
         "file": "plotting.py",
-        "line": 599,
+        "line": 884,
         "context": "_setup_plot_style",
         "message_snippet": "<f-string>",
         "category": "USER_CONTRACT"
