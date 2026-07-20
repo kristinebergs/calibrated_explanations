@@ -64,33 +64,6 @@ Alternatives to decrease the calibrated probability for class APPROVE:
 
 ---
 
-## Try the 1.0.0 Release Candidate
-
-Install the exact release candidate when validating the frozen v1 API:
-
-```bash
-pip install calibrated-explanations==1.0.0rc1
-```
-
-To install the newest available pre-release instead of pinning this candidate:
-
-```bash
-pip install --pre calibrated-explanations
-```
-
-Verify the installed version:
-
-```bash
-python -c "import calibrated_explanations; print(calibrated_explanations.__version__)"
-```
-
-The command should print `1.0.0rc1` for the exact pin. The public API is frozen
-for this candidate; consult the
-[v1.0.0 upgrade checklist](docs/upgrade/v1.0.0-upgrade-checklist.md) before
-adoption.
-
----
-
 ## Quick Start
 
 ```bash

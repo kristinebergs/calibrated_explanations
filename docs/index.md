@@ -10,17 +10,16 @@ Install published packages from
 and read the
 [release notes](https://github.com/Moffran/calibrated_explanations/blob/main/CHANGELOG.md).
 
-```{admonition} 1.0.0rc1 release candidate
+```{admonition} 1.0.0 stable release
 :class: important
 
-The public API is frozen as of `1.0.0rc1`; only release-blocking defect fixes
-will be accepted before GA. Install the exact candidate with
-`pip install calibrated-explanations==1.0.0rc1` (or use
-`pip install --pre calibrated-explanations` to select the newest pre-release).
-The package remains classified as Beta during the RC. Before adoption, review
-the {doc}`v1.0.0 upgrade checklist <upgrade/v1.0.0-upgrade-checklist>`, the
+The public API, plugin trust model, and visualization extension contract are
+stable as of `1.0.0`; only patch-level defect fixes will be accepted against
+these contracts going forward. Install with
+`pip install calibrated-explanations`. Before adoption, review the
+{doc}`v1.0.0 upgrade checklist <upgrade/v1.0.0-upgrade-checklist>`, the
 {doc}`Explanation Schema v1 freeze <schema_v1>`, and the
-[RC release notes](https://github.com/Moffran/calibrated_explanations/blob/main/CHANGELOG.md).
+[release notes](https://github.com/Moffran/calibrated_explanations/blob/main/CHANGELOG.md).
 ```
 
 - New users start in {doc}`get-started/index`.

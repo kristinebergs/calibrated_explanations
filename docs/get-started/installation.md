@@ -4,21 +4,6 @@ Calibrated Explanations is published on PyPI and conda-forge. Install the base
 package first, then add extras that unlock plotting, notebook examples, or
 contributor tooling.
 
-## Try the 1.0.0 release candidate
-
-Use the exact pin when testing the frozen v1 API:
-
-```bash
-pip install calibrated-explanations==1.0.0rc1
-```
-
-Use the pre-release selector only when you intentionally want the newest
-available candidate:
-
-```bash
-pip install --pre calibrated-explanations
-```
-
 ## PyPI
 
 ```bash
@@ -50,8 +35,7 @@ package via conda and then add the relevant extras with `pip`.
 python -c "import calibrated_explanations; print(calibrated_explanations.__version__)"
 ```
 
-The exact RC pin should print `1.0.0rc1`. For an unpinned installation, the
-command prints the version selected by your package manager.
+This prints the version selected by your package manager (`1.0.0` or later).
 
 ## Optional contributor fast path
 
