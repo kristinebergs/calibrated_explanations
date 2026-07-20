@@ -839,6 +839,16 @@ Release gate: Tagged release artifacts available; documentation hubs current and
 
 ## Post-1.0 considerations
 
+- **First-patch-release maintenance cadence (recorded 2026-07-21, v1.0.0 GA
+  Task 2):** The first-patch-release maintenance checkpoint (docstring
+  coverage re-audit against the Standard-002 ≥94% gate, Standard-001
+  nomenclature re-audit, and a caching/parallel performance regression sweep
+  against the RC/GA telemetry baseline) is tracked here, in this section, as
+  the pre-condition to open before starting the `1.0.1` (or next-named)
+  version plan. No new tooling is introduced for this; the existing
+  `scripts/quality/check_docstring_coverage.py` and
+  `scripts/quality/check_std001_nomenclature.py` gates plus the caching/
+  parallel telemetry dashboards referenced above are reused.
 - Continue monitoring caching and parallel execution telemetry to determine
   whether the opt-in defaults can graduate to on-by-default in v1.1, updating
   ADR-003/ADR-004 rollout notes as needed.?F:development/adrs/ADR-003-caching-key-and-eviction.md?L28-L64??F:development/adrs/ADR-004-parallel-backend-abstraction.md?L25-L64?

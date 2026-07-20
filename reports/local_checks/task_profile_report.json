@@ -6,12 +6,11 @@
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python scripts/local_checks.py --deprecation-closure",
-    "python -m pytest -q tests/unit/cache tests/unit/perf/test_cache.py -o addopts= --no-cov",
-    "python -m pytest -q tests/unit/core/test_parallel_benchmark.py tests/unit/core/test_parallel_deprecation.py tests/unit/core/test_parallel_helpers.py tests/unit/core/explain/test_parallel_executors.py tests/unit/core/explain/test_parallel_instance_tasks.py tests/unit/core/explain/test_parallel_lifecycle.py tests/unit/core/explain/test_parallel_runtime.py -o addopts= --no-cov"
+    "python scripts/quality/check_docstring_coverage.py --fail-under 94.0",
+    "python scripts/quality/check_std001_nomenclature.py --root src/calibrated_explanations --check"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-20T23:03:10.662241+00:00",
+  "generated_at": "2026-07-20T23:10:44.467571+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -49,5 +48,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 1
+  "task_id": 2
 }
