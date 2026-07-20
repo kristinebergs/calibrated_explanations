@@ -630,11 +630,12 @@ def _dispatch_explicit_instance_plot_style(
     kwargs: Mapping[str, Any],
     resolved: tuple[Any, str, bool] | None = None,
 ) -> _PlotDispatchOutcome:
-    """Dispatch an explanation-level third-party plot request before any
-    built-in ranking, filtering, or transport rewriting can consume it.
+    """Dispatch an explanation-level third-party plot request before consumption.
 
-    *style* is the already-determined effective style identifier (from
-    ``style=``, ``style_override=``, or a resolved configured preference);
+    This runs before any built-in ranking, filtering, or transport rewriting
+    can consume the request. *style* is the already-determined effective
+    style identifier (from ``style=``, ``style_override=``, or a resolved
+    configured preference);
     callers must not re-derive it from ``kwargs["style"]`` alone, since an
     explicit ``style_override=`` can name the plugin instead.
     """
@@ -754,7 +755,7 @@ def _dispatch_configured_instance_plot_style(
         return None
     try:
         resolved = resolver(configured_style, renderer_override=kwargs.get("renderer"))
-    except Exception:  # noqa: BLE001 - unresolved configured style defers to built-in fallback
+    except Exception:  # noqa: BLE001 - adr002_allow: unresolved configured style defers to built-in fallback
         return None
     return _dispatch_explicit_instance_plot_style(
         explanation,
@@ -2200,7 +2201,7 @@ def _dispatch_configured_global_plot_style(
         return None
     try:
         resolved = resolver(configured_style, renderer_override=kwargs.get("renderer"))
-    except Exception:  # noqa: BLE001 - unresolved configured style defers to legacy fallback
+    except Exception:  # noqa: BLE001 - adr002_allow: unresolved configured style defers to legacy fallback
         return None
     try:
         return _dispatch_explicit_global_plot_style(
@@ -2208,7 +2209,7 @@ def _dispatch_configured_global_plot_style(
         )
     except ValidationError:
         raise
-    except Exception as exc:  # noqa: BLE001 - matches plot_global's existing catch-and-fallback
+    except Exception as exc:  # noqa: BLE001 - adr002_allow: matches plot_global's existing catch-and-fallback
         _warn_and_log_plotspec_fallback(
             f"PlotSpec rendering failed with '{exc}'. Falling back to legacy plot."
         )
