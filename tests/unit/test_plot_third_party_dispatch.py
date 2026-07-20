@@ -605,3 +605,207 @@ def test_should_preserve_explicit_show_true_when_output_path_supplied(
     context = builder.contexts[0]
     assert context.show is True
     assert context.path == "out/plot.html"
+
+
+# ---------------------------------------------------------------------------
+# Configured (non-explicit) selection channels: manager override, style_override
+# ---------------------------------------------------------------------------
+#
+# A style selected without an explicit style="..." kwarg -- via
+# PluginManager.plot_style_override, CE_PLOT_STYLE, pyproject.toml, or the
+# plugin-dependency chain -- must dispatch through the same raw-request path
+# as an explicit style, not the built-in option-consuming path. The
+# explanation snapshot each explanation carries is frozen at explain_factual/
+# explore_alternatives time, so the configured preference must be set on the
+# live explainer BEFORE the explanation is generated.
+
+
+def test_should_forward_complete_factual_request_when_style_selected_via_manager_override(
+    calibrated_wrapper,
+    register_synthetic_style,
+    guard_builtin_instance_plotting,
+) -> None:
+    builder, _ = register_synthetic_style("synthetic.configured.factual")
+    calibrated_wrapper.explainer.plugin_manager.plot_style_override = "synthetic.configured.factual"
+    factual = calibrated_wrapper.explain_factual(np.array([[0.1, -0.2, 0.3]]))[0]
+
+    result = factual.plot(
+        filter_top=5, uncertainty=True, rnk_metric="ensured", rnk_weight=0.25, show=False
+    )
+
+    assert result == "renderer-result"
+    context = builder.contexts[0]
+    assert context.style == "synthetic.configured.factual"
+    assert context.options["filter_top"] == 5
+    assert context.options["uncertainty"] is True
+    assert context.options["rnk_metric"] == "ensured"
+    assert context.options["rnk_weight"] == 0.25
+    assert context.runtime["scope"] == "instance"
+
+
+def test_should_forward_complete_alternative_request_when_style_selected_via_manager_override(
+    calibrated_wrapper,
+    register_synthetic_style,
+    guard_builtin_instance_plotting,
+) -> None:
+    builder, _ = register_synthetic_style("synthetic.configured.alternative")
+    calibrated_wrapper.explainer.plugin_manager.plot_style_override = (
+        "synthetic.configured.alternative"
+    )
+    alternative = calibrated_wrapper.explore_alternatives(np.array([[0.1, -0.2, 0.3]]))[0]
+
+    result = alternative.plot(filter_top=6, rnk_metric="ensured", show=False)
+
+    assert result == "renderer-result"
+    context = builder.contexts[0]
+    assert context.options["filter_top"] == 6
+    assert context.options["rnk_metric"] == "ensured"
+
+
+def test_should_forward_complete_global_request_when_style_selected_via_manager_override(
+    calibrated_wrapper,
+    register_synthetic_style,
+) -> None:
+    builder, _ = register_synthetic_style("synthetic.configured.global")
+    calibrated_wrapper.explainer.plugin_manager.plot_style_override = "synthetic.configured.global"
+
+    result = calibrated_wrapper.explainer.plot(
+        np.array([[0.1, -0.2, 0.3], [0.4, 0.1, -0.2]]),
+        aggregate_positions=True,
+        show=False,
+    )
+
+    assert result == "renderer-result"
+    context = builder.contexts[0]
+    assert context.options["aggregate_positions"] is True
+    assert "payload" in context.options
+    assert context.runtime["scope"] == "global"
+
+
+def test_should_treat_none_renderer_result_as_handled_when_configured_style_dispatched(
+    calibrated_wrapper,
+    register_synthetic_style,
+    guard_builtin_instance_plotting,
+) -> None:
+    register_synthetic_style("synthetic.configured.none", renderer_result=None)
+    calibrated_wrapper.explainer.plugin_manager.plot_style_override = "synthetic.configured.none"
+    factual = calibrated_wrapper.explain_factual(np.array([[0.1, -0.2, 0.3]]))[0]
+
+    result = factual.plot(show=False)
+
+    assert result is None
+
+
+def test_should_not_dispatch_configured_style_when_use_legacy_true(
+    calibrated_wrapper,
+    register_synthetic_style,
+    monkeypatch,
+) -> None:
+    builder, _ = register_synthetic_style("synthetic.configured.bypass")
+    calibrated_wrapper.explainer.plugin_manager.plot_style_override = "synthetic.configured.bypass"
+    factual = calibrated_wrapper.explain_factual(np.array([[0.1, -0.2, 0.3]]))[0]
+    monkeypatch.setattr(explanation_module, "plot_probabilistic", lambda *a, **k: "legacy-handled")
+
+    result = factual.plot(use_legacy=True, show=False)
+
+    assert result == "legacy-handled"
+    assert not builder.contexts, "configured third-party style must not run when use_legacy=True"
+
+
+def test_should_fall_through_silently_when_configured_style_is_unregistered(
+    calibrated_wrapper,
+    monkeypatch,
+) -> None:
+    calibrated_wrapper.explainer.plugin_manager.plot_style_override = "vendor.never.registered"
+    factual = calibrated_wrapper.explain_factual(np.array([[0.1, -0.2, 0.3]]))[0]
+    monkeypatch.setattr(
+        explanation_module, "plot_probabilistic", lambda *a, **k: "fallback-handled"
+    )
+
+    result = factual.plot(show=False)
+
+    assert result == "fallback-handled"
+
+
+def test_should_forward_complete_factual_request_when_style_selected_via_style_override_kwarg(
+    calibrated_wrapper,
+    register_synthetic_style,
+    guard_builtin_instance_plotting,
+) -> None:
+    builder, _ = register_synthetic_style("synthetic.viaoverride.factual")
+    factual = calibrated_wrapper.explain_factual(np.array([[0.1, -0.2, 0.3]]))[0]
+
+    result = factual.plot(
+        style_override="synthetic.viaoverride.factual",
+        uncertainty=True,
+        rnk_metric="ensured",
+        show=False,
+    )
+
+    assert result == "renderer-result"
+    context = builder.contexts[0]
+    assert context.style == "synthetic.viaoverride.factual"
+    assert context.options["uncertainty"] is True
+
+
+def test_should_forward_complete_alternative_request_when_style_selected_via_style_override_kwarg(
+    calibrated_wrapper,
+    register_synthetic_style,
+    guard_builtin_instance_plotting,
+) -> None:
+    builder, _ = register_synthetic_style("synthetic.viaoverride.alternative")
+    alternative = calibrated_wrapper.explore_alternatives(np.array([[0.1, -0.2, 0.3]]))[0]
+
+    result = alternative.plot(
+        style_override="synthetic.viaoverride.alternative", filter_top=4, show=False
+    )
+
+    assert result == "renderer-result"
+    context = builder.contexts[0]
+    assert context.options["filter_top"] == 4
+
+
+# ---------------------------------------------------------------------------
+# Renderer-override trust recomputation (ADR-006)
+# ---------------------------------------------------------------------------
+
+
+def test_should_withhold_runtime_when_renderer_override_is_untrusted(
+    calibrated_wrapper,
+    register_synthetic_style,
+    guard_builtin_instance_plotting,
+) -> None:
+    builder, _ = register_synthetic_style("synthetic.overridetrust", trusted=True)
+    untrusted_renderer = RecordingRenderer("synthetic.untrusted.renderer", trusted=False)
+    register_plot_renderer("synthetic.untrusted.renderer.id", untrusted_renderer, source="manual")
+    factual = calibrated_wrapper.explain_factual(np.array([[0.1, -0.2, 0.3]]))[0]
+
+    factual.plot(
+        style="synthetic.overridetrust",
+        renderer="synthetic.untrusted.renderer.id",
+        show=False,
+    )
+
+    context = builder.contexts[0]
+    assert dict(context.runtime) == {}
+
+
+def test_should_keep_runtime_when_renderer_override_is_also_trusted(
+    calibrated_wrapper,
+    register_synthetic_style,
+    guard_builtin_instance_plotting,
+) -> None:
+    builder, _ = register_synthetic_style("synthetic.overridetrust2", trusted=True)
+    trusted_renderer = RecordingRenderer("synthetic.trusted.renderer", trusted=True)
+    register_plot_renderer("synthetic.trusted.renderer.id", trusted_renderer, source="manual")
+    mark_plot_renderer_trusted("synthetic.trusted.renderer.id")
+    factual = calibrated_wrapper.explain_factual(np.array([[0.1, -0.2, 0.3]]))[0]
+
+    factual.plot(
+        style="synthetic.overridetrust2",
+        renderer="synthetic.trusted.renderer.id",
+        show=False,
+    )
+
+    context = builder.contexts[0]
+    assert context.runtime["scope"] == "instance"

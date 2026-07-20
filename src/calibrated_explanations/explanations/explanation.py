@@ -33,6 +33,8 @@ from pandas import Categorical
 
 from ..api.params import reject_unsupported_narrative_kwargs
 from ..plotting import (
+    _configured_dispatch_blocked,
+    _dispatch_configured_instance_plot_style,
     _dispatch_explicit_instance_plot_style,
     _is_third_party_plot_style,
     plot_alternative,
@@ -2380,13 +2382,32 @@ class FactualExplanation(CalibratedExplanation):
             - rnk_weight (float): default=0.5. The weight of the uncertainty in
               the ranking. Used with the 'ensured' ranking metric.
         """
-        requested_style = kwargs.get("style")
         # Third-party styles dispatch before any built-in option consumption,
         # ranking, filtering, or transport rewriting (the plugin owns those).
-        if _is_third_party_plot_style(requested_style):
+        # style_override is an equally valid selection surface (see
+        # _resolve_named_plot_style precedence), so it is checked alongside
+        # style, not only style.
+        requested_style = kwargs.get("style")
+        style_override_kwarg = kwargs.get("style_override")
+        effective_style = requested_style
+        if not _is_third_party_plot_style(effective_style) and _is_third_party_plot_style(
+            style_override_kwarg
+        ):
+            effective_style = style_override_kwarg
+        if _is_third_party_plot_style(effective_style):
             return _dispatch_explicit_instance_plot_style(
-                self, intent_type="factual", filter_top=filter_top, kwargs=kwargs
+                self,
+                intent_type="factual",
+                filter_top=filter_top,
+                style=effective_style,
+                kwargs=kwargs,
             ).result
+        if not _configured_dispatch_blocked(kwargs):
+            configured_outcome = _dispatch_configured_instance_plot_style(
+                self, intent_type="factual", filter_top=filter_top, kwargs=kwargs
+            )
+            if configured_outcome is not None:
+                return configured_outcome.result
         custom_plot_style = isinstance(requested_style, str) and requested_style not in {
             "regular",
             "triangular",
@@ -3945,13 +3966,31 @@ class AlternativeExplanation(CalibratedExplanation):
             rnk_weight : float, default=0.5
                 The weight of the uncertainty in the ranking. Used with the 'ensured' ranking metric.
         """
-        requested_style = kwargs.get("style")
         # Third-party styles dispatch before built-in ranking, identical-to-base
         # filtering, and ensured/triangular rewriting (the plugin owns those).
-        if _is_third_party_plot_style(requested_style):
+        # style_override is an equally valid selection surface, so it is
+        # checked alongside style, not only style.
+        requested_style = kwargs.get("style")
+        style_override_kwarg = kwargs.get("style_override")
+        effective_style = requested_style
+        if not _is_third_party_plot_style(effective_style) and _is_third_party_plot_style(
+            style_override_kwarg
+        ):
+            effective_style = style_override_kwarg
+        if _is_third_party_plot_style(effective_style):
             return _dispatch_explicit_instance_plot_style(
-                self, intent_type="alternative", filter_top=filter_top, kwargs=kwargs
+                self,
+                intent_type="alternative",
+                filter_top=filter_top,
+                style=effective_style,
+                kwargs=kwargs,
             ).result
+        if not _configured_dispatch_blocked(kwargs):
+            configured_outcome = _dispatch_configured_instance_plot_style(
+                self, intent_type="alternative", filter_top=filter_top, kwargs=kwargs
+            )
+            if configured_outcome is not None:
+                return configured_outcome.result
         custom_plot_style = isinstance(requested_style, str) and requested_style not in {
             "regular",
             "triangular",

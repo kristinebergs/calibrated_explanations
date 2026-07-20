@@ -1440,27 +1440,33 @@ class PluginManager:
                 f"Plot style '{identifier}' resolved to a plugin without build/render "
                 "implementations; check the registered builder and renderer objects."
             )
-        if not trusted:
-            self._logger.info(
-                "Dispatching untrusted plot style '%s' without runtime context; "
-                "mark the builder and renderer trusted (ADR-006) to grant runtime access.",
-                identifier,
-            )
-
         if not renderer_override:
             renderer_override = self._config_manager.env("CE_PLOT_RENDERER")
         if not renderer_override:
             py_settings = self._pyproject_plots or {}
             renderer_override = py_settings.get("renderer")
         if renderer_override:
-            override_renderer = find_plot_renderer(renderer_override)
-            if override_renderer is None:
+            override_descriptor = find_plot_renderer_descriptor(renderer_override)
+            if override_descriptor is None:
                 raise ConfigurationError(
                     f"Requested plot renderer '{renderer_override}' is not registered; "
                     f"cannot render explicitly requested style '{identifier}'."
                 )
             with contextlib.suppress(Exception):
-                plugin.renderer = override_renderer
+                plugin.renderer = override_descriptor.renderer
+            # ADR-006: overriding the renderer changes the effective trust
+            # boundary. Runtime context must reflect the renderer actually in
+            # use, not the style's originally registered (and possibly more
+            # trusted) renderer -- otherwise an untrusted override renderer
+            # would inherit the original renderer's runtime access.
+            trusted = trusted and bool(override_descriptor.trusted)
+
+        if not trusted:
+            self._logger.info(
+                "Dispatching untrusted plot style '%s' without runtime context; "
+                "mark the builder and renderer trusted (ADR-006) to grant runtime access.",
+                identifier,
+            )
 
         return plugin, identifier, trusted
 

@@ -273,30 +273,9 @@ def _select_default_plot_style(
         return explicit_style, False
 
     explainer = _resolve_explainer_from_explanation(explanation)
-    manager = getattr(explainer, "plugin_manager", None)
-    manager_style = getattr(manager, "plot_style_override", None)
-    if isinstance(manager_style, str) and manager_style:
-        return manager_style, manager_style == "legacy"
-
-    config_manager = _get_plotting_config_manager()
-    env_style = config_manager.env("CE_PLOT_STYLE")
-    if isinstance(env_style, str) and env_style.strip():
-        env_style = env_style.strip()
-        return env_style, env_style == "legacy"
-
-    py_settings = _read_plot_pyproject()
-    py_style = py_settings.get("style")
-    if isinstance(py_style, str) and py_style:
-        return py_style, py_style == "legacy"
-
-    chain = (
-        _resolve_plot_style_chain(explainer, explicit_style)
-        if explainer is not None
-        else ("plot_spec.default", "legacy")
-    )
-    for identifier in chain:
-        if identifier and identifier != "legacy":
-            return identifier, False
+    configured_style = _effective_configured_plot_style(explainer)
+    if configured_style:
+        return configured_style, configured_style == "legacy"
     return "plot_spec.default", False
 
 
@@ -589,27 +568,33 @@ def _dispatch_third_party_plot(
     save_ext: Any,
     options: Mapping[str, Any],
     runtime: Mapping[str, Any],
+    resolved: tuple[Any, str, bool] | None = None,
 ) -> _PlotDispatchOutcome:
     """Resolve *style* strictly and run build -> validate -> render.
 
     Errors from resolution, the builder, artifact validation, or the renderer
     surface to the caller: an explicitly requested third-party style never
-    falls back to built-in rendering.
+    falls back to built-in rendering. Pass *resolved* (from a prior
+    ``resolve_plot_plugin_strict`` call) to reuse an already-resolved
+    plugin/identifier/trust tuple instead of resolving again.
     """
     from .plugins import PlotRenderContext, ensure_builtin_plugins
     from .utils.exceptions import ConfigurationError
 
     ensure_builtin_plugins()
     manager = getattr(explainer, "plugin_manager", None)
-    resolver = getattr(manager, "resolve_plot_plugin_strict", None)
-    if not callable(resolver):
-        raise ConfigurationError(
-            f"Cannot resolve plot style '{style}': no plugin manager with "
-            "strict plot-style resolution is reachable from this explanation. "
-            "Third-party styles require an explainer created through the "
-            "public CalibratedExplainer/WrapCalibratedExplainer API."
-        )
-    plugin, identifier, trusted = resolver(style, renderer_override=renderer_override)
+    if resolved is not None:
+        plugin, identifier, trusted = resolved
+    else:
+        resolver = getattr(manager, "resolve_plot_plugin_strict", None)
+        if not callable(resolver):
+            raise ConfigurationError(
+                f"Cannot resolve plot style '{style}': no plugin manager with "
+                "strict plot-style resolution is reachable from this explanation. "
+                "Third-party styles require an explainer created through the "
+                "public CalibratedExplainer/WrapCalibratedExplainer API."
+            )
+        plugin, identifier, trusted = resolver(style, renderer_override=renderer_override)
 
     context = PlotRenderContext(
         explanation=explanation,
@@ -641,11 +626,18 @@ def _dispatch_explicit_instance_plot_style(
     *,
     intent_type: str,
     filter_top: Any,
+    style: str,
     kwargs: Mapping[str, Any],
+    resolved: tuple[Any, str, bool] | None = None,
 ) -> _PlotDispatchOutcome:
     """Dispatch an explanation-level third-party plot request before any
-    built-in ranking, filtering, or transport rewriting can consume it."""
-    style = kwargs.get("style")
+    built-in ranking, filtering, or transport rewriting can consume it.
+
+    *style* is the already-determined effective style identifier (from
+    ``style=``, ``style_override=``, or a resolved configured preference);
+    callers must not re-derive it from ``kwargs["style"]`` alone, since an
+    explicit ``style_override=`` can name the plugin instead.
+    """
     _reject_conflicting_plot_selection(style, kwargs)
     show, path, save_ext = _normalize_third_party_transport(kwargs)
     options = _third_party_plot_options(kwargs)
@@ -672,6 +664,105 @@ def _dispatch_explicit_instance_plot_style(
         save_ext=save_ext,
         options=options,
         runtime=runtime,
+        resolved=resolved,
+    )
+
+
+def _configured_dispatch_blocked(kwargs: Mapping[str, Any]) -> bool:
+    """Return True when *kwargs* already make an explicit selection.
+
+    Mirrors the exact reachability condition of ``_select_default_plot_style``
+    in the built-in dispatch path: configured (manager/env/pyproject/chain)
+    style preference is consulted only when the caller supplied none of
+    ``style``, a string ``style_override``, ``use_legacy`` (True or False),
+    or a truthy ``return_plot_spec``. Any of those present must retain their
+    existing precedence over ambient configuration -- this guard exists
+    purely to avoid changing *when* configured resolution is reached, not to
+    change what it resolves to.
+    """
+    if kwargs.get("style"):
+        return True
+    if kwargs.get("return_plot_spec"):
+        return True
+    if kwargs.get("use_legacy") is not None:
+        return True
+    style_override = kwargs.get("style_override")
+    return isinstance(style_override, str) and bool(style_override)
+
+
+def _effective_configured_plot_style(explainer: Any) -> str | None:
+    """Return the style CE would select via configured preference alone.
+
+    Mirrors the non-explicit branch of ``_select_default_plot_style``
+    (manager override -> ``CE_PLOT_STYLE`` -> pyproject -> first non-legacy
+    chain entry), used both by that function and by the configured-dispatch
+    helpers below so the two stay in lockstep.
+    """
+    manager = getattr(explainer, "plugin_manager", None)
+    manager_style = getattr(manager, "plot_style_override", None)
+    if isinstance(manager_style, str) and manager_style:
+        return manager_style
+
+    config_manager = _get_plotting_config_manager()
+    env_style = config_manager.env("CE_PLOT_STYLE")
+    if isinstance(env_style, str) and env_style.strip():
+        return env_style.strip()
+
+    py_settings = _read_plot_pyproject()
+    py_style = py_settings.get("style")
+    if isinstance(py_style, str) and py_style:
+        return py_style
+
+    chain = (
+        _resolve_plot_style_chain(explainer, None)
+        if explainer is not None
+        else ("plot_spec.default", "legacy")
+    )
+    for identifier in chain:
+        if identifier and identifier != "legacy":
+            return identifier
+    return None
+
+
+def _dispatch_configured_instance_plot_style(
+    explanation: Any,
+    *,
+    intent_type: str,
+    filter_top: Any,
+    kwargs: Mapping[str, Any],
+) -> _PlotDispatchOutcome | None:
+    """Attempt full-fidelity dispatch for a *configured* (non-explicit) style.
+
+    Returns ``None`` when the configured preference is CE-owned or does not
+    resolve to a registered plugin, so the caller falls through to the
+    existing built-in/chain-based path unchanged -- preserving the
+    ADR-approved configured-preference fallback behavior exactly. Unlike the
+    explicit path, this never raises for resolution failure: only an
+    explicit ``style=``/``style_override=`` request is strict.
+    """
+    if _configured_dispatch_blocked(kwargs):
+        return None
+    explainer = _resolve_explainer_from_explanation(explanation)
+    if explainer is None:
+        return None
+    configured_style = _effective_configured_plot_style(explainer)
+    if not _is_third_party_plot_style(configured_style):
+        return None
+    manager = getattr(explainer, "plugin_manager", None)
+    resolver = getattr(manager, "resolve_plot_plugin_strict", None)
+    if not callable(resolver):
+        return None
+    try:
+        resolved = resolver(configured_style, renderer_override=kwargs.get("renderer"))
+    except Exception:  # noqa: BLE001 - unresolved configured style defers to built-in fallback
+        return None
+    return _dispatch_explicit_instance_plot_style(
+        explanation,
+        intent_type=intent_type,
+        filter_top=filter_top,
+        style=configured_style,
+        kwargs=kwargs,
+        resolved=resolved,
     )
 
 
@@ -1992,6 +2083,7 @@ def _dispatch_explicit_global_plot_style(
     threshold: Any,
     style: str,
     kwargs: Mapping[str, Any],
+    resolved: tuple[Any, str, bool] | None = None,
 ) -> _PlotDispatchOutcome:
     """Dispatch an explicit third-party global/dashboard style from plot_global."""
     from .utils.exceptions import ValidationError  # pylint: disable=import-outside-toplevel
@@ -2058,7 +2150,53 @@ def _dispatch_explicit_global_plot_style(
         save_ext=save_ext,
         options=options,
         runtime=runtime,
+        resolved=resolved,
     )
+
+
+def _dispatch_configured_global_plot_style(
+    explainer: Any,
+    x: Any,
+    y: Any,
+    threshold: Any,
+    kwargs: Mapping[str, Any],
+) -> _PlotDispatchOutcome | None:
+    """Attempt full-fidelity dispatch for a *configured* (non-explicit) global style.
+
+    Returns ``None`` when the configured preference is CE-owned, does not
+    resolve to a registered plugin, or fails during build/render -- in all
+    three cases the caller falls through to the existing legacy-fallback
+    path, preserving ``plot_global``'s pre-existing visible-fallback
+    governance for configured (not explicit) selections. A malformed request
+    (conflicting transport, reserved ``payload`` key) still raises, since
+    that is a caller bug rather than a plugin-availability issue.
+    """
+    from .utils.exceptions import ValidationError  # pylint: disable=import-outside-toplevel
+
+    if _configured_dispatch_blocked(kwargs):
+        return None
+    configured_style = _effective_configured_plot_style(explainer)
+    if not _is_third_party_plot_style(configured_style):
+        return None
+    manager = getattr(explainer, "plugin_manager", None)
+    resolver = getattr(manager, "resolve_plot_plugin_strict", None)
+    if not callable(resolver):
+        return None
+    try:
+        resolved = resolver(configured_style, renderer_override=kwargs.get("renderer"))
+    except Exception:  # noqa: BLE001 - unresolved configured style defers to legacy fallback
+        return None
+    try:
+        return _dispatch_explicit_global_plot_style(
+            explainer, x, y, threshold, configured_style, kwargs, resolved=resolved
+        )
+    except ValidationError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - matches plot_global's existing catch-and-fallback
+        _warn_and_log_plotspec_fallback(
+            f"PlotSpec rendering failed with '{exc}'. Falling back to legacy plot."
+        )
+        return None
 
 
 def plot_global(explainer, x, y=None, threshold=None, **kwargs):
@@ -2083,15 +2221,23 @@ def plot_global(explainer, x, y=None, threshold=None, **kwargs):
     **kwargs : dict
         Additional keyword arguments.
     """
-    requested_style = kwargs.get("style")
-    if not _is_third_party_plot_style(requested_style):
-        style_override_value = kwargs.get("style_override")
-        if _is_third_party_plot_style(style_override_value):
-            requested_style = style_override_value
+    style_kwarg = kwargs.get("style")
+    style_override_kwarg = kwargs.get("style_override")
+    requested_style = style_kwarg
+    if not _is_third_party_plot_style(requested_style) and _is_third_party_plot_style(
+        style_override_kwarg
+    ):
+        requested_style = style_override_kwarg
     if _is_third_party_plot_style(requested_style):
         return _dispatch_explicit_global_plot_style(
             explainer, x, y, threshold, requested_style, kwargs
         ).result
+    if not _configured_dispatch_blocked(kwargs):
+        configured_outcome = _dispatch_configured_global_plot_style(
+            explainer, x, y, threshold, kwargs
+        )
+        if configured_outcome is not None:
+            return configured_outcome.result
 
     _reject_unconsumed_plot_kwargs("plot_global", kwargs, allowed=_PLOT_GLOBAL_KWARGS)
 
