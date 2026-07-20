@@ -1,15 +1,62 @@
 # Evidence: third-party plot-plugin dispatch fix (v1.0.0rc2 candidate)
 
-Date: 2026-07-20 (baseline work recorded 2026-07-19)
+Date: 2026-07-20 (baseline work recorded 2026-07-19; independent review and
+correction pass recorded 2026-07-20)
 Author: automated agent session (Claude Code), evidence verified by execution
 Plan: `development/current-work/v1.0.0-rc2_plan.md`
+
+## Independent review and correction pass (2026-07-20)
+
+A second-pass review of the initial implementation (commit `8459df1c`)
+identified three real gaps, verified against actual code/execution before
+any fix was applied:
+
+1. **Configured-preference styles bypassed the raw dispatcher.** The
+   explicit-`style=` interception did not consult
+   `PluginManager.plot_style_override` / `CE_PLOT_STYLE` / pyproject / the
+   plugin-dependency chain, so a third-party style selected through any of
+   those mechanisms still lost `filter_top`/`uncertainty`/`rnk_metric`/
+   `rnk_weight`/options to built-in consumption. Confirmed by executing a
+   configured-style probe against the fixed-but-not-yet-corrected candidate:
+   the plugin was never invoked.
+2. **`style_override` alone (no `style=`) bypassed interception on the
+   factual/alternative surfaces**, while `plot_global` already checked both.
+   Confirmed by executing `factual.plot(style_override="vendor.x", ...)`.
+3. **`resolve_plot_plugin_strict` computed the `trusted` flag before applying
+   `renderer_override`**, so overriding to an untrusted, unrelated renderer
+   inherited the original style's trust and received full runtime access
+   (explainer, model, request data) — a real ADR-006 violation. Confirmed by
+   registering a trusted style, overriding its renderer to a separately
+   registered *untrusted* renderer, and observing a non-empty
+   `context.runtime`.
+
+All three were fixed (see commit `9e1fa1e5`): `resolve_plot_plugin_strict`
+now recomputes trust as `trusted and renderer_descriptor.trusted` whenever a
+renderer override is applied; the three public surfaces now check
+`style_override` alongside `style` for explicit selection and, when neither
+is given, resolve the same configured-preference precedence the built-in
+path already used, dispatching the full raw request through the existing
+strict resolver when it names a registered third-party plugin. A guard
+(`_configured_dispatch_blocked`) preserves the exact pre-existing
+reachability condition for `use_legacy`/`return_plot_spec`/explicit style, so
+none of those combinations changed behavior. Unresolvable configured styles
+fall through to the existing built-in/legacy path unchanged (no broadened
+fallback). 10 new regression tests were added directly reproducing each
+finding (positive and negative), and both the installed-wheel proof and the
+six-style Plotly no-bridge proof were rebuilt and rerun against the
+corrected candidate — all still pass. The reviewer also flagged three gaps
+in the temporary `tmp/no-bridge-proof` plugins-repo branch (stale
+CE floor, a test asserting bridge installation, an implicit trust step);
+all three were corrected there (commit `3629ca9`) since they were concrete
+and verified (one stale assertion was confirmed to fail before the fix).
 
 ## Baselines
 
 | Item | Value |
 |---|---|
 | CE baseline SHA | `9573af24e62171040dd872067da2f6aeac884944` (post-RC1 `main`) |
-| CE candidate SHA | `8459df1c` on branch `feat/plot-plugin-dispatch-rc2` (implementation + tests); docs/plans/evidence committed on the same branch after this report |
+| CE candidate SHA | `9e1fa1e5` on branch `feat/plot-plugin-dispatch-rc2` (implementation `8459df1c` + review-driven correction `9e1fa1e5`); docs/plans/evidence committed on the same branch |
+| Plotly proof candidate | `3629ca9` on local branch `tmp/no-bridge-proof` (supersedes `b545bf4`/`27b6a6d`) |
 | CE `pyproject.toml` version | `1.0.0-dev` (unchanged; preflight tooling owns the RC bump) |
 | v1.0.0rc1 anchor | release commit `0464593a`, PyPI-verified 2026-07-15; tags are authoritative on `Moffran/calibrated_explanations` (none on this mirror) |
 | v1.0.0rc2 | does not exist anywhere (verified 2026-07-19) |
@@ -103,14 +150,21 @@ installed, where any fall-through would raise).
 
 ## Test results
 
-- Focused: `tests/unit/test_plot_third_party_dispatch.py` (25) +
-  `tests/plugins/test_protocols.py` (21 incl. 5 new) +
-  `tests/unit/test_plotting.py`, `tests/unit/test_plot_default_promotion.py`,
+- Focused: `tests/unit/test_plot_third_party_dispatch.py` (31, incl. 10 added
+  during the review-correction pass: configured manager-override dispatch
+  for factual/alternative/global, `None`-result handling on the configured
+  path, `use_legacy=True` still bypassing configured dispatch, unregistered
+  configured styles falling through silently, `style_override`-only
+  selection for factual/alternative, and renderer-override trust
+  recomputation both directions) + `tests/plugins/test_protocols.py`
+  (21 incl. 5 new) + `tests/unit/test_plotting.py`,
+  `tests/unit/test_plot_default_promotion.py`,
   `tests/unit/plugins/test_manager.py`, `tests/plugins/` — all green
   (2026-07-19/20, Python 3.11 and 3.14 envs).
 - Built-in regression: full `tests/` run excluding `tests/viz` — **exit 0**
-  (2026-07-19, Python 3.11, command
-  `python -m pytest tests -q -x --ignore=tests/viz`). Includes factual
+  both before (2026-07-19) and after (2026-07-20) the correction pass, Python
+  3.11, command `python -m pytest tests -q -x --ignore=tests/viz`. Includes
+  factual
   regular/legacy/PlotSpec/uncertainty, regression, alternative
   regular/ensured/triangular, global built-in PlotSpec/legacy, one-sided
   interval rejection, renderer override, visible-fallback tests.
@@ -185,28 +239,44 @@ installed, where any fall-through would raise).
 
 ## Remaining risks
 
-1. Repository gates (`make local-checks-pr`, strict docs build, viz lane,
-   full CI matrix) not yet run at the time of this report — tracked in the
-   plan checklist; RC2 must not be cut before they are green on the exact
-   candidate commit.
-2. Public API snapshot regeneration must go through the governed review, not
+1. **Resolved during the review-correction pass, not a residual risk:**
+   configured (non-explicit) third-party styles that successfully resolve
+   now go through the *same* `_dispatch_third_party_plot`/
+   `_PlotDispatchOutcome` machinery as the explicit path, so a configured
+   plugin legitimately returning `None` is also now treated as handled
+   (test: `test_should_treat_none_renderer_result_as_handled_when_configured_style_dispatched`).
+   An *unresolvable* configured style (unregistered, denied, or no strict
+   resolver reachable) still falls through to the pre-existing built-in/
+   chain-based path unchanged — that fallback governance was deliberately
+   not broadened or narrowed.
+2. `make local-checks-pr`, the ADR-023 viz lane, and packaging validation
+   have been run and are green on the corrected candidate (`9e1fa1e5`,
+   2026-07-20). The full repository-supported CI matrix has **not** run,
+   since the branch has not been pushed — this remains open and RC2 must not
+   be cut before it is green on the exact pushed candidate commit.
+3. Public API snapshot regeneration must go through the governed review, not
    blind acceptance.
-3. Configured (non-explicit) third-party style preferences retain the rc1
-   chain path, including its `result is not None` gating; a configured (not
-   explicit) plugin returning `None` still falls through to built-in
-   rendering. This is pre-existing rc1 behavior, preserved deliberately to
-   avoid changing governed fallback semantics; flagged for a post-GA cleanup
-   decision.
-4. The Plotly package still ships `_ce_compat.py` on `main`; adopting the
-   no-bridge patch (and raising its CE floor to `>=1.0.0rc2`) is a separate,
-   authorized-later change in the plugins repository.
+4. The Plotly package's `main` branch still ships `_ce_compat.py` and
+   declares `>=1.0.0rc1`; the temporary `tmp/no-bridge-proof` branch
+   (candidate `3629ca9`) removes the bridge install/import, raises the floor
+   to `>=1.0.0rc2`, and fixes the three stale bridge-installed test
+   assertions a reviewer identified — but `_ce_compat.py` itself was not
+   deleted (confirmed dead code: unreferenced by `__init__.py`, the
+   registration path, or any runtime dispatch path) and installation docs
+   were not rewritten to make the required operator trust step (marking the
+   dashboard builder/renderer trusted) explicit. Both are scoped to the
+   separately authorized adoption task, per this task's "temporary
+   adaptation, not final integration branch" constraint.
 5. `FastExplanation.plot` third-party styles remain undefined (documented
    out of scope).
 
 ## Release recommendation
 
-Implementation, contract tests, installed-wheel proof, and the external
-Plotly no-bridge proof are complete and green. Recommend proceeding to the
-release-preparation gates (local-checks, docs, API snapshot review, full CI
-matrix) and then cutting `v1.0.0rc2`. Do not tag or publish before those
-gates are green on the exact candidate commit.
+Implementation, contract tests (including the review-driven correction for
+configured-style dispatch, `style_override`-only selection, and
+renderer-override trust recomputation), installed-wheel proof, and the
+external Plotly no-bridge proof are complete and green on the corrected
+candidate. Recommend proceeding to the remaining release-preparation gates
+(push the branch, full CI matrix, API snapshot review) and then cutting
+`v1.0.0rc2`. Do not tag or publish before those gates are green on the exact
+candidate commit.
