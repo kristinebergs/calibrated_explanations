@@ -519,7 +519,9 @@ denied (`CE_DENY_PLUGIN`), or incomplete. CE never silently substitutes
 `plot_spec.default`, `legacy`, or any fallback for an explicit request, and
 builder/renderer/validation errors surface without built-in fallback.
 Configured preferences (manager `plot_style`, `CE_PLOT_STYLE`,
-pyproject) keep their governed chain-with-visible-fallback semantics.
+pyproject) keep their governed chain-with-visible-fallback semantics. Passing
+`use_legacy=False` excludes the legacy renderer but does not disable a
+configured non-legacy third-party style.
 Contradictory explicit requests (for example `style="vendor.style"` together
 with `use_legacy=True`, or a differing string `style_override`) raise
 `ValidationError`.
@@ -530,9 +532,11 @@ plugin.render -> return result unchanged`. A renderer that returns `None` has
 still handled the request; CE never re-renders a built-in plot afterwards.
 
 **Transport fields.** `context.path` is `path=` if supplied, else `filename=`,
-else `None` — verbatim, with no `plots/` prefix, suffix rewriting, or
-directory creation (the renderer owns output formats). Supplying conflicting
-`path` and `filename` raises `ValidationError`. `context.show` defaults to
+else `None` — exact empty strings retain the historical no-save meaning;
+non-empty values are otherwise verbatim, with no `plots/` prefix, suffix
+rewriting, or directory creation (the renderer owns output formats).
+Supplying conflicting non-empty `path` and `filename` raises
+`ValidationError`. `context.show` defaults to
 `False` when an output path is present and `True` otherwise; an explicit
 `show=` always wins. `save_ext` is forwarded as given (lists become tuples);
 CE invents no default extensions for external renderers.
@@ -550,7 +554,10 @@ deep-copied.
 outputs once and publishes them under the reserved `context.options["payload"]`
 key (`proba`/`predict`/`low`/`high`/`uncertainty`/`y`/`is_regularized`/
 `threshold`/`class_labels`/`x`). A caller-supplied `payload=` kwarg raises
-`ValidationError` rather than being silently overwritten.
+`ValidationError` rather than being silently overwritten. For unthresholded
+regression, payload `low`/`high` values are computed with the caller's
+`low_high_percentiles` when supplied, so numerical bounds and forwarded
+metadata describe the same interval request.
 
 **Runtime context (trusted plugins only).** `context.runtime` is a read-only
 mapping of live references (never deep copies). For instance plots:

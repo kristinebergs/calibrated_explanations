@@ -20,7 +20,7 @@ from typing import Any
 
 import numpy as np
 import pytest
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LinearRegression, LogisticRegression
 
 import calibrated_explanations.explanations.explanation as explanation_module
 from calibrated_explanations import plotting
@@ -141,6 +141,17 @@ def calibrated_wrapper() -> WrapCalibratedExplainer:
     wrapper = WrapCalibratedExplainer(LogisticRegression(random_state=0, solver="liblinear"))
     wrapper.fit(x[:20], y[:20])
     wrapper.calibrate(x[20:32], y[20:32])
+    return wrapper
+
+
+@pytest.fixture()
+def calibrated_regression_wrapper() -> WrapCalibratedExplainer:
+    rng = np.random.default_rng(11)
+    x = rng.normal(size=(60, 3))
+    y = 2.0 * x[:, 0] - 0.5 * x[:, 1] + rng.normal(scale=0.4, size=60)
+    wrapper = WrapCalibratedExplainer(LinearRegression())
+    wrapper.fit(x[:30], y[:30])
+    wrapper.calibrate(x[30:50], y[30:50])
     return wrapper
 
 
@@ -351,6 +362,45 @@ def test_should_forward_payload_options_and_runtime_when_global_style_selected(
     assert context.runtime["threshold"] is None
     assert context.runtime["bins"] is None
     assert len(renderer.calls) == 1
+
+
+def test_should_build_global_bounds_from_requested_regression_percentiles(
+    calibrated_regression_wrapper,
+    register_synthetic_style,
+    monkeypatch,
+) -> None:
+    builder, _ = register_synthetic_style("synthetic.global.regression")
+    explainer = calibrated_regression_wrapper.explainer
+    x_test = np.array([[0.1, -0.2, 0.3], [0.5, 0.1, -0.4]])
+    percentiles = (20, 80)
+    expected_predict, (expected_low, expected_high) = explainer.predict(
+        x_test, uq_interval=True, low_high_percentiles=percentiles
+    )
+    prediction_calls: list[dict[str, Any]] = []
+    original_predict = explainer.predict
+
+    def _record_predict(x: Any, **kwargs: Any) -> Any:
+        prediction_calls.append(dict(kwargs))
+        return original_predict(x, **kwargs)
+
+    monkeypatch.setattr(explainer, "predict", _record_predict)
+
+    explainer.plot(
+        x_test,
+        style="synthetic.global.regression",
+        low_high_percentiles=percentiles,
+        show=False,
+    )
+
+    payload = builder.contexts[0].options["payload"]
+    assert prediction_calls == [
+        {"uq_interval": True, "bins": None, "low_high_percentiles": percentiles}
+    ]
+    np.testing.assert_allclose(payload["predict"], expected_predict)
+    np.testing.assert_allclose(payload["low"], expected_low)
+    np.testing.assert_allclose(payload["high"], expected_high)
+    assert np.all(np.asarray(payload["low"]) <= np.asarray(payload["predict"]))
+    assert np.all(np.asarray(payload["predict"]) <= np.asarray(payload["high"]))
 
 
 def test_should_reject_caller_supplied_payload_when_global_style_selected(
@@ -576,6 +626,34 @@ def test_should_accept_matching_path_and_filename_for_plugin_dispatch(
     assert builder.contexts[0].path == "a/one.html"
 
 
+@pytest.mark.parametrize(
+    ("transport", "expected_path", "expected_show"),
+    [
+        ({"filename": ""}, None, True),
+        ({"path": ""}, None, True),
+        ({"path": "out.html", "filename": ""}, "out.html", False),
+        ({"path": "", "filename": "out.html"}, "out.html", False),
+        ({"filename": "", "show": False}, None, False),
+    ],
+)
+def test_should_treat_exact_empty_transport_paths_as_absent_when_plugin_dispatched(
+    calibrated_wrapper,
+    register_synthetic_style,
+    guard_builtin_instance_plotting,
+    transport,
+    expected_path,
+    expected_show,
+) -> None:
+    builder, _ = register_synthetic_style("synthetic.factual")
+    factual = calibrated_wrapper.explain_factual(np.array([[0.1, -0.2, 0.3]]))[0]
+
+    factual.plot(style="synthetic.factual", **transport)
+
+    context = builder.contexts[0]
+    assert context.path == expected_path
+    assert context.show is expected_show
+
+
 def test_should_default_show_true_when_no_output_path_for_plugin_dispatch(
     calibrated_wrapper,
     register_synthetic_style,
@@ -694,6 +772,90 @@ def test_should_treat_none_renderer_result_as_handled_when_configured_style_disp
     result = factual.plot(show=False)
 
     assert result is None
+
+
+def test_should_dispatch_configured_factual_style_when_use_legacy_false(
+    calibrated_wrapper,
+    register_synthetic_style,
+    guard_builtin_instance_plotting,
+) -> None:
+    builder, _ = register_synthetic_style("synthetic.configured.factual.nonlegacy")
+    calibrated_wrapper.explainer.plugin_manager.plot_style_override = (
+        "synthetic.configured.factual.nonlegacy"
+    )
+    factual = calibrated_wrapper.explain_factual(np.array([[0.1, -0.2, 0.3]]))[0]
+
+    result = factual.plot(use_legacy=False, filter_top=5, uncertainty=True, show=False)
+
+    assert result == "renderer-result"
+    assert builder.contexts[0].options["filter_top"] == 5
+    assert builder.contexts[0].options["uncertainty"] is True
+
+
+def test_should_dispatch_configured_alternative_style_when_use_legacy_false(
+    calibrated_wrapper,
+    register_synthetic_style,
+    guard_builtin_instance_plotting,
+) -> None:
+    builder, _ = register_synthetic_style("synthetic.configured.alternative.nonlegacy")
+    calibrated_wrapper.explainer.plugin_manager.plot_style_override = (
+        "synthetic.configured.alternative.nonlegacy"
+    )
+    alternative = calibrated_wrapper.explore_alternatives(np.array([[0.1, -0.2, 0.3]]))[0]
+
+    result = alternative.plot(use_legacy=False, filter_top=6, show=False)
+
+    assert result == "renderer-result"
+    assert builder.contexts[0].options["filter_top"] == 6
+
+
+def test_should_treat_none_result_as_handled_for_configured_global_style_when_use_legacy_false(
+    calibrated_wrapper,
+    register_synthetic_style,
+) -> None:
+    builder, renderer = register_synthetic_style(
+        "synthetic.configured.global.nonlegacy", renderer_result=None
+    )
+    calibrated_wrapper.explainer.plugin_manager.plot_style_override = (
+        "synthetic.configured.global.nonlegacy"
+    )
+
+    result = calibrated_wrapper.explainer.plot(
+        np.array([[0.1, -0.2, 0.3], [0.4, 0.1, -0.2]]),
+        use_legacy=False,
+        show=False,
+    )
+
+    assert result is None
+    assert len(builder.contexts) == 1
+    assert len(renderer.calls) == 1
+
+
+def test_should_bypass_configured_legacy_global_style_when_use_legacy_false(
+    calibrated_wrapper,
+    monkeypatch,
+) -> None:
+    explainer = calibrated_wrapper.explainer
+    explainer.plugin_manager.plot_style_override = "legacy"
+    resolved_styles: list[str | None] = []
+    original_resolve = explainer.plugin_manager.resolve_plot_plugin
+
+    def _record_resolve(*, explicit_style=None, renderer_override=None):
+        resolved_styles.append(explicit_style)
+        return original_resolve(
+            explicit_style=explicit_style,
+            renderer_override=renderer_override,
+        )
+
+    monkeypatch.setattr(explainer.plugin_manager, "resolve_plot_plugin", _record_resolve)
+
+    explainer.plot(
+        np.array([[0.1, -0.2, 0.3], [0.4, 0.1, -0.2]]),
+        use_legacy=False,
+        show=False,
+    )
+
+    assert resolved_styles == ["plot_spec.default"]
 
 
 def test_should_not_dispatch_configured_style_when_use_legacy_true(

@@ -523,8 +523,8 @@ def _normalize_third_party_transport(kwargs: Mapping[str, Any]) -> tuple[bool, A
     """
     from .utils.exceptions import ValidationError  # pylint: disable=import-outside-toplevel
 
-    path = kwargs.get("path")
-    filename = kwargs.get("filename")
+    path = None if kwargs.get("path") == "" else kwargs.get("path")
+    filename = None if kwargs.get("filename") == "" else kwargs.get("filename")
     if path is not None and filename is not None and path != filename:
         raise ValidationError(
             "Conflicting output arguments: path="
@@ -674,8 +674,8 @@ def _configured_dispatch_blocked(kwargs: Mapping[str, Any]) -> bool:
     Mirrors the exact reachability condition of ``_select_default_plot_style``
     in the built-in dispatch path: configured (manager/env/pyproject/chain)
     style preference is consulted only when the caller supplied none of
-    ``style``, a string ``style_override``, ``use_legacy`` (True or False),
-    or a truthy ``return_plot_spec``. Any of those present must retain their
+    ``style``, a string ``style_override``, ``use_legacy=True``, or a truthy
+    ``return_plot_spec``. Any of those present must retain their
     existing precedence over ambient configuration -- this guard exists
     purely to avoid changing *when* configured resolution is reached, not to
     change what it resolves to.
@@ -684,7 +684,7 @@ def _configured_dispatch_blocked(kwargs: Mapping[str, Any]) -> bool:
         return True
     if kwargs.get("return_plot_spec"):
         return True
-    if kwargs.get("use_legacy") is not None:
+    if kwargs.get("use_legacy") is True:
         return True
     style_override = kwargs.get("style_override")
     return isinstance(style_override, str) and bool(style_override)
@@ -978,7 +978,7 @@ def plot_probabilistic(
     if use_legacy is None:
         selected_style, use_legacy = _select_default_plot_style(explanation, explicit_style)
     else:
-        selected_style = explicit_style
+        selected_style = explicit_style or ("plot_spec.default" if use_legacy is False else None)
     explainer = _resolve_explainer_from_explanation(explanation)
 
     predict_payload = dict(predict or {})
@@ -1297,7 +1297,7 @@ def plot_regression(
     if use_legacy is None:
         selected_style, use_legacy = _select_default_plot_style(explanation, explicit_style)
     else:
-        selected_style = explicit_style
+        selected_style = explicit_style or ("plot_spec.default" if use_legacy is False else None)
 
     if use_legacy:
         from .viz import _matplotlib_compat as legacy
@@ -1618,7 +1618,7 @@ def plot_alternative(
     if use_legacy is None:
         selected_style, use_legacy = _select_default_plot_style(explanation, explicit_style)
     else:
-        selected_style = explicit_style
+        selected_style = explicit_style or ("plot_spec.default" if use_legacy is False else None)
     explainer = _resolve_explainer_from_explanation(explanation)
 
     if use_legacy:
@@ -2075,6 +2075,46 @@ def plot_alternative(
         return
 
 
+def _build_global_prediction_payload(
+    explainer: Any,
+    x: Any,
+    y: Any,
+    threshold: Any,
+    kwargs: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Build the validated prediction payload shared by all global plot routes."""
+    bins = kwargs.get("bins")
+    is_regularized = True
+    if "predict_proba" not in dir(explainer.learner) and threshold is None:
+        prediction_kwargs = {"bins": bins}
+        if "low_high_percentiles" in kwargs:
+            prediction_kwargs["low_high_percentiles"] = kwargs["low_high_percentiles"]
+        predict, (low, high) = explainer.predict(x, uq_interval=True, **prediction_kwargs)
+        proba = None
+        is_regularized = False
+    else:
+        proba, (low, high) = explainer.predict_proba(
+            x, uq_interval=True, threshold=threshold, bins=bins
+        )
+        predict = None
+
+    uncertainty = (
+        (np.array(high) - np.array(low)) if (low is not None and high is not None) else None
+    )
+    return {
+        "proba": proba,
+        "predict": predict,
+        "low": low,
+        "high": high,
+        "uncertainty": uncertainty,
+        "y": (list(y) if y is not None else None),
+        "is_regularized": is_regularized,
+        "threshold": threshold,
+        "class_labels": getattr(explainer, "class_labels", None),
+        "x": x,
+    }
+
+
 # pylint: disable=duplicate-code, too-many-branches, too-many-statements, too-many-locals
 def _dispatch_explicit_global_plot_style(
     explainer: Any,
@@ -2101,31 +2141,7 @@ def _dispatch_explicit_global_plot_style(
 
     # CE-owned validation of model outputs happens before dispatch so every
     # global renderer observes the same validated prediction payload.
-    is_regularized = True
-    if "predict_proba" not in dir(explainer.learner) and threshold is None:
-        predict, (low, high) = explainer.predict(x, uq_interval=True, bins=bins)
-        proba = None
-        is_regularized = False
-    else:
-        proba, (low, high) = explainer.predict_proba(
-            x, uq_interval=True, threshold=threshold, bins=bins
-        )
-        predict = None
-    uncertainty = (
-        (np.array(high) - np.array(low)) if (low is not None and high is not None) else None
-    )
-    payload = {
-        "proba": proba,
-        "predict": predict,
-        "low": low,
-        "high": high,
-        "uncertainty": uncertainty,
-        "y": (list(y) if y is not None else None),
-        "is_regularized": is_regularized,
-        "threshold": threshold,
-        "class_labels": getattr(explainer, "class_labels", None),
-        "x": x,
-    }
+    payload = _build_global_prediction_payload(explainer, x, y, threshold, kwargs)
 
     options = _third_party_plot_options(kwargs)
     options[_GLOBAL_PAYLOAD_KEY] = payload
@@ -2242,7 +2258,6 @@ def plot_global(explainer, x, y=None, threshold=None, **kwargs):
     _reject_unconsumed_plot_kwargs("plot_global", kwargs, allowed=_PLOT_GLOBAL_KWARGS)
 
     show = kwargs.get("show", True)
-    bins = kwargs.get("bins")
     use_legacy = kwargs.get("use_legacy")
     explicit_style = _resolve_named_plot_style(
         style_override=kwargs.get("style_override"),
@@ -2251,7 +2266,7 @@ def plot_global(explainer, x, y=None, threshold=None, **kwargs):
     if use_legacy is None:
         selected_style, use_legacy = _select_default_plot_style(explainer, explicit_style)
     else:
-        selected_style = explicit_style
+        selected_style = explicit_style or ("plot_spec.default" if use_legacy is False else None)
 
     # pre-v4 S4-H6: gather and validate model outputs once, ahead of the
     # use_legacy dispatch, so both the legacy and PlotSpec renderers observe
@@ -2260,16 +2275,12 @@ def plot_global(explainer, x, y=None, threshold=None, **kwargs):
     # which itself validated only after a "not show and no matplotlib"
     # no-op check -- so plot(..., threshold=<invalid>, use_legacy=True,
     # show=False) silently skipped validation entirely.
-    is_regularized = True
-    if "predict_proba" not in dir(explainer.learner) and threshold is None:
-        predict, (low, high) = explainer.predict(x, uq_interval=True, bins=bins)
-        proba = None
-        is_regularized = False
-    else:
-        proba, (low, high) = explainer.predict_proba(
-            x, uq_interval=True, threshold=threshold, bins=bins
-        )
-        predict = None
+    payload = _build_global_prediction_payload(explainer, x, y, threshold, kwargs)
+    proba = payload["proba"]
+    predict = payload["predict"]
+    low = payload["low"]
+    high = payload["high"]
+    is_regularized = payload["is_regularized"]
 
     validated_payload = {
         "proba": proba,
@@ -2291,23 +2302,6 @@ def plot_global(explainer, x, y=None, threshold=None, **kwargs):
     save_ext_value = kwargs.get("save_ext")
     if isinstance(save_ext_value, (list, tuple)):
         save_ext_value = tuple(save_ext_value)
-
-    uncertainty = (
-        (np.array(high) - np.array(low)) if (low is not None and high is not None) else None
-    )
-
-    payload = {
-        "proba": proba,
-        "predict": predict,
-        "low": low,
-        "high": high,
-        "uncertainty": uncertainty,
-        "y": (list(y) if y is not None else None),
-        "is_regularized": is_regularized,
-        "threshold": threshold,
-        "class_labels": getattr(explainer, "class_labels", None),
-        "x": x,
-    }
 
     from .plugins import (
         PlotRenderContext,

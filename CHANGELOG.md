@@ -18,9 +18,13 @@
   raises an actionable `ConfigurationError`, and a renderer legitimately
   returning `None` is treated as handled instead of triggering built-in
   plotting. Output transport for third-party styles is renderer-neutral:
-  `filename`/`path` are forwarded verbatim (conflicts raise
-  `ValidationError`), no `plots/` prefix or suffix rewriting is applied, and
-  `show` defaults follow the established save-implies-no-show convention.
+  non-empty `filename`/`path` values are forwarded verbatim (conflicts raise
+  `ValidationError`), exact empty strings retain their historical no-save
+  meaning, no `plots/` prefix or suffix rewriting is applied, and `show`
+  defaults follow the established save-implies-no-show convention. Configured
+  non-legacy plugin styles also remain active when callers explicitly pass
+  `use_legacy=False`, and global regression payload bounds now use the
+  requested `low_high_percentiles`.
 
 ### Added
 
