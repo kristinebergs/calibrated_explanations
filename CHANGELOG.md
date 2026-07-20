@@ -5,6 +5,19 @@
 
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v1.0.0rc2...main)
 
+### Changed
+
+- **GA compatibility statement:** the public API, the plugin trust model
+  (ADR-006), and the visualization extension contract (ADR-037) are now
+  declared **stable as of `1.0.0`**, superseding the `1.0.0rc1`/`1.0.0rc2`
+  "frozen, patch-fixes-only" framing. Only patch-level defect fixes will be
+  accepted against these contracts going forward. The Explanation Schema v1
+  freeze (`docs/schema_v1.md`, frozen as of `1.0.0rc1`) and the zero-active-
+  deprecations status re-confirmed on the GA candidate commit both carry
+  forward unchanged; see the
+  [v1.0.0 upgrade checklist](docs/upgrade/v1.0.0-upgrade-checklist.md) for
+  cumulative migration guidance for documented workflows since v0.6.1.
+
 ## [v1.0.0rc2](https://github.com/Moffran/calibrated_explanations/releases/tag/v1.0.0rc2) - 2026-07-20
 
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v1.0.0rc1...v1.0.0rc2)

@@ -118,8 +118,12 @@ exp[0].plot()
 
 ## Compatibility
 
-**Public API:** The public API is frozen as of `1.0.0rc1`. Only patch-level
-defect fixes will be accepted before GA. See the
+**Public API:** The public API, the plugin trust model
+([ADR-006](development/adrs/ADR-006-plugin-registry-trust-model.md)), and the
+visualization extension contract
+([ADR-037](development/adrs/ADR-037-visualization-extension-and-rendering-governance.md))
+are stable as of `1.0.0`. Only patch-level defect fixes will be accepted
+against these contracts going forward. See the
 [v1.0.0 upgrade checklist](docs/upgrade/v1.0.0-upgrade-checklist.md) for
 cumulative migration guidance for documented legacy workflows since v0.6.1.
 
