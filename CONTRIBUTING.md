@@ -114,3 +114,16 @@ Notes
 
 If you add or remove optional dependencies, please update `pyproject.toml`,
 `evaluation/requirements.txt`, and `evaluation/environment.yml` accordingly.
+
+Contributing a plugin
+---------------------
+
+Plugins for `calibrated-explanations` are incubated and published from a
+separate plugin repository. Wrote a plugin, or want an existing one promoted
+or listed? Open a short
+["Plugin intake request"](https://github.com/kristinebergs/calibrated_explanations/issues/new?template=plugin_publication_request.yml)
+issue here — a description, maintainer contact, licence, and known
+limitations are all that is needed to start. The maintainers triage requests
+and transfer accepted work into the plugin repository, where new plugins
+start as experimental. Submitting a request does not authorise publication;
+maturity and publication decisions rest with the CE plugin maintainers.

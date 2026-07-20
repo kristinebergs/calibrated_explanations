@@ -1,0 +1,77 @@
+name: Plugin intake request
+description: >-
+  Propose a plugin for the calibrated-explanations ecosystem: review for
+  official adoption, promotion of an existing plugin-repository plugin, or a
+  community-plugin listing.
+title: "[plugin]: "
+labels: ["plugin-request"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for contributing to the calibrated-explanations plugin
+        ecosystem — we're glad you're here! This short form is all we need to
+        get started. If the plugin looks like a fit, the maintainers will
+        follow up about review details (compatibility, PyPI ownership,
+        curation) — none of that is needed now.
+
+        Submitting this form does not authorise publication; maturity and
+        publication decisions rest with the CE plugin maintainers. Community
+        plugins are always welcome to stay independently published.
+  - type: dropdown
+    id: request-type
+    attributes:
+      label: Request type
+      options:
+        - Review my plugin for official adoption
+        - Promote an existing plugin-repository plugin to mature
+        - List my community plugin for discoverability
+    validations:
+      required: true
+  - type: input
+    id: location
+    attributes:
+      label: Plugin location
+      description: >-
+        Repository URL, or the packages/<family>/<name> path for plugins
+        already in the plugin monorepo.
+    validations:
+      required: true
+  - type: dropdown
+    id: family
+    attributes:
+      label: Plugin family
+      options:
+        - calibration
+        - explanation
+        - visualization
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Short description and intended use
+    validations:
+      required: true
+  - type: input
+    id: maintainer
+    attributes:
+      label: Maintainer name and contact
+    validations:
+      required: true
+  - type: input
+    id: licence
+    attributes:
+      label: Licence
+    validations:
+      required: true
+  - type: textarea
+    id: limitations
+    attributes:
+      label: Known limitations
+    validations:
+      required: true
+  - type: input
+    id: tests
+    attributes:
+      label: Tests or CI link (optional)
