@@ -34,8 +34,8 @@ Detailed ADR/Standard status tables, gap inventories, and historical compliance 
 ### Control snapshot
 
 - **Current released version:** v1.0.0rc1
-- **Active detailed milestone:** v1.0.0 (`development/current-work/v1.0.0_plan.md`)
-- **Next milestone:** v1.0.0
+- **Active detailed milestone:** v1.0.0rc2 (`development/current-work/v1.0.0-rc2_plan.md`) — emergency plot-plugin dispatch compatibility patch; release sequence is now **v1.0.0rc1 → v1.0.0rc2 → v1.0.0**
+- **Next milestone:** v1.0.0 (`development/current-work/v1.0.0_plan.md`; blocked pending v1.0.0rc2, which becomes the GA baseline)
 - **Status appendix:** `development/current-work/RELEASE_PLAN_status_appendix.md`
 
 ### Release-blocking conditions
