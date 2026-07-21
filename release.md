@@ -52,7 +52,7 @@ kept here as the contract that the automation and its tests must cover.
 
 5. Planning/release tracking
 
-- `development/current-work/RELEASE_PLAN_v1.md`: deterministic current-version,
+- `development/current-work/RELEASE_PLAN.md`: deterministic current-version,
   date, and active-plan fields
 - the active `development/current-work/vX.Y.Z_plan.md`: version source and
   release-closure checklist

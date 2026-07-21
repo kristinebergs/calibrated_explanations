@@ -1,6 +1,9 @@
 # Release checklist
 
-Before publishing a release, review `ROADMAP.md` and the more detailed implementation plan in `development/current-work/RELEASE_PLAN_v1.md` to ensure each pillar is on track. The checklist below keeps the release gate lightweight:
+Before publishing a release, review `ROADMAP.md`, the master scope in
+`development/current-work/RELEASE_PLAN.md`, and the active milestone's
+implementation plan (`development/current-work/vX.Y.Z_plan.md`) to ensure each
+pillar is on track. The checklist below keeps the release gate lightweight:
 
 1. **Alignment check** – confirm every planned change is captured either through
    the selected pillar in the roadmap or through supporting ADRs, and note the

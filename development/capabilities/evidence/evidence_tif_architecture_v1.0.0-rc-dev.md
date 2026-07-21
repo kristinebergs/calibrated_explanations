@@ -114,7 +114,7 @@ requirements that cannot be exercised through WrapCalibratedExplainer).
 | CE-REQ-EXPL-ALT-DOC-001 | documentation_boundary; not_implemented | Manual review v0.12.x |
 | CE-REQ-EXPL-CONJ-DOC-001 | documentation_boundary; not_implemented | Manual review v0.12.x |
 
-All three are registered in `development/current-work/RELEASE_PLAN_status_appendix.md`
+All three are registered in `development/finished-work/RELEASE_PLAN_status_appendix.md`
 under the TIF architecture gap inventory.
 
 ---

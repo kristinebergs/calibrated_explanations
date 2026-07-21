@@ -13,8 +13,11 @@ Since we are now open to contributions, we welcome your feedback, suggestions, a
 ## Roadmap and ADR-driven development
 
 - Roadmap: see `ROADMAP.md` for a high-level summary of the current release pillars and the implementation plan that supports them.
-- Release Plan: see `development/current-work/RELEASE_PLAN_v1.md`. It defines the remaining milestones and gates on the path to v1.0.0. Please align PRs with the current milestone and its scope.
-- Milestone Plan: see `vx.y.z_plan.md` (e.g., `v0.10.1_plan.md`) for detailed checklists that map to each release plan milestone.
+- Release Plan: see `development/current-work/RELEASE_PLAN.md` for the master
+  scope (committed/candidate/deferred work) and
+  `development/current-work/vX.Y.Z_plan.md` for the active milestone's tasks
+  and gates. Please align PRs with the current milestone and its scope.
+- Milestone Plan: see `vX.Y.Z_plan.md` (e.g., `v0.10.1_plan.md`) for detailed checklists that map to each release plan milestone.
 - ADRs: see `development/adrs/`. If your change affects architecture, public API, serialization schema, or cross-cutting behavior, add/update an ADR (status `Proposed` → `Accepted` on merge).
 - Documentation: Follow [Standard-004](development/standards/STD-004-documentation-audience-standard.md) for all documentation structure and audience guidelines.
 - Legacy API: If your change affects `WrapCalibratedExplainer`, `CalibratedExplainer`, or explanation collection methods, verify against `development/finished-work/legacy_user_api_contract.md` (historical surface inventory) and update the associated parity tests in the same PR (ADR-020).

@@ -1,6 +1,6 @@
 > **Active scope:** Governing architectural decision for the explanation cache key design and eviction policy. Remains active as long as the cache key contract governs performance-sensitive explain paths; superseded when the caching strategy is revised.
 
-> **Status note (2025-11-29):** Last edited 2025-11-29 · Archive after: v1.0.0 GA · Implementation: Fully completed in v0.10.0 · All ADR-003 gates are tracked in `development/current-work/RELEASE_PLAN_status_appendix.md`.
+> **Status note (2026-07-21):** Last edited 2026-07-21 · Implementation: Fully completed in v0.10.0; caching remains opt-in (`CE_CACHE`) per the `1.0.1` telemetry regression sweep (see `development/current-work/RELEASE_PLAN.md` §D.4) · Historical ADR-003 gate closure evidence is in `development/finished-work/RELEASE_PLAN_status_appendix.md`.
 
 # ADR-003: Caching Key & Eviction Strategy
 
@@ -73,8 +73,24 @@ Negative / Risks:
 - No built-in cache effectiveness metrics unless users add their own logging.
 - Additional dependency (`cachetools`).
 
-## Implementation status (2025-10-07)
+## Implementation status (2026-06-11, superseding the 2025-10-07 note below)
 
-- Cache scaffolding should land with unit tests and documentation updates per the release plan.【F:development/current-work/RELEASE_PLAN_v1.md†L120-L176】
+**Compliance verification (2026-06-11):** Reviewed code and RTD — no ADR-003
+gaps found. Namespaced/versioned blake2b cache keys
+(`cache/cache.py:253-285` `make_key(namespace, version, parts)`), a
+`cachetools` LRU backend with in-package fallback (`cache/cache.py:39-189`),
+telemetry counters (`cache/cache.py:290`), and an opt-in default-off posture
+(`CacheConfig.enabled: bool = False`, `cache/cache.py:356`) are all
+implemented. ADR-003 is fully compliant; caching remains explicit opt-in
+(`CE_CACHE`) — see `development/current-work/RELEASE_PLAN.md` §D.4 for the
+current on-by-default graduation status.
+
+<details>
+<summary>Historical note (2025-10-07, pre-implementation)</summary>
+
+- Cache scaffolding should land with unit tests and documentation updates per
+  the release plan.
 - No cache layer has been introduced in v0.6.0 yet; the implementation work
-  tracks the v0.9.0 milestone and remains outstanding.【F:src/calibrated_explanations/api/config.py†L33-L52】
+  tracks the v0.9.0 milestone and remains outstanding.
+
+</details>

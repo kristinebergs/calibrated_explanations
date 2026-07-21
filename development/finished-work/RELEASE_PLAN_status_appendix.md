@@ -1,4 +1,17 @@
-> **Active scope:** Companion ADR/Standard gap inventory and closure tracking for `RELEASE_PLAN_v1.md`; all gap rows and compliance verification entries are maintained here. Moves to `finished-work` alongside `RELEASE_PLAN_v1.md` when v1.0.0 GA ships.
+> **Historical record.** Companion ADR/Standard gap inventory and closure
+> tracking for the archived `development/finished-work/RELEASE_PLAN_v1.md`
+> (v0.6.0 → v1.0.0 master plan). Moved here alongside that plan when the
+> v0.6.0 → v1.0.0 release series closed (v1.0.0 GA, 2026-07-21). All ADR/
+> Standard rows below reflect pre-GA status and are not updated further;
+> current ADR/Standard status lives in each ADR/Standard's own status note.
+> Retained only because the **"TIF architecture gap inventory"** table below
+> is still read by `tests/capabilities/test_adr_capability_links.py` and
+> referenced by `development/capabilities/requirements/README.md` and
+> `development/capabilities/evidence/evidence_tif_architecture_v1.0.0-rc-dev.md`
+> for three still-open documentation-boundary requirement gaps
+> (CE-REQ-EXPL-CONJ-DOC-001, CE-REQ-EXPL-DOC-001, CE-REQ-EXPL-ALT-DOC-001).
+> Do not add new rows to the per-ADR severity tables below; new gap analyses
+> should be dated standalone reports, not appended here.
 
 # RELEASE_PLAN Status Appendix
 

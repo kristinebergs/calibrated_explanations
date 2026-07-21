@@ -13,8 +13,9 @@ This skill implements the "proceed according to plan" workflow defined in
 `execution-plan.instructions.md`.
 
 **Mandatory sequence:**
-1. Read `development/current-work/RELEASE_PLAN_v1.md`.
-2. Identify the current released version and the target next milestone.
+1. Read `development/current-work/RELEASE_PLAN.md` for scope/category, and the
+   active `development/current-work/vX.Y.Z_plan.md` for the current milestone.
+2. Identify the current released version and the active milestone.
 3. List outstanding gates and work items for that milestone.
 4. Verify that the proposed next step is allowed by all relevant ADRs.
 5. If an ADR constraint and a plan step conflict, the ADR wins.
@@ -24,7 +25,8 @@ This skill implements the "proceed according to plan" workflow defined in
 ## Files to read
 
 ```
-development/current-work/RELEASE_PLAN_v1.md   ← primary source: current version, milestones, gates
+development/current-work/RELEASE_PLAN.md      ← master scope: committed/candidate/deferred/out-of-scope
+development/current-work/vX.Y.Z_plan.md       ← primary source: current version, tasks, gates
 development/adrs/                ← governance constraints (ADR takes precedence)
 CHANGELOG.md                          ← completed items; do not duplicate
 ```
@@ -34,8 +36,8 @@ CHANGELOG.md                          ← completed items; do not duplicate
 ## Step 1 — Identify current state
 
 ```markdown
-Current released version: v<X.Y.Z>   (from RELEASE_PLAN_v1.md top section)
-Target next milestone:    v<X.Y.Z+1>
+Current released version: v<X.Y.Z>   (from RELEASE_PLAN.md §B)
+Active milestone plan:     development/current-work/vX.Y.Z_plan.md
 ```
 
 ---
@@ -93,7 +95,7 @@ When recommending closure evidence for a planned task, prefer:
 Release Check: <date>
 ======================
 Current released version:  v<X.Y.Z>
-Target next milestone:      v<X.Y.Z+1>
+Active milestone plan:      vX.Y.Z_plan.md
 
 Outstanding gates:
   1. [ADR-NNN] <brief description>
@@ -103,7 +105,7 @@ Outstanding gates:
 Next actionable step:
   Work item: <title>
   ADR(s):    ADR-NNN (Decision section: <binding rule>)
-  Plan ref:  RELEASE_PLAN_v1.md § <section>
+  Plan ref:  vX.Y.Z_plan.md § <section>
   Rationale: <one sentence>
 
 ADR conflicts detected: NONE | <list if any>
@@ -131,7 +133,7 @@ the appropriate section header:
 
 ## Evaluation Checklist
 
-- [ ] `RELEASE_PLAN_v1.md` read before proposing any step.
+- [ ] `RELEASE_PLAN.md` and the active `vX.Y.Z_plan.md` read before proposing any step.
 - [ ] Current version and target milestone clearly identified.
 - [ ] Outstanding gates listed with ADR references.
 - [ ] No ADR constraint violated by the proposed next step.

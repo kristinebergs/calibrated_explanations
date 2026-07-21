@@ -115,5 +115,5 @@ assert errs == []
 
 - **ADR-012** — governing policy: `development/adrs/ADR-012-documentation-and-gallery-build-policy.md`
 - **ADR-010** — optional-dependency boundary: `development/adrs/ADR-010-optional-dependency-split.md`
-- **Release checklist** — resolve notebook failures before branching: `development/current-work/RELEASE_PLAN_v1.md`
+- **Release checklist** — resolve notebook failures before branching: `development/current-work/RELEASE_PLAN.md`
 - **Scheduled CI job** — `notebook-execution` in `.github/workflows/scheduled.yml`

@@ -116,7 +116,7 @@ requirements. Terms such as `manual_review`, `manual_review_required`, or
 `human verification` may appear only for requirements whose `verification_status`
 is `adr_gap_open` or `not_implemented`, and those requirements must include a
 `gap_ref` or `adr_gap_ref` that is present in
-`development/current-work/RELEASE_PLAN_status_appendix.md`.
+`development/finished-work/RELEASE_PLAN_status_appendix.md`.
 
 If an ADR-governed requirement is not implemented or lacks executable evidence,
 do not mark it verified. Register it as an ADR gap with the requirement ID, ADR

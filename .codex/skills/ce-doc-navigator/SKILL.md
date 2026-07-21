@@ -1,7 +1,7 @@
 ---
 name: ce-doc-navigator
 description: >
-  Route any calibrated-explanations question, task, or problem to the correct skill(s), canonical files, and documentation sections across the OSS and Enterprise CE libraries. Use when unsure which skill to invoke, when looking for where something is documented, or when a task spans multiple skills. Triggers on: "which skill should I use", "where is X documented", "find the skill for", "navigate to", "what handles", "I need to do X in CE", "where do I find", "which ce skill", "what skill covers".
+  Route any calibrated-explanations question, task, or problem to the correct skill(s), canonical files, and documentation sections in the OSS CE library. Use when unsure which skill to invoke, when looking for where something is documented, or when a task spans multiple skills. Triggers on: "which skill should I use", "where is X documented", "find the skill for", "navigate to", "what handles", "I need to do X in CE", "where do I find", "which ce skill", "what skill covers".
 ---
 
 ## Inputs
@@ -22,15 +22,20 @@ Required sections:
 
 # CE Doc Navigator — Core Instructions
 
-You are a navigation layer over a large library of calibrated-explanations skills.
+You are a navigation layer over the calibrated-explanations OSS skill library.
 Your job is not to answer the question directly — it is to route it to the right
 skill(s), files, and documentation so the user can act immediately.
+
+This repository (`calibrated_explanations`) is the open-source library only.
+Do not route to, invent, or reference skills, packages, or deployment/
+governance layers outside this repository's scope (see
+`development/current-work/RELEASE_PLAN.md` §C for the OSS CE scope boundary).
 
 ---
 
 ## Skill Registry
 
-### OSS — Core CE Skills (`ce-` prefix)
+### Core CE Skills (`ce-` prefix)
 
 #### Calibration & Prediction
 | Skill | Handles |
@@ -114,27 +119,6 @@ skill(s), files, and documentation so the user can act immediately.
 
 ---
 
-### Enterprise CE Skills (`cee-` prefix)
-
-| Skill | Handles |
-|---|---|
-| `cee-calibration-validity-contract-designer` | Shared validity states, reason codes, and downstream contract boundaries |
-| `cee-capacity-aware-deferral-designer` | Queue-aware defer, review, and escalate policy design under finite capacity |
-| `cee-decision-ledger-minimality-designer` | Minimal human decision ledgers and rationale codebooks for governance |
-| `cee-onboard` | Onboarding to the CE-E codebase and architecture |
-| `cee-code-review` | Reviewing CE-E-specific code (deployment, governance) |
-| `cee-layer-placement` | Deciding where logic lives in the CE-E layer architecture |
-| `cee-package-isolation` | Enforcing package boundaries in CE-E |
-| `cee-upstream-log` | Logging upstream CE changes that affect CE-E |
-| `cee-checkpoint` | Checkpoint/snapshot behaviour in semi-online calibration |
-| `cee-drift-detection` | Drift detectors (KS, MMD, martingale), thresholds, alerts |
-| `cee-semi-online` | Semi-online calibration algorithm and contract |
-| `cee-governance-telemetry` | MLflow telemetry, audit logs, immutability guarantees |
-| `cee-parity-test` | Running and interpreting OSS/Enterprise parity tests |
-| `cee-v2-protocol` | KServe V2 inference protocol, payloads, endpoint setup |
-
----
-
 ### Universal Skills (from generic-skill-library)
 
 | Skill | Handles |
@@ -169,15 +153,10 @@ If a user asks about `ce_agent_utils` specifically:
 
 **"My calibrated probabilities look wrong"**
 → Primary: `ce-calibrated-predict`
-→ Supporting: `ce-mondrian-conditional` (if group-specific), `cee-drift-detection` (if production)
+→ Supporting: `ce-mondrian-conditional` (if group-specific)
 
-**"I need a queue-aware review or abstention policy"**
-→ Primary: `cee-capacity-aware-deferral-designer`
-→ Supporting: `ce-reject-policy` (if runtime reject mechanics already exist)
-
-**"I need a shared validity result or reason-code contract"**
-→ Primary: `cee-calibration-validity-contract-designer`
-→ Supporting: `cee-drift-detection` (if detector outputs are unclear), `cee-package-isolation` (if shared-type placement is disputed)
+**"I need a rejection/abstention policy with coverage guarantees"**
+→ Primary: `ce-reject-policy`
 
 **"I want to use ce_agent_utils / wrap_and_explain"**
 → Primary: `ce-pipeline-builder` (explicit skeleton first; optional helpers section is secondary)
@@ -191,22 +170,6 @@ If a user asks about `ce_agent_utils` specifically:
 → Primary: `ce-alternatives-explore`
 → Supporting: `ce-reject-policy` (if coverage guarantees matter)
 
-**"Numbers differ between OSS and Enterprise"**
-→ Primary: `cee-parity-test`
-→ Supporting: `cee-semi-online` (if semi-online calibration involved)
-
-**"I need to deploy CE-E to production"**
-→ Primary: `cee-v2-protocol`
-→ Supporting: `cee-onboard`, `cee-governance-telemetry`
-
-**"Something is drifting in production"**
-→ Primary: `cee-drift-detection`
-→ Supporting: `cee-checkpoint`, `cee-semi-online`
-
-**"I need a minimal decision or escalation ledger"**
-→ Primary: `cee-decision-ledger-minimality-designer`
-→ Supporting: `cee-governance-telemetry` (if machine logs or evidence packs are also in scope)
-
 **"I want to review a CE paper or theoretical claim"**
 → Primary: `conformal-methods-reviewer`
 → Supporting: `paper-distiller`
@@ -217,7 +180,7 @@ If a user asks about `ce_agent_utils` specifically:
 
 **"I need to add a plugin"**
 → Primary: `ce-plugin-scaffold`
-→ Supporting: `ce-plugin-audit`, `cee-package-isolation`
+→ Supporting: `ce-plugin-audit`
 
 ---
 
@@ -246,10 +209,11 @@ Format: "Invoke `skill-name` with: [exact prompt text]"
 
 ## Maintenance Note
 
-This registry must stay current. When new skills are added to `~/.claude/skills`,
-update the registry table above. Run `.\skills.ps1 list` to get the current
-inventory, then add any new skills to the appropriate section.
-
+This registry must stay current and scoped to this repository's own skills.
+When new skills are added under `.claude/skills/` (the canonical registry per
+`CONTRIBUTOR_INSTRUCTIONS.md` §6A), add them to the appropriate section above.
+Do not add skills, packages, or routing targets that do not exist in this
+repository.
 
 ## Constraints
 
@@ -257,9 +221,12 @@ inventory, then add any new skills to the appropriate section.
 - If a query spans multiple skills, rank them by relevance, do not list them equally.
 - If no skill covers the query, say so explicitly rather than forcing a poor match.
 - Suggested invocation must be a concrete prompt, not a description of one.
+- Do not route to or mention skills, products, or layers outside this
+  repository's OSS CE scope (see `development/current-work/RELEASE_PLAN.md` §C).
 
 ## Self-Check Before Responding
 
 - [ ] Is the primary skill specific (not just a category)?
 - [ ] Is the suggested invocation a ready-to-use prompt?
 - [ ] Are canonical file references specific (not just "the README")?
+- [ ] Does every referenced skill actually exist in this repository?

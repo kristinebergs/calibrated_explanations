@@ -481,7 +481,8 @@ whenever you need fresh local `ruff`/`mypy` results recorded in the artifact.
 Before any implementation work:
 1. Read `development/README.md` to identify the current development map and
    transition rules.
-2. Read the active release plan at `development/current-work/RELEASE_PLAN_v1.md`.
+2. Read the master release plan at `development/current-work/RELEASE_PLAN.md` and the
+   active milestone plan at `development/current-work/vX.Y.Z_plan.md`.
 3. Check the governing ADRs and Standards. Active records live in
    `development/adrs/` and `development/standards/`.
 
@@ -490,7 +491,8 @@ Before any implementation work:
 The repository planning/control hierarchy is authoritative and must be preserved:
 
 1. `development/README.md` (development documentation map and location authority)
-2. Active release plan at `development/current-work/RELEASE_PLAN_v1.md`
+2. Master release plan at `development/current-work/RELEASE_PLAN.md` and the
+   active milestone plan at `development/current-work/vX.Y.Z_plan.md`
 3. Concrete implementation plans in `development/current-work/` or
    `development/future-work/`
 4. Governance via ADRs and Standards in `development/adrs/` and

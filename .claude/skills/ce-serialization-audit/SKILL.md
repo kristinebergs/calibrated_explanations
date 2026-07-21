@@ -130,7 +130,8 @@ When `schema_version` changes in a calibrator:
 - [ ] New version added to the supported-version list in `from_primitive()`.
 - [ ] Old version retained for the minimum migration window (usually one minor release).
 - [ ] Migration notes added to `docs/migration/`.
-- [ ] `RELEASE_PLAN_v1.md` updated with the new schema version note.
+- [ ] Schema version change noted in `docs/migration/` and, if it changes
+      committed/candidate milestone scope, in `RELEASE_PLAN.md` §D.
 
 ---
 
@@ -177,7 +178,7 @@ legacy pickle/joblib:
 
 Migration guidance:
   docs/migration/ entry:          PRESENT / MISSING / N_A
-  RELEASE_PLAN_v1.md updated:     YES / NO / N_A
+  RELEASE_PLAN.md updated (if scope changed): YES / NO / N_A
 
 Overall: CONFORMANT / NON-CONFORMANT (<N> issues)
 ```

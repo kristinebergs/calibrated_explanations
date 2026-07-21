@@ -1,7 +1,7 @@
 ﻿---
 name: ce-release-planner
 description: >
-  Analyze RELEASE_PLAN_v1.md for an upcoming release version and produce a
+  Analyze RELEASE_PLAN.md for an upcoming release version and produce a
   detailed vX.Y.Z_plan.md implementation plan with task breakdowns.
 ---
 
@@ -11,8 +11,8 @@ You are creating a versioned implementation plan for an upcoming CE release.
 
 ## Required references
 
-- `development/current-work/RELEASE_PLAN_v1.md` (master release plan with milestones,
-  ADR gap appendix, and release gates)
+- `development/current-work/RELEASE_PLAN.md` (master scope: committed milestone,
+  candidate/deferred/out-of-scope items, and OSS CE scope boundary)
 - `release.md` (maintainer release sequence; steps 1-10 automated by preflight,
   11-13 manual, and 14-17 automated by postcommit)
 - `scripts/local_checks.py` and `Makefile` (executable release workflow)
@@ -27,20 +27,27 @@ You are creating a versioned implementation plan for an upcoming CE release.
 
 - Planning the next release version.
 - Creating a new `vX.Y.Z_plan.md` from the master release plan.
-- Reviewing which tasks from `RELEASE_PLAN_v1.md` apply to a specific version.
+- Reviewing which candidate items from `RELEASE_PLAN.md` §D apply to a specific version.
 
 ## Workflow
 
 1. **Identify target version.**
-   - Read `RELEASE_PLAN_v1.md` to find the current released version and the
-     next planned milestone.
-   - Confirm with the user which version to plan.
+   - Read `RELEASE_PLAN.md` §B to find the current released version and
+     (if decided) the next milestone; read §D for committed vs. candidate
+     items.
+   - Confirm with the user which version to plan. Do not promote a candidate
+     or deferred item to a committed version without explicit user approval —
+     `RELEASE_PLAN.md` deliberately does not promise versions for candidate
+     work.
    - Record both the exact PEP 440 release version and its development
-     placeholder. Do not infer `X.Y.(Z+1)` when the master plan names a minor,
+     placeholder. Do not infer `X.Y.(Z+1)` when the user names a minor,
      major, or prerelease milestone.
 
-2. **Extract tasks from the master plan.**
-   - Read the target milestone section in `RELEASE_PLAN_v1.md`.
+2. **Extract tasks from the master plan and any prior version plan.**
+   - Read the relevant `RELEASE_PLAN.md` §D entries (committed milestone, or
+     the candidate items the user selected for this version) and the
+     "Post-1.0 considerations"-style carryover notes in the most recent
+     archived `development/finished-work/vX.Y.Z_plan.md`, if any.
    - For each task, identify:
      - governing ADRs and standards
      - current implementation status (check the appendix gap tables)
@@ -97,8 +104,11 @@ Produce `development/current-work/vX.Y.Z_plan.md` with:
 
 ## Constraints
 
-- Do not invent tasks not in `RELEASE_PLAN_v1.md` without explicit user approval.
-- Do not modify `RELEASE_PLAN_v1.md` itself (use `ce-adr-author` for that).
+- Do not invent tasks not in `RELEASE_PLAN.md` §D without explicit user approval.
+- Do not modify `RELEASE_PLAN.md` itself as part of drafting a version plan;
+  propose the specific §B/§D updates (e.g. moving a candidate to committed,
+  updating "Active version plan") separately and apply them only after the
+  user confirms the milestone.
 - Mark tasks as completed only when verification evidence exists in the codebase.
 - Respect the current plan format conventions from the reference and maintained
   finished-work examples.

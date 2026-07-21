@@ -11,8 +11,9 @@ Every plan declares:
 2. A blockquote in the form `> **Release version:** X.Y.Z` (with the version
    rendered as inline code).
 3. A blockquote in the form `> **Development version:** X.Y.Z-dev` (also inline code).
-4. Scope, milestone type, and the authoritative milestone section in
-   `development/current-work/RELEASE_PLAN_v1.md`.
+4. Scope and milestone type, cross-referenced against
+   `development/current-work/RELEASE_PLAN.md` §D (which milestone category
+   this plan implements).
 
 For prereleases, the filename label and package version may differ. For example,
 `v1.0.0-rc_plan.md` may declare release version `1.0.0rc1` and development
@@ -21,7 +22,7 @@ version `1.0.0-rc-dev`. The explicit fields are authoritative for automation.
 ## Mandatory sections
 
 1. `## Source references reviewed`
-2. `## Release tasks covered (from RELEASE_PLAN_v1.md)`
+2. `## Release tasks covered (from RELEASE_PLAN.md)`
 3. `## Global rules` when applicable
 4. Numbered task sections matching the milestone tasks
 5. `## N) Release preparation` as the final numbered task
@@ -71,7 +72,7 @@ number.
 
 ## Source references reviewed
 
-## Release tasks covered (from RELEASE_PLAN_v1.md)
+## Release tasks covered (from RELEASE_PLAN.md)
 
 ## 1) <Task title>
 ### 1.0 Goal
@@ -113,7 +114,7 @@ Not started.
 ### N.2 Relevant references
 
 - `release.md` — authoritative 17-step maintainer sequence
-- `development/current-work/RELEASE_PLAN_v1.md` — milestone and next-version authority
+- `development/current-work/RELEASE_PLAN.md` — milestone-category and scope authority
 - this version plan — exact release/development version declarations
 - `Makefile` — `release-preflight`, `release-finalize`, `release-postcommit`
 - `scripts/local_checks.py` — version-agnostic implementation and reports

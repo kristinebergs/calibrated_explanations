@@ -1,7 +1,7 @@
 ﻿---
 name: ce-release-task
 description: >
-  Identify the next release task from RELEASE_PLAN_v1.md and vX.Y.Z_plan.md,
+  Identify the next release task from vX.Y.Z_plan.md (scoped per RELEASE_PLAN.md),
   plan implementation, execute it, and verify closure with tests and gates.
 ---
 
@@ -12,7 +12,7 @@ current version plan.
 
 ## Required references
 
-- `development/current-work/RELEASE_PLAN_v1.md` (master plan and ADR gap appendix)
+- `development/current-work/RELEASE_PLAN.md` (master scope authority)
 - `development/current-work/vX.Y.Z_plan.md` (current version implementation plan)
 - Governing ADRs and standards for the selected task
 - `CONTRIBUTOR_INSTRUCTIONS.md` (coding and testing rules)
@@ -27,7 +27,7 @@ current version plan.
 
 ### Phase 1: Task Selection
 
-1. Read `RELEASE_PLAN_v1.md` current version section and `vX.Y.Z_plan.md`.
+1. Read `RELEASE_PLAN.md` §B (current version state) and `vX.Y.Z_plan.md`.
 2. Identify tasks by status:
    - **Completed**: has verification evidence (tests green, code merged).
    - **In progress**: partially implemented.
@@ -79,6 +79,6 @@ For each completed task, provide:
 
 - One task at a time. Do not batch unrelated tasks.
 - Always run verification before declaring a task closed.
-- Do not update `RELEASE_PLAN_v1.md` appendix scores without evidence.
+- Do not update `RELEASE_PLAN.md` milestone-category placement without evidence.
 - Follow CE-first coding rules: use `WrapCalibratedExplainer` and
   `ce_agent_utils` helpers, not ad-hoc wrappers.

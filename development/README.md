@@ -94,7 +94,8 @@ now live exclusively under `development/`. Do not recreate these directories.
 
 Start here, then follow the current locations:
 
-1. Active release plan: `development/current-work/RELEASE_PLAN_v1.md`
+1. Master release plan: `development/current-work/RELEASE_PLAN.md`; active
+   milestone plan: `development/current-work/vX.Y.Z_plan.md`
 2. ADRs: `development/adrs/`
 3. Standards: `development/standards/`
 4. Test quality method (ADR-030 tooling): `development/standards/test-quality-method/`

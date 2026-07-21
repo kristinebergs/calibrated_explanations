@@ -15,7 +15,8 @@ Use this skill for any architectural record work in
 
 - `assets/adr_template.md` - canonical ADR template (copy this first).
 - `development/adrs/` - authoritative ADR directory.
-- `development/current-work/RELEASE_PLAN_v1.md` - roadmap entry that must stay aligned.
+- `development/current-work/RELEASE_PLAN.md` - master scope entry that must stay aligned
+  (§D candidate/deferred entries reference the ADRs they govern).
 
 ## Workflow
 
@@ -38,8 +39,9 @@ Copy-Item .claude/skills/ce-adr-author/assets/adr_template.md `
 4. Fill every required field and section in the template. Keep language
    normative when needed (`MUST`, `MUST NOT`, `SHOULD`).
 5. Add/validate `Related:` ADR links and update references to superseded ADRs.
-6. If the decision changes implementation sequencing, add a one-line summary in
-   `development/current-work/RELEASE_PLAN_v1.md` under ADR roadmap summary.
+6. If the decision changes implementation sequencing, add or update the matching
+   entry in `development/current-work/RELEASE_PLAN.md` §D (committed/candidate/
+   deferred/out-of-scope, as applicable).
 7. If status changes to `Superseded`, rename the replaced ADR with
    `superseded ` prefix and set `Superseded-by`.
 
@@ -69,4 +71,4 @@ Return:
 
 1. ADR file path and status.
 2. Summary of decision and alternatives.
-3. Any companion updates made to `RELEASE_PLAN_v1.md`.
+3. Any companion updates made to `RELEASE_PLAN.md`.

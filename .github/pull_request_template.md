@@ -7,7 +7,7 @@
 ## Checklist
 
 - [ ] Reviewed the `## Release preparation` section in the active `development/current-work/vX.Y.Z_plan.md` (replaces standalone release checklist)
-- [ ] Aligned with current phase in `development/current-work/RELEASE_PLAN_v1.md` (link section)
+- [ ] Aligned with the active milestone in `development/current-work/vX.Y.Z_plan.md` (link section)
 - [ ] Referenced relevant ADR(s) in `development/adrs/` (IDs)
 - [ ] Added/updated tests for new or changed behavior
 - [ ] Coverage gate passes (`pytest --cov=src/calibrated_explanations --cov-config=pyproject.toml --cov-fail-under=90`)

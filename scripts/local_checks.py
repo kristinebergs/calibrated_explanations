@@ -1524,7 +1524,7 @@ RELEASE_PREPARED_FILES: tuple[str, ...] = (
     "docs/citing.md",
     "METADATA.json",
     "CHANGELOG.md",
-    "development/current-work/RELEASE_PLAN_v1.md",
+    "development/current-work/RELEASE_PLAN.md",
 )
 
 
@@ -1681,7 +1681,7 @@ def _prepare_master_release_tracking(
     plan_path: Path,
 ) -> bool:
     """Update deterministic current-version fields in the master release plan."""
-    path = Path("development/current-work/RELEASE_PLAN_v1.md")
+    path = Path("development/current-work/RELEASE_PLAN.md")
     if not path.exists():
         print("Master release plan is absent; skipping release tracking update.")
         return False
@@ -1813,7 +1813,7 @@ def _prepare_release_files(
     )
     record("CHANGELOG.md", _prepare_changelog_release(version, release_date))
     record(
-        "development/current-work/RELEASE_PLAN_v1.md",
+        "development/current-work/RELEASE_PLAN.md",
         _prepare_master_release_tracking(version, release_date, plan_path),
     )
 
@@ -2380,7 +2380,7 @@ def _scaffold_next_release_plan(
         f"> **Development version:** `{development_version}`\n\n"
         f"> Scaffolded by `make release-postcommit` after the v{released_version} release.\n"
         "> Replace this placeholder with a real task breakdown derived from "
-        "`development/current-work/RELEASE_PLAN_v1.md` (see the `ce-release-planner` skill).\n\n"
+        "`development/current-work/RELEASE_PLAN.md` (see the `ce-release-planner` skill).\n\n"
         "## Tasks\n\n"
         "_TODO: add task sections._\n"
     )
@@ -2426,7 +2426,7 @@ def _next_release_details(
     if requested_next_version is not None:
         next_label = requested_next_version.removeprefix("v")
     else:
-        master_path = Path("development/current-work/RELEASE_PLAN_v1.md")
+        master_path = Path("development/current-work/RELEASE_PLAN.md")
         next_label = ""
         if master_path.exists():
             match = _MASTER_NEXT_MILESTONE_RE.search(master_path.read_text(encoding="utf-8"))
@@ -2452,7 +2452,7 @@ def _finalize_master_release_tracking(
     next_plan: Path,
 ) -> None:
     """Record the shipped release and activate the next maintained milestone."""
-    path = Path("development/current-work/RELEASE_PLAN_v1.md")
+    path = Path("development/current-work/RELEASE_PLAN.md")
     if not path.exists():
         print("Master release plan is absent in this fixture; skipping release tracking update.")
         return
@@ -2996,7 +2996,7 @@ def main() -> int:
         default=None,
         help=(
             "Optional next milestone label/version for release-postcommit; otherwise use "
-            "RELEASE_PLAN_v1.md and fall back to the next patch."
+            "RELEASE_PLAN.md and fall back to the next patch."
         ),
     )
     parser.add_argument(

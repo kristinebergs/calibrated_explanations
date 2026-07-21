@@ -4,7 +4,9 @@ applyTo: '**'
 When asked to "proceed according to plan" or to determine the next development step, you **must**:
 
 1. **Consult the development plan and action plan**:
-   - Read and interpret the current `development/current-work/RELEASE_PLAN_v1.md` file.
+   - Read and interpret the current `development/current-work/RELEASE_PLAN.md`
+     (master scope) and the active `development/current-work/vX.Y.Z_plan.md`
+     (current milestone tasks) files.
    - Identify the current and upcoming release targets, gates, and outstanding work items.
    - Select the next actionable step that aligns with the stated priorities and release sequence.
 

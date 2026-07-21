@@ -35,8 +35,9 @@ ALLOWLIST: dict[str, str] = {
         "fixture content for this guard's own detection tests"
     ),
     # Durable capability-governance contract, not release-task wiring: gap-status
-    # requirements must reference an entry in the standing status appendix
-    # (RELEASE_PLAN_status_appendix.md), mirroring validate_capability_chain.py.
+    # requirements must reference an entry in the archived status appendix
+    # (development/finished-work/RELEASE_PLAN_status_appendix.md), mirroring
+    # validate_capability_chain.py.
     # It asserts no profile steps, task ids, or milestone-plan mechanics.
     "tests/capabilities/test_adr_capability_links.py": (
         "capability evidence-chain contract references the status appendix"

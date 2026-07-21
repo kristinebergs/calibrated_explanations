@@ -30,7 +30,8 @@
   - Run tests directly when needed: `make test` or `pytest`.
   - **Strict Gates:** The project enforces high standards for coverage (90%+), docstrings, and linting.
 - **Release Process:**
-  - Follow `development/current-work/RELEASE_PLAN_v1.md`.
+  - Follow `development/current-work/RELEASE_PLAN.md` and the active
+    `development/current-work/vX.Y.Z_plan.md`.
   - Check `development/adrs/` for architectural constraints before major changes.
 
 ## 3. Coding Standards
@@ -84,7 +85,7 @@ All runtime, plugin, visualization, and utility fallbacks must be visible to use
 - **Tests:**
   - If a test depends on a fallback, assert that a warning is raised using `pytest.warns(UserWarning)`.
   - If a test does not depend on a fallback, then the fallback chain must be explicitly made empty to avoid unexpected fallbacks.
-- **Docs:** When introducing a new fallback, update `development/current-work/RELEASE_PLAN_v1.md` and `CHANGELOG.md` with a short note.
+- **Docs:** When introducing a new fallback, update `CHANGELOG.md` with a short note.
 
 This policy enforces traceability and observability across all fallback decisions and is required for PR approval.
 

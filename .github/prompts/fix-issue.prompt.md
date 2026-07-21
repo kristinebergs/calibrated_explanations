@@ -4,7 +4,8 @@ Diagnose and fix a bug or failing test in `calibrated_explanations`.
 
 ## Before you start
 
-1. Read `development/current-work/RELEASE_PLAN_v1.md` to understand what milestone is active.
+1. Read `development/current-work/RELEASE_PLAN.md` and the active
+   `development/current-work/vX.Y.Z_plan.md` to understand what milestone is active.
 2. Scan `development/adrs/` for the ADR(s) most relevant to the affected module.
 
 ## Steps Copilot must follow

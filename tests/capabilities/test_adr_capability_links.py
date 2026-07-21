@@ -159,7 +159,7 @@ def test_should_require_executable_evidence_when_behavioral_requirement_is_imple
     root = _repo_root()
     req_dir = root / "development" / "capabilities" / "requirements"
     appendix_text = (
-        root / "development" / "current-work" / "RELEASE_PLAN_status_appendix.md"
+        root / "development" / "finished-work" / "RELEASE_PLAN_status_appendix.md"
     ).read_text(encoding="utf-8")
     errors: list[str] = []
 
@@ -200,7 +200,10 @@ def test_should_require_executable_evidence_when_behavioral_requirement_is_imple
                 )
             if not _referenced_gap_exists(appendix_text, requirement_id, adr_refs, gap_ref):
                 errors.append(
-                    f"{requirement_id} gap reference is absent from RELEASE_PLAN_status_appendix.md"
+                    "{0} gap reference is absent from "
+                    "development/finished-work/RELEASE_PLAN_status_appendix.md".format(
+                        requirement_id
+                    )
                 )
             continue
         if obligation_type in BEHAVIORAL_OBLIGATION_TYPES:

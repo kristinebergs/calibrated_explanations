@@ -22,7 +22,7 @@ citation display use a leading `v`.
 - `CHANGELOG.md` release section and compare links
 - `METADATA.json`
 - deterministic current-version fields in
-  `development/current-work/RELEASE_PLAN_v1.md`
+  `development/current-work/RELEASE_PLAN.md`
 - the active version plan's declared release/development versions
 
 Do not edit generated `build/`, `dist/`, or `*.egg-info` artifacts manually.

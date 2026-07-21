@@ -65,19 +65,19 @@ substantive compliance analysis.
 6. Mark outcomes that **are fully satisfied** as completed — these will be
    purged from the output (see Phase 4).
 
-## Phase 4 — Update the STD status appendix
+## Phase 4 — Record the gap report in the STD itself
 
-The output format and rules are defined in the **STD status appendix** (comes after the ADR status appendix) heading
-of `development/current-work/RELEASE_PLAN_v1.md`. The appendix states:
+There is no shared, continuously-updated Standards status appendix in
+`development/current-work/` (the pre-v1.0.0 build-out appendix is archived at
+`development/finished-work/RELEASE_PLAN_status_appendix.md` as a historical
+record and is not updated further). Record gap results as a dated report
+directly in the target Standard's own status note, following the pattern
+already used by individual Standards (see the `> **Status note (YYYY-MM-DD):**`
+line near the top of most STD files, e.g. STD-004).
 
-> This appendix lists only unresolved gaps per STD. STDs with no open gaps
-> show a clear compliance verification line (date-stamped). Tables use the
-> project's severity axes: Violation impact (1–5) × Code scope (1–5) =
-> Unified severity.
+Rules:
 
-Follow these rules exactly when writing or updating appendix sections:
-
-7. **Purge completed gaps.** When updating an existing appendix section:
+7. **Purge completed gaps.** When updating a Standard's own gap material:
    - **Remove every row whose gap is resolved.** Do not keep completed rows
      with zeroed-out scores — delete them entirely.
    - If a table mixes completed and open rows, rewrite it with **only the
@@ -86,7 +86,7 @@ Follow these rules exactly when writing or updating appendix sections:
      separator, data rows) with a single compliance verification line.
 8. **Only unresolved gaps appear.** Never list completed, resolved, or
    zeroed-out rows in the table.
-9. **Date stamp — mandatory on every update.** Every time the appendix is
+9. **Date stamp — mandatory on every update.** Every time gap status is
    updated (single STD or full sweep), stamp today's date:
    - Compliance lines use format:
      `**Compliance verification (YYYY-MM-DD):** Reviewed code and RTD — no STD-XXX gaps found; STD-XXX is fully compliant. No further action required.`
@@ -95,6 +95,8 @@ Follow these rules exactly when writing or updating appendix sections:
 10. **If NO gaps remain** the compliance verification line must be
     unambiguous — it replaces the entire table and makes clear that no
     further action is required.
+11. If the gap changes committed/candidate milestone scope, reflect it in
+    `development/current-work/RELEASE_PLAN.md` §D.
 
 ---
 
@@ -113,15 +115,15 @@ Follow these rules exactly when writing or updating appendix sections:
 - **Evidence-based.** Every gap claim must cite specific files and lines (or
   their absence). Every compliance claim must cite the evidence that satisfies
   the STD requirement.
-- **Keep Standards status appendix tidy.** Status reports must be placed correctly in the order under the correct header in the standards status appendix. No duplicate entries per standard allowed.
+- **Keep the Standard's own gap material tidy.** No duplicate gap entries within a Standard.
 
 ---
 
 ## Files to read
 
 ```
-development/standards/STD-XXX-*.md     ← the STD itself (primary source of intent)
-development/current-work/RELEASE_PLAN_v1.md    ← appendix to update with gap results
+development/standards/STD-XXX-*.md     ← the STD itself (primary source of intent and gap-report target)
+development/current-work/RELEASE_PLAN.md    ← update §D if the gap changes milestone scope
 src/                                   ← implementation evidence
 tests/                                 ← test coverage of STD requirements
 docs/                                  ← RTD evidence (when STD has doc requirements)

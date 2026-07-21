@@ -24,8 +24,9 @@ Current maintainers:
 - **Significant changes** (public APIs, architecture, serialization contracts,
   plugin registry rules) require an ADR in `development/adrs/` and at least
   one additional maintainer review.
-- **Release gates** are tracked in `development/current-work/RELEASE_PLAN_v1.md` and the
-  matching `development/current-work/vX.Y.Z_plan.md` implementation plans.
+- **Release scope** is tracked in `development/current-work/RELEASE_PLAN.md`
+  (committed/candidate/deferred milestones); **release gates** are tracked in
+  the active `development/current-work/vX.Y.Z_plan.md` implementation plan.
 
 ## Contributor expectations
 

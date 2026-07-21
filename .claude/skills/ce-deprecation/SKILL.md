@@ -45,7 +45,7 @@ Before removing a symbol, verify it meets the ADR-011 "Two Minor Release" rule:
 2. Update `docs/migration/deprecations.md`: move the row from **Active Deprecations** to **Removed Deprecations (History)** and fill in the actual removal version.
 3. Confirm no remaining call sites exist in `src/` via `grep -r "<symbol>" src/`.
 4. Remove associated deprecation tests.
-5. Update `development/current-work/RELEASE_PLAN_v1.md` status table.
+5. Update `development/current-work/RELEASE_PLAN.md` if the deprecation changes committed/candidate milestone scope.
 
 ---
 
@@ -88,7 +88,7 @@ Add an entry to `docs/migration/deprecations.md`:
 | `old_param` | `top_features` | v0.9.0 | v0.11.0 | Uses `deprecate()` in `explain_factual`. |
 ```
 
-Also update the status table in `development/current-work/RELEASE_PLAN_v1.md`.
+Also update `development/current-work/RELEASE_PLAN.md` if the deprecation changes committed/candidate milestone scope.
 
 ---
 
@@ -114,5 +114,5 @@ CE_DEPRECATIONS=error pytest
 - [ ] If version is unknown, research commit history to find deprecation origin.
 - [ ] Removal version is at least 2 minor releases after the deprecation release.
 - [ ] Row added to the **Active Deprecations** table in `docs/migration/deprecations.md` (or moved to **Removed Deprecations (History)** on removal, with actual version filled in).
-- [ ] `RELEASE_PLAN_v1.md` status table updated.
+- [ ] `RELEASE_PLAN.md` updated if the deprecation changes committed/candidate milestone scope.
 - [ ] Test uses `pytest.deprecated_call()` to assert the warning fires.

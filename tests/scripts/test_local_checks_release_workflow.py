@@ -106,7 +106,7 @@ def write_release_file_fixture(
     )
     master_dir = root / "development/current-work"
     master_dir.mkdir(parents=True, exist_ok=True)
-    (master_dir / "RELEASE_PLAN_v1.md").write_text(
+    (master_dir / "RELEASE_PLAN.md").write_text(
         f"# Release Plan\n\n## Current released version: v{previous_version}\n\n"
         f"> Status: v{previous_version} shipped previously.\n\n"
         "### Control snapshot\n\n"
@@ -351,7 +351,7 @@ def test_should_prepare_every_release_file_for_any_version(
     assert "Release automation is complete." in changelog.split(release_heading, 1)[1]
     assert "Existing release note." in changelog.split(release_heading, 1)[1]
     assert changelog.split(release_heading, 1)[1].count("### Changed") == 1
-    master = (tmp_path / "development/current-work/RELEASE_PLAN_v1.md").read_text(encoding="utf-8")
+    master = (tmp_path / "development/current-work/RELEASE_PLAN.md").read_text(encoding="utf-8")
     assert f"## Current released version: v{release_version}" in master
     assert f"**Current released version:** v{release_version}" in master
     report = json.loads(local_checks.RELEASE_PREFLIGHT_REPORT.read_text(encoding="utf-8"))
@@ -386,12 +386,14 @@ def test_should_tolerate_absent_master_release_plan_during_preflight(
     release_version: str,
     previous_version: str,
 ) -> None:
-    """Preflight must not hard-fail once the master plan is archived post-GA.
+    """Preflight must not hard-fail when the master plan file is absent.
 
-    ``development/current-work/RELEASE_PLAN_v1.md`` is archived to
-    ``finished-work`` when its release series closes (see v1.0.0 Task 6). The
-    postcommit counterpart (``_finalize_master_release_tracking``) already
-    tolerates this; preflight's ``_prepare_master_release_tracking`` must too.
+    ``development/current-work/RELEASE_PLAN.md`` (formerly
+    ``RELEASE_PLAN_v1.md`` before the v1.0.0 series closed; see v1.0.0 Task 6)
+    is expected to normally exist, but preflight must not hard-fail if it is
+    ever missing. The postcommit counterpart
+    (``_finalize_master_release_tracking``) already tolerates this;
+    preflight's ``_prepare_master_release_tracking`` must too.
     """
     plan_path = tmp_path / f"development/current-work/v{release_version}_plan.md"
     plan_path.parent.mkdir(parents=True)
@@ -402,7 +404,7 @@ def test_should_tolerate_absent_master_release_plan_during_preflight(
         development_version=f"{release_version}.dev0",
         previous_version=previous_version,
     )
-    (tmp_path / "development/current-work/RELEASE_PLAN_v1.md").unlink()
+    (tmp_path / "development/current-work/RELEASE_PLAN.md").unlink()
 
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(local_checks, "_current_git_branch", lambda: "main")
@@ -425,10 +427,10 @@ def test_should_tolerate_absent_master_release_plan_during_preflight(
         "Master release plan is absent; skipping release tracking update."
         in capsys.readouterr().out
     )
-    assert not (tmp_path / "development/current-work/RELEASE_PLAN_v1.md").exists()
+    assert not (tmp_path / "development/current-work/RELEASE_PLAN.md").exists()
     report = json.loads(local_checks.RELEASE_PREFLIGHT_REPORT.read_text(encoding="utf-8"))
     assert report["prepared_release_files"] == list(local_checks.RELEASE_PREPARED_FILES)
-    assert "development/current-work/RELEASE_PLAN_v1.md" not in report["changed_release_files"]
+    assert "development/current-work/RELEASE_PLAN.md" not in report["changed_release_files"]
 
 
 def test_should_remove_stale_async_release_logs_before_preflight(
@@ -884,7 +886,7 @@ def test_should_follow_master_next_milestone_for_release_candidate_handoff(
         "> **Development version:** `4.0.0-rc-dev`\n",
         encoding="utf-8",
     )
-    master = current_plan.parent / "RELEASE_PLAN_v1.md"
+    master = current_plan.parent / "RELEASE_PLAN.md"
     master.write_text(
         "# Release Plan\n\n## Current released version: v3.1.3\n\n"
         "> Status: v3.1.3 shipped.\n\n"

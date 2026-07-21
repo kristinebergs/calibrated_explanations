@@ -56,7 +56,7 @@ ADRs live in `development/adrs/`. Superseded ADRs are prefixed with
 2. Check `Status:` — skip if `Superseded`.
 3. Read the **Decision** section to extract binding constraints.
 4. Note the **Consequences** section for risk awareness.
-5. Check the `development/current-work/RELEASE_PLAN_v1.md` entry for the ADR to see
+5. Check the `development/current-work/RELEASE_PLAN.md` entry for the ADR to see
    which release milestone closes outstanding gaps.
 
 ```bash
