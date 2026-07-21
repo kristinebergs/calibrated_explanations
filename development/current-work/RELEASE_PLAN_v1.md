@@ -4,9 +4,9 @@
 
 # Release Plan to v1.0.0
 
-## Current released version: v1.0.0rc2
+## Current released version: v1.0.0
 
-> Status: v1.0.0rc2 shipped on 2026-07-20. Release artifacts were verified on PyPI by `make release-postcommit`.
+> Status: v1.0.0 prepared for release on 2026-07-21; publication remains governed by release.md steps 11-13.
 
 
 Maintainers: Core team
@@ -33,8 +33,8 @@ Detailed ADR/Standard status tables, gap inventories, and historical compliance 
 
 ### Control snapshot
 
-- **Current released version:** v1.0.0rc2
-- **Active detailed milestone:** v1.0.0 (`development/current-work/v1.0.0_plan.md`) — no longer blocked; `v1.0.0rc2` shipped 2026-07-20 (tag `v1.0.0rc2`, commit `7a7e9ff3`) and was verified on PyPI by `make release-postcommit`.
+- **Current released version:** v1.0.0
+- **Active detailed milestone:** v1.0.0 (`development/current-work/v1.0.0_plan.md`)
 - **Next milestone:** TBD — to be defined after `v1.0.0` GA ships and this release series closes.
 - **Status appendix:** `development/current-work/RELEASE_PLAN_status_appendix.md`
 

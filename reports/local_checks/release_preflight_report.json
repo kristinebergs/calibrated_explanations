@@ -14,16 +14,16 @@
   "branch": "main",
   "changed_release_files": [],
   "exit_status": 0,
-  "generated_at": "2026-07-20T18:28:36.301376+00:00",
-  "git_status_porcelain": "M CHANGELOG.md\n M CITATION.cff\n M METADATA.json\n M development/current-work/RELEASE_PLAN_v1.md\n M development/current-work/v1.0.0-rc2_plan.md\n M docs/citing.md\n M notebooks/advanced/demo_conditional.ipynb\n M notebooks/advanced/demo_config_management.ipynb\n M notebooks/advanced/demo_narrative_explanations.ipynb\n M notebooks/advanced/demo_plugin_wiring.ipynb\n M notebooks/advanced/demo_reject.ipynb\n M notebooks/advanced/demo_under_the_hood.ipynb\n M notebooks/advanced/fast_feature_filtering_demo.ipynb\n M notebooks/core_demos/demo_binary_classification.ipynb\n M notebooks/core_demos/demo_multiclass_glass.ipynb\n M notebooks/core_demos/demo_probabilistic_regression.ipynb\n M notebooks/core_demos/demo_regression.ipynb\n M notebooks/miscellaneous/demo_speeddating.ipynb\n M notebooks/miscellaneous/imbalanced_wrap.ipynb\n M notebooks/miscellaneous/support_xgboost_lightgbm_catboost_issue_92.ipynb\n M notebooks/paper_based/ensured.ipynb\n M notebooks/quickstart.ipynb\n M notebooks/quickstart_guarded.ipynb\n M notebooks/quickstart_tiny.ipynb\n M pyproject.toml\n M reports/anti-pattern-analysis/adr030_ratification_timing.json\n M reports/anti-pattern-analysis/test_helper_wrapper_report.json\n M reports/anti-pattern-analysis/test_quality_report.json\n M reports/config_manager_usage_report.json\n M reports/deprecations/active_deprecations_check.json\n M reports/deprecations/deprecation_closure_timing.json\n M reports/local_checks/release_preflight_report.json\n M reports/marker-hygiene/marker_hygiene_report.json\n M reports/nomenclature_violation_inventory.json\n M reports/over_testing/block_coverage_counts.csv\n M reports/over_testing/line_coverage_counts.csv\n M reports/over_testing/metadata.json\n M reports/over_testing/redundant_tests.csv\n M reports/over_testing/summary.json\n M reports/packaging/license_artifact_check.json\n M reports/quality/config_manager_usage_report.json\n M reports/quality/logging_domain_report.json\n M reports/quality/no_local_paths_report.json\n M reports/quality/warning_policy.json\n M reports/trust_mutation_inventory.json\n M src/calibrated_explanations/__init__.py\n?? reports/verification/CE-EVID-EXPL-001-20260720.json\n?? reports/verification/CE-EVID-EXPL-CONJ-001-20260720.json\n?? reports/verification/CE-EVID-FILTER-001-20260720.json\n?? reports/verification/CE-EVID-GUARD-001-20260720.json\n?? reports/verification/CE-EVID-MOND-001-20260720.json\n?? reports/verification/CE-EVID-NARR-001-20260720.json\n?? reports/verification/CE-EVID-PRED-001-20260720.json\n?? reports/verification/CE-EVID-PRED-CLASS-001-20260720.json\n?? reports/verification/CE-EVID-PRED-PROB-001-20260720.json\n?? reports/verification/CE-EVID-REJECT-001-20260720.json\n?? reports/verification/CE-EVID-VIZ-001-20260720.json\n?? scripts/tests/benchmarks/api_public_20260720_182626.txt",
-  "head_sha": "5bfeae8599b7eb7703e995fa32d6b789a78998f6",
+  "generated_at": "2026-07-21T13:01:34.713465+00:00",
+  "git_status_porcelain": "M  CHANGELOG.md\nM  CITATION.cff\nM  METADATA.json\nM  development/current-work/RELEASE_PLAN_v1.md\nM  notebooks/advanced/demo_conditional.ipynb\nM  notebooks/advanced/demo_config_management.ipynb\nM  notebooks/advanced/demo_narrative_explanations.ipynb\nM  notebooks/advanced/demo_plugin_wiring.ipynb\nM  notebooks/advanced/demo_reject.ipynb\nM  notebooks/advanced/demo_under_the_hood.ipynb\nM  notebooks/advanced/fast_feature_filtering_demo.ipynb\nM  notebooks/core_demos/demo_binary_classification.ipynb\nM  notebooks/core_demos/demo_multiclass_glass.ipynb\nM  notebooks/core_demos/demo_probabilistic_regression.ipynb\nM  notebooks/core_demos/demo_regression.ipynb\nM  notebooks/miscellaneous/demo_speeddating.ipynb\nM  notebooks/miscellaneous/imbalanced_wrap.ipynb\nM  notebooks/miscellaneous/support_xgboost_lightgbm_catboost_issue_92.ipynb\nM  notebooks/paper_based/ensured.ipynb\nM  notebooks/quickstart.ipynb\nM  notebooks/quickstart_guarded.ipynb\nM  notebooks/quickstart_tiny.ipynb\nM  pyproject.toml\nMM reports/anti-pattern-analysis/adr030_ratification_timing.json\nMM reports/anti-pattern-analysis/test_helper_wrapper_report.json\nMM reports/anti-pattern-analysis/test_quality_report.json\nMM reports/config_manager_usage_report.json\nMM reports/deprecations/active_deprecations_check.json\nMM reports/deprecations/deprecation_closure_timing.json\nMM reports/local_checks/release_preflight_report.json\nMM reports/marker-hygiene/marker_hygiene_report.json\nMM reports/over_testing/block_coverage_counts.csv\nMM reports/over_testing/line_coverage_counts.csv\nMM reports/over_testing/metadata.json\nMM reports/over_testing/redundant_tests.csv\nMM reports/over_testing/summary.json\nM  reports/packaging/license_artifact_check.json\nM  reports/quality/config_manager_usage_report.json\nM  reports/quality/logging_domain_report.json\nMM reports/quality/no_local_paths_report.json\nM  reports/trust_mutation_inventory.json\nAM reports/verification/CE-EVID-EXPL-001-20260721.json\nAM reports/verification/CE-EVID-EXPL-CONJ-001-20260721.json\nAM reports/verification/CE-EVID-FILTER-001-20260721.json\nAM reports/verification/CE-EVID-GUARD-001-20260721.json\nAM reports/verification/CE-EVID-MOND-001-20260721.json\nAM reports/verification/CE-EVID-NARR-001-20260721.json\nAM reports/verification/CE-EVID-PRED-001-20260721.json\nAM reports/verification/CE-EVID-PRED-CLASS-001-20260721.json\nAM reports/verification/CE-EVID-PRED-PROB-001-20260721.json\nAM reports/verification/CE-EVID-REJECT-001-20260721.json\nAM reports/verification/CE-EVID-VIZ-001-20260721.json\nA  scripts/tests/benchmarks/api_public_20260721_084804.txt\nA  scripts/tests/benchmarks/api_public_20260721_105919.txt\nM  src/calibrated_explanations/__init__.py\n?? scripts/tests/benchmarks/api_public_20260721_125922.txt",
+  "head_sha": "1baab4557330ca78687cf3912be960f77f9c3f96",
   "manual_release_steps": [
     11,
     12,
     13
   ],
   "parse_errors": [],
-  "plan_path": "development/current-work/v1.0.0-rc2_plan.md",
+  "plan_path": "development/current-work/v1.0.0_plan.md",
   "platform": "Windows",
   "postcommit_release_steps": [
     14,
@@ -41,68 +41,68 @@
     "CHANGELOG.md",
     "development/current-work/RELEASE_PLAN_v1.md"
   ],
-  "pyproject_version": "1.0.0rc2",
+  "pyproject_version": "1.0.0",
   "python_version": "3.11.9",
-  "release_version": "1.0.0rc2",
+  "release_version": "1.0.0",
   "schema_version": 1,
   "steps": [
     {
-      "command": "parse development/current-work/v1.0.0-rc2_plan.md release gate summary",
-      "elapsed_seconds": 0.172,
+      "command": "parse development/current-work/v1.0.0_plan.md release gate summary",
+      "elapsed_seconds": 0.094,
       "exit_code": 0,
       "name": "Release readiness guard"
     },
     {
-      "command": "prepare release.md files for v1.0.0rc2 (2026-07-20)",
-      "elapsed_seconds": 0.016,
+      "command": "prepare release.md files for v1.0.0 (2026-07-21)",
+      "elapsed_seconds": 0.031,
       "exit_code": 0,
       "name": "Release file preparation"
     },
     {
       "command": "python -m pytest -q",
-      "elapsed_seconds": 393.578,
+      "elapsed_seconds": 394.844,
       "exit_code": 0,
       "name": "Full pytest suite"
     },
     {
       "command": "python -m pip install -e .[dev]",
-      "elapsed_seconds": 15.422,
+      "elapsed_seconds": 14.109,
       "exit_code": 0,
       "name": "Editable install (release tree)"
     },
     {
       "command": "python -c import calibrated_explanations as ce; print(ce.__version__)",
-      "elapsed_seconds": 0.328,
+      "elapsed_seconds": 0.281,
       "exit_code": 0,
       "name": "Editable install version smoke"
     },
     {
       "command": "python -m jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=600 notebooks/quickstart.ipynb notebooks/quickstart_guarded.ipynb notebooks/quickstart_tiny.ipynb notebooks/core_demos/demo_binary_classification.ipynb notebooks/core_demos/demo_multiclass_glass.ipynb notebooks/core_demos/demo_probabilistic_regression.ipynb notebooks/core_demos/demo_regression.ipynb notebooks/miscellaneous/demo_speeddating.ipynb notebooks/miscellaneous/imbalanced_wrap.ipynb notebooks/miscellaneous/support_xgboost_lightgbm_catboost_issue_92.ipynb notebooks/paper_based/ensured.ipynb notebooks/advanced/demo_conditional.ipynb notebooks/advanced/demo_config_management.ipynb notebooks/advanced/demo_narrative_explanations.ipynb notebooks/advanced/demo_plugin_wiring.ipynb notebooks/advanced/demo_reject.ipynb notebooks/advanced/demo_under_the_hood.ipynb",
-      "elapsed_seconds": 842.406,
+      "elapsed_seconds": 898.156,
       "exit_code": 0,
       "name": "Release notebooks (saved in-place)"
     },
     {
       "command": "python -m jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=5400 notebooks/advanced/fast_feature_filtering_demo.ipynb",
-      "elapsed_seconds": 1472.688,
+      "elapsed_seconds": 720.61,
       "exit_code": 0,
       "name": "Release slow notebook (saved in-place)"
     },
     {
       "command": "python scripts/local_checks.py --profile release",
-      "elapsed_seconds": 2581.766,
+      "elapsed_seconds": 2638.375,
       "exit_code": 0,
       "name": "Release profile"
     },
     {
       "command": "python -m twine check dist/*",
-      "elapsed_seconds": 1.531,
+      "elapsed_seconds": 0.859,
       "exit_code": 0,
       "name": "Release artifact validation"
     },
     {
       "command": "create temp venv; install calibrated_explanations from dist; import version",
-      "elapsed_seconds": 125.546,
+      "elapsed_seconds": 128.688,
       "exit_code": 0,
       "name": "Release wheel smoke"
     }
@@ -110,103 +110,101 @@
   "task_checklist_state": {
     "1": {
       "all_items_checked": true,
-      "checked_items": 5,
-      "title": "CE-native third-party dispatch implementation",
-      "total_items": 5
+      "checked_items": 4,
+      "title": "Staging validation carry-forward and deprecation ledger re-confirmation",
+      "total_items": 4
     },
     "2": {
       "all_items_checked": true,
-      "checked_items": 3,
-      "title": "CE synthetic-plugin tests",
-      "total_items": 3
+      "checked_items": 4,
+      "title": "Standard-001/Standard-002 guardrails and post-release maintenance cadence",
+      "total_items": 4
     },
     "3": {
       "all_items_checked": true,
-      "checked_items": 3,
-      "title": "Installed-wheel proof",
-      "total_items": 3
+      "checked_items": 4,
+      "title": "Stable-contract announcement and compatibility statement",
+      "total_items": 4
     },
     "4": {
       "all_items_checked": true,
-      "checked_items": 3,
-      "title": "Plotly no-bridge proof",
-      "total_items": 3
+      "checked_items": 6,
+      "title": "Documentation hubs current for v1.0.0 API state",
+      "total_items": 6
     },
     "5": {
       "all_items_checked": true,
-      "checked_items": 2,
-      "title": "Documentation",
-      "total_items": 2
+      "checked_items": 4,
+      "title": "Packaging classifier promotion to Production/Stable",
+      "total_items": 4
     },
     "6": {
       "all_items_checked": false,
-      "checked_items": 5,
+      "checked_items": 0,
       "title": "Release preparation",
-      "total_items": 13
+      "total_items": 12
     }
   },
-  "total_elapsed_seconds": 5444.109,
+  "total_elapsed_seconds": 4805.156,
   "verified_release_files": [
     "docs/conf.py",
-    "development/current-work/v1.0.0-rc2_plan.md"
+    "development/current-work/v1.0.0_plan.md"
   ],
   "worktree_changed_files": {
-    "CITATION.cff": "b8c669ee648d22c1846517216bdceaa52fb443d6369a5e376887cb091b4f5725",
-    "HANGELOG.md": null,
-    "METADATA.json": "f6d048f94d22aac106bddb8f12cac192f91256bb2463d1b860e97ff95a48ac6d",
-    "development/current-work/RELEASE_PLAN_v1.md": "26e42a1ec5b3e5d3d1966e5c5a4737a9ba1728dc4e068dc3c953f5441cff87c0",
-    "development/current-work/v1.0.0-rc2_plan.md": "14d5415214ce8d9099c2aeda78e4c60bdf6b2c2fd8b852cd6489fc4165f3d21a",
-    "docs/citing.md": "6a31143c963fe76c439183a35e6743344b5d950b816ad0bac525e325ee1c5a34",
-    "notebooks/advanced/demo_conditional.ipynb": "1998fb43bf6b7c2fcd640aa9a395ce0bbd11334e8b59b1d0e24fb1aeab07a4aa",
-    "notebooks/advanced/demo_config_management.ipynb": "f0634154c1d240ec170fb02303b075be3d06effbed7ab5da2901e05f5f157fc6",
-    "notebooks/advanced/demo_narrative_explanations.ipynb": "253c90d8cbb209107cdd55363967539eacda14f3300124666e3500c225479e71",
-    "notebooks/advanced/demo_plugin_wiring.ipynb": "551f940ba1a754e06b41087cfb0e4887592da768b05c22f1587d82eb68d71ece",
-    "notebooks/advanced/demo_reject.ipynb": "1b0c4972f171bba8a47cbabc674e79cf38e2570c742c725f9accc95378ec1c9a",
-    "notebooks/advanced/demo_under_the_hood.ipynb": "f92c7d1cb9a206f3721ab915abc27f452dee2b983f489418911908d761987491",
-    "notebooks/advanced/fast_feature_filtering_demo.ipynb": "c579c418bd4d89a0f4e0d16d035bcb0cc5129fb82194ae6f3c98936f5f28e0ab",
-    "notebooks/core_demos/demo_binary_classification.ipynb": "5bad793fbf73e285a5c533c7cef7094d14df764a31319967391c8ba4f40f1cfa",
-    "notebooks/core_demos/demo_multiclass_glass.ipynb": "6d920fd71255553d936e86302b894716b89ac6e6b7771599309a512e1790f9b8",
-    "notebooks/core_demos/demo_probabilistic_regression.ipynb": "84b2ab89d0ba1e5e343d9251b412f11e1fc89a98efbd23786616d5ac8e1c03b6",
-    "notebooks/core_demos/demo_regression.ipynb": "01e4edafbd161c51e081699aee972d082e1da075e241f04087aa20ac5baf04c4",
-    "notebooks/miscellaneous/demo_speeddating.ipynb": "aedbdbec0ed6cd1211004f0cc1befa7808f6581ab044bfd3dd2a82779a9b4d70",
-    "notebooks/miscellaneous/imbalanced_wrap.ipynb": "bd4db73b25e39ef5d96705a92830060c48662804a27da638fb93f88f25120a1c",
-    "notebooks/miscellaneous/support_xgboost_lightgbm_catboost_issue_92.ipynb": "1e827a014e0853aa722c0195fb67cd7a0a42a4a6e1a548a259eab70ac3cc83e5",
-    "notebooks/paper_based/ensured.ipynb": "8f003d15fe000e3558975e32a28175a5af59af0f0d51e4d36f4f4eb2323e564f",
-    "notebooks/quickstart.ipynb": "443368bff1dcaedaa206ddba785e901f4cb23bdb906ba6c93b68171a9ccbd413",
-    "notebooks/quickstart_guarded.ipynb": "20f30e3ac62dcc7839a487cf938ea49571172e8203a360baed556e31bc0b7e3c",
-    "notebooks/quickstart_tiny.ipynb": "03f6b377c454ff7db174052ad07129b6f2027ddfca9fe009a43c4c7cb19ffff1",
-    "pyproject.toml": "52a70ee7fabf61fa85f788436be9ac329a57751f4a23d89457330a2a560b52e2",
-    "reports/anti-pattern-analysis/adr030_ratification_timing.json": "8e190a1a0dffbb41839ef8c618b6f488fd290325906609cc417ef2aa7f3ca6c7",
-    "reports/anti-pattern-analysis/test_helper_wrapper_report.json": "a2ca2eae921467b736217bb4b9b00d0829f8edd82cfc44c074b90c487feb1d99",
-    "reports/anti-pattern-analysis/test_quality_report.json": "26f7df36bec26d1acb95526df1dba77c208c4a1e9d7983bcb95000300939d1a4",
-    "reports/config_manager_usage_report.json": "e88e94616137095ec0dce2206c1276b9f0aeb0852575ddb6768ecaac1335c495",
-    "reports/deprecations/active_deprecations_check.json": "4e0d85f49af04c9f79bd6781ab549423e5b07da3ed09bd0e4b810498c0517c49",
-    "reports/deprecations/deprecation_closure_timing.json": "abcaf514fc9762ce77578cb6f32bfab755d9830e16742f81007ca52314e34547",
-    "reports/marker-hygiene/marker_hygiene_report.json": "3de255f15400e4315daab35723402f05d5889691843bbfa2244b102b02afbab2",
-    "reports/nomenclature_violation_inventory.json": "ab1e7ac8b0e014d85bd3ee56912b28bfdaaefe38c525910839c20d3bd1985b14",
-    "reports/over_testing/block_coverage_counts.csv": "135bbeee2dde81ae0c8108bf9994b6d0e42013ced459582e947c3bac6eafd55c",
-    "reports/over_testing/line_coverage_counts.csv": "5c81681b99516eed5a55f6e30637604c048f1645df594e8793df5964cd5a3499",
-    "reports/over_testing/metadata.json": "88ca9b42175708b511e26b946320c2ae5009d0959ef205b864fcee0447fad50c",
-    "reports/over_testing/redundant_tests.csv": "643a04662139f3ecbfaa798b9fa4e510ec0c0809739bb6eb027f16d2baa5a058",
-    "reports/over_testing/summary.json": "998aaccb8e2111da253bef7ce8ec3b998fcd227fd91513e4d0c4123cda828b43",
-    "reports/packaging/license_artifact_check.json": "5845da3ea7ee9b274fc37ff66e4743573e8bfff7c80e0382da8bf6fc86efbdb9",
-    "reports/quality/config_manager_usage_report.json": "860f6a81ff1c3e282ba40939c80d96b5619ad96e4f4e584336f49f537b49645b",
-    "reports/quality/logging_domain_report.json": "1c981be77cc6bb54b1593febbd76f59f594e832dafa52a2b082a7ed85cdf735d",
-    "reports/quality/no_local_paths_report.json": "4bae8609a26b5b0b01fd6d6ca4808f12f76207fd726e705c7b9201e293646476",
-    "reports/quality/warning_policy.json": "962830bc4cd5b9caa4a3ea7945da982edcf0fd27051971471fd0890505d00aef",
-    "reports/trust_mutation_inventory.json": "4a96599778c33f60614e9e0afd71fa914cbdaeee9437f50ce8b8ca56612d13b3",
-    "reports/verification/CE-EVID-EXPL-001-20260720.json": "b5689c808c025b5a4e05d3955206bf8a085632160090af0779bb12e2950528d9",
-    "reports/verification/CE-EVID-EXPL-CONJ-001-20260720.json": "0bcd3b68eb108950cd04361b6fb8950f1192a927a376a698325c4fd9eeddd3c7",
-    "reports/verification/CE-EVID-FILTER-001-20260720.json": "5447be771a5671d1853c6b4af098196c76b27c2f09f42fabb1a45587d987d50c",
-    "reports/verification/CE-EVID-GUARD-001-20260720.json": "cc0e23a63ab1299f942c7d0024222adfb297b2ba242d3b6983843dd24a05bc84",
-    "reports/verification/CE-EVID-MOND-001-20260720.json": "b524cae96966302962eeabcc93046ee429a1c2519d1292686856373f1aaa3de5",
-    "reports/verification/CE-EVID-NARR-001-20260720.json": "dc64065c243be8e4d40a542b852a89c6ec0141c80c0ccb0831831d8c25f86dcd",
-    "reports/verification/CE-EVID-PRED-001-20260720.json": "55c090cf6c8580bcbe835e04de849c5fe12554cefb3f4ef1b5b656007c52637d",
-    "reports/verification/CE-EVID-PRED-CLASS-001-20260720.json": "691edac16b8d65397b89aadd725ba166ccc830fc6c5f6260dae5fad27d49df7d",
-    "reports/verification/CE-EVID-PRED-PROB-001-20260720.json": "35f7b2e3000435f186a471b7632fb51dfabef1545817378441d3598754962bbd",
-    "reports/verification/CE-EVID-REJECT-001-20260720.json": "1edb6eda09cd6be47e700651965f91730be2eee2331d7e5ee655186ad87b0e09",
-    "reports/verification/CE-EVID-VIZ-001-20260720.json": "0eabf2cf3c6815352d54ad97c188da4ed4087366cb7e9035f2f67eab0b8bd8ca",
-    "scripts/tests/benchmarks/api_public_20260720_182626.txt": "8553a85a2f80935e83ff950ad245e854580450a198a67fa57e93d7325316fca2",
-    "src/calibrated_explanations/__init__.py": "e0787d648e21a274f1906fb8a4595f7997b4b56369b3cc7a4c7d1afa0c42b0af"
+    "CHANGELOG.md": "5a6bae979f1ef20b3a9d488552bf81f81f74c3599d4cf10317c96a9510a3de8b",
+    "CITATION.cff": "021cf87356acd7c1ceeba54b94582176273ee27b3be3d8b4d70a661d07501bb2",
+    "METADATA.json": "4a340b2c412321aa33c197ff3be216cd9b9b68506ef62b09f8b552440fdcf989",
+    "development/current-work/RELEASE_PLAN_v1.md": "efb5f07d0e42c748aa22b7ddb33542da6d9fe7b4c233e976d96bdb8159fb05f8",
+    "notebooks/advanced/demo_conditional.ipynb": "e2e6ccbb59e4114b54aab26397bafb70180996f4b6de42619db789a0ac0d3f4b",
+    "notebooks/advanced/demo_config_management.ipynb": "ca0d278563ecbebdf64c2c3bda2d695a8ea091a9838b9bbf57e07b386b3a2e65",
+    "notebooks/advanced/demo_narrative_explanations.ipynb": "8ce6023483f093cc41f939165a62c70054aa315829171de019dd8d84840115d0",
+    "notebooks/advanced/demo_plugin_wiring.ipynb": "18ce903b53bcf03725df8594a8566e609df71e6af7b185f0ea4a4b3c0ef39501",
+    "notebooks/advanced/demo_reject.ipynb": "14d4112191ab571ee24f0c7a401f6aa7f713aaf50df9c01f535656945610b20b",
+    "notebooks/advanced/demo_under_the_hood.ipynb": "dee61741596a9f80cf755699cc1f383454cc7a806d2382af5009bb76638a4ec3",
+    "notebooks/advanced/fast_feature_filtering_demo.ipynb": "57027407510684865bf78672de3520e7d0dbed6ad5165e99f5a858a40b0ae97b",
+    "notebooks/core_demos/demo_binary_classification.ipynb": "b687cf0aa93a0bb34a608fde5d96fa7160a3561bdc83690db7981b0ad9a5a463",
+    "notebooks/core_demos/demo_multiclass_glass.ipynb": "678bcb63410ee56200a140536f13ba41f6cbc26d99725c7aa2f180c474af46b6",
+    "notebooks/core_demos/demo_probabilistic_regression.ipynb": "d3d2c8cc1373da57f037162cad8e093f533f62a59519e0ddca4f85d8a79641ed",
+    "notebooks/core_demos/demo_regression.ipynb": "012e0e0d4937fee969de49b848b6c1336af000e6f664fbaa0860062271df0edf",
+    "notebooks/miscellaneous/demo_speeddating.ipynb": "7ef5c322700489ab6bb614a588fe84c99ad184323110f70e33f6a4355484505b",
+    "notebooks/miscellaneous/imbalanced_wrap.ipynb": "dfdd74be424152714e371930843c8582726d7c3fd3e7be2386678f636ffbfe50",
+    "notebooks/miscellaneous/support_xgboost_lightgbm_catboost_issue_92.ipynb": "fa607296f8971bd114d1848c98cc281e0736ccd9196197060448e803b6e3b4fb",
+    "notebooks/paper_based/ensured.ipynb": "ef1427a7031192dd354f991ae98919e0e9c7793ae0e8af452af33701e83a075c",
+    "notebooks/quickstart.ipynb": "926990cdb923cfcdbc04a64bb3cef1d7a10a74801bd9ad6fb503fc7ff366b24a",
+    "notebooks/quickstart_guarded.ipynb": "241351bddbf2c05a0a0c51552709bf5962cda034b959e4b85e9e256f47f411ca",
+    "notebooks/quickstart_tiny.ipynb": "8335a0808b1a1666e6b6a67037c34f99c9d570e0563fb5630a72c6e3e6ca17e9",
+    "pyproject.toml": "0ce1aa5713b69424cd2cb5d306ec5922e916141c5aa4d398b6343da6bf21adf8",
+    "reports/anti-pattern-analysis/adr030_ratification_timing.json": "3736a892014e672310131069828d33e2b72faf34ec7ef74e399997c1b37aa1b8",
+    "reports/anti-pattern-analysis/test_helper_wrapper_report.json": "d15a41c03982565676264c2430d80440d65cdd91724d7b7e9ad34ce9fddca18f",
+    "reports/anti-pattern-analysis/test_quality_report.json": "2c49bc0d375bdc73e3ccd0b68b1d0abfa46a763148d1734607502047a764b224",
+    "reports/config_manager_usage_report.json": "ea5e23f31e322b8af7518c45dc948c93c8ef5bbc33a880f125581018694d705b",
+    "reports/deprecations/active_deprecations_check.json": "d550cb8e3ca87148afddc3ee4ac3dc1bcb9650b8cfa62945da2566914d8c85ba",
+    "reports/deprecations/deprecation_closure_timing.json": "4dcaa042e847c6549d9aa1f330dcd97c7b05eec4e4fa34f669ae7b433bdd35ca",
+    "reports/marker-hygiene/marker_hygiene_report.json": "e099aac749e81bd6529047283feea761904732790a6f93db463cf8230e566d72",
+    "reports/over_testing/block_coverage_counts.csv": "9d6a192ddfb102d1b9fea46719de37a0aa3fe708f9ba10cc9d75a0e1c70db7a8",
+    "reports/over_testing/line_coverage_counts.csv": "5bcad0c4edf296ebad4f39a4fbfcd34bddf00d2708d1860e8aed026f7ac8f2e6",
+    "reports/over_testing/metadata.json": "bff84e68873d85739a0fab38ac7fe3f5cd9e8856a530f5443ad3433b3933251c",
+    "reports/over_testing/redundant_tests.csv": "1dc1d17bc86c73196ef6ef7196c18bc3bbdbe011040ce0de50d65abb1ed77982",
+    "reports/over_testing/summary.json": "3922b87f3291e4d4ff809718f04920261cbfb92ce8b1bb8cf5b1f6c937a67bf5",
+    "reports/packaging/license_artifact_check.json": "e94a1385941e62b221e967b270acb763bf6ed87c82f6ea8b552b371bce1113a7",
+    "reports/quality/config_manager_usage_report.json": "31e1c5565f06f28ec61612b43898a9e34d56de8d0d235b537a7aaef234218046",
+    "reports/quality/logging_domain_report.json": "2f127aefdc20731bfa1f4fbeca96255254ec197da4d920fdf230cee991cfde9b",
+    "reports/quality/no_local_paths_report.json": "050b80db4a62bb57134f459fcf574b79f2be5649f6833675131cfb67b9e43317",
+    "reports/trust_mutation_inventory.json": "f9efa04ace054f5972edd1b4b676bc4c1ee376f169faa5846f8cd4f1bbe2610d",
+    "reports/verification/CE-EVID-EXPL-001-20260721.json": "ccb3b7b77dc8e5b6c39a4a0f6b973552f0823e6aa23b6e11453c3c495d0f2127",
+    "reports/verification/CE-EVID-EXPL-CONJ-001-20260721.json": "4b136523cfbfef0aeb41fae856a82a3c7bacd791eae453cd48d4921fcf7d5963",
+    "reports/verification/CE-EVID-FILTER-001-20260721.json": "aaa0413d993b3b72184a392645f296f1e63081344d5dfcbf4f67f1b9a9adddfb",
+    "reports/verification/CE-EVID-GUARD-001-20260721.json": "d02ef3926d7a111b04d10527fd53cfcb7e2d3e5d33b089f7e8e427d9e3c4f24a",
+    "reports/verification/CE-EVID-MOND-001-20260721.json": "ff6a3ae91e80c12884d13c6b4b7a9ecf71473017eed5d24c2e2fb28d66d53d7f",
+    "reports/verification/CE-EVID-NARR-001-20260721.json": "7300ab82a5ca6fdd9066335f6f1fb6fed74d549bdcb95ea068de12470a4dd038",
+    "reports/verification/CE-EVID-PRED-001-20260721.json": "1c2c1c2b7af635b1f73674b4e7c80f4b1f941effc55beba5bfe84ddb344a8963",
+    "reports/verification/CE-EVID-PRED-CLASS-001-20260721.json": "fea7c9d313a9c3b6e845c8fbdbfec52889613adf206bbbaa1ed3c2cec7f0bd30",
+    "reports/verification/CE-EVID-PRED-PROB-001-20260721.json": "cca1e24c312283496ef842d463d4e09f0ebd98ef8649465d642cf2ae330f648f",
+    "reports/verification/CE-EVID-REJECT-001-20260721.json": "880392999d99a2b21e244f3146dc97a4017c82561684d89c487bbcb15f0fa286",
+    "reports/verification/CE-EVID-VIZ-001-20260721.json": "0bb9c447cf1a0ae3671ebda29db76c934af95dd5a64f1d4ad9e60b65fe8d33fc",
+    "scripts/tests/benchmarks/api_public_20260721_084804.txt": "6c01030b46ff90ee3e29f7a8bd68284777e5c5f4a2609c4252b3eac5999c9671",
+    "scripts/tests/benchmarks/api_public_20260721_105919.txt": "6dd9ed2c7e46a84e6291d3cbe6faacf8da6e203c923ce6292c0b59991c9debaf",
+    "scripts/tests/benchmarks/api_public_20260721_125922.txt": "55fcd01a999c6baebc93d7d9426067339e654f97d61ae18c2ace875f681386ff",
+    "src/calibrated_explanations/__init__.py": "ebbcf3827751695974f85f3b67a239f59479f7cf1c06ff9863f64f3653f3837a"
   }
 }

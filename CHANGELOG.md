@@ -3,7 +3,11 @@
 
 ## [Unreleased]
 
-[Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v1.0.0rc2...main)
+[Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v1.0.0...main)
+
+## [v1.0.0](https://github.com/Moffran/calibrated_explanations/releases/tag/v1.0.0) - 2026-07-21
+
+[Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v1.0.0rc2...v1.0.0)
 
 ### Changed
 

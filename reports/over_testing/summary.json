@@ -202,9 +202,9 @@
   {
     "file": "src\\calibrated_explanations\\core\\config_manager.py",
     "lines_covered": 506,
-    "mean_count": 199.583,
+    "mean_count": 202.366,
     "median_count": 1.0,
-    "max_count": 7629,
+    "max_count": 8333,
     "over_threshold": 108
   },
   {
@@ -482,7 +482,7 @@
   {
     "file": "src\\calibrated_explanations\\explanations\\explanation.py",
     "lines_covered": 2296,
-    "mean_count": 53.12,
+    "mean_count": 53.124,
     "median_count": 20.0,
     "max_count": 412,
     "over_threshold": 1166

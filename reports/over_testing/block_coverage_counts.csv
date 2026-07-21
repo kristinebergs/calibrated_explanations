@@ -2151,7 +2151,7 @@ src\calibrated_explanations\core\config_manager.py,838,838,1,1
 src\calibrated_explanations\core\config_manager.py,861,866,1,6
 src\calibrated_explanations\core\config_manager.py,869,869,1,1
 src\calibrated_explanations\core\config_manager.py,872,872,1,1
-src\calibrated_explanations\core\config_manager.py,881,882,7629,2
+src\calibrated_explanations\core\config_manager.py,881,882,8333,2
 src\calibrated_explanations\core\difficulty_estimator_helpers.py,1,1,1,1
 src\calibrated_explanations\core\difficulty_estimator_helpers.py,13,13,1,1
 src\calibrated_explanations\core\difficulty_estimator_helpers.py,15,18,1,4
@@ -6481,12 +6481,12 @@ src\calibrated_explanations\explanations\explanation.py,2932,2933,100,2
 src\calibrated_explanations\explanations\explanation.py,2935,2936,84,2
 src\calibrated_explanations\explanations\explanation.py,2937,2937,64,1
 src\calibrated_explanations\explanations\explanation.py,2938,2938,50,1
-src\calibrated_explanations\explanations\explanation.py,2940,2950,82,11
+src\calibrated_explanations\explanations\explanation.py,2940,2950,83,11
 src\calibrated_explanations\explanations\explanation.py,2952,2952,84,1
 src\calibrated_explanations\explanations\explanation.py,2954,2954,100,1
 src\calibrated_explanations\explanations\explanation.py,2956,2957,99,2
 src\calibrated_explanations\explanations\explanation.py,2958,2958,74,1
-src\calibrated_explanations\explanations\explanation.py,2959,2959,71,1
+src\calibrated_explanations\explanations\explanation.py,2959,2959,70,1
 src\calibrated_explanations\explanations\explanation.py,2961,2969,79,9
 src\calibrated_explanations\explanations\explanation.py,2971,2973,79,3
 src\calibrated_explanations\explanations\explanation.py,2976,2978,100,3
