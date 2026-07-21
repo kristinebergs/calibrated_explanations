@@ -6,17 +6,20 @@
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python -m sphinx -W --keep-going docs docs/_build/html",
-    "python -m sphinx -b linkcheck docs docs/_build/linkcheck"
+    "python -c import tomllib; d = tomllib.load(open('pyproject.toml','rb')); c = d['project']['classifiers']; assert 'Development Status :: 5 - Production/Stable' in c, c; assert not any(x in c for x in ('Development Status :: 4 - Beta','Development Status :: 3 - Alpha','Development Status :: 6 - Mature')), c; print('OK')"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-20T23:43:34.691538+00:00",
+  "generated_at": "2026-07-20T23:57:22.495227+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
   "skipped_heavy_gates": [
     {
       "gate": "coverage",
+      "reason": "Reserved for full/release validation."
+    },
+    {
+      "gate": "docs_html",
       "reason": "Reserved for full/release validation."
     },
     {
@@ -44,5 +47,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 4
+  "task_id": 5
 }
