@@ -375,6 +375,62 @@ def test_should_prepare_every_release_file_for_any_version(
     ) == 1
 
 
+@pytest.mark.parametrize(
+    ("release_version", "previous_version"),
+    [("1.0.1", "1.0.0"), ("2.1.0", "2.0.5")],
+)
+def test_should_tolerate_absent_master_release_plan_during_preflight(
+    monkeypatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    release_version: str,
+    previous_version: str,
+) -> None:
+    """Preflight must not hard-fail once the master plan is archived post-GA.
+
+    ``development/current-work/RELEASE_PLAN_v1.md`` is archived to
+    ``finished-work`` when its release series closes (see v1.0.0 Task 6). The
+    postcommit counterpart (``_finalize_master_release_tracking``) already
+    tolerates this; preflight's ``_prepare_master_release_tracking`` must too.
+    """
+    plan_path = tmp_path / f"development/current-work/v{release_version}_plan.md"
+    plan_path.parent.mkdir(parents=True)
+    write_release_plan(plan_path)
+    write_release_file_fixture(
+        tmp_path,
+        release_version=release_version,
+        development_version=f"{release_version}.dev0",
+        previous_version=previous_version,
+    )
+    (tmp_path / "development/current-work/RELEASE_PLAN_v1.md").unlink()
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(local_checks, "_current_git_branch", lambda: "main")
+    monkeypatch.setattr(local_checks, "_current_git_status_porcelain", lambda: "M release files")
+    monkeypatch.setattr(
+        local_checks,
+        "_release_notebook_steps",
+        lambda: [local_checks.Step("Release notebooks", ["python", "-m", "fake"])],
+    )
+    monkeypatch.setattr(local_checks, "_run_step", lambda step: 0)
+    monkeypatch.setattr(local_checks, "_run_release_twine_check", lambda: 0)
+    monkeypatch.setattr(local_checks, "_run_release_wheel_smoke", lambda: 0)
+
+    rc = local_checks.run_release_preflight(
+        release_date="2031-08-09",
+    )
+
+    assert rc == 0
+    assert (
+        "Master release plan is absent; skipping release tracking update."
+        in capsys.readouterr().out
+    )
+    assert not (tmp_path / "development/current-work/RELEASE_PLAN_v1.md").exists()
+    report = json.loads(local_checks.RELEASE_PREFLIGHT_REPORT.read_text(encoding="utf-8"))
+    assert report["prepared_release_files"] == list(local_checks.RELEASE_PREPARED_FILES)
+    assert "development/current-work/RELEASE_PLAN_v1.md" not in report["changed_release_files"]
+
+
 def test_should_remove_stale_async_release_logs_before_preflight(
     monkeypatch,
     tmp_path: Path,
@@ -711,9 +767,7 @@ def test_should_fail_release_finalize_when_unexpected_file_changed_after_commit(
     monkeypatch.setattr(local_checks, "_current_git_branch", lambda: "main")
     monkeypatch.setattr(local_checks, "_pyproject_release_version", lambda: "0.11.6")
     monkeypatch.setattr(local_checks, "_current_git_status_porcelain", lambda: "M README.md")
-    monkeypatch.setattr(
-        local_checks, "_changed_paths_since", lambda head_sha: {"README.md"}
-    )
+    monkeypatch.setattr(local_checks, "_changed_paths_since", lambda head_sha: {"README.md"})
     monkeypatch.setattr(local_checks, "_file_content_hash", lambda path: "same-hash")
 
     # Act

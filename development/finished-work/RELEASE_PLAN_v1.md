@@ -1,12 +1,12 @@
-> **Active scope:** Master release control surface for v0.11.x → v1.0.0; tracks milestone sequencing, release-blocking conditions, and ADR/Standards governance posture. Moves to `finished-work` when v1.0.0 GA ships and the release series closes.
+> **Active scope:** Master release control surface for v0.11.x → v1.0.0; tracked milestone sequencing, release-blocking conditions, and ADR/Standards governance posture. **Archived 2026-07-21**: v1.0.0 GA shipped and the release series closed (v1.0.0 Task 6, step 8). Retained at `development/finished-work/RELEASE_PLAN_v1.md` as historical record. No successor master release-control document exists yet; `development/current-work/v1.0.1_plan.md` is self-sufficient for the v1.0.1 milestone (see its own header note).
 
-> **Status note (2025-12-02):** Last edited 2025-12-02 · Archive after v1.0.0 GA · Implementation window: v0.9.0–v1.0.0 ·
+> **Status note (2025-12-02):** Last edited 2026-07-21 · Archived after v1.0.0 GA · Implementation window: v0.9.0–v1.0.0 ·
 
 # Release Plan to v1.0.0
 
 ## Current released version: v1.0.0
 
-> Status: v1.0.0 prepared for release on 2026-07-21; publication remains governed by release.md steps 11-13.
+> Status: v1.0.0 shipped on 2026-07-21. Release artifacts were verified on PyPI by `make release-postcommit`.
 
 
 Maintainers: Core team
@@ -34,8 +34,8 @@ Detailed ADR/Standard status tables, gap inventories, and historical compliance 
 ### Control snapshot
 
 - **Current released version:** v1.0.0
-- **Active detailed milestone:** v1.0.0 (`development/current-work/v1.0.0_plan.md`)
-- **Next milestone:** TBD — to be defined after `v1.0.0` GA ships and this release series closes.
+- **Active detailed milestone:** v1.0.1 (`development/current-work/v1.0.1_plan.md`)
+- **Next milestone:** v1.0.1 (`development/current-work/v1.0.1_plan.md`) — first-patch-release maintenance checkpoint per "Post-1.0 considerations" below.
 - **Status appendix:** `development/current-work/RELEASE_PLAN_status_appendix.md`
 
 ### Release-blocking conditions

@@ -1682,6 +1682,9 @@ def _prepare_master_release_tracking(
 ) -> bool:
     """Update deterministic current-version fields in the master release plan."""
     path = Path("development/current-work/RELEASE_PLAN_v1.md")
+    if not path.exists():
+        print("Master release plan is absent; skipping release tracking update.")
+        return False
     text = path.read_text(encoding="utf-8")
     replacements: tuple[tuple[re.Pattern[str], str, str], ...] = (
         (

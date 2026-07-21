@@ -1,15 +1,16 @@
 {
   "commands_run": [
-    "python -m ruff check src tests scripts",
-    "python -m ruff format --check src tests scripts",
+    "python -m ruff check scripts/local_checks.py src/calibrated_explanations/__init__.py tests/scripts/test_local_checks_release_workflow.py",
+    "python -m ruff format --check scripts/local_checks.py src/calibrated_explanations/__init__.py tests/scripts/test_local_checks_release_workflow.py",
     "python -m mypy src/calibrated_explanations/core/exceptions.py src/calibrated_explanations/core/validation.py src/calibrated_explanations/api/params.py --config-file pyproject.toml",
     "python scripts/quality/check_import_graph.py",
     "python scripts/quality/check_adr002_compliance.py",
     "python -m pytest -q tests/unit -m not viz and not slow --maxfail=1 -o addopts= --no-cov",
-    "python -c import tomllib; d = tomllib.load(open('pyproject.toml','rb')); c = d['project']['classifiers']; assert 'Development Status :: 5 - Production/Stable' in c, c; assert not any(x in c for x in ('Development Status :: 4 - Beta','Development Status :: 3 - Alpha','Development Status :: 6 - Mature')), c; print('OK')"
+    "python scripts/local_checks.py --uv-install-smoke",
+    "python scripts/quality/check_warning_policy.py --check --report reports/quality/warning_policy.json"
   ],
   "exit_status": 0,
-  "generated_at": "2026-07-20T23:57:22.495227+00:00",
+  "generated_at": "2026-07-21T15:21:27.095254+00:00",
   "requested_paths": [],
   "schema_version": 1,
   "selected_profile": "task",
@@ -47,5 +48,5 @@
       "reason": "Reserved for release validation."
     }
   ],
-  "task_id": 5
+  "task_id": 6
 }

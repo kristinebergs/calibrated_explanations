@@ -1,2 +1,2 @@
-pip_install_seconds=228
-uv_install_seconds=30
+pip_install_seconds=232
+uv_install_seconds=22
