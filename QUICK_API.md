@@ -1,4 +1,10 @@
-# Calibrated Explanations - Minimal Working Examples (use `WrapCalibratedExplainer`)
+# Calibrated Explanations - Quick API Snippets (use `WrapCalibratedExplainer`)
+
+Concise reference snippets, not standalone runnable scripts: each assumes a
+wrapper that has already been fitted and calibrated (`explainer`, `x_proper`,
+`x_cal`, `X_query`/`X_sample`, `x_test`, etc. are placeholders for your data).
+For an executable end-to-end example, see
+[`docs/get-started/quick_api.md`](docs/get-started/quick_api.md).
 
 ## Core methods (all tasks)
 
@@ -10,7 +16,7 @@ factual = explainer.explain_factual(X_query)             # factual explanations 
 alts = explainer.explore_alternatives(X_query)           # alternative explanations (what would change it?)
 ```
 
-Reject integration (policy-first): When a `RejectPolicy` other than `NONE` is passed to prediction/explanation APIs (for example, `explain_factual(..., reject_policy=...)`), the call returns a `RejectResult` envelope. The envelope's `prediction` field mirrors the invoked method's legacy payload (including regression UQ tuples `(proba, (low, high))`), and `metadata` exposes per-instance breakdown keys: `ambiguity_mask`, `novelty_mask`, `prediction_set_size`, and `epsilon`. The envelope's `explanation` field contains the explanation object or `None` if no explanation was produced.
+Reject integration (policy-first): When a `RejectPolicy` other than `NONE` is passed to prediction/explanation APIs (for example, `explain_factual(..., reject_policy=...)`), the call returns a `RejectResult` envelope. The envelope's `prediction` field mirrors the invoked method's legacy payload (including regression UQ tuples `(prediction, (low, high))`, or classification tuples `(probability, (low, high))`), and `metadata` exposes per-instance breakdown keys: `ambiguity_mask`, `novelty_mask`, `prediction_set_size`, and `epsilon`. The envelope's `explanation` field contains the explanation object or `None` if no explanation was produced.
 
 Optional parameters (`[, ...]`) across methods:
 - `bins=...` for conditional calibration
@@ -94,7 +100,8 @@ print("P(100 < y <= 140) =", p_in[0, 1], "interval =", ilo[0], ihi[0])
 ## Alternative explanations (core capability)
 
 ```python
-# returns alternative rule table(s) showing what would change the decision
+# returns alternative rule table(s): feature conditions under which the
+# model's calibrated output would change
 alternatives = explainer.explore_alternatives(x_test[:3])
 ```
 

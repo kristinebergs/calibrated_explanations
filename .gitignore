@@ -1,3 +1,5 @@
+.DS_Store
+
 *.pdf
 *.svg
 evaluation/results_sota.pkl

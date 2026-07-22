@@ -5,6 +5,17 @@
 
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v1.0.0...main)
 
+### Documentation / Governance
+
+- **Root-level docs and config corrected for accuracy:** `README.md`,
+  `SECURITY.md`, `CITATION.cff`, `PROMPTS.md`, `QUICK_API.md`,
+  `CONTRIBUTING.md`, `METADATA.json`, `.pre-commit-config.yaml`, and
+  `.mcp.example.json` no longer overstate model compatibility as
+  scikit-learn-only, no longer imply unconditional calibration/interval
+  guarantees, and no longer reference the retired `v0.10.x` support line,
+  stale `pip install -e .` setup, or a placeholder `PYSEC-0000` pip-audit
+  exception. Removed the tracked `.DS_Store` and ignored it going forward.
+
 ### Security
 
 - **`WrapCalibratedExplainer` state persistence no longer executes pickle

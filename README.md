@@ -6,7 +6,7 @@
 [![Docs](https://readthedocs.org/projects/calibrated-explanations/badge/?version=latest)](https://calibrated-explanations.readthedocs.io)
 [![CI](https://github.com/Moffran/calibrated_explanations/actions/workflows/ci.yml/badge.svg)](https://github.com/Moffran/calibrated_explanations/actions/workflows/ci.yml)
 
-**Trustworthy AI explanations with uncertainty intervals and counterfactuals, for any scikit-learn model.**
+**Trustworthy AI explanations with uncertainty intervals and alternative explanations for predictive models with a scikit-learn-compatible classification or regression interface.**
 
 ---
 
@@ -39,10 +39,10 @@ Factors impacting the calibrated probability for class APPROVE negatively:
 missed_payments (3) > 2 - weight ~ -0.201 [-0.334, -0.068]
 ```
 
-- The **Prediction Interval** `[0.710, 0.930]` shows the calibrated uncertainty range — narrow means high confidence, wide (e.g., `[0.12, 0.89]`) means the model is uncertain and the decision should be treated with caution.
+- The **Prediction Interval** `[0.710, 0.930]` shows the calibrated uncertainty range for this prediction — a narrower interval indicates lower uncertainty in the calibrated output, while a wider interval (e.g., `[0.12, 0.89]`) indicates greater uncertainty and warrants more caution.
 - Each **factor line** shows the observed value, the matching rule condition, the signed weight (positive = pushes toward the predicted class), and the **endpoint envelope describing the prediction boundary shift** — all computed from calibrated probabilities, not raw model scores.
 
-Calling `alt[0].to_narrative(output_format="text", expertise_level="advanced")` on the result of `explore_alternatives` shows what needs to change to flip or reinforce the decision, with each alternative backed by a calibrated interval:
+Calling `alt[0].to_narrative(output_format="text", expertise_level="advanced")` on the result of `explore_alternatives` shows feature-value conditions under which the calibrated output would change enough to flip or reinforce the decision, each with its own calibrated uncertainty interval:
 
 ```text
 Alternative Explanations:
@@ -60,7 +60,7 @@ Alternatives to decrease the calibrated probability for class APPROVE:
 - If credit_history_years < 2 then 0.601 [0.447, 0.752]
 ```
 
-- Each **alternative line** shows the rule that would need to hold, the resulting calibrated probability if that rule were satisfied, and the **uncertainty interval on that alternative** — narrow means the model is confident even in the counterfactual region.
+- Each **alternative line** shows the feature condition that would need to hold, the resulting calibrated probability if that condition were satisfied, and the **uncertainty interval on that alternative** — a narrower interval indicates lower uncertainty for that alternative condition.
 
 ---
 
@@ -135,7 +135,7 @@ All four modes use the same API — the wrapper infers classification vs regress
 
 Standard counterfactual methods tell you "change feature X to value Y and the decision flips." They do not tell you whether the model is actually confident about that alternative scenario. The counterfactual may point to a region of input space where the model has seen very little training data, meaning the flip is a formal artefact, not a reliable prediction.
 
-CE's **Ensured** framework (Löfström et al., arXiv:2410.05479) addresses this directly. The `ensured_explanations()` filter keeps only counterfactuals where the model's calibrated interval lies **fully in the opposite class** — providing formal coverage evidence that the alternative decision is not merely a point estimate crossing the class boundary. The result: every surfaced counterfactual is backed by conformal guarantees.
+CE's **Ensured** framework (Löfström et al., arXiv:2410.05479) addresses this directly. The `ensured_explanations()` filter retains only alternatives whose calibrated uncertainty interval is no wider than the original prediction's interval — screening out alternatives whose apparent flip is driven by added uncertainty rather than a genuine shift in the calibrated output.
 
 ```python
 explainer.explore_alternatives(X_query)[0].ensured_explanations()  # X_query: array-like, shape (n_samples, n_features)
@@ -147,7 +147,7 @@ explainer.explore_alternatives(X_query)[0].ensured_explanations()  # X_query: ar
 
 ## Fairness-Aware Explanations
 
-A model can be globally well-calibrated but systematically overconfident for a minority group. CE's **Mondrian/conditional calibration** conditions calibration and uncertainty on a per-instance group label (`bins`) (Löfström & Löfström, xAI 2024). The result: explanation uncertainty intervals are valid *within each group*, not only on average. Wider intervals for a group are a direct, auditable signal of data insufficiency — a concrete fairness artefact that can be reported to regulators or risk committees.
+A model can be globally well-calibrated but systematically overconfident for a minority group. CE's **Mondrian/conditional calibration** conditions calibration and uncertainty on a per-instance group label (`bins`) (Löfström & Löfström, xAI 2024). The result: explanation uncertainty intervals are calibrated and reported *per group*, not only on average, so subgroup differences in uncertainty become visible and auditable rather than hidden inside a global figure — a concrete artefact that can be reported to regulators or risk committees. Wider intervals for a group indicate greater calibrated uncertainty for that group, which may reflect limited calibration support, higher outcome variability, or other group-specific factors.
 
 ```python
 group_threshold = X_cal[:, gender_col_index].mean()
@@ -226,7 +226,7 @@ treat `uv.lock` as an authoritative dependency lockfile.
 
 ## License
 
-Released under the [BSD 3-Clause License](LICENSE) — open for both academic and commercial use without restriction.
+Released under the [BSD 3-Clause License](LICENSE) and available for academic and commercial use subject to the license terms.
 
 ---
 

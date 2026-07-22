@@ -1,5 +1,5 @@
 {
-  "_comment": "MCP config for this repo. Copy to .mcp.json and add your tokens. .mcp.json is gitignored. For the full workspace setup (including Notion), see ../.mcp.example.json.",
+  "_comment": "MCP config for this repo. Copy to .mcp.json and add your tokens. .mcp.json is gitignored.",
   "servers": {
     "github": {
       "command": "github-mcp-server",

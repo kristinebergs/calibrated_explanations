@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "category": "explainable-ai",
   "subcategories": ["feature-importance", "uncertainty-quantification", "xai"],
-  "public_api": ["WrapCalibratedExplainer"],
-  "compatible_with": ["scikit-learn", "xgboost", "lightgbm", "random-forest"],
+  "primary_entry_point": "WrapCalibratedExplainer",
+  "compatibility_interface": "classifiers with predict_proba(...) and regressors with predict(...), i.e. a scikit-learn-compatible interface, whether or not the model is implemented by scikit-learn",
+  "compatible_with": ["scikit-learn", "xgboost", "lightgbm"],
   "task_types": [
     "binary-classification",
     "multiclass-classification",

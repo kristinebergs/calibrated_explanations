@@ -41,14 +41,15 @@ identifiers:
 repository-code: 'https://github.com/Moffran/calibrated_explanations'
 abstract: >-
   `calibrated-explanations` is a Python package for the local feature importance explanation method called Calibrated Explanations, supporting both [classification](https://doi.org/10.1016/j.eswa.2024.123154) and [regression](https://doi.org/10.1007/s10994-024-06642-8).
-  The proposed method is based on Venn-Abers (classification & regression) and Conformal Predictive Systems (regression) and has the following characteristics:
-  * Fast, reliable, stable and robust feature importance explanations for:
+  The proposed method calibrates the underlying model before explaining it:
+  Venn-Abers for classification, Conformal Predictive Systems (CPS) for regression intervals, and CPS-derived threshold-event scores combined with Venn-Abers for probabilistic regression (the probability that the target exceeds a user-defined threshold). It has the following characteristics:
+  * Feature importance explanations, each accompanied by a calibrated uncertainty interval, for:
     - Binary classification models ([read paper](https://doi.org/10.1016/j.eswa.2024.123154))
     - Multi-class classification models ([read paper](https://raw.githubusercontent.com/mlresearch/v230/main/assets/lofstrom24a/lofstrom24a.pdf))
     - Regression models ([read paper](https://doi.org/10.1007/s10994-024-06642-8))
       * Including probabilistic explanations of the probability that the target exceeds a user-defined threshold
-      * With difficulty adaptable explanations (conformal normalization)
-  * Calibration of the underlying model to ensure that predictions reflect reality.
+      * With normalization by a learned difficulty (heteroscedasticity) estimate to adapt interval width per instance
+  * Calibration of the underlying model's outputs against a held-out calibration set.
   * Uncertainty quantification of the prediction from the underlying model and the feature importance weights.
   * Rules with straightforward interpretation in relation to instance values and feature weights.
   * Possibility to generate alternative rules with uncertainty quantification of the expected predictions.

@@ -24,7 +24,15 @@ repos:
     rev: v2.7.3
     hooks:
       - id: pip-audit
-        args: ["--requirement", "requirements.txt", "--ignore-vuln", "PYSEC-0000"]
+        # Kept in sync with the repository-owned audit inputs/exception used by
+        # scripts/local_checks.py (`make local-checks-release`) and
+        # .github/workflows/scheduled.yml's dependency-audit job.
+        args:
+          [
+            "--requirement", "requirements.txt",
+            "--requirement", "docs/requirements-doc.txt",
+            "--ignore-vuln", "GHSA-xm59-rqc7-hhvf",
+          ]
         # Make pip-audit opt-in locally to avoid slow runs; invoke manually when needed:
         #   pre-commit run pip-audit --all-files
         stages: [manual]

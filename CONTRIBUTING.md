@@ -19,11 +19,19 @@ Repository authority
 > active instruction, template, script, or skill may direct new official
 > project activity there.
 
-- Core install (recommended for development of core features):
+- Canonical development install (required dev extras + pinned constraints, then
+  pre-commit hooks):
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\activate
+pip install -e .[dev] -c constraints.txt
+pre-commit install
+```
+
+- Core-only install (core-feature development without the dev toolchain):
+
+```powershell
 pip install -e .
 ```
 
@@ -70,6 +78,43 @@ make test-viz
 pip install -e .[viz]
 pytest
 ```
+
+Local validation gates
+-----------------------
+
+- Inner-loop checks while editing:
+
+```powershell
+make quick
+```
+
+- Focused release-task verification before marking a release-plan task complete:
+
+```powershell
+make local-checks-task TASK=<n>
+```
+
+- Blocking PR-scope preflight before opening/updating a PR:
+
+```powershell
+make local-checks-pr
+```
+
+- Heavy local gate for merge-readiness or maintainer-requested final validation:
+
+```powershell
+make local-checks-full
+```
+
+- Release-boundary local validation only:
+
+```powershell
+make local-checks-release
+```
+
+`make local-checks` is a compatibility alias for `make local-checks-full`
+(the heavy gate), not the routine contributor workflow — use `make quick` and
+`make local-checks-pr` for day-to-day work.
 
 CLI and plugin configuration
 ----------------------------
@@ -121,7 +166,7 @@ Notes
 - If you need to run only viz tests, install the `viz` extras and run
   `pytest -m viz`.
 
-- Local CI parity: the repo provides a local stacked-checks runner `scripts/local_checks.py` and a `make local-checks` Makefile target that mirror CI checks. When adding, removing, or changing CI workflows under `.github/workflows/`, update `scripts/local_checks.py` (and `Makefile` if needed) so contributors can reproduce CI behaviour locally. Mark heavy checks as optional in the local runner to avoid slowing developer loops.
+- Local CI parity: the repo provides a local stacked-checks runner `scripts/local_checks.py`, exposed via the `make quick` / `make local-checks-task` / `make local-checks-pr` / `make local-checks-full` / `make local-checks-release` profiles described above. When adding, removing, or changing CI workflows under `.github/workflows/`, update `scripts/local_checks.py` (and `Makefile` if needed) so contributors can reproduce CI behaviour locally. Mark heavy checks as optional in the local runner to avoid slowing developer loops.
 
 If you add or remove optional dependencies, please update `pyproject.toml`,
 `evaluation/requirements.txt`, and `evaluation/environment.yml` accordingly.
