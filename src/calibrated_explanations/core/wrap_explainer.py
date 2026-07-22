@@ -9,17 +9,16 @@ style fit/calibrate/explain surface for downstream users and integrations.
 # pylint: disable=invalid-name, line-too-long, too-many-lines, too-many-positional-arguments, too-many-public-methods
 from __future__ import annotations
 
-import base64
 import copy
 import hashlib
 import json
 import logging as _logging
 import os
-import pickle  # nosec B403 - deserialization is restricted to trusted, checksum-validated state
 import shutil
 import sys
 import tempfile
 import warnings as _warnings
+from collections.abc import Sequence as SequenceABC
 from contextlib import suppress
 from datetime import datetime, timezone
 from pathlib import Path
@@ -45,6 +44,7 @@ from ..utils.exceptions import (
     IncompatibleStateError,
     ModelNotSupportedError,
     NotFittedError,
+    SerializationError,
     ValidationError,
 )
 from .calibrated_explainer import (  # circular during split
@@ -162,7 +162,17 @@ class WrapCalibratedExplainer:
     calibrated: bool
     mc: Callable[[Any], Any] | MondrianCategorizer | None
     _logger: _logging.Logger
-    _STATE_SCHEMA_VERSION: int = 2
+    # Schema v3 (ADR-031 security hardening): the persisted artifact contains
+    # only JSON-safe declarative data; no wrapper or calibrator pickle bytes
+    # are ever written or read by save_state()/load_state(). Schema v1/v2
+    # artifacts persisted the whole wrapper (and unsupported calibrators) via
+    # pickle and are rejected unconditionally -- see IncompatibleStateError
+    # messages in load_state() for migration guidance.
+    _STATE_SCHEMA_VERSION: int = 3
+    _LEGACY_STATE_SCHEMA_VERSIONS: "frozenset[int]" = frozenset({1, 2})
+    _SAFE_STATE_FILES: "frozenset[str]" = frozenset(
+        {"explainer_state.json", "calibrator_primitive.json", "preprocessing_mapping.json"}
+    )
 
     def __init__(self, learner: Any):
         """Initialize the WrapCalibratedExplainer with a predictive learner.
@@ -1463,27 +1473,39 @@ class WrapCalibratedExplainer:
         return digest.hexdigest()
 
     def _calibrator_to_primitive(self, calibrator: Any) -> dict[str, Any]:
-        """Serialize a single calibrator into the ADR-031 primitive contract."""
+        """Serialize a single calibrator into the ADR-031 JSON-safe primitive contract.
+
+        Raises
+        ------
+        SerializationError
+            If ``calibrator`` does not implement a JSON-safe ``to_primitive()``
+            contract. ``save_state()`` never falls back to pickling an
+            unsupported calibrator: arbitrary Python object serialization is
+            intentionally excluded from the state-persistence trust boundary
+            (ADR-031). To persist a custom calibrator, implement
+            ``to_primitive()``/``from_primitive()`` following the built-in
+            ``VennAbers``/``IntervalRegressor`` contracts and register the
+            calibrator type with ``WrapCalibratedExplainer`` restoration, or
+            omit calibrator persistence and recalibrate after ``load_state()``.
+        """
         to_primitive = getattr(calibrator, "to_primitive", None)
         if callable(to_primitive):
             primitive = to_primitive()
             if isinstance(primitive, Mapping):
                 return dict(primitive)
-        payload_bytes = pickle.dumps(calibrator, protocol=pickle.HIGHEST_PROTOCOL)
-        return {
-            "schema_version": self._STATE_SCHEMA_VERSION,
-            "calibrator_type": "python_pickle",
-            "parameters": {
-                "class_name": calibrator.__class__.__name__,
-                "module": calibrator.__class__.__module__,
+        raise SerializationError(
+            f"Calibrator type '{type(calibrator).__module__}.{type(calibrator).__qualname__}' "
+            "does not implement a JSON-safe to_primitive() contract and cannot be persisted "
+            "by save_state(). Arbitrary Python object serialization (pickle) is intentionally "
+            "excluded from the state-persistence trust boundary (ADR-031). Implement "
+            "to_primitive()/from_primitive() on this calibrator to persist it safely, or "
+            "recalibrate the wrapper after load_state() instead of relying on persistence "
+            "for this calibrator.",
+            details={
+                "calibrator_type": type(calibrator).__qualname__,
+                "calibrator_module": type(calibrator).__module__,
             },
-            "checksums": {
-                "sha256": self._sha256_bytes(payload_bytes),
-            },
-            "payload": {
-                "pickle_b64": base64.b64encode(payload_bytes).decode("ascii"),
-            },
-        }
+        )
 
     def _build_calibrator_primitive(self) -> dict[str, Any] | None:
         """Build calibrator primitive payload from the active explainer, if any."""
@@ -1493,7 +1515,7 @@ class WrapCalibratedExplainer:
         calibrator = getattr(explainer, "interval_learner", None)
         if calibrator is None:
             return None
-        if isinstance(calibrator, (list, tuple)):
+        if isinstance(calibrator, SequenceABC) and not isinstance(calibrator, (str, bytes)):
             children = [self._calibrator_to_primitive(item) for item in calibrator]
             payload_bytes = json.dumps(children, sort_keys=True).encode("utf-8")
             return {
@@ -1507,17 +1529,34 @@ class WrapCalibratedExplainer:
 
     @classmethod
     def _restore_calibrator_from_primitive(cls, primitive: Mapping[str, Any]) -> Any:
-        """Rehydrate a calibrator object from a persisted primitive payload."""
-        schema_version = primitive.get("schema_version")
-        if schema_version not in (1, 2):
+        """Rehydrate a calibrator object from a persisted JSON-safe primitive payload.
+
+        ``calibrator_type`` is dispatched against a fixed, explicit set of
+        trusted restorers -- never resolved via an artifact-provided module
+        path or dynamic import. Legacy ``python_pickle`` payloads are rejected
+        unconditionally, before any base64 decoding, checksum comparison, or
+        deserialization is attempted (ADR-031 security hardening).
+        """
+        if not isinstance(primitive, Mapping):
             raise IncompatibleStateError(
-                "Unsupported calibrator primitive schema_version.",
-                details={
-                    "schema_version": schema_version,
-                    "supported_versions": [1, 2],
-                },
+                "Malformed calibrator primitive: expected a JSON object.",
+                details={"actual_type": type(primitive).__name__},
             )
         calibrator_type = primitive.get("calibrator_type")
+        # This check must stay first and must not touch payload/checksum
+        # fields: rejecting on the type name alone is what guarantees a
+        # malicious pickle payload is never decoded, even if its checksum
+        # was recomputed to match. Checksums prove internal consistency, not
+        # that an artifact is safe to deserialize.
+        if calibrator_type == "python_pickle":
+            raise IncompatibleStateError(
+                "Persisted calibrator primitive declares calibrator_type='python_pickle'. "
+                "This legacy format executed arbitrary code via pickle.loads() and is no "
+                "longer supported; the payload is rejected here without being decoded or "
+                "unpickled. Re-fit this calibrator (fit()+calibrate()) or migrate it to a "
+                "safe to_primitive()/from_primitive() contract before persisting again.",
+                details={"calibrator_type": calibrator_type},
+            )
         if calibrator_type == "venn_abers":
             from ..calibration.venn_abers import VennAbers
 
@@ -1538,52 +1577,196 @@ class WrapCalibratedExplainer:
             actual_sha = cls._sha256_bytes(child_bytes)
             if not isinstance(expected_sha, str) or expected_sha != actual_sha:
                 raise IncompatibleStateError(
-                    "Calibrator primitive checksum validation failed.",
+                    "Calibrator primitive checksum validation failed: this detects "
+                    "corruption of the fast_collection payload only.",
                     details={"expected_sha256": expected_sha, "actual_sha256": actual_sha},
                 )
             return [cls._restore_calibrator_from_primitive(item) for item in children]
-        if calibrator_type == "python_pickle":
-            payload = primitive.get("payload")
-            if not isinstance(payload, Mapping) or not isinstance(payload.get("pickle_b64"), str):
-                raise IncompatibleStateError(
-                    "Invalid python_pickle primitive payload.",
-                    details={"field": "payload.pickle_b64"},
-                )
-            raw = base64.b64decode(payload["pickle_b64"].encode("ascii"))
-            expected_sha = primitive.get("checksums", {}).get("sha256")
-            actual_sha = cls._sha256_bytes(raw)
-            if not isinstance(expected_sha, str) or expected_sha != actual_sha:
-                raise IncompatibleStateError(
-                    "Calibrator primitive checksum validation failed.",
-                    details={"expected_sha256": expected_sha, "actual_sha256": actual_sha},
-                )
-            return pickle.loads(raw)  # noqa: S301  # nosec B301 - trusted, checksum-validated payload
         raise IncompatibleStateError(
-            "Unsupported calibrator_type in persisted state.",
+            "Unsupported or unknown calibrator_type in persisted state. Calibrator types "
+            "are resolved only through a fixed set of trusted restorers; unrecognized "
+            "types fail closed rather than being resolved via dynamic import.",
             details={"calibrator_type": calibrator_type},
         )
 
-    def _build_explainer_config_payload(self) -> dict[str, Any]:
-        """Build JSON-safe explainer configuration metadata for persistence."""
-        payload: dict[str, Any] = {}
+    @staticmethod
+    def _json_safe_scalar(value: Any) -> Any:
+        """Convert a single (possibly numpy) scalar into a JSON-safe primitive."""
+        if hasattr(value, "item"):
+            with suppress(Exception):
+                return value.item()
+        if value is None or isinstance(value, (str, int, float, bool)):
+            return value
+        return str(value)
+
+    @staticmethod
+    def _coerce_int_keys(mapping: Any) -> Any:
+        """Best-effort restore of integer dict keys lost to JSON's string keys."""
+        if not isinstance(mapping, Mapping):
+            return mapping
+        result: dict[Any, Any] = {}
+        for key, value in mapping.items():
+            try:
+                result[int(key)] = value
+            except (TypeError, ValueError):
+                result[key] = value
+        return result
+
+    @staticmethod
+    def _extract_original_y_cal(explainer: Any) -> list[Any]:
+        """Recover the original (pre-encoding) calibration targets for persistence.
+
+        ``CalibratedExplainer`` overwrites ``y_cal`` with numerically-encoded
+        labels during construction; ``label_map`` records the encoding so it
+        can be inverted here, keeping a save/load round trip equivalent to
+        calling ``calibrate()`` again with the original labels.
+        """
+        y_cal = np.asarray(getattr(explainer, "y_cal", None))
+        label_map = getattr(explainer, "label_map", None)
+        if isinstance(label_map, Mapping) and label_map:
+            inverse = {int(encoded): original for original, encoded in label_map.items()}
+            originals = [inverse.get(int(v), v) for v in y_cal]
+            return [WrapCalibratedExplainer._json_safe_scalar(v) for v in originals]
+        return [WrapCalibratedExplainer._json_safe_scalar(v) for v in y_cal]
+
+    def _build_learner_descriptor(self) -> dict[str, Any]:
+        """Build a JSON-safe descriptor used to validate a caller-supplied learner.
+
+        Only identity/shape metadata is recorded here -- never executable
+        learner bytes. ``load_state()`` uses this to fail clearly when a
+        caller-supplied learner is incompatible, but it never imports or
+        instantiates anything from these fields.
+        """
+        learner = self.learner
+        task = "classification" if "predict_proba" in dir(learner) else "regression"
+        n_features = None
+        classes: list[Any] | None = None
         explainer = getattr(self, "explainer", None)
         if explainer is not None:
-            payload["mode"] = getattr(explainer, "mode", None)
-            payload["seed"] = getattr(explainer, "seed", None)
-            payload["condition_source"] = getattr(explainer, "condition_source", None)
-            payload["interval_summary"] = str(getattr(explainer, "interval_summary", ""))
-            payload["preprocessor_metadata"] = self._serialise_preprocessor_value(
+            x_cal = getattr(explainer, "x_cal", None)
+            if x_cal is not None:
+                n_features = int(np.asarray(x_cal).shape[1])
+            if task == "classification":
+                # Use the raw original class values (not the display-oriented,
+                # already-stringified ``class_labels`` mapping) so comparison
+                # against a supplied learner's ``classes_`` isn't thrown off by
+                # incidental string formatting differences (e.g. "0" vs "0.0").
+                original_classes = getattr(explainer, "original_class_values", None)
+                if original_classes is not None:
+                    classes = list(np.asarray(original_classes))
+        return {
+            "module": type(learner).__module__,
+            "qualname": type(learner).__qualname__,
+            "task": task,
+            "n_features": n_features,
+            "classes": self._serialise_preprocessor_value(classes) if classes is not None else None,
+        }
+
+    def _build_preprocessor_state_payload(self) -> dict[str, Any]:
+        """Describe the configured preprocessor for persistence.
+
+        Only the built-in, fully JSON-safe ``BuiltinEncoder`` can be
+        reconstructed from persisted data alone (its mapping snapshot is
+        already exported separately). Any other preprocessor is recorded by
+        identity only; ``load_state()`` requires the caller to supply the
+        original instance again via ``preprocessor=``.
+        """
+        preprocessor = self._preprocessor
+        if preprocessor is None:
+            return {"kind": "none"}
+        transformer_id = f"{type(preprocessor).__module__}:{type(preprocessor).__qualname__}"
+        if transformer_id == "calibrated_explanations.preprocessing.builtin_encoder:BuiltinEncoder":
+            return {
+                "kind": "builtin",
+                "transformer_id": transformer_id,
+                "unseen_policy": getattr(preprocessor, "unseen_policy", "error"),
+                "pre_fitted": bool(self._pre_fitted),
+            }
+        return {
+            "kind": "custom",
+            "transformer_id": transformer_id,
+            "pre_fitted": bool(self._pre_fitted),
+        }
+
+    def _build_calibration_state_payload(self) -> dict[str, Any] | None:
+        """Build the JSON-safe declarative calibration state for persistence."""
+        explainer = getattr(self, "explainer", None)
+        if explainer is None:
+            return None
+        x_cal = np.asarray(explainer.x_cal)
+        bins = getattr(explainer, "bins", None)
+        bins_list = (
+            bins.tolist() if hasattr(bins, "tolist") else (list(bins) if bins is not None else None)
+        )
+        interval_summary = getattr(explainer, "interval_summary", None)
+        interval_summary_value = getattr(interval_summary, "value", interval_summary)
+        plugin_manager = getattr(explainer, "_plugin_manager", None)
+        return {
+            "mode": getattr(explainer, "mode", None),
+            "seed": getattr(explainer, "seed", None),
+            "condition_source": getattr(explainer, "condition_source", None),
+            "interval_summary": interval_summary_value,
+            "feature_names": list(getattr(explainer, "feature_names", None) or []),
+            "categorical_features": list(getattr(explainer, "categorical_features", None) or []),
+            "categorical_labels": self._serialise_preprocessor_value(
+                getattr(explainer, "categorical_labels", None)
+            ),
+            "class_labels": self._serialise_preprocessor_value(
+                getattr(explainer, "class_labels", None)
+            ),
+            "bins": bins_list,
+            "x_cal": x_cal.tolist(),
+            "y_cal": self._extract_original_y_cal(explainer),
+            "difficulty_estimator_required": getattr(explainer, "difficulty_estimator", None)
+            is not None,
+            "preprocessor_metadata": self._serialise_preprocessor_value(
                 getattr(explainer, "_preprocessor_metadata", None)
-            )
-            plugin_manager = getattr(explainer, "_plugin_manager", None)
-            if plugin_manager is not None:
-                payload["plugin_overrides"] = self._serialise_preprocessor_value(
-                    getattr(plugin_manager, "plugin_overrides", None)
-                )
-        return payload
+            ),
+            "plugin_overrides": self._serialise_preprocessor_value(
+                getattr(plugin_manager, "plugin_overrides", None)
+            ),
+            # FAST-explanation tuning knobs (ADR-003/ADR-004 surface); persisted so
+            # explain_fast() behavior after load_state() matches the saved wrapper
+            # instead of silently resetting to defaults.
+            "fast": bool(getattr(explainer, "_fast", False)),
+            "noise_type": getattr(explainer, "_noise_type", None),
+            "scale_factor": getattr(explainer, "_scale_factor", None),
+            "severity": getattr(explainer, "_severity", None),
+            "sample_percentiles": list(getattr(explainer, "sample_percentiles", None) or []),
+            "features_to_ignore": list(getattr(explainer, "features_to_ignore", None) or []),
+        }
+
+    def _build_state_payload(self) -> dict[str, Any]:
+        """Build the full JSON-safe ``explainer_state.json`` payload (schema v3)."""
+        return {
+            "schema_version": self._STATE_SCHEMA_VERSION,
+            "wrapper": {
+                "auto_encode": self._normalize_auto_encode_flag(),
+                "unseen_category_policy": self._unseen_category_policy,
+            },
+            "learner": self._build_learner_descriptor(),
+            "preprocessor": self._build_preprocessor_state_payload(),
+            "calibration": self._build_calibration_state_payload(),
+        }
 
     def save_state(self, path_or_fileobj: Any) -> Path:
-        """Persist wrapper state using an ADR-031 manifest + checksums."""
+        """Persist wrapper state as a safe (schema v3) ADR-031 manifest + checksums.
+
+        The written artifact contains only JSON-safe declarative data (no
+        pickled wrapper or calibrator bytes): built-in calibrator primitives,
+        preprocessing mapping snapshots, and configuration needed to
+        reconstruct calibrated prediction behavior. It never stores an
+        executable representation of the learner or a custom preprocessor --
+        ``load_state()`` requires those back from the caller. See ADR-031 for
+        the full trust-boundary rationale.
+
+        Raises
+        ------
+        SerializationError
+            If the active calibrator does not implement a JSON-safe
+            ``to_primitive()`` contract. This never falls back to pickling.
+        """
+        self._warn_dropping_mondrian_categorizer(operation="save_state")
         target = self._state_path(path_or_fileobj)
         target_parent = target.parent
         target_parent.mkdir(parents=True, exist_ok=True)
@@ -1592,32 +1775,24 @@ class WrapCalibratedExplainer:
         temp_dir = Path(tempfile.mkdtemp(prefix=temp_dir_name, dir=str(target_parent)))
         checksums: dict[str, str] = {}
         try:
-            wrapper_bytes = pickle.dumps(self, protocol=pickle.HIGHEST_PROTOCOL)
-            wrapper_file = temp_dir / "wrapper.pkl"
-            wrapper_file.write_bytes(wrapper_bytes)
-            checksums["wrapper.pkl"] = self._sha256_bytes(wrapper_bytes)
+            state_payload = self._build_state_payload()
+            state_bytes = json.dumps(state_payload, indent=2, sort_keys=True).encode("utf-8")
+            (temp_dir / "explainer_state.json").write_bytes(state_bytes)
+            checksums["explainer_state.json"] = self._sha256_bytes(state_bytes)
 
             calibrator_primitive = self._build_calibrator_primitive()
             if calibrator_primitive is not None:
-                calibrator_file = temp_dir / "calibrator_primitive.json"
                 calibrator_bytes = json.dumps(
                     calibrator_primitive, indent=2, sort_keys=True
                 ).encode("utf-8")
-                calibrator_file.write_bytes(calibrator_bytes)
+                (temp_dir / "calibrator_primitive.json").write_bytes(calibrator_bytes)
                 checksums["calibrator_primitive.json"] = self._sha256_bytes(calibrator_bytes)
 
             mapping = self.export_preprocessor_mapping()
             if mapping is not None:
-                mapping_file = temp_dir / "preprocessing_mapping.json"
                 mapping_bytes = json.dumps(mapping, indent=2, sort_keys=True).encode("utf-8")
-                mapping_file.write_bytes(mapping_bytes)
+                (temp_dir / "preprocessing_mapping.json").write_bytes(mapping_bytes)
                 checksums["preprocessing_mapping.json"] = self._sha256_bytes(mapping_bytes)
-
-            config_payload = self._build_explainer_config_payload()
-            config_file = temp_dir / "explainer_config.json"
-            config_bytes = json.dumps(config_payload, indent=2, sort_keys=True).encode("utf-8")
-            config_file.write_bytes(config_bytes)
-            checksums["explainer_config.json"] = self._sha256_bytes(config_bytes)
 
             manifest = {
                 "schema_version": self._STATE_SCHEMA_VERSION,
@@ -1659,6 +1834,10 @@ class WrapCalibratedExplainer:
             if backup is not None and backup.exists():
                 shutil.rmtree(backup)
             return target
+        except SerializationError:
+            if temp_dir.exists():
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            raise
         except (OSError, TypeError, ValueError, AttributeError) as exc:
             if temp_dir.exists():
                 shutil.rmtree(temp_dir, ignore_errors=True)
@@ -1679,85 +1858,460 @@ class WrapCalibratedExplainer:
         _warnings.warn(message, UserWarning, stacklevel=3)
 
     @classmethod
-    def load_state(cls, path_or_fileobj: Any) -> WrapCalibratedExplainer:
-        """Load wrapper state from an ADR-031 persisted artifact."""
-        temp_instance = cls.__new__(cls)
-        path = temp_instance._state_path(path_or_fileobj)
+    def _read_manifest_json(cls, path: Path) -> dict[str, Any]:
+        """Read and structurally validate ``manifest.json`` before trusting any field."""
         manifest_path = path / "manifest.json"
         if not manifest_path.exists():
             raise IncompatibleStateError(
                 "State artifact is missing manifest.json.",
                 details={"path": str(path)},
             )
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        schema_version = manifest.get("schema_version")
-        if schema_version not in (1, 2):
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
             raise IncompatibleStateError(
-                "Unsupported state schema_version.",
-                details={
-                    "schema_version": schema_version,
-                    "supported_versions": [1, 2],
-                },
+                "State artifact manifest.json is not valid JSON.",
+                details={"path": str(manifest_path), "error": str(exc)},
+            ) from exc
+        if not isinstance(manifest, Mapping):
+            raise IncompatibleStateError(
+                "Invalid state manifest: expected a JSON object at the top level.",
+                details={"actual_type": type(manifest).__name__},
             )
+        return dict(manifest)
+
+    @classmethod
+    def _read_json_object(cls, file_path: Path) -> dict[str, Any]:
+        """Read a JSON file and validate it decodes to an object, not another type."""
+        try:
+            payload = json.loads(file_path.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise IncompatibleStateError(
+                f"State artifact file '{file_path.name}' is not valid JSON.",
+                details={"file": file_path.name, "error": str(exc)},
+            ) from exc
+        if not isinstance(payload, Mapping):
+            raise IncompatibleStateError(
+                f"Invalid state file '{file_path.name}': expected a JSON object at the top level.",
+                details={"file": file_path.name, "actual_type": type(payload).__name__},
+            )
+        return dict(payload)
+
+    @classmethod
+    def _validate_and_verify_manifest_files(
+        cls, manifest: Mapping[str, Any], root: Path
+    ) -> dict[str, str]:
+        """Validate the manifest's file inventory and verify each file's checksum.
+
+        Hardens the artifact-parsing boundary: rejects absolute paths, ``..``
+        traversal, duplicate/malformed entries, files outside the safe-schema
+        allow-list (e.g. a pickled ``wrapper.pkl``), symlinks resolving
+        outside the artifact root, and any on-disk file not declared in the
+        manifest -- all before any file content is interpreted as anything
+        other than raw bytes for hashing. A checksum match here only proves
+        the file's bytes agree with the manifest; it does not establish who
+        produced the artifact.
+        """
         files = manifest.get("files")
         if not isinstance(files, Mapping):
             raise IncompatibleStateError(
                 "Invalid state manifest: files checksum mapping missing.",
                 details={"field": "files"},
             )
+        resolved_root = root.resolve()
+        seen_resolved: set[Path] = set()
+        validated: dict[str, str] = {}
         for file_name, expected_sha in files.items():
             if not isinstance(file_name, str) or not isinstance(expected_sha, str):
                 raise IncompatibleStateError(
                     "Invalid state manifest: malformed checksum entry.",
                     details={"file": file_name, "checksum": expected_sha},
                 )
-            file_path = path / file_name
+            if file_name not in cls._SAFE_STATE_FILES:
+                raise IncompatibleStateError(
+                    f"Invalid state manifest: '{file_name}' is not part of the safe "
+                    "persistence schema. Executable or binary payload files (such as a "
+                    "pickled 'wrapper.pkl') are never accepted, even with a matching "
+                    "checksum -- checksums only detect corruption, they do not "
+                    "authenticate an artifact's origin.",
+                    details={"file": file_name, "allowed_files": sorted(cls._SAFE_STATE_FILES)},
+                )
+            candidate = Path(file_name)
+            if candidate.is_absolute() or ".." in candidate.parts:
+                raise IncompatibleStateError(
+                    "Invalid state manifest: file paths must be relative names without "
+                    "traversal segments.",
+                    details={"file": file_name},
+                )
+            file_path = root / candidate
             if not file_path.exists():
                 raise IncompatibleStateError(
                     "State artifact is incomplete: expected file is missing.",
                     details={"file": file_name},
                 )
+            resolved = file_path.resolve()
+            if resolved != resolved_root and resolved_root not in resolved.parents:
+                raise IncompatibleStateError(
+                    "Invalid state manifest: file resolves outside the artifact directory.",
+                    details={"file": file_name},
+                )
+            if resolved in seen_resolved:
+                raise IncompatibleStateError(
+                    "Invalid state manifest: duplicate file entry after path normalization.",
+                    details={"file": file_name},
+                )
+            seen_resolved.add(resolved)
             actual_sha = cls._sha256_file(file_path)
             if actual_sha != expected_sha:
                 raise IncompatibleStateError(
-                    "State checksum validation failed.",
+                    "State checksum validation failed: file contents do not match the "
+                    "manifest. This detects corruption or tampering only -- a matching "
+                    "checksum does not prove the artifact came from a trusted source.",
                     details={
                         "file": file_name,
                         "expected_sha256": expected_sha,
                         "actual_sha256": actual_sha,
                     },
                 )
+            validated[file_name] = expected_sha
 
-        wrapper_bytes = (path / "wrapper.pkl").read_bytes()
-        wrapper = pickle.loads(wrapper_bytes)  # noqa: S301  # nosec B301 - trusted, checksum-validated payload
-        if not isinstance(wrapper, cls):
+        # Defense in depth: reject any on-disk file that was not declared in
+        # the manifest at all (e.g. a pickle payload dropped alongside a
+        # manifest claiming the safe schema), and reject symlinks escaping
+        # the artifact root even when their name was never listed.
+        for entry in root.iterdir():
+            if entry.name == "manifest.json":
+                continue
+            if entry.is_symlink():
+                link_target = entry.resolve()
+                if resolved_root not in link_target.parents and link_target != resolved_root:
+                    raise IncompatibleStateError(
+                        "Invalid state artifact: symlink resolves outside the artifact directory.",
+                        details={"file": entry.name},
+                    )
+            if entry.name not in validated:
+                raise IncompatibleStateError(
+                    f"Invalid state artifact: unexpected file '{entry.name}' is present but "
+                    "not declared in the manifest. Safe-schema artifacts only contain the "
+                    "files they declare.",
+                    details={"file": entry.name},
+                )
+        return validated
+
+    @staticmethod
+    def _validate_supplied_learner(learner: Any, learner_meta: Mapping[str, Any]) -> None:
+        """Validate a caller-supplied learner against persisted identity/shape metadata.
+
+        Raises
+        ------
+        ValidationError
+            If no learner was supplied, or if the supplied learner's task,
+            feature count, or classes are incompatible with the persisted
+            state. Validation happens before the learner is used to
+            reconstruct anything.
+        """
+        if not learner_meta:
+            return
+        if learner is None:
+            required = f"{learner_meta.get('module')}.{learner_meta.get('qualname')}"
+            raise ValidationError(
+                "load_state() requires a caller-supplied fitted learner for this artifact: "
+                "the safe persistence schema never stores executable learner bytes. Pass "
+                f"learner=<your fitted {required} instance> (or an equivalent fitted "
+                "estimator) matching the model used when save_state() was called.",
+                details={"required_learner": required},
+            )
+        check_is_fitted(learner)
+        task = "classification" if "predict_proba" in dir(learner) else "regression"
+        expected_task = learner_meta.get("task")
+        if expected_task is not None and task != expected_task:
+            raise ValidationError(
+                f"Supplied learner exposes task '{task}' but the persisted state requires "
+                f"'{expected_task}'. Supply a learner matching the original task.",
+                details={"supplied_task": task, "required_task": expected_task},
+            )
+        expected_features = learner_meta.get("n_features")
+        supplied_features = getattr(learner, "n_features_in_", None)
+        if (
+            expected_features is not None
+            and supplied_features is not None
+            and int(supplied_features) != int(expected_features)
+        ):
+            raise ValidationError(
+                f"Supplied learner expects {supplied_features} feature(s) but the persisted "
+                f"state was calibrated with {expected_features} feature(s).",
+                details={
+                    "supplied_n_features": int(supplied_features),
+                    "required_n_features": int(expected_features),
+                },
+            )
+        if task == "classification":
+            expected_classes = learner_meta.get("classes")
+            supplied_classes = getattr(learner, "classes_", None)
+            if expected_classes is not None and supplied_classes is not None:
+                supplied_norm = sorted(str(c) for c in supplied_classes)
+                expected_norm = sorted(str(c) for c in expected_classes)
+                if supplied_norm != expected_norm:
+                    raise ValidationError(
+                        "Supplied learner's classes_ do not match the persisted calibration "
+                        "classes.",
+                        details={
+                            "supplied_classes": supplied_norm,
+                            "required_classes": expected_norm,
+                        },
+                    )
+
+    @staticmethod
+    def _restore_preprocessor(
+        wrapper: "WrapCalibratedExplainer",
+        preprocessor_state: Mapping[str, Any],
+        supplied_preprocessor: Any,
+        mapping_payload: Mapping[str, Any] | None,
+    ) -> None:
+        """Attach a preprocessor to ``wrapper`` per the persisted preprocessor descriptor."""
+        kind = preprocessor_state.get("kind", "none")
+        if kind == "none":
+            wrapper._preprocessor = supplied_preprocessor
+            wrapper._pre_fitted = False
+            return
+        if kind == "builtin":
+            from ..preprocessing.builtin_encoder import BuiltinEncoder
+
+            encoder = BuiltinEncoder(unseen_policy=preprocessor_state.get("unseen_policy", "error"))
+            if mapping_payload is not None:
+                encoder.set_mapping(dict(mapping_payload))
+            wrapper._preprocessor = encoder
+            wrapper._pre_fitted = bool(preprocessor_state.get("pre_fitted", True))
+            return
+        if kind == "custom":
+            transformer_id = preprocessor_state.get("transformer_id")
+            if supplied_preprocessor is None:
+                raise ValidationError(
+                    f"This artifact was saved with a custom preprocessor ({transformer_id}) "
+                    "that cannot be safely reconstructed from persisted data alone. Supply "
+                    "the original fitted preprocessor instance via "
+                    "load_state(..., preprocessor=...).",
+                    details={"required_preprocessor": transformer_id},
+                )
+            supplied_id = (
+                f"{type(supplied_preprocessor).__module__}:"
+                f"{type(supplied_preprocessor).__qualname__}"
+            )
+            if supplied_id != transformer_id:
+                raise ValidationError(
+                    "Supplied preprocessor type does not match the persisted metadata.",
+                    details={"supplied": supplied_id, "required": transformer_id},
+                )
+            wrapper._preprocessor = supplied_preprocessor
+            wrapper._pre_fitted = bool(preprocessor_state.get("pre_fitted", True))
+            if mapping_payload is not None:
+                wrapper.import_preprocessor_mapping(dict(mapping_payload))
+            return
+        raise IncompatibleStateError(
+            "Unknown preprocessor kind in persisted state.", details={"kind": kind}
+        )
+
+    @classmethod
+    def load_state(
+        cls,
+        path_or_fileobj: Any,
+        *,
+        learner: Any | None = None,
+        preprocessor: Any | None = None,
+        difficulty_estimator: Any | None = None,
+        mc: Callable[[Any], Any] | MondrianCategorizer | None = None,
+    ) -> WrapCalibratedExplainer:
+        """Load wrapper state from a safe (schema v3) ADR-031 persisted artifact.
+
+        The safe schema never contains pickled wrapper or calibrator bytes,
+        so normal loading cannot execute artifact-provided code. Because of
+        that, some runtime state cannot be reconstructed from the artifact
+        alone and must be supplied by the caller:
+
+        Parameters
+        ----------
+        path_or_fileobj : path-like
+            Directory produced by :meth:`save_state`.
+        learner : Any, optional
+            The original (or an equivalent, already-fitted) learner. Required
+            whenever the persisted state includes calibration; validated
+            against persisted task/feature-count/classes metadata.
+        preprocessor : Any, optional
+            Required only when the artifact was saved with a *custom*
+            (non-built-in) preprocessor; built-in preprocessing is
+            reconstructed automatically from its JSON-safe mapping.
+        difficulty_estimator : Any, optional
+            Required when the artifact was calibrated with a difficulty
+            estimator.
+        mc : callable or MondrianCategorizer, optional
+            Optional Mondrian categorizer to attach for future
+            ``reuse_conditional=True`` calibration calls; not needed to
+            restore predictions, which rely on the persisted ``bins``.
+
+        Raises
+        ------
+        IncompatibleStateError
+            If the artifact uses a legacy (pickle-based) schema version, has
+            an unsupported/invalid manifest, fails checksum verification, or
+            contains disallowed files/paths. Legacy artifacts are rejected
+            unconditionally and with actionable migration guidance -- see the
+            raised message for details.
+        ValidationError
+            If a required runtime object (learner, custom preprocessor,
+            difficulty estimator) is missing or incompatible with the
+            persisted state.
+        """
+        temp_instance = cls.__new__(cls)
+        path = temp_instance._state_path(path_or_fileobj)
+        manifest = cls._read_manifest_json(path)
+        schema_version = manifest.get("schema_version")
+        if schema_version in cls._LEGACY_STATE_SCHEMA_VERSIONS:
             raise IncompatibleStateError(
-                "Persisted wrapper payload restored unexpected object type.",
-                details={"restored_type": type(wrapper).__name__},
+                f"This state artifact uses legacy schema_version {schema_version!r}, which "
+                "persisted the entire wrapper (and, for unsupported calibrators, arbitrary "
+                "Python objects) using pickle. Loading it would allow arbitrary code "
+                "execution: the SHA-256 checksums recorded alongside it only detect "
+                "corruption, they do not authenticate who created the file, so a matching "
+                "checksum cannot make an untrusted pickle artifact safe to load. Normal "
+                "load_state() therefore refuses legacy artifacts unconditionally, before any "
+                "pickle byte is read. To migrate: open this artifact with a trusted, older "
+                "calibrated-explanations environment you control (ideally the version that "
+                "produced it), then call save_state() again there to produce a "
+                f"schema_version={cls._STATE_SCHEMA_VERSION} artifact. Only do this for "
+                "artifacts you created yourself and still trust -- never run this migration "
+                "against a downloaded or otherwise untrusted artifact.",
+                details={
+                    "schema_version": schema_version,
+                    "supported_versions": [cls._STATE_SCHEMA_VERSION],
+                },
+            )
+        if schema_version != cls._STATE_SCHEMA_VERSION:
+            raise IncompatibleStateError(
+                "Unsupported state schema_version.",
+                details={
+                    "schema_version": schema_version,
+                    "supported_versions": [cls._STATE_SCHEMA_VERSION],
+                },
+            )
+        artifact_type = manifest.get("artifact_type")
+        if artifact_type != "wrap_calibrated_explainer_state":
+            raise IncompatibleStateError(
+                "Invalid state manifest: unexpected artifact_type.",
+                details={"artifact_type": artifact_type},
             )
 
-        primitive_path = path / "calibrator_primitive.json"
-        if primitive_path.exists():
-            primitive = json.loads(primitive_path.read_text(encoding="utf-8"))
-            restored = cls._restore_calibrator_from_primitive(primitive)
-            if getattr(wrapper, "explainer", None) is not None:
-                learner = getattr(wrapper.explainer, "learner", None)
-                difficulty_estimator = getattr(wrapper.explainer, "difficulty_estimator", None)
-                orchestrator = getattr(wrapper.explainer, "prediction_orchestrator", None)
-                if orchestrator is not None:
-                    orchestrator.restore_calibrator_with_learner(
-                        restored,
-                        learner,
-                        difficulty_estimator=difficulty_estimator,
-                    )
-                else:
-                    wrapper.explainer.interval_learner = restored
+        validated_files = cls._validate_and_verify_manifest_files(manifest, path)
+        if "explainer_state.json" not in validated_files:
+            raise IncompatibleStateError(
+                "State artifact is incomplete: manifest does not list explainer_state.json.",
+                details={"field": "files"},
+            )
 
-        mapping_path = path / "preprocessing_mapping.json"
-        if mapping_path.exists():
-            mapping_payload = json.loads(mapping_path.read_text(encoding="utf-8"))
-            if isinstance(mapping_payload, Mapping):
-                wrapper.import_preprocessor_mapping(mapping_payload)
+        state = cls._read_json_object(path / "explainer_state.json")
+        if state.get("schema_version") != cls._STATE_SCHEMA_VERSION:
+            raise IncompatibleStateError(
+                "Unsupported explainer_state schema_version.",
+                details={
+                    "schema_version": state.get("schema_version"),
+                    "supported_versions": [cls._STATE_SCHEMA_VERSION],
+                },
+            )
+
+        wrapper = cls.__new__(cls)
+        wrapper._logger = _logging.getLogger(__name__)
+        wrapper.mc = mc
+        wrapper._preprocessor = None
+        wrapper._pre_fitted = False
+        wrapper_meta = state.get("wrapper")
+        wrapper_meta = wrapper_meta if isinstance(wrapper_meta, Mapping) else {}
+        wrapper._auto_encode = wrapper_meta.get("auto_encode", "auto")
+        wrapper._unseen_category_policy = wrapper_meta.get("unseen_category_policy", "error")
+
+        learner_meta = state.get("learner")
+        learner_meta = learner_meta if isinstance(learner_meta, Mapping) else {}
+        cls._validate_supplied_learner(learner, learner_meta)
+        wrapper.learner = learner
+        wrapper.fitted = True
+
+        mapping_payload: dict[str, Any] | None = None
+        if "preprocessing_mapping.json" in validated_files:
+            mapping_payload = cls._read_json_object(path / "preprocessing_mapping.json")
+        preprocessor_state = state.get("preprocessor")
+        preprocessor_state = (
+            preprocessor_state if isinstance(preprocessor_state, Mapping) else {"kind": "none"}
+        )
+
+        calibration_state = state.get("calibration")
+        if calibration_state is None:
+            wrapper.calibrated = False
+            wrapper.explainer = None
+            cls._restore_preprocessor(wrapper, preprocessor_state, preprocessor, mapping_payload)
+            return wrapper
+        if not isinstance(calibration_state, Mapping):
+            raise IncompatibleStateError(
+                "Invalid state file: 'calibration' must be a JSON object or null.",
+                details={"field": "calibration"},
+            )
+
+        if calibration_state.get("difficulty_estimator_required") and difficulty_estimator is None:
+            raise ValidationError(
+                "This artifact was calibrated with a difficulty_estimator. Supply the "
+                "original (or an equivalent) instance via "
+                "load_state(..., difficulty_estimator=...).",
+                details={"requirement": "difficulty_estimator required for restoration"},
+            )
+
+        mode = calibration_state.get("mode")
+        x_cal = np.asarray(calibration_state.get("x_cal"), dtype=float)
+        y_cal_raw = calibration_state.get("y_cal")
+        y_cal = (
+            np.asarray(y_cal_raw, dtype=float) if mode == "regression" else np.asarray(y_cal_raw)
+        )
+        bins = calibration_state.get("bins")
+        bins = np.asarray(bins) if bins is not None else None
+
+        candidate_kwargs: dict[str, Any] = {
+            "mode": mode,
+            "seed": calibration_state.get("seed"),
+            "condition_source": calibration_state.get("condition_source"),
+            "interval_summary": calibration_state.get("interval_summary"),
+            "feature_names": calibration_state.get("feature_names"),
+            "categorical_features": calibration_state.get("categorical_features"),
+            "categorical_labels": cls._coerce_int_keys(calibration_state.get("categorical_labels")),
+            "class_labels": cls._coerce_int_keys(calibration_state.get("class_labels")),
+            "bins": bins,
+            "difficulty_estimator": difficulty_estimator,
+            "preprocessor_metadata": calibration_state.get("preprocessor_metadata"),
+            "plugin_overrides": calibration_state.get("plugin_overrides"),
+            "fast": calibration_state.get("fast"),
+            "noise_type": calibration_state.get("noise_type"),
+            "scale_factor": calibration_state.get("scale_factor"),
+            "severity": calibration_state.get("severity"),
+            "sample_percentiles": calibration_state.get("sample_percentiles"),
+            "features_to_ignore": calibration_state.get("features_to_ignore"),
+        }
+        candidate_kwargs = {
+            key: value for key, value in candidate_kwargs.items() if value is not None
+        }
+
+        explainer = CalibratedExplainer(learner, x_cal, y_cal, **candidate_kwargs)
+        wrapper.explainer = explainer
+        wrapper.calibrated = True
+
+        if "calibrator_primitive.json" in validated_files:
+            primitive = cls._read_json_object(path / "calibrator_primitive.json")
+            restored = cls._restore_calibrator_from_primitive(primitive)
+            orchestrator = getattr(explainer, "prediction_orchestrator", None)
+            if orchestrator is not None:
+                orchestrator.restore_calibrator_with_learner(
+                    restored,
+                    learner,
+                    difficulty_estimator=getattr(explainer, "difficulty_estimator", None),
+                )
+            else:
+                explainer.interval_learner = restored
+
+        cls._restore_preprocessor(wrapper, preprocessor_state, preprocessor, mapping_payload)
 
         return wrapper
 

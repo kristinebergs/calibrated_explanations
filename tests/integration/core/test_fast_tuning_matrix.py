@@ -168,7 +168,7 @@ def test_fast_tuning_knobs_should_change_public_fast_behavior_across_wrapper_cor
 
         state_dir = tmp_path / f"fast-state-{index}"
         wrapper.save_state(state_dir)
-        restored = WrapCalibratedExplainer.load_state(state_dir)
+        restored = WrapCalibratedExplainer.load_state(state_dir, learner=wrapper.learner)
         restored_fast = restored.explain_fast(x_test[:1])
         _assert_fast_runtime_markers(restored.explainer, config, len(fresh_x_cal))
         np.testing.assert_allclose(

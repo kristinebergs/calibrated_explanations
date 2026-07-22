@@ -70,6 +70,13 @@ Calibrator-level Mondrian bins round-trip through persistence, but arbitrary
 configured `mc` is dropped. After loading, pass explicit `bins=` at inference time
 for wrappers that were saved from an `mc`-calibrated state.
 
+`save_state()`/`load_state()` persist only JSON-safe declarative data (ADR-031);
+no wrapper or calibrator pickle bytes are written. `load_state()` requires the
+original (or an equivalent, already fitted) learner via `load_state(path,
+learner=...)`, since learner bytes are never persisted. Artifacts saved by a
+pre-hardening release (schema v1/v2) are rejected by `load_state()`; migrate
+them with a trusted older calibrated-explanations environment and re-save.
+
 ## Minimum Category Size
 
 Each category needs enough calibration samples for useful intervals. As a rule of

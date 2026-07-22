@@ -22,7 +22,6 @@ import pytest
 import json
 from calibrated_explanations.core.wrap_explainer import WrapCalibratedExplainer
 from calibrated_explanations.utils.exceptions import (
-    IncompatibleStateError,
     NotFittedError,
     ValidationError,
 )
@@ -479,16 +478,19 @@ def test_should_roundtrip_state_with_native_regression_primitive_when_saved(
     assert primitive["calibrator_type"] == "interval_regressor"
     assert primitive["schema_version"] == 2
 
-    restored = WrapCalibratedExplainer.load_state(state_dir)
+    restored = WrapCalibratedExplainer.load_state(state_dir, learner=wrapper.learner)
     reloaded = restored.predict_proba(x_test[:14], threshold=threshold, uq_interval=True)
     assert_payload_close(baseline, reloaded)
 
 
-def test_should_roundtrip_state_with_pickle_fallback_when_fast_interval_calibrator_is_used(
+def test_should_roundtrip_state_with_fast_collection_when_fast_interval_calibrator_is_used(
     tmp_path,
     regression_dataset,
 ):
-    """Fast regression should exercise the python_pickle calibrator primitive path."""
+    """Fast regression persists its per-fold calibrators as a safe fast_collection
+    primitive (ADR-031 security hardening: the legacy python_pickle fallback for
+    unsupported calibrator containers was removed; FastIntervalCalibrator is now
+    recognized as a sequence of natively-serializable calibrators instead)."""
     x_prop_train, y_prop_train, x_cal, y_cal, x_test, y_test, _, _, feature_names = (
         regression_dataset
     )
@@ -498,46 +500,13 @@ def test_should_roundtrip_state_with_pickle_fallback_when_fast_interval_calibrat
     threshold = float(np.median(y_test))
     baseline = wrapper.predict_proba(x_test[:12], threshold=threshold, uq_interval=True)
 
-    state_dir = tmp_path / "regression_pickle_fallback_state"
+    state_dir = tmp_path / "regression_fast_collection_state"
     wrapper.save_state(state_dir)
 
     primitive = json.loads((state_dir / "calibrator_primitive.json").read_text(encoding="utf-8"))
-    assert primitive["calibrator_type"] == "python_pickle"
-    assert primitive["schema_version"] == 2
-    assert "payload" in primitive and "pickle_b64" in primitive["payload"]
+    assert primitive["calibrator_type"] == "fast_collection"
+    assert all(child["calibrator_type"] != "python_pickle" for child in primitive["calibrators"])
 
-    restored = WrapCalibratedExplainer.load_state(state_dir)
+    restored = WrapCalibratedExplainer.load_state(state_dir, learner=wrapper.learner)
     reloaded = restored.predict_proba(x_test[:12], threshold=threshold, uq_interval=True)
     assert_payload_close(baseline, reloaded)
-
-
-def test_should_fail_load_when_pickle_fallback_payload_checksum_is_tampered(
-    tmp_path,
-    regression_dataset,
-):
-    """load_state should reject tampered python_pickle payloads even when manifest checksums are recomputed."""
-    x_prop_train, y_prop_train, x_cal, y_cal, _, _, _, _, feature_names = regression_dataset
-    wrapper = WrapCalibratedExplainer(RandomForestRegressor(n_estimators=18, random_state=19))
-    wrapper.fit(x_prop_train, y_prop_train)
-    wrapper.calibrate(x_cal, y_cal, feature_names=feature_names, fast=True)
-
-    state_dir = tmp_path / "regression_tamper_state"
-    wrapper.save_state(state_dir)
-
-    primitive_path = state_dir / "calibrator_primitive.json"
-    primitive = json.loads(primitive_path.read_text(encoding="utf-8"))
-    primitive["payload"]["pickle_b64"] = primitive["payload"]["pickle_b64"][:-4] + "AAAA"
-    primitive_path.write_text(json.dumps(primitive, indent=2, sort_keys=True), encoding="utf-8")
-
-    manifest_path = state_dir / "manifest.json"
-    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    with primitive_path.open("rb") as handle:
-        import hashlib
-
-        manifest["files"]["calibrator_primitive.json"] = hashlib.sha256(handle.read()).hexdigest()
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8")
-
-    with pytest.raises(
-        IncompatibleStateError, match="Calibrator primitive checksum validation failed"
-    ):
-        WrapCalibratedExplainer.load_state(state_dir)

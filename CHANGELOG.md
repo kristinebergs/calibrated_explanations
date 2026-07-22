@@ -5,6 +5,57 @@
 
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v1.0.0...main)
 
+### Security
+
+- **`WrapCalibratedExplainer` state persistence no longer executes pickle
+  (ADR-031 schema v3):** `save_state()`/`load_state()` previously persisted
+  the entire wrapper as `wrapper.pkl` (and any calibrator lacking a
+  `to_primitive()` contract as a `python_pickle` payload), verified only by a
+  SHA-256 checksum recorded in the same manifest. That checksum proved
+  internal consistency, not trustworthy origin: anyone able to write to a
+  state directory could replace `wrapper.pkl` with a malicious pickle,
+  recompute the checksum, and have `load_state()` execute arbitrary code.
+  `save_state()` now writes only JSON-safe declarative data (schema
+  `v3`) — no wrapper or calibrator pickle bytes are ever written — and
+  `load_state()` never calls `pickle.loads`/`pickle.load`/`joblib.load`/
+  `cloudpickle.loads` on artifact-provided bytes, even when every checksum in
+  the artifact is internally consistent. See ADR-031 for the full
+  integrity-vs-authenticity-vs-safe-parsing rationale.
+- **Legacy pickle-based artifacts (schema v1/v2) are rejected
+  unconditionally.** `load_state()` refuses them before reading any pickle
+  byte, with an error explaining that checksums do not authenticate an
+  artifact and pointing to the migration path below. There is no in-library
+  "unsafe legacy load" escape hatch.
+- **Unsupported calibrators fail closed instead of falling back to
+  pickle.** `save_state()` now raises `SerializationError` naming the
+  calibrator type when it does not implement the JSON-safe
+  `to_primitive()`/`from_primitive()` contract, instead of silently
+  persisting it as a `python_pickle` payload. (The `FastIntervalCalibrator`
+  sequence used by FAST regression is now recognized as a collection of
+  natively-serializable calibrators, so this does not affect FAST tuning
+  round-trips, which continue to work.)
+- **`load_state()` signature change (source-compatibility break):**
+  `WrapCalibratedExplainer.load_state(path, *, learner=None, preprocessor=None,
+  difficulty_estimator=None, mc=None)`. A generic fitted learner (and an
+  arbitrary custom preprocessor) cannot be safely reconstructed from
+  persisted bytes, so the caller must supply those live, already-fitted
+  objects again; they are validated against persisted task/feature-count/
+  classes/preprocessor-identity metadata before use. Built-in preprocessing
+  (`BuiltinEncoder`) is reconstructed automatically from its JSON-safe
+  mapping and does not need to be supplied.
+- **Artifact parsing hardened:** absolute paths, `..` traversal, duplicate
+  file entries, files outside the safe-schema allow-list (including a
+  `wrapper.pkl` with a correctly recomputed checksum), on-disk files not
+  declared in the manifest, and symlinks resolving outside the artifact
+  directory are all rejected before any file's contents are parsed as
+  anything beyond raw bytes for hashing.
+- **Migration:** to load a pre-hardening (schema v1/v2) artifact, open it
+  with a trusted, older calibrated-explanations environment you already
+  control (the version that produced it), then call `save_state()` again
+  there to produce a schema v3 artifact. Only do this for artifacts you
+  created yourself and still trust — never for a downloaded or otherwise
+  untrusted artifact.
+
 ## [v1.0.0](https://github.com/Moffran/calibrated_explanations/releases/tag/v1.0.0) - 2026-07-21
 
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v1.0.0rc2...v1.0.0)

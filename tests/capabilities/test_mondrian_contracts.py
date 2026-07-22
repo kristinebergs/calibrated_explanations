@@ -299,7 +299,7 @@ def test_should_warn_and_require_explicit_bins_when_saved_mc_wrapper_is_loaded(
 
     with pytest.warns(UserWarning, match="drops the configured Mondrian categorizer"):
         explainer.save_state(state_path)
-    restored = WrapCalibratedExplainer.load_state(state_path)
+    restored = WrapCalibratedExplainer.load_state(state_path, learner=explainer.learner)
 
     with pytest.raises(ValidationError, match="calibrated with Mondrian bins"):
         restored.predict_proba(X_test)

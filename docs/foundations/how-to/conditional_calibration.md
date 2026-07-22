@@ -83,6 +83,12 @@ pickle and `save_state()`. CE emits a `UserWarning` and INFO log when this
 happens. After loading an `mc`-calibrated wrapper, pass explicit `bins=` at
 inference time.
 
+`save_state()`/`load_state()` use a non-executable, JSON-safe artifact format
+(ADR-031); `load_state()` requires the original (or an equivalent, already
+fitted) `learner=` to be supplied again, since learner bytes are never
+persisted. See the [persistence caveat](../../practitioner/playbooks/mondrian-calibration.md#persistence-caveat)
+for the Mondrian-specific details.
+
 ## Minimum Category Size
 
 Aim for at least 30-50 calibration samples per category. Smaller categories can

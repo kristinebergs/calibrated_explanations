@@ -6,7 +6,9 @@ adr_links:
   - ADR-031
 
 claim_text: >
-  Calibrator and explainer persistence use versioned primitive state and fail fast on incompatible schema versions.
+  Calibrator and explainer persistence use versioned, non-executable primitive state,
+  fail fast on incompatible schema versions, and reject legacy pickle-based artifacts
+  unconditionally; checksums detect corruption only and are never treated as authentication.
 
 atomic_rationale: >
   This governance claim maps to one requirement because ADR-031 serialization compliance

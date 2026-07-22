@@ -504,17 +504,18 @@ def test_should_roundtrip_state_with_native_classification_primitive_when_saved(
     wrapper.save_state(state_dir)
 
     manifest = json.loads((state_dir / "manifest.json").read_text(encoding="utf-8"))
-    assert isinstance(manifest.get("schema_version"), int)
+    assert manifest.get("schema_version") == 3
     assert isinstance(manifest.get("created_at_utc"), str)
     assert isinstance(manifest.get("files"), dict)
-    assert "wrapper.pkl" in manifest["files"]
+    assert "wrapper.pkl" not in manifest["files"]
+    assert not (state_dir / "wrapper.pkl").exists()
     assert "calibrator_primitive.json" in manifest["files"]
 
     primitive = json.loads((state_dir / "calibrator_primitive.json").read_text(encoding="utf-8"))
     assert primitive["calibrator_type"] == "venn_abers"
     assert primitive["schema_version"] == 2
 
-    restored = WrapCalibratedExplainer.load_state(state_dir)
+    restored = WrapCalibratedExplainer.load_state(state_dir, learner=wrapper.learner)
     reloaded = restored.predict_proba(x_test[:12], uq_interval=True)
     assert_payload_close(baseline, reloaded)
 
@@ -553,7 +554,7 @@ def test_should_roundtrip_state_with_fast_collection_primitive_when_interval_lea
     assert isinstance(primitive.get("calibrators"), list)
     assert len(primitive["calibrators"]) == 2
 
-    restored = WrapCalibratedExplainer.load_state(state_dir)
+    restored = WrapCalibratedExplainer.load_state(state_dir, learner=wrapper.learner)
     reloaded = restored.predict_proba(x_test[:10], uq_interval=True)
     assert_payload_close(baseline, reloaded)
 
