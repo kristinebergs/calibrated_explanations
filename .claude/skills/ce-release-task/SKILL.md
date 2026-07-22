@@ -58,8 +58,8 @@ the active version plan's `## Included work` table.
 
 ### Phase 4: Verification
 
-13. Confirm the deliverable's `Required evidence` command(s) from the plan
-    row pass.
+13. Confirm the verification commands from the deliverable's linked GitHub
+    issue (or its governing ADR/Standard) pass.
 14. Confirm:
     - all new tests pass
     - no coverage regression

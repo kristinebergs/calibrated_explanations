@@ -44,7 +44,7 @@ Release version:      X.Y.Z   (from the plan's front matter)
 ## Step 2 — Scan the Included work table
 
 ```
-| ID | Deliverable | Issue | Governing ADR/standard | Required evidence | Status |
+| ID | Deliverable | Issue | ADR/Standard | Status |
 ```
 
 Rows with Status `Not started` or `In progress` are outstanding. List them

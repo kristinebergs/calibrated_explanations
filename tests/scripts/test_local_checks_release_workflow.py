@@ -13,7 +13,9 @@ Planning model
 There is no master ``RELEASE_PLAN.md`` roadmap document. Release readiness is
 derived entirely from the sole active ``development/current-work/vX.Y.Z_plan.md``:
 its ``## Included work`` table (every row's ``Status`` column must read
-``Done``) and its ``## Release decision`` declaration (must read ``Ready``).
+``Done``) plus the executable release gates. The plan's optional
+``## Release decision`` section, if present, is non-authoritative summary
+prose and is never parsed as a readiness gate.
 """
 
 from __future__ import annotations
@@ -33,30 +35,36 @@ def write_release_plan(
     path: Path,
     *,
     pending_ids: set[str] | None = None,
-    decision: str = "Ready",
+    decision: str | None = "Ready",
 ) -> None:
-    """Write a minimal compact version plan with an Included work table."""
+    """Write a minimal compact version plan with an Included work table.
+
+    ``decision`` writes the optional, non-authoritative ``## Release
+    decision`` section for fixture realism; pass ``None`` to omit the section
+    entirely. Neither value affects readiness — only the ``Status`` column of
+    ``## Included work`` does.
+    """
     pending = pending_ids or set()
     ids = [f"T{i}" for i in range(1, 6)]
     rows = "\n".join(
-        f"| {item_id} | Deliverable {item_id} | — | — | — | "
+        f"| {item_id} | Deliverable {item_id} | — | — | "
         f"{'Not started' if item_id in pending else 'Done'} |"
         for item_id in ids
     )
+    decision_section = f"## Release decision\n\n`{decision}`\n" if decision is not None else ""
     text = (
         "# vX.Y.Z Plan\n\n"
         "> **Status:** Active\n"
         "> **Theme:** Test fixture\n\n"
         "## Outcome\n\nFixture plan for release-workflow tests.\n\n"
         "## Included work\n\n"
-        "| ID | Deliverable | Issue | Governing ADR/standard | Required evidence | Status |\n"
-        "|---|---|---|---|---|---|\n"
+        "| ID | Deliverable | Issue | ADR/Standard | Status |\n"
+        "|---|---|---|---|---|\n"
         f"{rows}\n\n"
         "## Excluded\n\n- Nothing relevant to this fixture.\n\n"
         "## Dependencies\n\nNone.\n\n"
         "## Release-specific gates\n\nNone beyond the standard release gate.\n\n"
-        "## Release decision\n\n"
-        f"`{decision}`\n"
+        f"{decision_section}"
     )
     path.write_text(text, encoding="utf-8", newline="\n")
 
@@ -140,23 +148,71 @@ def test_should_fail_release_readiness_when_any_included_work_item_is_pending(
     assert payload["preflight_passed"] is False
 
 
-def test_should_fail_release_readiness_when_release_decision_is_not_ready(
+def test_should_pass_release_readiness_when_release_decision_text_says_not_ready(
     monkeypatch,
     tmp_path: Path,
 ) -> None:
-    """Every Included work row can be Done and readiness must still require Ready."""
+    """The optional Release decision section is non-authoritative prose, not a gate.
+
+    Readiness derives solely from the Included work Status column; a stale or
+    contradictory ``## Release decision`` line must not block a handoff once
+    every row reads Done.
+    """
     plan_path = tmp_path / "release_readiness_fixture.md"
     write_release_plan(plan_path, decision="Not ready")
+    monotonic_values = count(300)
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(local_checks, "_current_git_branch", lambda: "main")
     monkeypatch.setattr(local_checks, "_current_git_status_porcelain", lambda: "")
     monkeypatch.setattr(local_checks, "_pyproject_release_version", lambda: "0.11.6")
+    monkeypatch.setattr(
+        local_checks,
+        "_release_notebook_steps",
+        lambda: [local_checks.Step("Release notebooks", ["python", "-m", "fake"])],
+    )
+    monkeypatch.setattr(local_checks, "_run_step", lambda step: 0)
+    monkeypatch.setattr(local_checks, "_prepare_release_files", lambda *args, **kwargs: [])
+    monkeypatch.setattr(local_checks, "_run_release_twine_check", lambda: 0)
+    monkeypatch.setattr(local_checks, "_run_release_wheel_smoke", lambda: 0)
+    monkeypatch.setattr(local_checks, "_utc_now_iso", lambda: "2026-07-10T00:00:00+00:00")
+    monkeypatch.setattr(local_checks.time, "monotonic", lambda: next(monotonic_values) / 10)
 
     rc = local_checks.run_release_preflight(plan_path=plan_path)
 
-    assert rc == 1
+    assert rc == 0
     payload = json.loads(local_checks.RELEASE_PREFLIGHT_REPORT.read_text(encoding="utf-8"))
-    assert payload["preflight_passed"] is False
+    assert payload["preflight_passed"] is True
+
+
+def test_should_pass_release_readiness_without_a_release_decision_section(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    """A plan with no ``## Release decision`` section at all must still pass readiness."""
+    plan_path = tmp_path / "release_readiness_fixture.md"
+    write_release_plan(plan_path, decision=None)
+    monotonic_values = count(400)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(local_checks, "_current_git_branch", lambda: "main")
+    monkeypatch.setattr(local_checks, "_current_git_status_porcelain", lambda: "")
+    monkeypatch.setattr(local_checks, "_pyproject_release_version", lambda: "0.11.6")
+    monkeypatch.setattr(
+        local_checks,
+        "_release_notebook_steps",
+        lambda: [local_checks.Step("Release notebooks", ["python", "-m", "fake"])],
+    )
+    monkeypatch.setattr(local_checks, "_run_step", lambda step: 0)
+    monkeypatch.setattr(local_checks, "_prepare_release_files", lambda *args, **kwargs: [])
+    monkeypatch.setattr(local_checks, "_run_release_twine_check", lambda: 0)
+    monkeypatch.setattr(local_checks, "_run_release_wheel_smoke", lambda: 0)
+    monkeypatch.setattr(local_checks, "_utc_now_iso", lambda: "2026-07-10T00:00:00+00:00")
+    monkeypatch.setattr(local_checks.time, "monotonic", lambda: next(monotonic_values) / 10)
+
+    rc = local_checks.run_release_preflight(plan_path=plan_path)
+
+    assert rc == 0
+    payload = json.loads(local_checks.RELEASE_PREFLIGHT_REPORT.read_text(encoding="utf-8"))
+    assert payload["preflight_passed"] is True
 
 
 def test_should_write_release_preflight_report_when_release_gate_passes(

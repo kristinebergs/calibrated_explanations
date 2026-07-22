@@ -15,14 +15,21 @@ Since we are now open to contributions, we welcome your feedback, suggestions, a
 - Roadmap: see `ROADMAP.md` — a pointer to where planning material actually lives.
 - Proposed work: tracked as GitHub issues. Approved release scope: a GitHub
   milestone. Active release coordination: the sole
-  `development/current-work/vX.Y.Z_plan.md`. Please align PRs with its
-  `## Included work` table.
+  `development/current-work/vX.Y.Z_plan.md`.
 - ADRs: see `development/adrs/`. If your change affects architecture, public API, serialization schema, or cross-cutting behavior, add/update an ADR (status `Proposed` → `Accepted` on merge).
 - Documentation: Follow [Standard-004](development/standards/STD-004-documentation-audience-standard.md) for all documentation structure and audience guidelines.
 - Legacy API: If your change affects `WrapCalibratedExplainer`, `CalibratedExplainer`, or explanation collection methods, verify against `development/finished-work/legacy_user_api_contract.md` (historical surface inventory) and update the associated parity tests in the same PR (ADR-020).
 
-Prefer small, focused PRs that map to a single row in the active plan's
-`## Included work` table (e.g., `feat/1b-exceptions`, `feat/1b-validation`).
+### Ordinary contributions vs. release-scoped work
+
+- Every nontrivial pull request should link to a GitHub issue; trivial
+  corrections may use `N/A` where an issue would add no value.
+- A pull request needs an active-plan row (`T<n>`) only when its issue is
+  already committed to the active release milestone. Opening a PR does not
+  itself commit work to a release — milestone assignment stays a maintainer
+  decision.
+- Ordinary, unmilestoned contributions are always welcome and remain valid
+  even when there is no active version plan.
 
 ## Contribution licensing (DCO)
 
@@ -57,7 +64,8 @@ so watch out for the automated test results.
 
 PR expectations:
 
-- Keep changes scoped to a single slice/row in the active plan. Write a brief checklist in the PR description referencing the relevant row/issue.
+- Keep changes scoped to a single concern; link the governing issue (and the
+  active-plan row, if one applies) in the PR description.
 - Add/adjust tests: unit tests for new modules/paths, and keep golden/API snapshot tests unchanged unless the active plan explicitly calls for a public change (then update snapshots intentionally).
 - Quality gates should pass: ruff lint/format, pytest, and mypy. New modules may be subject to stricter mypy settings (see `pyproject.toml`).
 - If touching performance-sensitive paths, run or reference the perf guard and baseline scripts in `tests/benchmarks/` and `scripts/`.

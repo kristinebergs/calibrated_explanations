@@ -62,7 +62,9 @@ scope — those live in GitHub issues and a GitHub milestone.
      each linked to its GitHub issue where one exists.
    - Keep `## Excluded`, `## Dependencies`, and `## Release-specific gates`
      short and specific to this release.
-   - Set `## Release decision` to `Not ready` until every row is `Done`.
+   - `## Release decision` is optional, non-authoritative prose (not parsed
+     by automation) — add it only if a short human-readable summary helps
+     readers; readiness derives solely from `## Included work` statuses.
    - Do not duplicate the `release.md` step sequence in the plan; the
      template already links to it.
 
@@ -75,8 +77,8 @@ scope — those live in GitHub issues and a GitHub milestone.
 
 Produce `development/current-work/vX.Y.Z_plan.md` matching
 `references/version_plan_reference.md`: front matter, `Outcome`,
-`Included work`, `Excluded`, `Dependencies`, `Release-specific gates`,
-`Release decision`.
+`Included work`, `Excluded`, `Dependencies`, `Release-specific gates`, and
+optionally `Release decision`.
 
 ## Constraints
 

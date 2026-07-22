@@ -34,11 +34,14 @@ automation, not the filename.
 5. `## Release-specific gates` — only gates specific to this release. Do not
    repeat standard checks already owned by `release.md` / `make
    release-preflight`.
-6. `## Release decision` — `Ready` or `Not ready`, with a short reason.
+6. `## Release decision` (optional) — non-authoritative summary prose. Release
+   automation does not parse this section; it derives readiness solely from
+   the `## Included work` table (see below).
 
 Do not add per-task subsections (goal, status assessment, references, current
-anchors, gaps, implementation steps, verification checklist). That detail
-belongs in the linked GitHub issue, the governing ADR/Standard, the source
+anchors, gaps, implementation steps, verification checklist). Detailed
+acceptance criteria, commands, expected observations, and closure evidence
+belong on the linked GitHub issue, the governing ADR/Standard, the source
 diff, and the PR — not duplicated here.
 
 ## Included work table
@@ -46,30 +49,25 @@ diff, and the PR — not duplicated here.
 ```markdown
 ## Included work
 
-| ID | Deliverable | Issue | Governing ADR/standard | Required evidence | Status |
-|---|---|---|---|---|---|
-| T1 | <short deliverable statement> | #<issue> or `—` | ADR-NNN / STD-NNN or `—` | <command(s) or test path(s) that prove it> | Not started |
+| ID | Deliverable | Issue | ADR/Standard | Status |
+|---|---|---|---|---|
+| T1 | <short deliverable statement> | #<issue> or `—` | ADR-NNN / STD-NNN or `—` | Not started |
 ```
 
 - `ID` is a short stable token (`T1`, `T2`, ...) referenced from commits/PRs.
 - `Status` is one of `Not started`, `In progress`, `Done`. Release automation
   (`make release-preflight`) requires every row to read `Done` before it will
-  proceed; keep the column literal so it stays machine-readable.
+  proceed; keep the column literal so it stays machine-readable. This is the
+  sole readiness signal — there is no separate manually-synchronized switch.
 - Mark a row `Done` only with verifiable evidence (tests green, code merged) —
   not prior status prose alone.
 - Every deliverable traces to a GitHub issue when one exists. Work with no
   issue and no clear ADR/Standard anchor should not be in this table — open an
   issue first, or leave it out.
 
-## Release decision
+## Release decision (optional, non-authoritative)
 
-```markdown
-## Release decision
-
-`Ready` — all included work is Done and release-specific gates pass.
-```
-
-or
+If you want a human-readable summary, add:
 
 ```markdown
 ## Release decision
@@ -77,8 +75,10 @@ or
 `Not ready` — <short reason, e.g. which row(s) are still open>.
 ```
 
-`make release-preflight` parses this line: it must read exactly `Ready` (case
-insensitive) for the readiness guard to pass.
+This section is prose for readers, not a machine-parsed gate: `make
+release-preflight` reads only the `## Included work` statuses and the
+executable release gates. Update or drop this section freely; it never needs
+to be kept manually in sync with a separate "Ready" switch.
 
 ## Standard release procedure
 
@@ -112,9 +112,9 @@ One short paragraph.
 
 ## Included work
 
-| ID | Deliverable | Issue | Governing ADR/standard | Required evidence | Status |
-|---|---|---|---|---|---|
-| T1 | ... | #201 | ADR-003 | `pytest tests/unit/cache -v` | Not started |
+| ID | Deliverable | Issue | ADR/Standard | Status |
+|---|---|---|---|---|
+| T1 | ... | #201 | ADR-003 | Not started |
 
 ## Excluded
 

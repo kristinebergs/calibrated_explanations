@@ -1380,9 +1380,6 @@ def _release_date_from_clock() -> str:
 _INCLUDED_WORK_HEADER_RE = re.compile(r"(?m)^##\s+Included work\s*$")
 _NEXT_HEADING_RE = re.compile(r"(?m)^##\s+\S")
 _TABLE_ROW_RE = re.compile(r"(?m)^\|(?P<cells>.+)\|\s*$")
-_RELEASE_DECISION_RE = re.compile(
-    r"(?im)^##\s+Release decision\s*\n+[`*]*(?P<decision>Ready|Not ready)\b"
-)
 
 
 def _release_included_work_state(
@@ -1427,12 +1424,6 @@ def _release_included_work_state(
     return items, []
 
 
-def _release_decision_state(plan_path: Path) -> str | None:
-    """Return the plan's declared ``## Release decision`` value, if present."""
-    match = _RELEASE_DECISION_RE.search(plan_path.read_text(encoding="utf-8"))
-    return match.group("decision") if match is not None else None
-
-
 def _evaluate_release_plan_readiness(
     plan_path: Path,
     *,
@@ -1441,8 +1432,10 @@ def _evaluate_release_plan_readiness(
     """Evaluate whether release-handoff prerequisites are satisfied.
 
     Every row of the active plan's ``## Included work`` table must be marked
-    ``Done``, and the plan's ``## Release decision`` must declare ``Ready``,
-    before a release handoff can proceed.
+    ``Done`` before a release handoff can proceed. Readiness derives solely
+    from that table plus the executable checks below; the plan's optional
+    ``## Release decision`` section (if present) is non-authoritative summary
+    prose and is not parsed.
     """
     included_work, parse_errors = _release_included_work_state(plan_path)
     branch = _current_git_branch()
@@ -1478,15 +1471,6 @@ def _evaluate_release_plan_readiness(
                 f"Included work item {item.get('id', '?')!r} is not done "
                 f"(status: {item.get('status', '')!r})."
             )
-
-    if not parse_errors:
-        decision = _release_decision_state(plan_path)
-        if decision is None:
-            errors.append(
-                f"Could not locate a '## Release decision' declaration in {plan_path.as_posix()}."
-            )
-        elif decision.strip().lower() != "ready":
-            errors.append(f"Release decision is not 'Ready': {decision!r}.")
 
     return observed, errors
 

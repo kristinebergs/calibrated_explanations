@@ -5,8 +5,19 @@ This project separates a lean core install from optional extras for visualizatio
 Repository authority
 --------------------
 
-- `kristinebergs/calibrated_explanations` is an active development mirror for implementation work.
-- `Moffran/calibrated_explanations` is authoritative for versions, tags, GitHub releases, PyPI publication, changelog, security advisories, and published documentation.
+> `Moffran/calibrated_explanations` is the authoritative upstream repository.
+> Issues, discussions, milestones, active and archived release plans,
+> pull-request review, plugin-intake requests, releases, tags, changelog
+> entries, security advisories, and published documentation are managed
+> there.
+>
+> Contributors may develop changes on branches in personal forks and submit
+> pull requests targeting `Moffran/calibrated_explanations`.
+>
+> `kristinebergs/calibrated_explanations` is retired as an official
+> development workspace, planning repository, and plugin-intake target. No
+> active instruction, template, script, or skill may direct new official
+> project activity there.
 
 - Core install (recommended for development of core features):
 
@@ -92,7 +103,7 @@ Style guardrails
 - Legacy API contract updates are required for user-facing API changes:
   verify against `development/finished-work/legacy_user_api_contract.md` (historical surface inventory) and
   update `tests/unit/api/test_legacy_user_api_contract.py` in the same PR (ADR-020).
-  Review the `## Release preparation` section in the active milestone plan before cutting a release.
+  Review `release.md` and the active plan's `## Release-specific gates` section before cutting a release.
 
 Logging and Observability
 -------------------------
@@ -121,7 +132,7 @@ Contributing a plugin
 Plugins for `calibrated-explanations` are incubated and published from a
 separate plugin repository. Wrote a plugin, or want an existing one promoted
 or listed? Open a short
-["Plugin intake request"](https://github.com/kristinebergs/calibrated_explanations/issues/new?template=plugin_publication_request.yml)
+["Plugin intake request"](https://github.com/Moffran/calibrated_explanations/issues/new?template=plugin_publication_request.yml)
 issue here — a description, maintainer contact, licence, and known
 limitations are all that is needed to start. The maintainers triage requests
 and transfer accepted work into the plugin repository, where new plugins
