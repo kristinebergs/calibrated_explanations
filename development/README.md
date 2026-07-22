@@ -15,9 +15,11 @@ requirement catalogs, and curated closure evidence summaries.
 
 | Material | Location |
 |---|---|
-| Active development planning | `development/current-work/` |
-| Forward-looking planning | `development/future-work/` |
+| Proposed engineering work | GitHub issues |
+| Approved release scope | GitHub milestones |
+| Active release coordination (exactly one active `vX.Y.Z_plan.md`) | `development/current-work/` |
 | Closed planning and curated closure evidence summaries | `development/finished-work/` |
+| Research directions (no release version, no engineering commitment) | `docs/researcher/future_work.md` |
 | Architectural Decision Records | `development/adrs/` |
 | Engineering Standards | `development/standards/` |
 | ADR-030 quality method tooling | `development/standards/test-quality-method/` |
@@ -94,8 +96,9 @@ now live exclusively under `development/`. Do not recreate these directories.
 
 Start here, then follow the current locations:
 
-1. Master release plan: `development/current-work/RELEASE_PLAN.md`; active
-   milestone plan: `development/current-work/vX.Y.Z_plan.md`
+1. Sole active release plan: `development/current-work/vX.Y.Z_plan.md`.
+   Proposed work lives in GitHub issues; approved release scope is a GitHub
+   milestone.
 2. ADRs: `development/adrs/`
 3. Standards: `development/standards/`
 4. Test quality method (ADR-030 tooling): `development/standards/test-quality-method/`

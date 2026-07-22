@@ -1377,57 +1377,60 @@ def _release_date_from_clock() -> str:
     return _utc_now_iso().split("T", 1)[0]
 
 
-def _release_task_checklist_state(
+_INCLUDED_WORK_HEADER_RE = re.compile(r"(?m)^##\s+Included work\s*$")
+_NEXT_HEADING_RE = re.compile(r"(?m)^##\s+\S")
+_TABLE_ROW_RE = re.compile(r"(?m)^\|(?P<cells>.+)\|\s*$")
+_RELEASE_DECISION_RE = re.compile(
+    r"(?im)^##\s+Release decision\s*\n+[`*]*(?P<decision>Ready|Not ready)\b"
+)
+
+
+def _release_included_work_state(
     plan_path: Path,
-) -> tuple[dict[int, dict[str, int | bool | str]], list[str]]:
-    """Parse per-task verification checklist completion state from the release plan."""
+) -> tuple[list[dict[str, str]], list[str]]:
+    """Parse the ``## Included work`` table rows from the active version plan."""
     text = plan_path.read_text(encoding="utf-8")
 
-    header_pattern = re.compile(r"^##\s+(\d+)\)\s+(?P<title>.*?)\s*$", re.MULTILINE)
-    checklist_header_pattern = re.compile(
-        r"^###\s+\d+\.\d+\s+Verification checklist\s*$", re.MULTILINE
-    )
-    checklist_item_pattern = re.compile(r"^\s*[-*]\s*\[([ xX])\]\s+", re.MULTILINE)
+    header_match = _INCLUDED_WORK_HEADER_RE.search(text)
+    if header_match is None:
+        return [], [f"Could not locate an '## Included work' section in {plan_path.as_posix()}."]
 
-    task_sections = list(header_pattern.finditer(text))
-    if not task_sections:
-        raise ValueError(f"Could not locate any numbered task sections in {plan_path.as_posix()}.")
+    remainder = text[header_match.end() :]
+    next_heading = _NEXT_HEADING_RE.search(remainder)
+    section = remainder[: next_heading.start()] if next_heading else remainder
 
-    states: dict[int, dict[str, int | bool | str]] = {}
-    parse_errors: list[str] = []
+    rows = [
+        [cell.strip() for cell in match.group("cells").split("|")]
+        for match in _TABLE_ROW_RE.finditer(section)
+    ]
+    if len(rows) < 2:
+        return [], [f"'## Included work' table has no rows in {plan_path.as_posix()}."]
 
-    for index, match in enumerate(task_sections):
-        task_id = int(match.group(1))
-        title = match.group("title")
-        start = match.start()
-        end = task_sections[index + 1].start() if index + 1 < len(task_sections) else len(text)
-        section = text[start:end]
+    header_cells = [cell.lower() for cell in rows[0]]
+    try:
+        id_index = header_cells.index("id")
+        status_index = header_cells.index("status")
+    except ValueError:
+        return [], [
+            "'## Included work' table is missing an 'ID' or 'Status' column in "
+            f"{plan_path.as_posix()}."
+        ]
 
-        checklist_header = checklist_header_pattern.search(section)
-        if checklist_header is None:
-            parse_errors.append(
-                f"Task {task_id} is missing a 'Verification checklist' subsection in {plan_path.as_posix()}."
-            )
+    items: list[dict[str, str]] = []
+    for row in rows[2:]:
+        if len(row) <= max(id_index, status_index) or not any(cell for cell in row):
             continue
+        items.append({"id": row[id_index], "status": row[status_index]})
 
-        checklist_text = section[checklist_header.end() :]
-        checklist_marks = checklist_item_pattern.findall(checklist_text)
-        if not checklist_marks:
-            parse_errors.append(
-                f"Task {task_id} verification checklist has no checkbox items in {plan_path.as_posix()}."
-            )
-            continue
+    if not items:
+        return [], [f"'## Included work' table has no data rows in {plan_path.as_posix()}."]
+    return items, []
 
-        total_items = len(checklist_marks)
-        checked_items = sum(1 for mark in checklist_marks if mark.lower() == "x")
-        states[task_id] = {
-            "all_items_checked": checked_items == total_items,
-            "checked_items": checked_items,
-            "total_items": total_items,
-            "title": title,
-        }
 
-    return states, parse_errors
+def _release_decision_state(plan_path: Path) -> str | None:
+    """Return the plan's declared ``## Release decision`` value, if present."""
+    match = _RELEASE_DECISION_RE.search(plan_path.read_text(encoding="utf-8"))
+    return match.group("decision") if match is not None else None
 
 
 def _evaluate_release_plan_readiness(
@@ -1437,14 +1440,11 @@ def _evaluate_release_plan_readiness(
 ) -> tuple[dict[str, object], list[str]]:
     """Evaluate whether release-handoff prerequisites are satisfied.
 
-    Every numbered task parsed from the active plan must have a fully checked
-    verification checklist, except the release-preparation task itself (its
-    checklist records the outcome of the manual release phase this guard
-    unlocks). Task ids must be contiguous so a deleted task section cannot
-    silently escape enforcement (v0.11.6 Task 60 replaced the previous
-    hardcoded ``range(1, 45)``).
+    Every row of the active plan's ``## Included work`` table must be marked
+    ``Done``, and the plan's ``## Release decision`` must declare ``Ready``,
+    before a release handoff can proceed.
     """
-    task_checklist_state, parse_errors = _release_task_checklist_state(plan_path)
+    included_work, parse_errors = _release_included_work_state(plan_path)
     branch = _current_git_branch()
     pyproject_version = _pyproject_release_version()
     target_version = release_version or _release_version_from_plan(plan_path)
@@ -1453,7 +1453,7 @@ def _evaluate_release_plan_readiness(
         "branch": branch,
         "pyproject_version": pyproject_version,
         "release_version": target_version,
-        "task_checklist_state": task_checklist_state,
+        "included_work": included_work,
         "parse_errors": parse_errors,
     }
 
@@ -1471,23 +1471,23 @@ def _evaluate_release_plan_readiness(
             f"{pyproject_version!r} vs {target_version!r}."
         )
 
-    task_ids = sorted(task_checklist_state)
-    if task_ids:
-        for missing_id in sorted(set(range(1, task_ids[-1] + 1)) - set(task_ids)):
+    for item in included_work:
+        status = str(item.get("status", "")).strip().lower()
+        if status not in {"done", "complete", "completed"}:
             errors.append(
-                f"Task {missing_id} verification checklist state is unavailable for release handoff."
+                f"Included work item {item.get('id', '?')!r} is not done "
+                f"(status: {item.get('status', '')!r})."
             )
-    for task_id in task_ids:
-        state = task_checklist_state[task_id]
-        if str(state.get("title", "")).strip().lower() == "release preparation":
-            continue
-        if not bool(state["all_items_checked"]):
-            open_items = int(state["total_items"]) - int(state["checked_items"])
+
+    if not parse_errors:
+        decision = _release_decision_state(plan_path)
+        if decision is None:
             errors.append(
-                "Task "
-                f"{task_id} verification checklist is not closed for release handoff: "
-                f"{open_items}/{state['total_items']} items unchecked."
+                f"Could not locate a '## Release decision' declaration in {plan_path.as_posix()}."
             )
+        elif decision.strip().lower() != "ready":
+            errors.append(f"Release decision is not 'Ready': {decision!r}.")
+
     return observed, errors
 
 
@@ -1524,7 +1524,6 @@ RELEASE_PREPARED_FILES: tuple[str, ...] = (
     "docs/citing.md",
     "METADATA.json",
     "CHANGELOG.md",
-    "development/current-work/RELEASE_PLAN.md",
 )
 
 
@@ -1675,49 +1674,6 @@ def _prepare_changelog_release(version: str, release_date: str) -> bool:
     return _write_text_if_changed(path, updated)
 
 
-def _prepare_master_release_tracking(
-    version: str,
-    release_date: str,
-    plan_path: Path,
-) -> bool:
-    """Update deterministic current-version fields in the master release plan."""
-    path = Path("development/current-work/RELEASE_PLAN.md")
-    if not path.exists():
-        print("Master release plan is absent; skipping release tracking update.")
-        return False
-    text = path.read_text(encoding="utf-8")
-    replacements: tuple[tuple[re.Pattern[str], str, str], ...] = (
-        (
-            re.compile(r"(?m)^## Current released version:.*$"),
-            f"## Current released version: v{version}",
-            "current released version heading",
-        ),
-        (
-            re.compile(r"(?m)^> Status:.*$"),
-            (
-                f"> Status: v{version} prepared for release on {release_date}; publication "
-                "remains governed by release.md steps 11-13."
-            ),
-            "current release status",
-        ),
-        (
-            re.compile(r"(?m)^- \*\*Current released version:\*\*.*$"),
-            f"- **Current released version:** v{version}",
-            "control snapshot current version",
-        ),
-        (
-            re.compile(r"(?m)^- \*\*Active detailed milestone:\*\*.*$"),
-            (f"- **Active detailed milestone:** v{version} (`{plan_path.as_posix()}`)"),
-            "control snapshot active milestone",
-        ),
-    )
-    for pattern, replacement, description in replacements:
-        text, count = pattern.subn(replacement, text, count=1)
-        if count != 1:
-            raise RuntimeError(f"Could not locate {description} in {path.as_posix()}.")
-    return _write_text_if_changed(path, text)
-
-
 def _prepare_software_citation(version: str, release_datetime: datetime) -> bool:
     """Update only the software BibTeX block in ``docs/citing.md``."""
     path = Path("docs/citing.md")
@@ -1759,7 +1715,6 @@ def _prepare_software_citation(version: str, release_datetime: datetime) -> bool
 
 
 def _prepare_release_files(
-    plan_path: Path,
     *,
     release_version: str,
     release_date: str,
@@ -1812,10 +1767,6 @@ def _prepare_release_files(
         ),
     )
     record("CHANGELOG.md", _prepare_changelog_release(version, release_date))
-    record(
-        "development/current-work/RELEASE_PLAN.md",
-        _prepare_master_release_tracking(version, release_date, plan_path),
-    )
 
     docs_conf = Path("docs/conf.py")
     if not docs_conf.exists():
@@ -1865,7 +1816,6 @@ def run_release_prepare_files(
                 f"{project_version!r} vs {target_version!r}."
             )
         changed = _prepare_release_files(
-            resolved_plan,
             release_version=target_version,
             release_date=target_date,
         )
@@ -1907,7 +1857,7 @@ def _write_release_preflight_report(
         "branch": observed.get("branch"),
         "pyproject_version": observed.get("pyproject_version"),
         "release_version": observed.get("release_version"),
-        "task_checklist_state": observed.get("task_checklist_state", {}),
+        "included_work": observed.get("included_work", []),
         "parse_errors": observed.get("parse_errors", []),
         "steps": records,
         "exit_status": final_exit_status,
@@ -2046,7 +1996,6 @@ def run_release_preflight(
     preparation_started_at = time.monotonic()
     try:
         prepared_release_files = _prepare_release_files(
-            resolved_plan,
             release_version=target_version,
             release_date=target_date,
         )
@@ -2363,143 +2312,21 @@ def _run_release_pypi_install_smoke(version: str) -> int:
     return 0
 
 
-def _scaffold_next_release_plan(
-    target: Path,
-    *,
-    released_version: str,
-    next_version: str,
-    development_version: str,
-) -> Path:
-    """Write a canonical next-release scaffold when no maintained plan exists."""
-    if target.exists():
-        print(f"Next release plan already exists, leaving as-is: {target.as_posix()}")
-        return target
-    scaffold = (
-        f"# v{next_version} Release Task Implementation Plan\n\n"
-        f"> **Release version:** `{next_version}`\n"
-        f"> **Development version:** `{development_version}`\n\n"
-        f"> Scaffolded by `make release-postcommit` after the v{released_version} release.\n"
-        "> Replace this placeholder with a real task breakdown derived from "
-        "`development/current-work/RELEASE_PLAN.md` (see the `ce-release-planner` skill).\n\n"
-        "## Tasks\n\n"
-        "_TODO: add task sections._\n"
+def _next_development_version(released_version: str, requested_next_version: str | None) -> str:
+    """Resolve the next development version after a release ships.
+
+    Uses an explicitly supplied next-release label (``NEXT_VERSION``) when
+    given; otherwise advances by one patch. This never infers a minor/major
+    bump or consults a roadmap document — choosing the next milestone's scope
+    is a maintainer decision made through a GitHub milestone, not something
+    this command guesses.
+    """
+    label = (
+        requested_next_version.removeprefix("v")
+        if requested_next_version is not None
+        else _next_patch_version(released_version)
     )
-    target.write_text(scaffold, encoding="utf-8", newline="\n")
-    print(f"Scaffolded next release plan: {target.as_posix()}")
-    return target
-
-
-_MASTER_NEXT_MILESTONE_RE = re.compile(r"(?m)^- \*\*Next milestone:\*\*\s*v?(?P<version>[^\s(]+)")
-_PLAN_DEVELOPMENT_VERSION_PATTERNS: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\*\*Development version:\*\*\s*`(?P<version>[^`]+)`", re.IGNORECASE),
-    re.compile(r"\*\*Development version:\s*`(?P<version>[^`]+)`", re.IGNORECASE),
-    re.compile(r"development placeholders?\s*`(?P<version>[^`]+)`", re.IGNORECASE),
-)
-
-
-def _plan_label(plan_path: Path) -> str:
-    """Return the human/tag label encoded in a version-plan filename."""
-    match = re.fullmatch(r"v(?P<label>.+)_plan\.md", plan_path.name)
-    if match is None:
-        raise RuntimeError(f"Version plan has an unsupported filename: {plan_path.as_posix()}.")
-    return match.group("label")
-
-
-def _development_version_for_plan(plan_path: Path, release_version: str) -> str:
-    """Return the next plan's declared development placeholder or a safe default."""
-    if plan_path.exists():
-        text = plan_path.read_text(encoding="utf-8")
-        for pattern in _PLAN_DEVELOPMENT_VERSION_PATTERNS:
-            match = pattern.search(text)
-            if match is not None:
-                _canonical_version(match.group("version"))
-                return match.group("version")
-    return f"{release_version}-dev"
-
-
-def _next_release_details(
-    current_plan: Path,
-    released_version: str,
-    requested_next_version: str | None,
-) -> tuple[str, str, str, Path]:
-    """Resolve next release, plan label, development version, and plan path."""
-    if requested_next_version is not None:
-        next_label = requested_next_version.removeprefix("v")
-    else:
-        master_path = Path("development/current-work/RELEASE_PLAN.md")
-        next_label = ""
-        if master_path.exists():
-            match = _MASTER_NEXT_MILESTONE_RE.search(master_path.read_text(encoding="utf-8"))
-            if match is not None:
-                next_label = match.group("version")
-        if not next_label:
-            next_label = _next_patch_version(released_version)
-
-    candidate = current_plan.parent / f"v{next_label}_plan.md"
-    if candidate.exists():
-        next_release_version = _release_version_from_plan(candidate)
-    else:
-        next_release_version = _canonical_version(next_label)
-    development_version = _development_version_for_plan(candidate, next_release_version)
-    return next_release_version, next_label, development_version, candidate
-
-
-def _finalize_master_release_tracking(
-    *,
-    released_version: str,
-    release_date: str,
-    next_label: str,
-    next_plan: Path,
-) -> None:
-    """Record the shipped release and activate the next maintained milestone."""
-    path = Path("development/current-work/RELEASE_PLAN.md")
-    if not path.exists():
-        print("Master release plan is absent in this fixture; skipping release tracking update.")
-        return
-    text = path.read_text(encoding="utf-8")
-    replacements: tuple[tuple[re.Pattern[str], str], ...] = (
-        (
-            re.compile(r"(?m)^## Current released version:.*$"),
-            f"## Current released version: v{released_version}",
-        ),
-        (
-            re.compile(r"(?m)^> Status:.*$"),
-            (
-                f"> Status: v{released_version} shipped on {release_date}. Release artifacts "
-                "were verified on PyPI by `make release-postcommit`."
-            ),
-        ),
-        (
-            re.compile(r"(?m)^- \*\*Current released version:\*\*.*$"),
-            f"- **Current released version:** v{released_version}",
-        ),
-        (
-            re.compile(r"(?m)^- \*\*Active detailed milestone:\*\*.*$"),
-            f"- **Active detailed milestone:** v{next_label} (`{next_plan.as_posix()}`)",
-        ),
-    )
-    for pattern, replacement in replacements:
-        text, count = pattern.subn(replacement, text, count=1)
-        if count != 1:
-            raise RuntimeError(f"Could not update release tracking in {path.as_posix()}.")
-
-    milestone_headings = list(re.finditer(r"(?m)^### v(?P<label>[^\s(]+).*$", text))
-    matching_index = next(
-        (
-            index
-            for index, heading in enumerate(milestone_headings)
-            if heading.group("label") == next_label
-        ),
-        None,
-    )
-    if matching_index is not None and matching_index + 1 < len(milestone_headings):
-        following_label = milestone_headings[matching_index + 1].group("label")
-        text = _MASTER_NEXT_MILESTONE_RE.sub(
-            f"- **Next milestone:** v{following_label}",
-            text,
-            count=1,
-        )
-    _write_text_if_changed(path, text)
+    return f"{_canonical_version(label)}-dev"
 
 
 def _archive_release_plan(current_plan: Path) -> Path:
@@ -2575,23 +2402,7 @@ def run_release_postcommit(
                 f"contain {resolved_plan.name}. Resolve the duplicate before rerunning postcommit."
             )
             return 1
-        next_release, next_label, development_version, next_plan = _next_release_details(
-            resolved_plan,
-            released_version,
-            next_version,
-        )
-        _scaffold_next_release_plan(
-            next_plan,
-            released_version=released_version,
-            next_version=next_release,
-            development_version=development_version,
-        )
-        _finalize_master_release_tracking(
-            released_version=released_version,
-            release_date=completed_date,
-            next_label=next_label,
-            next_plan=next_plan,
-        )
+        development_version = _next_development_version(released_version, next_version)
         archived_plan = _archive_release_plan(resolved_plan)
 
         _write_pyproject_version(development_version)
@@ -2600,8 +2411,9 @@ def run_release_postcommit(
         print(f"ERROR: Release plan handoff or development-version bump failed: {exc}")
         return 1
     print(
-        f"Step 16: next plan is {next_plan.as_posix()}; released plan archived at "
-        f"{archived_plan.as_posix()}. Complete any scaffold through `ce-release-planner`."
+        f"Step 16: released plan archived at {archived_plan.as_posix()}. No next version plan is "
+        "created automatically — open one under development/current-work/ once maintainers select "
+        "the next GitHub milestone (see the ce-release-planner skill)."
     )
 
     print(
@@ -2980,7 +2792,7 @@ def main() -> int:
         action="store_true",
         help=(
             "Run the automatable post-publish steps (release.md steps 14-17): PyPI page "
-            "verification, clean-venv install smoke test, next-plan handoff, dev version bump."
+            "verification, clean-venv install smoke test, plan archive, dev version bump."
         ),
     )
     parser.add_argument(
@@ -2995,8 +2807,8 @@ def main() -> int:
         "--next-version",
         default=None,
         help=(
-            "Optional next milestone label/version for release-postcommit; otherwise use "
-            "RELEASE_PLAN.md and fall back to the next patch."
+            "Optional next release label/version for release-postcommit; otherwise the next "
+            "patch version is used. Never invents a minor/major bump."
         ),
     )
     parser.add_argument(

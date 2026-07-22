@@ -30,8 +30,8 @@
   - Run tests directly when needed: `make test` or `pytest`.
   - **Strict Gates:** The project enforces high standards for coverage (90%+), docstrings, and linting.
 - **Release Process:**
-  - Follow `development/current-work/RELEASE_PLAN.md` and the active
-    `development/current-work/vX.Y.Z_plan.md`.
+  - Follow the sole active `development/current-work/vX.Y.Z_plan.md`.
+    Proposed work lives in GitHub issues; approved scope is a GitHub milestone.
   - Check `development/adrs/` for architectural constraints before major changes.
 
 ## 3. Coding Standards

@@ -330,8 +330,9 @@ A warning is issued when `condition_source` is not provided, guiding users to th
 
 - When introducing a deprecation, use `deprecate(message, key="unique:key", stacklevel=3)` and prefer a stable `key` value.
 - Add a line to this document when new deprecations are introduced. If the
-  deprecation changes committed/candidate milestone scope, update
-  `development/current-work/RELEASE_PLAN.md` §D under ADR-011.
+  deprecation changes what is committed for the release currently being
+  coordinated, add/update a row in the active
+  `development/current-work/vX.Y.Z_plan.md` under ADR-011.
 - In the v0.11.x finalization window, each new/remaining deprecation entry must include explicit removal ownership in v0.11.2 or v0.11.3.
 - Add a unit test in `tests/unit/` validating the desired behaviour of `deprecate()` if you change its semantics.
 

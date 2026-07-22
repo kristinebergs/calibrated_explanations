@@ -8,7 +8,8 @@ for the calibration guarantees CE currently makes and their explicit
 non-guarantees).
 
 Engineering work that is scoped, evidenced, and actively planned lives in
-`development/current-work/RELEASE_PLAN.md`, not here.
+GitHub issues and milestones, and in the sole active
+`development/current-work/vX.Y.Z_plan.md`, not here.
 
 ## Open research questions
 

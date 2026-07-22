@@ -1,6 +1,6 @@
 > **Active scope:** Governing architectural decision for the explanation cache key design and eviction policy. Remains active as long as the cache key contract governs performance-sensitive explain paths; superseded when the caching strategy is revised.
 
-> **Status note (2026-07-21):** Last edited 2026-07-21 · Implementation: Fully completed in v0.10.0; caching remains opt-in (`CE_CACHE`) per the `1.0.1` telemetry regression sweep (see `development/current-work/RELEASE_PLAN.md` §D.4) · Historical ADR-003 gate closure evidence is in `development/finished-work/RELEASE_PLAN_status_appendix.md`.
+> **Status note (2026-07-21):** Last edited 2026-07-21 · Implementation: Fully completed in v0.10.0; caching remains opt-in (`CE_CACHE`) pending a clean `1.0.1` telemetry regression sweep (see `development/current-work/v1.0.1_plan.md`) · Historical ADR-003 gate closure evidence is in `development/finished-work/RELEASE_PLAN_status_appendix.md`.
 
 # ADR-003: Caching Key & Eviction Strategy
 
@@ -82,8 +82,11 @@ gaps found. Namespaced/versioned blake2b cache keys
 telemetry counters (`cache/cache.py:290`), and an opt-in default-off posture
 (`CacheConfig.enabled: bool = False`, `cache/cache.py:356`) are all
 implemented. ADR-003 is fully compliant; caching remains explicit opt-in
-(`CE_CACHE`) — see `development/current-work/RELEASE_PLAN.md` §D.4 for the
-current on-by-default graduation status.
+(`CE_CACHE`). On-by-default graduation is deferred until a clean telemetry
+regression sweep (`development/current-work/v1.0.1_plan.md`, row T3) and at
+least one further maintenance cycle show stable, unsurprising telemetry with
+no fallback-rate regressions; reopen via a GitHub issue against ADR-003 when
+that evidence exists.
 
 <details>
 <summary>Historical note (2025-10-07, pre-implementation)</summary>

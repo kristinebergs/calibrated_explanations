@@ -95,8 +95,10 @@ Rules:
 10. **If NO gaps remain** the compliance verification line must be
     unambiguous — it replaces the entire table and makes clear that no
     further action is required.
-11. If the gap changes committed/candidate milestone scope, reflect it in
-    `development/current-work/RELEASE_PLAN.md` §D.
+11. If the gap changes what is committed for the release currently being
+    coordinated, propose a row update in the active
+    `development/current-work/vX.Y.Z_plan.md`, or file/link a GitHub issue
+    when no release is currently scoping this work.
 
 ---
 
@@ -122,11 +124,11 @@ Rules:
 ## Files to read
 
 ```
-development/standards/STD-XXX-*.md     ← the STD itself (primary source of intent and gap-report target)
-development/current-work/RELEASE_PLAN.md    ← update §D if the gap changes milestone scope
-src/                                   ← implementation evidence
-tests/                                 ← test coverage of STD requirements
-docs/                                  ← RTD evidence (when STD has doc requirements)
+development/standards/STD-XXX-*.md          ← the STD itself (primary source of intent and gap-report target)
+development/current-work/vX.Y.Z_plan.md     ← update a row if the gap changes the active release's scope
+src/                                         ← implementation evidence
+tests/                                       ← test coverage of STD requirements
+docs/                                        ← RTD evidence (when STD has doc requirements)
 ```
 
 ---

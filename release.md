@@ -52,12 +52,12 @@ kept here as the contract that the automation and its tests must cover.
 
 5. Planning/release tracking
 
-- `development/current-work/RELEASE_PLAN.md`: deterministic current-version,
-  date, and active-plan fields
 - the active `development/current-work/vX.Y.Z_plan.md`: version source and
-  release-closure checklist
-- the next version plan: maintained/scaffolded during step 16 and completed
-  through the `ce-release-planner` skill
+  release-closure checklist. It is archived to `development/finished-work/`
+  during step 16.
+- the next version plan is not created automatically; open one with the
+  `ce-release-planner` skill once maintainers have selected the next GitHub
+  milestone.
 
 Generated `*.egg-info`, `build/`, and `dist/` files are not edited manually.
 Notebook source code is not version-pinned, but governed outputs are refreshed
@@ -172,21 +172,38 @@ run the authoritative post-publish command for steps 14-17:
 make release-postcommit
 ```
 
-Use `NEXT_VERSION=<milestone>` only when the master plan does not already name
-the correct next milestone.
+Use `NEXT_VERSION=<version>` only for an explicit next-release label;
+otherwise the next patch version is used. This never invents a minor/major
+bump — that is a maintainer decision made through a GitHub milestone.
 
 14. Verify the exact version's PyPI JSON metadata and rendered project page.
 15. Install `calibrated-explanations==X.Y.Z` from PyPI into a clean temporary
     environment and assert that `ce.__version__` exactly matches.
-16. Use the maintained next plan when present, otherwise scaffold it; update
-    master release tracking and archive the released plan under
-    `development/finished-work/`. Complete a generated scaffold with the
-    `ce-release-planner` skill.
-17. Bump `pyproject.toml` and the source fallback to the next plan's declared
-    development version. If no next milestone is declared, use the next patch
-    development version.
+16. Archive the released plan under `development/finished-work/`. No next
+    version plan is created automatically — open one with the
+    `ce-release-planner` skill once maintainers have selected the next GitHub
+    milestone.
+17. Bump `pyproject.toml` and the source fallback to the next development
+    version (one patch ahead of the release, unless `NEXT_VERSION` was given).
 
 `make release-postcommit` refuses to run while the project version is still a
 development version, and it never performs steps 11-13.
+
+## Known environment caveats
+
+- **Windows/Jupyter kernel drift (step 5, notebook execution).** On some
+  maintainer machines, `jupyter nbconvert --execute` resolves notebook
+  kernels via a globally-registered `python3`/`ce_test_kernel` kernelspec
+  (`%APPDATA%\jupyter\kernels\`), which points at the system Python install,
+  **not** `venv-release`. `make release-preflight`'s "Editable install
+  (release tree)" step only refreshes `venv-release`'s own metadata, so a
+  separately-registered global kernel's editable install of
+  `calibrated_explanations` can drift stale and silently affect notebook
+  execution output. Before trusting notebook execution output, confirm the
+  global kernel environment reports the correct version:
+  `python -c "import calibrated_explanations as ce; print(ce.__version__)"`
+  using the system Python that `%APPDATA%\jupyter\kernels\python3\kernel.json`
+  points to; if stale, run `pip install -e ".[dev]"` in that environment. This
+  is a local-machine setup issue, not a code defect.
 
 [official Python packaging guide]: https://packaging.python.org/en/latest/tutorials/packaging-projects/

@@ -209,9 +209,8 @@ agent and produce a prioritized coverage-gap analysis.
 ### Check release readiness
 
 ```text
-Read development/current-work/RELEASE_PLAN.md and the active
-development/current-work/vX.Y.Z_plan.md, and list all items still open for the
-current milestone.
+Read the sole active development/current-work/vX.Y.Z_plan.md, and list all
+items still open (Status not Done) for the current release.
 ```
 
 ### Debug a failing test

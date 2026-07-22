@@ -45,8 +45,8 @@ intervals from any model.
 | File | What it tells you |
 |---|---|
 | `CONTRIBUTOR_INSTRUCTIONS.md` | Canonical CE-First rules **(authoritative)** |
-| `development/current-work/RELEASE_PLAN.md` | Master plan: milestone categories and scope |
-| `development/current-work/vX.Y.Z_plan.md` | Current milestone + outstanding gates |
+| `development/current-work/vX.Y.Z_plan.md` | Sole active release plan: included work + outstanding gates |
+| GitHub issues/milestones | Proposed work and approved release scope |
 | `QUICK_API.md` | Public API surface cheat-sheet |
 | `tests/README.md` | Test structure and coverage requirements |
 

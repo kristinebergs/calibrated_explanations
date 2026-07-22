@@ -21,8 +21,6 @@ citation display use a leading `v`.
 - `docs/citing.md` BibTeX version/month/year
 - `CHANGELOG.md` release section and compare links
 - `METADATA.json`
-- deterministic current-version fields in
-  `development/current-work/RELEASE_PLAN.md`
 - the active version plan's declared release/development versions
 
 Do not edit generated `build/`, `dist/`, or `*.egg-info` artifacts manually.
@@ -89,16 +87,16 @@ make release-postcommit
 14. Verify the exact-version PyPI JSON metadata and rendered project page.
 15. Install the exact published pin in a clean venv and assert the imported
     version matches.
-16. Use the master plan's next milestone (or scaffold it), update release
-    tracking, and archive the released plan. Complete any scaffold via
-    `ce-release-planner`.
-17. Set `pyproject.toml` and the source fallback to the next plan's declared
-    development version.
+16. Archive the released plan to `development/finished-work/`. No next
+    version plan is created automatically — open one with `ce-release-planner`
+    once maintainers have selected the next GitHub milestone.
+17. Set `pyproject.toml` and the source fallback to the next development
+    version (one patch ahead by default).
 
-For an exceptional transition only:
+For an explicit next-release label instead of the default patch bump:
 
 ```bash
-make release-postcommit NEXT_VERSION=<milestone>
+make release-postcommit NEXT_VERSION=<version>
 ```
 
 Postcommit refuses a still-development project version and never uploads,

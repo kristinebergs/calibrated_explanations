@@ -12,22 +12,17 @@ Since we are now open to contributions, we welcome your feedback, suggestions, a
 
 ## Roadmap and ADR-driven development
 
-- Roadmap: see `ROADMAP.md` for a high-level summary of the current release pillars and the implementation plan that supports them.
-- Release Plan: see `development/current-work/RELEASE_PLAN.md` for the master
-  scope (committed/candidate/deferred work) and
-  `development/current-work/vX.Y.Z_plan.md` for the active milestone's tasks
-  and gates. Please align PRs with the current milestone and its scope.
-- Milestone Plan: see `vX.Y.Z_plan.md` (e.g., `v0.10.1_plan.md`) for detailed checklists that map to each release plan milestone.
+- Roadmap: see `ROADMAP.md` — a pointer to where planning material actually lives.
+- Proposed work: tracked as GitHub issues. Approved release scope: a GitHub
+  milestone. Active release coordination: the sole
+  `development/current-work/vX.Y.Z_plan.md`. Please align PRs with its
+  `## Included work` table.
 - ADRs: see `development/adrs/`. If your change affects architecture, public API, serialization schema, or cross-cutting behavior, add/update an ADR (status `Proposed` → `Accepted` on merge).
 - Documentation: Follow [Standard-004](development/standards/STD-004-documentation-audience-standard.md) for all documentation structure and audience guidelines.
 - Legacy API: If your change affects `WrapCalibratedExplainer`, `CalibratedExplainer`, or explanation collection methods, verify against `development/finished-work/legacy_user_api_contract.md` (historical surface inventory) and update the associated parity tests in the same PR (ADR-020).
 
-Current highlights coming from reported issues and the release plan:
-
-- Explanation storage redesign (internal domain model with rule objects), tracked in ADR-008.
-- Native non-numeric input support in the wrapper (preprocessing + mapping persistence), tracked in ADR-009.
-
-Prefer small, focused PRs that map to the plan’s daily/weekly slices (e.g., `feat/1b-exceptions`, `feat/1b-validation`).
+Prefer small, focused PRs that map to a single row in the active plan's
+`## Included work` table (e.g., `feat/1b-exceptions`, `feat/1b-validation`).
 
 ## Contribution licensing (DCO)
 
@@ -62,8 +57,8 @@ so watch out for the automated test results.
 
 PR expectations:
 
-- Keep changes scoped to a single slice/milestone. Write a brief checklist in the PR description referencing the relevant release-plan milestone.
-- Add/adjust tests: unit tests for new modules/paths, and keep golden/API snapshot tests unchanged unless the release plan explicitly calls for a public change (then update snapshots intentionally).
+- Keep changes scoped to a single slice/row in the active plan. Write a brief checklist in the PR description referencing the relevant row/issue.
+- Add/adjust tests: unit tests for new modules/paths, and keep golden/API snapshot tests unchanged unless the active plan explicitly calls for a public change (then update snapshots intentionally).
 - Quality gates should pass: ruff lint/format, pytest, and mypy. New modules may be subject to stricter mypy settings (see `pyproject.toml`).
 - If touching performance-sensitive paths, run or reference the perf guard and baseline scripts in `tests/benchmarks/` and `scripts/`.
 - For architectural/public changes, include/modify an ADR in `development/adrs/` and link it in the PR.

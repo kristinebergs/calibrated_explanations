@@ -24,15 +24,15 @@ Current maintainers:
 - **Significant changes** (public APIs, architecture, serialization contracts,
   plugin registry rules) require an ADR in `development/adrs/` and at least
   one additional maintainer review.
-- **Release scope** is tracked in `development/current-work/RELEASE_PLAN.md`
-  (committed/candidate/deferred milestones); **release gates** are tracked in
-  the active `development/current-work/vX.Y.Z_plan.md` implementation plan.
+- **Proposed work** is tracked in GitHub issues; **approved release scope**
+  is a GitHub milestone. **Active release coordination and gates** are
+  tracked in the sole active `development/current-work/vX.Y.Z_plan.md`.
 
 ## Contributor expectations
 
 - Follow the guidance in `.github/CONTRIBUTING.md`.
 - Adhere to the Code of Conduct in `CODE_OF_CONDUCT.md`.
-- Use the release plan to align PR scope with the current milestone.
+- Use the active version plan and its GitHub milestone to align PR scope.
 
 ## Licensing and DCO
 

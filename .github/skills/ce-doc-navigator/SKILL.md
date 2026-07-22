@@ -28,8 +28,10 @@ skill(s), files, and documentation so the user can act immediately.
 
 This repository (`calibrated_explanations`) is the open-source library only.
 Do not route to, invent, or reference skills, packages, or deployment/
-governance layers outside this repository's scope (see
-`development/current-work/RELEASE_PLAN.md` §C for the OSS CE scope boundary).
+governance layers outside this repository's scope — the installable library
+(calibrated prediction, explanations, plugins, serialization, docs), not
+enterprise/operational deployment, monitoring, or governance tooling (see
+`CONTRIBUTOR_INSTRUCTIONS.md`).
 
 ---
 
@@ -222,7 +224,8 @@ repository.
 - If no skill covers the query, say so explicitly rather than forcing a poor match.
 - Suggested invocation must be a concrete prompt, not a description of one.
 - Do not route to or mention skills, products, or layers outside this
-  repository's OSS CE scope (see `development/current-work/RELEASE_PLAN.md` §C).
+  repository's OSS CE scope (the installable library, not enterprise/
+  operational deployment or governance tooling).
 
 ## Self-Check Before Responding
 

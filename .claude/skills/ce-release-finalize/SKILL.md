@@ -19,8 +19,9 @@ Load `references/pypi_release_guide.md` for command details.
 ## Version contract
 
 - Read the exact PEP 440 release and development versions from the active
-  version plan. Do not assume the next version is `X.Y.(Z+1)` when the master
-  plan names a minor, major, or prerelease milestone.
+  version plan's front matter. Do not assume the next version is
+  `X.Y.(Z+1)` — that is a maintainer decision made through a GitHub milestone,
+  not something to infer.
 - `make release-preflight` updates deterministic release metadata. Do not
   duplicate that work manually before the command.
 - A leading `v` is used for tags/citation display, not package/runtime metadata.
@@ -67,15 +68,12 @@ make release-postcommit
 ```
 
 The command verifies the exact PyPI metadata and rendered page, installs the
-published pin in a clean environment with an exact version assertion, uses or
-scaffolds the master plan's next milestone, updates release tracking, archives
-the released plan, and bumps to the next plan's declared development version.
-Use `NEXT_VERSION=<milestone>` only when the master plan is absent or does not
-name the intended transition.
-
-If postcommit creates a scaffold, immediately use `ce-release-planner` to turn
-it into the required content-complete version plan. A scaffold is not release
-closure evidence.
+published pin in a clean environment with an exact version assertion, archives
+the released plan to `development/finished-work/`, and bumps to the next
+development version. Use `NEXT_VERSION=<version>` for an explicit next-release
+label; otherwise it advances by one patch. It never invents a minor/major bump
+and never creates a next version plan — open one with `ce-release-planner`
+only once maintainers have selected the next GitHub milestone.
 
 ## Constraints
 

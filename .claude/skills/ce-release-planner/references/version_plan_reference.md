@@ -1,169 +1,135 @@
 # CE Version Plan Reference (`vX.Y.Z_plan.md`)
 
-Use this as the canonical scaffold for release implementation plans under
-`development/current-work/`.
+Use this as the canonical scaffold for the sole active release-coordination
+file under `development/current-work/`.
+
+This file coordinates the active release. It does not hold proposed work
+(GitHub issues), approved scope decisions (GitHub milestones), architecture
+decisions (ADRs), or the publication procedure (`release.md`). Link to those
+instead of duplicating them.
 
 ## Required front matter
 
-Every plan declares:
-
-1. `# v<plan-label> Release Task Implementation Plan`
-2. A blockquote in the form `> **Release version:** X.Y.Z` (with the version
-   rendered as inline code).
-3. A blockquote in the form `> **Development version:** X.Y.Z-dev` (also inline code).
-4. Scope and milestone type, cross-referenced against
-   `development/current-work/RELEASE_PLAN.md` §D (which milestone category
-   this plan implements).
-
-For prereleases, the filename label and package version may differ. For example,
-`v1.0.0-rc_plan.md` may declare release version `1.0.0rc1` and development
-version `1.0.0-rc-dev`. The explicit fields are authoritative for automation.
-
-## Mandatory sections
-
-1. `## Source references reviewed`
-2. `## Release tasks covered (from RELEASE_PLAN.md)`
-3. `## Global rules` when applicable
-4. Numbered task sections matching the milestone tasks
-5. `## N) Release preparation` as the final numbered task
-6. `## Release gate summary`
-7. `## Minimal new tests required`
-
-## Task section contract
-
-Each numbered task includes:
-
-1. Goal
-2. Status assessment: `Not started`, `Partial`, or `Implemented with evidence`
-3. Relevant ADRs, standards, and source files
-4. Current anchors in code/docs
-5. Remaining gaps
-6. Concrete ordered implementation steps
-7. Verification checklist with commands and expected results
-
-## Evidence rules
-
-1. Mark a task complete only with verifiable code/doc/test evidence.
-2. Do not rely on prior status prose alone.
-3. When uncertain, use `Partial` and name the missing evidence.
-4. Keep assumptions explicit.
-5. A generated next-plan scaffold is not a completed plan; replace it through
-   `ce-release-planner` before claiming step 16 closure.
-
-## Release gate summary requirements
-
-The summary maps every release criterion to evidence, names unresolved
-blockers, and ends with `Ready to close` or `Not ready` plus reasons.
-
-## Minimal tests requirements
-
-List only tests/scripts strictly required for the remaining gaps, grouped by
-task. Release workflow tests must use multiple synthetic versions, including a
-non-patch transition when relevant; never assert only the current release
-number.
-
-## Suggested task skeleton
-
-```md
-# vX.Y.Z Release Task Implementation Plan
+```markdown
+# vX.Y.Z Plan
 
 > **Release version:** `X.Y.Z`
 > **Development version:** `X.Y.Z-dev`
-
-## Source references reviewed
-
-## Release tasks covered (from RELEASE_PLAN.md)
-
-## 1) <Task title>
-### 1.0 Goal
-### 1.1 Status assessment
-### 1.2 Relevant references
-### 1.3 Current anchors in code/docs
-### 1.4 Gaps
-### 1.5 Implementation steps
-### 1.6 Verification checklist
-
-## N) Release preparation
-...
-
-## Release gate summary
-
-## Minimal new tests required
+> **Status:** Active
+> **Theme:** <one short phrase>
 ```
 
-## Release preparation task template
+For prereleases, the filename label and package version may differ. For
+example, `v1.0.0-rc_plan.md` may declare release version `1.0.0rc1` and
+development version `1.0.0-rc-dev`. The explicit fields are authoritative for
+automation, not the filename.
 
-Copy this as the final numbered task and substitute `N`, the plan label, exact
-release version, and development/next milestone values. Keep the step numbers
-aligned with `release.md`.
+## Mandatory sections
 
-```md
-## N) Release preparation
+1. `## Outcome` — a short paragraph on what users and maintainers gain.
+2. `## Included work` — a table, one row per deliverable.
+3. `## Excluded` — a short list preventing scope creep.
+4. `## Dependencies` — only dependencies that affect task order or release
+   readiness. Omit or state "None" when there are none.
+5. `## Release-specific gates` — only gates specific to this release. Do not
+   repeat standard checks already owned by `release.md` / `make
+   release-preflight`.
+6. `## Release decision` — `Ready` or `Not ready`, with a short reason.
 
-### N.0 Goal
+Do not add per-task subsections (goal, status assessment, references, current
+anchors, gaps, implementation steps, verification checklist). That detail
+belongs in the linked GitHub issue, the governing ADR/Standard, the source
+diff, and the PR — not duplicated here.
 
-Complete the full `release.md` sequence for vX.Y.Z. Repository automation owns
-steps 1-10 and 14-17; the maintainer owns only the immutable/external steps
-11-13. This task is always last and executes only after every prior task is
-closed or explicitly deferred.
+## Included work table
 
-### N.1 Status assessment
+```markdown
+## Included work
 
-Not started.
+| ID | Deliverable | Issue | Governing ADR/standard | Required evidence | Status |
+|---|---|---|---|---|---|
+| T1 | <short deliverable statement> | #<issue> or `—` | ADR-NNN / STD-NNN or `—` | <command(s) or test path(s) that prove it> | Not started |
+```
 
-### N.2 Relevant references
+- `ID` is a short stable token (`T1`, `T2`, ...) referenced from commits/PRs.
+- `Status` is one of `Not started`, `In progress`, `Done`. Release automation
+  (`make release-preflight`) requires every row to read `Done` before it will
+  proceed; keep the column literal so it stays machine-readable.
+- Mark a row `Done` only with verifiable evidence (tests green, code merged) —
+  not prior status prose alone.
+- Every deliverable traces to a GitHub issue when one exists. Work with no
+  issue and no clear ADR/Standard anchor should not be in this table — open an
+  issue first, or leave it out.
 
-- `release.md` — authoritative 17-step maintainer sequence
-- `development/current-work/RELEASE_PLAN.md` — milestone-category and scope authority
-- this version plan — exact release/development version declarations
-- `Makefile` — `release-preflight`, `release-finalize`, `release-postcommit`
-- `scripts/local_checks.py` — version-agnostic implementation and reports
-- `.claude/skills/ce-release-planner/SKILL.md` — next-plan completion contract
+## Release decision
 
-### N.3 Current anchors in code/docs
+```markdown
+## Release decision
 
-- `make release-preflight` owns steps 1-10: readiness, release-file/changelog
-  preparation, tests, notebooks, alignment, clean build, Twine/artifact checks,
-  and clean-wheel smoke.
-- `make release-finalize` proves the preflight snapshot is still current.
-- Steps 11-13 remain human-gated: commit/tag/push, RTD publication, PyPI upload.
-- `make release-postcommit` owns steps 14-17: PyPI page/metadata verification,
-  exact published-install smoke, plan handoff/archive, and next-development bump.
+`Ready` — all included work is Done and release-specific gates pass.
+```
 
-### N.4 Gaps
+or
 
-All prior milestone tasks and release-file content must be complete before
-preflight. A placeholder next plan produced by postcommit must be expanded with
-`ce-release-planner`; no additional maintainer release action may be hidden
-outside steps 11-13.
+```markdown
+## Release decision
 
-### N.5 Implementation steps
+`Not ready` — <short reason, e.g. which row(s) are still open>.
+```
 
-1. Confirm tasks 1-(N-1) are closed or have explicit maintainer-approved deferrals.
-2. Confirm the plan's exact release and development version declarations match
-   the milestone; use `VERSION=` only for a deliberate override.
-3. Run `make release-preflight` (release.md steps 1-10). Confirm its report lists
-   `automated_release_steps: [1..10]`, the updated release files, and a green result.
-4. Run `make release-finalize` immediately before handoff.
-5. Maintainer performs release.md steps 11-13 only: commit/tag/push, publish and
-   verify RTD, upload the built artifacts to PyPI.
-6. Run `make release-postcommit` (steps 14-17). Use `NEXT_VERSION=<milestone>`
-   only if the master plan does not already name the intended next milestone.
-7. If postcommit scaffolded the next plan, immediately replace the placeholder
-   with a complete plan through `ce-release-planner`; verify master tracking,
-   released-plan archive, and development version are correct.
+`make release-preflight` parses this line: it must read exactly `Ready` (case
+insensitive) for the readiness guard to pass.
 
-### N.6 Verification checklist
+## Standard release procedure
 
-- [ ] All earlier tasks closed or explicitly deferred.
-- [ ] Exact release/development versions declared; no prior-release literal drives automation.
-- [ ] `make release-preflight` exits 0 and reports steps 1-10 plus all release-file updates.
-- [ ] `make release-finalize` exits 0 on the unchanged preflight snapshot.
-- [ ] Maintainer confirms manual steps 11-13 completed successfully.
-- [ ] `make release-postcommit` exits 0 and reports steps 14-17.
-- [ ] PyPI page/metadata and exact clean-environment install verify the released version.
-- [ ] Released plan archived; next maintained plan exists and is content-complete.
-- [ ] Master release tracking names the released and next milestones correctly.
-- [ ] `pyproject.toml` and runtime fallback use the declared next development version.
-- [ ] Version-agnostic release workflow tests pass for more than one version line.
+Do not copy the `release.md` step sequence into this file. Reference it:
+
+- `make release-preflight` — release.md steps 1-10 (readiness, release-file
+  and changelog updates, tests, notebooks, alignment, clean build,
+  Twine/artifact checks, clean-wheel smoke).
+- `make release-finalize` — verifies the preflight snapshot is still current.
+- Maintainer-only steps 11-13 — commit/tag/push, publish/verify on Read the
+  Docs, upload to PyPI.
+- `make release-postcommit` — release.md steps 14-17 (PyPI page/metadata
+  verification, published-install smoke, archive this plan to
+  `development/finished-work/`, bump the development version). It does not
+  scaffold a next version plan; open one only once maintainers have selected
+  the next GitHub milestone.
+
+## Example
+
+```markdown
+# v1.0.1 Plan
+
+> **Release version:** `1.0.1`
+> **Development version:** `1.0.1-dev`
+> **Status:** Active
+> **Theme:** Post-v1.0 stabilisation
+
+## Outcome
+
+One short paragraph.
+
+## Included work
+
+| ID | Deliverable | Issue | Governing ADR/standard | Required evidence | Status |
+|---|---|---|---|---|---|
+| T1 | ... | #201 | ADR-003 | `pytest tests/unit/cache -v` | Not started |
+
+## Excluded
+
+- New public APIs.
+- Feature work intended for a later release.
+
+## Dependencies
+
+None.
+
+## Release-specific gates
+
+Only gates specific to this release.
+
+## Release decision
+
+`Not ready` — T1 has not started.
 ```

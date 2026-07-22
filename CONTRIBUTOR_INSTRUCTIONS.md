@@ -284,9 +284,9 @@ Every fallback must be visible to users. No silent fallbacks.
 | `src/calibrated_explanations/plugins/` | Plugin implementations |
 | `src/calibrated_explanations/ce_agent_utils.py` | Legacy compatibility module — backward-compat and example only, not the recommended agent interface |
 | `development/README.md` | Canonical development documentation map |
-| `development/current-work/` | Active release plans, status tracking, and execution checklists |
-| `development/future-work/` | Forward-looking plans that are not active execution state |
+| `development/current-work/` | The sole active `vX.Y.Z_plan.md` coordinating the current release |
 | `development/finished-work/` | Closed plans and curated closure evidence summaries |
+| GitHub issues / milestones | Proposed engineering work / approved release scope |
 | `development/adrs/` | Architectural Decision Records after migration |
 | `development/standards/` | Engineering Standards after migration |
 | `development/capabilities/claims/` | Capability claim catalog |
@@ -481,8 +481,8 @@ whenever you need fresh local `ruff`/`mypy` results recorded in the artifact.
 Before any implementation work:
 1. Read `development/README.md` to identify the current development map and
    transition rules.
-2. Read the master release plan at `development/current-work/RELEASE_PLAN.md` and the
-   active milestone plan at `development/current-work/vX.Y.Z_plan.md`.
+2. Read the sole active `development/current-work/vX.Y.Z_plan.md`. Proposed
+   work lives in GitHub issues; approved release scope is a GitHub milestone.
 3. Check the governing ADRs and Standards. Active records live in
    `development/adrs/` and `development/standards/`.
 
@@ -491,12 +491,16 @@ Before any implementation work:
 The repository planning/control hierarchy is authoritative and must be preserved:
 
 1. `development/README.md` (development documentation map and location authority)
-2. Master release plan at `development/current-work/RELEASE_PLAN.md` and the
-   active milestone plan at `development/current-work/vX.Y.Z_plan.md`
-3. Concrete implementation plans in `development/current-work/` or
-   `development/future-work/`
+2. GitHub issues (proposed work) and GitHub milestones (approved release scope)
+3. The sole active version plan at `development/current-work/vX.Y.Z_plan.md`,
+   coordinating the release currently being implemented
 4. Governance via ADRs and Standards in `development/adrs/` and
    `development/standards/`
+
+Do not create a master roadmap document (by any name) that duplicates
+proposed work, approved scope, or deferred-architecture material already
+tracked in GitHub issues/milestones or in ADRs/Standards. Research directions
+belong only in `docs/researcher/future_work.md`.
 
 Conflict rule: ADRs and Standards govern design, behavior, architecture, and
 engineering standards. If any plan text conflicts with an ADR/Standard, the
