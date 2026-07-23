@@ -5,6 +5,13 @@
 
 [Full changelog](https://github.com/Moffran/calibrated_explanations/compare/v1.0.0...main)
 
+### Fixed
+
+- **Coverage gate restored:** added behavioral coverage for the public interval
+  calibrator output validator, including interval invariants, probability shape
+  and normalization contracts, and calibration contexts without an inferable
+  row count.
+
 ### Documentation / Governance
 
 - **Root-level docs and config corrected for accuracy:** `README.md`,

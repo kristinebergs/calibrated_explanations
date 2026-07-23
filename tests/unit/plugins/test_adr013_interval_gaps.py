@@ -220,9 +220,10 @@ def test_legacy_interval_context_design_decision_documented():
     assert "superseded by `IntervalCalibratorContext`" in adr_text
 
 
-def test_runtime_output_validation_rejects_shape_mismatch():
-    """Runtime interval validation must reject mismatched sample counts."""
-    context = IntervalCalibratorContext(
+@pytest.fixture
+def interval_context():
+    """Build a two-row interval calibration context."""
+    return IntervalCalibratorContext(
         learner=object(),
         calibration_splits=((np.zeros((2, 3)), np.zeros(2)),),
         bins={},
@@ -232,29 +233,127 @@ def test_runtime_output_validation_rejects_shape_mismatch():
         fast_flags={},
     )
 
+
+def test_runtime_output_validation_rejects_shape_mismatch(interval_context):
+    """Runtime interval validation must reject mismatched sample counts."""
     with pytest.raises(ValidationError, match="unexpected row count"):
         validate_interval_calibrator_output(
             np.asarray([[0.5, 0.5]], dtype=float),
-            context,
+            interval_context,
             identifier="tests.interval.bad_shape",
         )
 
 
-def test_runtime_output_validation_rejects_wrong_dtype():
+def test_runtime_output_validation_rejects_wrong_dtype(interval_context):
     """Runtime interval validation must reject non-floating probability outputs."""
+    with pytest.raises(ValidationError, match="non-floating output dtype"):
+        validate_interval_calibrator_output(
+            np.asarray([[1, 0], [0, 1]], dtype=int),
+            interval_context,
+            identifier="tests.interval.bad_dtype",
+        )
+
+
+def test_should_accept_interval_output_when_prediction_respects_bounds(interval_context):
+    """Runtime validation must accept interval tensors satisfying the CE invariant."""
+    result = np.asarray(
+        [
+            [[0.5, 0.4, 0.6], [0.5, 0.3, 0.7]],
+            [[0.6, 0.5, 0.8], [0.4, 0.2, 0.5]],
+        ],
+        dtype=float,
+    )
+
+    validation_result = validate_interval_calibrator_output(
+        result,
+        interval_context,
+        identifier="tests.interval.valid",
+        output_interval=True,
+    )
+
+    assert validation_result is None
+    assert np.all(result[..., 1] <= result[..., 0])
+    assert np.all(result[..., 0] <= result[..., 2])
+
+
+@pytest.mark.parametrize(
+    ("result", "message"),
+    [
+        (
+            np.asarray([[0.5, 0.4, 0.6], [0.5, 0.4, 0.6]], dtype=float),
+            "must have shape",
+        ),
+        (
+            np.asarray([[[0.5, 0.7, 0.6]], [[0.5, 0.4, 0.6]]], dtype=float),
+            "violates low <= high",
+        ),
+        (
+            np.asarray([[[0.8, 0.4, 0.6]], [[0.5, 0.4, 0.6]]], dtype=float),
+            "violates low <= predict <= high",
+        ),
+    ],
+)
+def test_should_reject_interval_output_when_interval_contract_is_violated(
+    result, message, interval_context
+):
+    """Runtime validation must reject malformed or incoherent interval tensors."""
+    with pytest.raises(ValidationError, match=message):
+        validate_interval_calibrator_output(
+            result,
+            interval_context,
+            identifier="tests.interval.invalid",
+            output_interval=True,
+        )
+
+
+@pytest.mark.parametrize(
+    ("result", "message"),
+    [
+        (np.asarray([0.5, 0.5], dtype=float), "must have shape"),
+        (np.asarray([[1.1, -0.1], [0.5, 0.5]], dtype=float), "outside \\[0, 1\\]"),
+        (np.asarray([[0.6, 0.6], [0.5, 0.5]], dtype=float), "must sum to 1"),
+    ],
+)
+def test_should_reject_probability_output_when_probability_contract_is_violated(
+    result, message, interval_context
+):
+    """Runtime validation must reject malformed, unbounded, or unnormalised probabilities."""
+    with pytest.raises(ValidationError, match=message):
+        validate_interval_calibrator_output(
+            result,
+            interval_context,
+            identifier="tests.probability.invalid",
+        )
+
+
+@pytest.mark.parametrize(
+    "calibration_splits",
+    [
+        (),
+        ((),),
+        ((object(), None),),
+    ],
+)
+def test_should_validate_probabilities_when_calibration_row_count_is_unavailable(
+    calibration_splits,
+):
+    """Probability validation must remain usable when calibration rows cannot be inferred."""
     context = IntervalCalibratorContext(
         learner=object(),
-        calibration_splits=((np.zeros((2, 3)), np.zeros(2)),),
+        calibration_splits=calibration_splits,
         bins={},
         residuals={},
         difficulty={},
         metadata={},
         fast_flags={},
     )
+    result = np.asarray([[0.25, 0.75]], dtype=float)
 
-    with pytest.raises(ValidationError, match="non-floating output dtype"):
-        validate_interval_calibrator_output(
-            np.asarray([[1, 0], [0, 1]], dtype=int),
-            context,
-            identifier="tests.interval.bad_dtype",
-        )
+    validation_result = validate_interval_calibrator_output(
+        result,
+        context,
+        identifier="tests.probability.valid",
+    )
+
+    assert validation_result is None
+    assert np.allclose(result.sum(axis=1), 1.0)
