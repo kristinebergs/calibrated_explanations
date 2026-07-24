@@ -66,7 +66,7 @@ if hasattr(explainer, "explain_fast") and hasattr(explainer.explainer, "is_fast"
             fast_meta = explainer.runtime_telemetry
             print(fast_meta.get("interval_source"))
     except Exception:
-        # Fast explanations may not be available without external plugins
+        # FAST explanations are an opt-in core-provided component
         pass
 ```
 

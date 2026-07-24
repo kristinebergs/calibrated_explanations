@@ -1,55 +1,25 @@
 # Replication workflow
 
-Use this workflow to reproduce the binary classification, multiclass,
-regression, ensured, and fast calibrated explanations studies published by the
-team.
+The
+[Calibrated Explanations Studies](https://github.com/kristinebergs/calibrated-explanations-studies)
+repository is authoritative for reproduction commands, environments, datasets,
+random seeds, historical CE requirements, and expected result artefacts.
 
-## 1. Provision the evaluation environment
+## Handoff workflow
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -e .[dev,eval] -c constraints.txt
-```
+1. Open the
+   [studies repository](https://github.com/kristinebergs/calibrated-explanations-studies).
+2. Select the study corresponding to the paper or result.
+3. Follow that study's README.
+4. Install the CE version and dependencies specified by the study.
+5. Run the study-specific scripts or notebooks.
+6. Compare the outputs with the bundled result artefacts.
 
-The ``[eval]`` extra installs ``xgboost``, ``venn-abers``, and plotting
-libraries referenced throughout the studies.
+Historical studies may require historical CE versions. The latest CE release
+is not guaranteed to reproduce an older published result exactly.
 
-## 2. Match the published datasets
+General method documentation and formal explanation semantics remain in this
+core documentation. For the theory and its limits, see
+{doc}`../../foundations/concepts/calibrated_interval_semantics`.
 
-Use the manifests under
-[`evaluation/`](https://github.com/Moffran/calibrated_explanations/tree/main/evaluation)
-for dataset sources, preprocessing notes, and random seeds.
-
-## 3. Execute the scripted pipelines
-
-Run the notebooks and scripts in the evaluation directory that align with your
-study:
-
-- ``Classification_Experiment_sota.py`` covers the 25-dataset binary baseline
-  and persists ``results_sota.pkl`` for diffs.
-- ``multiclass/`` and ``regression/`` notebooks implement the multiclass and
-  interval regression papers.
-- ``ensure/`` and ``fastCE/`` contain ensured-explanations and fast plugin
-  artefacts, each with accompanying result archives.
-
-## 4. Compare outputs
-
-Each evaluation asset ships with ``*.pkl`` or ``.zip`` archives so you can diff
-against the published tables. Preserve the bundled random seeds (``0`` or
-``42`` depending on the asset) to align distributions.
-
-## 5. Document deviations
-
-Record any dataset or calibrator changes in your replication log and cross-link
-active ADRs via {doc}`../../foundations/governance/release_checklist` before you
-publish.
-
-```{toctree}
-:maxdepth: 1
-:hidden:
-
-../../foundations/how-to/export_explanations
-../../foundations/how-to/interpret_explanations
-```
+Entry-point tier: Tier 2.

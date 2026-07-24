@@ -17,7 +17,7 @@ information architecture. Update this checklist whenever a page moves or is reti
 | `viz_plotspec.md` | :doc:`../how-to/plot_with_plotspec` | PlotSpec guidance converted to a how-to focused on configuration plus telemetry links. Practitioner playbooks reference this for advanced visualization. |
 | `architecture.md` | :doc:`../concepts/index`, :doc:`../concepts/alternatives`, :doc:`../concepts/probabilistic_regression` | Architecture material split into focused concept pages; optional telemetry moved under :doc:`../governance/optional_telemetry` so provenance scaffolding is clearly opt-in. |
 | *(new)* interpretation guide | :doc:`../how-to/interpret_explanations` | Primary resource for reading factual and alternative explanations, PlotSpec visuals, and telemetry provenance. Linked from all quickstarts. |
-| `plugin_guide.md` (legacy) | :doc:`../../contributor/plugin-contract` with :doc:`../../contributor/extending/guides/index` and :doc:`../../appendices/external_plugins` | Plugin contract elevated in contributor hub; extending guides for wiring CLI and config; external plugin index (community plugins) moved to appendices. |
+| `plugin_guide.md` (legacy) | :doc:`../../contributor/plugin-contract` with :doc:`../../contributor/extending/guides/index` and :doc:`../../appendices/external_plugins` | Plugin contract elevated in contributor hub; extending guides cover wiring; the plugin catalog distinguishes official companion, core-provided optional, and community components. |
 | `pr_guide.md` | :doc:`../governance/pr_guide` and :doc:`../governance/section_owners` | Governance actions captured under maintainership docs with owners and release narrative under shared foundations. |
 | *(new)* migration guides | :doc:`../../migration/index` | Terminology changes, breaking changes, and upgrade guidance captured in a dedicated section linked from all audience hubs. |
 
@@ -47,5 +47,8 @@ When editing audience landing hubs, playbooks, or quickstarts, follow these patt
 1. **Interpretation-first callouts:** All quickstarts (classification and regression) link to :doc:`../how-to/interpret_explanations` immediately after the runnable code block.
 2. **Parity enforcement:** Practitioner and researcher pages must provide equivalent coverage for binary/multiclass classification and probabilistic/interval regression.
 3. **Research hub references:** Audience hubs can point readers to :doc:`../../researcher/index` in a Resources or Further Reading section to avoid navigation clutter.
-4. **Plugin boundaries:** Contributor and practitioner docs reference external plugins (fast explanations, shap-lime, etc.) via :doc:`../../appendices/external_plugins` instead of embedding them in the core workflow.
+4. **Plugin boundaries:** Contributor and practitioner docs route stable
+   discovery through :doc:`../../appendices/external_plugins`, while the
+   official plugin repository owns the changing package inventory and
+   compatibility details.
 5. **Cross-link validation:** After structural changes, run `sphinx-build -b html -W` and check for broken cross-references in the build log.

@@ -87,16 +87,6 @@ dev = [
     "joblib",
     "ucimlrepo",
 ]
-eval = [
-    "lime",
-    "shap",
-    "seaborn",
-    "xgboost",
-    "scipy",
-    "joblib",
-    "ucimlrepo",
-    "matplotlib",
-]
 external-plugins = [
     "numpy>=1.24",
     "pandas>=2.0",

@@ -34,7 +34,7 @@ jobs:
       - uses: ./.github/actions/setup-ce-python
         with:
           python-version: '3.11'
-          extras: 'dev,eval'
+          extras: 'dev'
       - name: Generate new micro baseline (generated files under tests/benchmarks/)
         id: gen
         run: |

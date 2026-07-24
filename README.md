@@ -106,6 +106,19 @@ cumulative migration guidance for documented legacy workflows since v0.6.1.
 
 ---
 
+## Companion projects
+
+The core package is intentionally self-contained. Optional extensions and
+research artefacts are maintained separately so normal installations do not
+acquire plugin- or study-specific dependencies.
+
+| Project | Role |
+|---|---|
+| [Calibrated Explanations Plugins](https://github.com/kristinebergs/calibrated-explanations-plugins) | Official project-maintained optional extensions with independent releases. The recommended visualization family currently installs the mature Plotly plugin: `pip install calibrated-explanations-visualization`. |
+| [Calibrated Explanations Studies](https://github.com/kristinebergs/calibrated-explanations-studies) | Official reproducibility companion containing evaluation code, datasets, notebooks, study environments, and result artefacts for published CE research. Follow the relevant study README because historical results may require a historical CE version. |
+
+---
+
 ## What Can It Explain?
 
 | Task | Description | Key Method |
@@ -173,6 +186,10 @@ explainer.explain_factual(
 ## Research and Citations
 
 `calibrated-explanations` is the product of peer-reviewed research. If you use it, please cite the relevant paper(s).
+
+Reproduction code and published result artefacts are maintained in the
+[Calibrated Explanations Studies](https://github.com/kristinebergs/calibrated-explanations-studies)
+repository.
 
 1. Löfström, H., Löfström, T., Johansson, U., Sönströd, C. (2024). "Calibrated Explanations: with Uncertainty Information and Counterfactuals." *Expert Systems with Applications*. doi:[10.1016/j.eswa.2024.123154](https://doi.org/10.1016/j.eswa.2024.123154)
 

@@ -1,4 +1,7 @@
-> **Active scope:** Governing architectural decision for the split between the `calibrated_explanations` core distribution and optional evaluation/visualization extras. Remains active as long as this split governs packaging decisions; superseded when the distribution model is revised.
+> **Active scope:** Governing architectural decision for the boundary between
+> the `calibrated_explanations` core distribution and separately maintained
+> evaluation or visualization capabilities. The 2026-07-24 addendum records
+> the current companion-repository distribution.
 
 > **Status note (2026-01-28):** Last edited 2026-01-28 · Archive after: Retain indefinitely as architectural record · Implementation window: Completed in v0.11.0.
 
@@ -106,6 +109,21 @@ The ADR specified that core-only installs should not require matplotlib at impor
 ### Testing
 - Unit test passes when matplotlib is not installed or not eagerly imported.
 - Test simulates clean import environment by clearing `sys.modules` of matplotlib-related entries.
+
+## Addendum (2026-07-24): Companion-repository distribution
+
+The original monorepo decision above is retained as the historical v0.11.0
+distribution record. The current architecture maintains research evaluation
+and reproduction assets in
+`kristinebergs/calibrated-explanations-studies`, with version-specific
+environments and results governed there. The core repository retains only
+pointer material for the former evaluation tree and no longer publishes an
+`eval` optional dependency group.
+
+Official project-maintained plugins are independently versioned in
+`kristinebergs/calibrated-explanations-plugins`. Core remains independently
+installable and does not acquire plugin- or study-specific dependencies unless
+the user installs a companion package or study environment explicitly.
 
 ## Open Questions
 

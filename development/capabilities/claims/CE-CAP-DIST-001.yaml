@@ -10,7 +10,8 @@ claim_text: >
 
 atomic_rationale: >
   This governance claim maps to one requirement because distribution boundary compliance
-  is governed by a single ADR-010 policy check on the import graph and extras flags.
+  is governed by a single ADR-010 policy check on the import graph and
+  optional-dependency flags.
   Decomposing into additional requirements would require separate ADR-010 policy checks
   that do not add testable value beyond the single static policy enforcement already defined.
 

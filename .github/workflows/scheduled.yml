@@ -115,7 +115,7 @@ jobs:
           cp tests/parity_reference/*.json artifacts/parity/core/
       - name: Generate extras parity snapshots
         run: |
-          pip install -e .[dev,eval,viz] -c constraints.txt
+          pip install -e .[dev,viz] -c constraints.txt
           for dataset in classification regression multiclass probabilistic_regression; do
             python tests/parity_reference/run_parity_reference.py --dataset $dataset --condition-source observed --update
             python tests/parity_reference/run_parity_reference.py --dataset $dataset --condition-source prediction --update
@@ -256,7 +256,7 @@ jobs:
       - uses: ./.github/actions/setup-ce-python
         with:
           python-version: '3.11'
-          extras: 'dev,eval'
+          extras: 'dev'
       - name: Run tests with coverage contexts
         run: |
           pytest -q -o addopts= \

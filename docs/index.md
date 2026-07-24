@@ -43,6 +43,12 @@ probabilistic regression do not share one guarantee statement. For semantics,
 assumptions, and non-guarantees, use
 {doc}`foundations/concepts/calibrated_interval_semantics`.
 
+## Companion projects
+
+Use {doc}`plugins` to find optional companion extensions and
+{doc}`researcher/replication/index` to reproduce published studies with their
+version-specific environments.
+
 ```{toctree}
 :maxdepth: 1
 :caption: Start here
@@ -64,12 +70,18 @@ api/index
 
 ```{toctree}
 :maxdepth: 1
-:caption: Extensions and project docs
+:caption: Companion projects
 
 plugins
+researcher/replication/index
+```
+
+```{toctree}
+:maxdepth: 1
+:caption: Migration and project docs
+
 migration/index
 upgrade/index
-appendices/external_plugins
 appendices/changelog_links
 appendices/rtd_tier_map
 get-started/ce_first_agent_guide

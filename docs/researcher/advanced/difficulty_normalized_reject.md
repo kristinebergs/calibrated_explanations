@@ -111,7 +111,9 @@ not justify promoting it over the simpler difficulty-normalized strategy.
 
 ## Evaluation summary: Scenarios 8-11
 
-The evaluation artifacts live under `evaluation/reject/artifacts/`.
+The evaluation artefacts are maintained under
+[`legacy/reject/artifacts/`](https://github.com/kristinebergs/calibrated-explanations-studies/tree/main/legacy/reject/artifacts)
+in the studies repository.
 
 ### Scenario 8: existing indirect difficulty effect
 

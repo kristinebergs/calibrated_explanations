@@ -4,7 +4,7 @@ Reserve these references for teams that need optional telemetry, performance
 profiling, or PlotSpec visual narratives. Each topic extends the core
 explanation workflow without introducing mandatory dependencies.
 
-* {doc}`use_plugins` - Opt in to curated external plugins (e.g., FAST) and wire them safely.
+* {doc}`use_plugins` - Opt in to core-provided components or companion plugins and wire them safely.
 * {doc}`modality-plugins` - Select explanation plugins by modality and understand alias and extension-shim behavior.
 * {doc}`normalization-guide` - Difficulty estimation and normalized intervals for
   heteroscedastic regression data.

@@ -847,16 +847,22 @@ authors should treat these as shared infrastructure:
 
 ### Fast explanations and external bundles
 
-The fast explanations implementation now ships as an external plugin. Install
-the aggregated extra and register the bundle explicitly when you need it:
+The FAST explanation implementation is a core-provided optional component, not
+a third-party package. Install its dependency bundle and register it explicitly
+when you need it:
 
 ```bash
 pip install "calibrated-explanations[external-plugins]"
-python -m external_plugins.fast_explanations register
 ```
 
-See {doc}`../appendices/external_plugins` for community listings and governance
-notes.
+```python
+from external_plugins.fast_explanations import register
+
+register()
+```
+
+See {doc}`../appendices/external_plugins` for the categorized plugin catalog
+and governance notes.
 
 ## Denylist and trust controls
 

@@ -91,7 +91,7 @@ This page maps the public RTD pages to STD-004 tiers.
 | `researcher/advanced/theory_and_literature.md` | Tier 3 |
 | `researcher/future_work.md` | Tier 3 |
 | `researcher/index.md` | Tier 1 |
-| `researcher/replication/index.md` | Tier 3 |
+| `researcher/replication/index.md` | Tier 2 |
 | `ROADMAP.md` | Tier 3 |
 | `schema_v1.md` | Tier 3 |
 | `standards/index.md` | Tier 3 |

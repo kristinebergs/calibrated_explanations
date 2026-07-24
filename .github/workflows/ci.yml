@@ -107,7 +107,7 @@ jobs:
       - uses: ./.github/actions/setup-ce-python
         with:
           python-version: '3.10'
-          extras: 'dev,eval'
+          extras: 'dev'
       - name: Run the canonical PR profile
         run: make local-checks-pr
 
@@ -256,7 +256,7 @@ jobs:
       - uses: ./.github/actions/setup-ce-python
         with:
           python-version: '3.11'
-          extras: 'dev,eval'
+          extras: 'dev'
       - name: Run tests with coverage
         run: |
           pytest -q -o addopts= \

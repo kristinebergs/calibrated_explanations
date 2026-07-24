@@ -265,7 +265,9 @@ Use this decision guide for classification tasks:
 
 ## Scenario 8-11 evaluation summary
 
-The reject evaluation suite under `evaluation/reject/` reports:
+The reject evaluation suite in the
+[studies repository](https://github.com/kristinebergs/calibrated-explanations-studies/tree/main/legacy/reject)
+reports:
 
 - Scenario 8 (baseline indirect difficulty effect):
     enabling VA difficulty made reject stricter (`accept_rate` down; error capture up),
@@ -289,10 +291,10 @@ The reject evaluation suite under `evaluation/reject/` reports:
 
 See scenario artifacts for exact metrics:
 
-- `evaluation/reject/artifacts/scenario_8_difficulty_reject_ablation.md`
-- `evaluation/reject/artifacts/scenario_9_difficulty_normalized_ncf.md`
-- `evaluation/reject/artifacts/scenario_10_ambiguity_novelty_reject.md`
-- `evaluation/reject/artifacts/scenario_11_operating_point_selection.md`
+- [Scenario 8](https://github.com/kristinebergs/calibrated-explanations-studies/blob/main/legacy/reject/artifacts/scenario_8_difficulty_reject_ablation.md)
+- [Scenario 9](https://github.com/kristinebergs/calibrated-explanations-studies/blob/main/legacy/reject/artifacts/scenario_9_difficulty_normalized_ncf.md)
+- [Scenario 10](https://github.com/kristinebergs/calibrated-explanations-studies/blob/main/legacy/reject/artifacts/scenario_10_ambiguity_novelty_reject.md)
+- [Scenario 11](https://github.com/kristinebergs/calibrated-explanations-studies/blob/main/legacy/reject/artifacts/scenario_11_operating_point_selection.md)
 
 ## Minimal CE-first examples
 
@@ -734,7 +736,8 @@ confidence levels result in more rejections:
 | 0.95 | Medium | Balanced tradeoff (default) |
 | 0.99 | Higher | Strict accuracy requirements |
 
-See `evaluation/reject_policy_ablation.py` for empirical comparisons of different
-confidence levels on standard datasets.
+See the
+[reject-policy ablation study](https://github.com/kristinebergs/calibrated-explanations-studies/blob/main/legacy/reject_policy_ablation.py)
+for empirical comparisons of different confidence levels on standard datasets.
 
 Entry-point tier: Tier 2

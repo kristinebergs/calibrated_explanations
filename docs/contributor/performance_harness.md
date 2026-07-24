@@ -58,17 +58,12 @@ removed.
 
 ## Legacy vs modern pipeline comparison
 
-`evaluation/scripts/compare_explain_performance.py` benchmarks five strategy
-variants (legacy, modern, cached, parallel, cache+parallel) across
-classification and regression and prints speedup tables.  This is the source
-of the numbers in `evaluation/explain_performance.md`.
-
-```bash
-python evaluation/scripts/compare_explain_performance.py
-# optional: save results
-python evaluation/scripts/compare_explain_performance.py \
-    --output reports/perf/pipeline_comparison.json
-```
+The historical five-strategy comparison and its result report are maintained
+in the
+[studies repository](https://github.com/kristinebergs/calibrated-explanations-studies/tree/main/legacy/scripts).
+Follow the repository's study-specific instructions when reproducing those
+numbers. Core contributors should use the maintained harnesses on this page for
+current library performance work.
 
 Prerequisites: the same environment used for the rest of the test suite
 (`pip install -e .[dev]`).

@@ -1,6 +1,8 @@
 # Contributing — extras and test workflows
 
-This project separates a lean core install from optional extras for visualization, notebooks and evaluation. The guidelines below explain how to work with the extras and run tests with or without them.
+This project separates a lean core install from optional extras for
+visualization and notebooks. The guidelines below explain how to work with the
+core repository and its tests.
 
 Repository authority
 --------------------
@@ -47,13 +49,11 @@ pip install -e .[viz]
 pip install -e .[notebooks]
 ```
 
-- Install evaluation extras (for reproducing experiments):
-
-```powershell
-pip install -r evaluation/requirements.txt
-# or using the project extras:
-pip install -e .[eval]
-```
+Research studies, datasets, environments, notebooks, and reproduction artefacts
+belong in
+[`kristinebergs/calibrated-explanations-studies`](https://github.com/kristinebergs/calibrated-explanations-studies).
+Follow the relevant study README rather than adding study dependencies to the
+core development environment.
 
 
 Running tests
@@ -168,15 +168,17 @@ Notes
 
 - Local CI parity: the repo provides a local stacked-checks runner `scripts/local_checks.py`, exposed via the `make quick` / `make local-checks-task` / `make local-checks-pr` / `make local-checks-full` / `make local-checks-release` profiles described above. When adding, removing, or changing CI workflows under `.github/workflows/`, update `scripts/local_checks.py` (and `Makefile` if needed) so contributors can reproduce CI behaviour locally. Mark heavy checks as optional in the local runner to avoid slowing developer loops.
 
-If you add or remove optional dependencies, please update `pyproject.toml`,
-`evaluation/requirements.txt`, and `evaluation/environment.yml` accordingly.
+If you add or remove core optional dependencies, update `pyproject.toml` and
+the affected core tests and installation documentation.
 
 Contributing a plugin
 ---------------------
 
-Plugins for `calibrated-explanations` are incubated and published from a
-separate plugin repository. Wrote a plugin, or want an existing one promoted
-or listed? Open a short
+Core code and core tests remain in this repository. Official companion plugins
+are incubated and published from the public
+[`kristinebergs/calibrated-explanations-plugins`](https://github.com/kristinebergs/calibrated-explanations-plugins)
+repository after intake and review. Wrote a plugin, or want an existing one
+promoted or listed? Open a short
 ["Plugin intake request"](https://github.com/Moffran/calibrated_explanations/issues/new?template=plugin_publication_request.yml)
 issue here — a description, maintainer contact, licence, and known
 limitations are all that is needed to start. The maintainers triage requests

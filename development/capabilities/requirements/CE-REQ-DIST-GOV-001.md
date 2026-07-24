@@ -13,12 +13,14 @@
 
 ## Scope
 
-ADR-010 distribution boundary between core package behavior and optional evaluation/extra dependency tooling.
+ADR-010 distribution boundary between core package behavior, optional core
+components, and separately governed companion studies.
 
 ## Observable behavior
 
 - The core-extras parity quality gate can be run as a standalone policy check.
-- Core import smoke tests do not require optional visualization or evaluation extras.
+- Core import smoke tests do not require optional visualization or
+  study-specific dependencies.
 - Mass import tests keep optional dependency exposure explicit.
 
 ## Acceptance criterion

@@ -49,8 +49,8 @@ thoroughly:
 8. **Sample hand-written tests** -- read files from `tests/unit/`,
    `tests/focused/`, `tests/auto_approved/` to understand the quality
    standard
-9. **The evaluation/ and notebooks/ directories** -- check if any src code
-   is used there but not in tests (would be missed by test-only analysis)
+9. **Companion consumers** -- check whether public APIs used by official
+   plugins or studies are missing from core integration tests
 10. **Anti-pattern reports** -- read
     `reports/anti-pattern-analysis/test_anti_pattern_report.csv` and the
     private usage scan reports
@@ -82,7 +82,8 @@ Challenge with these questions:
   worst case
 - Are the "overlapping" hand-written tests truly redundant, or do they test
   different behaviors of the same code?
-- Did the pruner check tests in `evaluation/` and `notebooks/` directories?
+- Did the pruner avoid treating companion-repository coverage as core test
+  ownership?
 
 #### Review of deadcode-hunter's proposal:
 
@@ -91,7 +92,7 @@ Challenge with these questions:
 - Is "dead" code truly dead, or reachable through lazy imports in
   `__init__.py`?
 - Are any "Pattern 3" private methods actually used by external consumers
-  (downstream packages), the evaluation/ scripts, or notebooks/?
+  (downstream packages, official plugins, or studies)?
 - Could uncovered code blocks be reachable through dynamic dispatch, plugin
   loading, or entry-point resolution?
 - Does the proposal account for code that is used only in specific Python

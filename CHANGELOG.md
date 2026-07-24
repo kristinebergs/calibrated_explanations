@@ -14,6 +14,11 @@
 
 ### Documentation / Governance
 
+- **Companion ecosystem documentation:** documented the core library, official
+  plugin repository, and studies repository as the three current ecosystem
+  components. Research reproduction now routes to the version-specific study
+  READMEs, and the obsolete core `eval` extra and its CI installation paths
+  were removed.
 - **Interactive demo discoverability:** linked the no-installation web demo from
   the README, RTD landing and Get Started pages, and PyPI project metadata,
   while identifying the versioned documentation as the authority for supported
