@@ -2,6 +2,10 @@
 
 Pick one quickstart and run it end to end.
 
+Want to explore the concepts before installing the package?
+[Open the interactive web demo](https://calibrated-explanations-demo.ju.se/),
+then return here to run a versioned quickstart locally.
+
 - {doc}`quickstart_classification`
 - {doc}`quickstart_regression`
 - {doc}`quickstart_guarded`

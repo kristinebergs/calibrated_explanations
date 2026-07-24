@@ -36,6 +36,7 @@ classifiers = [
 
 [project.urls]
 Documentation = "https://calibrated-explanations.readthedocs.io/en/latest/?badge=latest"
+Demo = "https://calibrated-explanations-demo.ju.se/"
 Changelog = "https://github.com/Moffran/calibrated_explanations/blob/main/CHANGELOG.md"
 "Bug Tracker" = "https://github.com/Moffran/calibrated_explanations/issues"
 Repository = "https://github.com/Moffran/calibrated_explanations"

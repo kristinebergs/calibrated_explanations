@@ -8,6 +8,10 @@
 
 **Trustworthy AI explanations with uncertainty intervals and alternative explanations for predictive models with a scikit-learn-compatible classification or regression interface.**
 
+> **Try it in your browser:** [Open the interactive Calibrated Explanations demo](https://calibrated-explanations-demo.ju.se/). Follow a guided workflow or explore the expert interface without installing anything locally.
+>
+> The demo is an illustrative companion to the Python package. Use the versioned documentation for supported APIs, behavior, assumptions, and guarantees.
+
 ---
 
 ## What Problem Does It Solve?
@@ -215,6 +219,7 @@ treat `uv.lock` as an authoritative dependency lockfile.
 
 ## Documentation
 
+- [Interactive web demo - no installation required](https://calibrated-explanations-demo.ju.se/)
 - [Full documentation](https://calibrated-explanations.readthedocs.io)
 - [Getting started in 60 seconds](docs/getting_started_60s.md)
 - [Release notes](https://github.com/Moffran/calibrated_explanations/blob/main/CHANGELOG.md)

@@ -14,6 +14,10 @@
 
 ### Documentation / Governance
 
+- **Interactive demo discoverability:** linked the no-installation web demo from
+  the README, RTD landing and Get Started pages, and PyPI project metadata,
+  while identifying the versioned documentation as the authority for supported
+  behavior and guarantees.
 - **Root-level docs and config corrected for accuracy:** `README.md`,
   `SECURITY.md`, `CITATION.cff`, `PROMPTS.md`, `QUICK_API.md`,
   `CONTRIBUTING.md`, `METADATA.json`, `.pre-commit-config.yaml`, and

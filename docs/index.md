@@ -22,6 +22,17 @@ these contracts going forward. Install with
 [release notes](https://github.com/Moffran/calibrated_explanations/blob/main/CHANGELOG.md).
 ```
 
+```{admonition} Try Calibrated Explanations in your browser
+:class: tip
+
+[Open the interactive web demo](https://calibrated-explanations-demo.ju.se/)
+to explore a guided workflow or use the expert interface without installing the
+package locally.
+
+The demo is illustrative. Use this versioned documentation as the authority for
+supported APIs, behavior, assumptions, and guarantees.
+```
+
 - New users start in {doc}`get-started/index`.
 - Practitioners use {doc}`practitioner/index`.
 - Researchers use {doc}`researcher/index`.
